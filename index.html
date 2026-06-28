@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Eternal Rift</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="game-shell">
+    <section class="game-panel" aria-label="Jogo 2D top-down">
+      <div id="startScreen" class="start-screen">
+        <div class="start-content">
+          <div class="start-portal" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <p class="start-kicker">RPG top-down em Canvas 2D</p>
+          <h1>Eternal Rift</h1>
+          <p class="start-subtitle">A Jornada Entre Dimensoes</p>
+          <p class="start-creators">Criadores: Gabryel Garcia e Victor Ricardo Fonseca Baldin</p>
+          <label class="name-field" for="characterNameInput">
+            <span>Nome do personagem</span>
+            <input id="characterNameInput" type="text" maxlength="16" placeholder="Digite o nome do personagem" autocomplete="off">
+          </label>
+          <div class="start-actions">
+            <button id="playButton" type="button">Novo Jogo</button>
+            <button id="continueButton" type="button">Continuar</button>
+            <button id="startFullscreenButton" type="button">Tela cheia</button>
+            <button id="howToButton" type="button">Como Jogar</button>
+            <button id="creditsButton" type="button">Creditos</button>
+          </div>
+          <p id="startMessage"></p>
+        </div>
+      </div>
+
+      <canvas id="gameCanvas" width="960" height="640">
+        Seu navegador nao suporta Canvas 2D.
+      </canvas>
+
+      <div class="hud" aria-live="polite">
+        <div>
+          <span class="hud-label">Heroi</span>
+          <strong id="playerName">Lia</strong>
+          <span id="xpHud" class="xp-hud">XP: 0/58</span>
+          <span class="xp-bar"><span id="xpFill"></span></span>
+        </div>
+        <div>
+          <span class="hud-label">Area</span>
+          <strong id="playerPosition">Vila</strong>
+        </div>
+        <div>
+          <span class="hud-label">Missao</span>
+          <strong id="questProgress">Fale com Nico</strong>
+        </div>
+        <div>
+          <span class="hud-label">Vida</span>
+          <strong id="healthHud">♥ ♥ ♥ ♥ ♥</strong>
+        </div>
+        <div class="hud-mana-box">
+          <span class="hud-label">Mana</span>
+          <strong id="manaHud">0/0</strong>
+          <span class="mana-bar"><span id="manaFill"></span></span>
+        </div>
+        <div>
+          <span class="hud-label">Moedas</span>
+          <strong id="coinHud">0</strong>
+        </div>
+        <div>
+          <span class="hud-label">Arma</span>
+          <strong id="weaponHud">Espada curta</strong>
+        </div>
+        <div class="hud-oxygen-box">
+          <span class="hud-label">Oxigenio</span>
+          <strong id="oxygenHud">Fora da agua</strong>
+          <span class="oxygen-bar"><span id="oxygenFill"></span></span>
+        </div>
+        <div class="hud-wide">
+          <span class="hud-label">Poder</span>
+          <strong id="powerHud">Q poder equipado</strong>
+        </div>
+        <div id="bossHud" class="hud-wide boss-hud hidden">
+          <span class="hud-label">Boss</span>
+          <strong id="bossNameHud">Nenhum</strong>
+          <span class="boss-bar"><span id="bossFill"></span></span>
+        </div>
+        <button id="saveButton" type="button">Salvar Jogo</button>
+        <button id="resetButton" type="button">Reiniciar posicao</button>
+        <button id="hudMenuButton" class="hud-menu-button" type="button">Menu</button>
+      </div>
+
+      <canvas id="miniMapCanvas" class="mini-map" width="170" height="124"></canvas>
+
+      <div id="orientationHint" class="orientation-hint hidden">Vire o celular para jogar melhor</div>
+
+      <div class="mobile-top-actions" aria-label="Acoes mobile">
+        <button id="mobileFullscreenButton" class="touch-button" type="button">Tela cheia</button>
+        <button id="mobilePauseButton" class="touch-button" type="button">Pausa</button>
+        <button id="mobileDebugButton" class="touch-button debug-toggle hidden" type="button">Debug</button>
+      </div>
+
+      <div class="touch-controls" aria-label="Controles touch">
+        <div id="joystickBase" class="joystick-base" aria-label="Joystick virtual">
+          <div id="joystickStick" class="joystick-stick"></div>
+        </div>
+
+        <div class="touch-dpad">
+          <button class="touch-button touch-up" type="button" data-touch-key="arrowup" aria-label="Mover para cima">▲</button>
+          <button class="touch-button touch-left" type="button" data-touch-key="arrowleft" aria-label="Mover para esquerda">◀</button>
+          <button class="touch-button touch-right" type="button" data-touch-key="arrowright" aria-label="Mover para direita">▶</button>
+          <button class="touch-button touch-down" type="button" data-touch-key="arrowdown" aria-label="Mover para baixo">▼</button>
+        </div>
+
+        <div class="touch-actions">
+          <button id="touchInventoryButton" class="touch-button touch-small" type="button" aria-label="Abrir inventario">Inv</button>
+          <button id="touchFireballButton" class="touch-button touch-spell" type="button" aria-label="Bola de Fogo">Q</button>
+          <button id="touchDashButton" class="touch-button touch-spell" type="button" aria-label="Dash">Dash</button>
+          <button id="touchShockwaveButton" class="touch-button touch-spell" type="button" aria-label="Onda de Choque">F</button>
+          <button id="touchHealButton" class="touch-button touch-spell" type="button" aria-label="Cura Rapida">C</button>
+          <button id="touchPowerButton" class="touch-button touch-spell" type="button" aria-label="Usar poder equipado">Poder</button>
+          <button id="touchWeaponButton" class="touch-button touch-spell" type="button" aria-label="Trocar arma">Arma</button>
+          <button id="touchPotionButton" class="touch-button touch-spell" type="button" aria-label="Usar pocao">Pocao</button>
+          <button id="touchPower1Button" class="touch-button touch-mini" type="button" aria-label="Equipar poder 1">1</button>
+          <button id="touchPower2Button" class="touch-button touch-mini" type="button" aria-label="Equipar poder 2">2</button>
+          <button id="touchPower3Button" class="touch-button touch-mini" type="button" aria-label="Equipar poder 3">3</button>
+          <button id="touchPower4Button" class="touch-button touch-mini" type="button" aria-label="Equipar poder 4">4</button>
+          <button id="touchActionButton" class="touch-button" type="button" aria-label="Acao">Ação</button>
+          <span id="touchContextLabel" class="touch-context-label">...</span>
+          <button id="touchAttackButton" class="touch-button" type="button" aria-label="Ataque">Ataque</button>
+        </div>
+      </div>
+
+      <div id="interactionHint" class="interaction-hint hidden">
+        Pressione E para conversar
+      </div>
+
+      <div id="dialogBox" class="dialog hidden" role="status" aria-live="assertive">
+        <p id="dialogText"></p>
+        <span>Aperte E para continuar</span>
+        <button id="dialogContinueButton" type="button">Continuar</button>
+      </div>
+
+      <div id="inventoryPanel" class="panel inventory-panel adventurer-bag hidden" role="dialog" aria-label="Inventario">
+        <div class="inventory-header">
+          <div>
+            <span class="panel-eyebrow">Bolsa do Aventureiro</span>
+            <h2>Inventario</h2>
+          </div>
+          <button id="closeInventoryButton" class="inventory-close-button" type="button" aria-label="Fechar inventario">Fechar</button>
+        </div>
+
+        <div id="inventoryTabs" class="inventory-tabs" role="tablist" aria-label="Categorias do inventario">
+          <button class="is-active" type="button" data-inventory-tab="all">Tudo</button>
+          <button type="button" data-inventory-tab="consumiveis">Consumiveis</button>
+          <button type="button" data-inventory-tab="armas">Armas</button>
+          <button type="button" data-inventory-tab="materiais">Materiais</button>
+          <button type="button" data-inventory-tab="missao">Missao</button>
+          <button type="button" data-inventory-tab="raros">Raros</button>
+        </div>
+
+        <div class="inventory-layout">
+          <section class="inventory-grid-wrap" aria-label="Itens da bolsa">
+            <div id="inventoryGrid" class="inventory-grid"></div>
+            <p id="inventoryEmpty" class="inventory-empty hidden">Sua bolsa esta vazia.</p>
+          </section>
+
+          <aside class="inventory-side">
+            <section class="equipment-box" aria-label="Equipamentos atuais">
+              <h3>Equipamentos</h3>
+              <div id="equipmentSlots" class="equipment-slots"></div>
+            </section>
+
+            <section class="item-details" aria-label="Detalhes do item">
+              <h3 id="itemDetailName">Selecione um item</h3>
+              <p id="itemDetailMeta">Toque ou clique em um slot.</p>
+              <p id="itemDetailDescription">Veja detalhes, raridade e acoes.</p>
+              <p id="itemDetailEffect"></p>
+              <div id="itemDetailActions" class="item-detail-actions"></div>
+            </section>
+          </aside>
+        </div>
+
+        <ul id="inventoryList" class="legacy-inventory-list hidden"></ul>
+      </div>
+
+      <div id="shopPanel" class="panel shop-panel hidden">
+        <h2>Loja Estrela Azul</h2>
+        <p>Pocao: 5 moedas</p>
+        <button id="buyPotionButton" type="button">Comprar pocao</button>
+        <p id="shopMessage"></p>
+        <span>Aperte E para fechar</span>
+      </div>
+
+      <div id="gameOverScreen" class="game-over hidden">
+        <h2>Game Over</h2>
+        <p>Lia desmaiou. Reinicie a posicao para tentar de novo.</p>
+        <button id="gameOverResetButton" type="button">Tentar novamente</button>
+      </div>
+
+      <div id="infoPanel" class="info-panel hidden">
+        <button id="closeInfoButton" type="button">Fechar</button>
+        <h2 id="infoTitle"></h2>
+        <p id="infoText"></p>
+      </div>
+
+      <div id="pausePanel" class="pause-overlay hidden" role="dialog" aria-label="Menu de pausa">
+        <div class="pause-menu">
+          <h2>Menu</h2>
+          <button id="pauseContinueButton" type="button">Continuar</button>
+          <button id="pauseSaveButton" type="button">Salvar jogo</button>
+          <button id="pauseResetButton" type="button">Reiniciar posicao</button>
+          <button id="pauseHowToButton" type="button">Como jogar</button>
+          <button id="pauseMissionsButton" type="button">Missoes</button>
+          <button id="pauseStatusButton" type="button">Status</button>
+          <button id="pauseInventoryButton" type="button">Inventario</button>
+          <button id="pauseMenuButton" type="button">Sair para menu inicial</button>
+        </div>
+      </div>
+
+      <div id="missionsPanel" class="panel missions-panel hidden">
+        <button id="closeMissionsButton" type="button">Fechar</button>
+        <h2>Missoes</h2>
+        <ul id="missionsList"></ul>
+      </div>
+
+      <div id="statusPanel" class="panel status-panel hidden">
+        <button id="closeStatusButton" type="button">Fechar</button>
+        <h2>Status</h2>
+        <ul id="statusList"></ul>
+      </div>
+
+      <div id="debugPanel" class="debug-panel hidden"></div>
+    </section>
+
+    <aside class="controls">
+      <h1>Eternal Rift</h1>
+      <p>Explore a vila, atravesse dimensoes e evolua seu personagem.</p>
+      <ul>
+        <li><strong>W A S D</strong> ou <strong>setas</strong>: mover</li>
+        <li><strong>E</strong>: interagir</li>
+        <li><strong>Mouse</strong>: mirar, clique esquerdo ataca</li>
+        <li><strong>Clique direito/Q</strong>: poder equipado</li>
+        <li><strong>1-4</strong>: escolher poder</li>
+        <li><strong>Tab</strong>: trocar arma</li>
+        <li><strong>Espaco</strong>: esquiva curta</li>
+        <li><strong>Esc</strong>: menu</li>
+        <li><strong>M</strong>: missoes</li>
+        <li><strong>C</strong>: status</li>
+        <li><strong>F3</strong>: debug</li>
+        <li><strong>I</strong>: inventario</li>
+        <li><strong>U</strong>: usar pocao</li>
+        <li><strong>Botao</strong>: voltar ao inicio</li>
+      </ul>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
