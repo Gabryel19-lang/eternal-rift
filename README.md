@@ -59,3 +59,8 @@ Atualização extra:
 - A troca rápida continua abrindo a aba de armas do inventário.
 - A música de fundo foi trocada para um tema medieval mais divertido com suspense.
 - Mantidas as ações visíveis do pedido anterior: dormir, estudar, lavar as mãos, cozinhar etc.
+
+Atualizacao extra:
+- adicionada rolagem real na grade do inventario;
+- a lateral de detalhes/equipamentos tambem pode rolar quando houver muita informacao;
+- mantidos equipar/desequipar arma, musica medieval divertida com suspense e acoes visiveis do personagem.

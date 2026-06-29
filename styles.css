@@ -2690,3 +2690,95 @@ canvas#gameCanvas {
     display: none;
   }
 }
+
+/* ==================================================
+   Patch: rolagem real no inventario
+   Mantem o HUD, ações visíveis, equipar/desequipar arma e música nova.
+   ================================================== */
+.adventurer-bag:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+}
+
+.adventurer-bag {
+  overflow: hidden;
+}
+
+.inventory-layout {
+  min-height: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+
+.inventory-grid-wrap {
+  min-height: 0;
+  max-height: min(56vh, 520px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #3a2630 #e6b265;
+  padding-right: 12px;
+}
+
+.inventory-grid-wrap::-webkit-scrollbar,
+.inventory-side::-webkit-scrollbar {
+  width: 10px;
+}
+
+.inventory-grid-wrap::-webkit-scrollbar-track,
+.inventory-side::-webkit-scrollbar-track {
+  background: #e6b265;
+  border: 2px solid #3a2630;
+  border-radius: 999px;
+}
+
+.inventory-grid-wrap::-webkit-scrollbar-thumb,
+.inventory-side::-webkit-scrollbar-thumb {
+  background: #3a2630;
+  border: 2px solid #e6b265;
+  border-radius: 999px;
+}
+
+.inventory-grid {
+  align-content: start;
+  padding-bottom: 10px;
+}
+
+.inventory-side {
+  min-height: 0;
+  max-height: min(56vh, 520px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+@media (max-width: 880px) {
+  .adventurer-bag:not(.hidden) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .adventurer-bag {
+    overflow: hidden;
+  }
+
+  .inventory-layout {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .inventory-grid-wrap {
+    max-height: 44dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: 10px;
+  }
+
+  .inventory-side {
+    max-height: 30dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
