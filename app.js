@@ -19515,3 +19515,94 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     updateMobileGameplayClasses();
   };
 })();
+
+/* ==================================================
+   Patch: anti-flicker mobile para objetos
+   Mantem todo o resto do jogo igual.
+   ================================================== */
+(function mobileAntiFlickerPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_MOBILE_ANTI_FLICKER_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_MOBILE_ANTI_FLICKER_PATCH = true;
+
+  const viewportLock = {
+    cssWidth: 0,
+    cssHeight: 0,
+    orientation: '',
+    forceRefresh: true,
+    lastTargetWidth: 0,
+    lastTargetHeight: 0
+  };
+
+  function isTouchLikeMobile() {
+    return typeof isTouchLikeDevice === 'function' ? isTouchLikeDevice() : (typeof isMobile !== 'undefined' ? isMobile : false);
+  }
+
+  function getOrientationKey() {
+    return (window.innerWidth || 0) >= (window.innerHeight || 0) ? 'landscape' : 'portrait';
+  }
+
+  function markViewportRefresh() {
+    viewportLock.forceRefresh = true;
+  }
+
+  window.addEventListener('resize', markViewportRefresh, { passive: true });
+  window.addEventListener('orientationchange', () => setTimeout(markViewportRefresh, 120), { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', markViewportRefresh, { passive: true });
+  }
+
+  function getStableMobileCanvasSize() {
+    const vv = window.visualViewport;
+    const rect = canvas.getBoundingClientRect();
+    const rawWidth = Math.max(320, Math.round((vv && vv.width) || rect.width || window.innerWidth || 960));
+    const rawHeight = Math.max(240, Math.round((vv && vv.height) || rect.height || window.innerHeight || 640));
+    const orientation = getOrientationKey();
+
+    const bigWidthChange = Math.abs(rawWidth - viewportLock.cssWidth) > 72;
+    const bigHeightChange = Math.abs(rawHeight - viewportLock.cssHeight) > 96;
+    const orientationChanged = viewportLock.orientation !== orientation;
+
+    if (!viewportLock.cssWidth || !viewportLock.cssHeight || viewportLock.forceRefresh || orientationChanged || bigWidthChange || bigHeightChange) {
+      viewportLock.cssWidth = rawWidth;
+      viewportLock.cssHeight = rawHeight;
+      viewportLock.orientation = orientation;
+      viewportLock.forceRefresh = false;
+    }
+
+    return {
+      cssWidth: viewportLock.cssWidth,
+      cssHeight: viewportLock.cssHeight,
+      orientation: viewportLock.orientation
+    };
+  }
+
+  const ensureCanvasSizeBeforeAntiFlicker = ensureCanvasSize;
+  ensureCanvasSize = function ensureCanvasSizeMobileAntiFlicker() {
+    ensureCanvasSizeBeforeAntiFlicker();
+    if (!isTouchLikeMobile()) return;
+
+    const stable = getStableMobileCanvasSize();
+    const requestedZoom = Number(urlParams.get('zoom'));
+    const hasManualZoom = Number.isFinite(requestedZoom) && requestedZoom >= 0.65 && requestedZoom <= 1.15;
+    const zoom = hasManualZoom ? requestedZoom : (stable.orientation === 'landscape' ? 0.74 : 0.84);
+    const targetWidth = Math.round(stable.cssWidth / zoom);
+    const targetHeight = Math.round(stable.cssHeight / zoom);
+
+    if (Math.abs(canvas.width - targetWidth) > 8 || Math.abs(canvas.height - targetHeight) > 8) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      viewportLock.lastTargetWidth = targetWidth;
+      viewportLock.lastTargetHeight = targetHeight;
+    }
+  };
+
+  const drawBeforeAntiFlicker = draw;
+  draw = function drawMobileAntiFlicker() {
+    if (isTouchLikeMobile()) {
+      camera.x = Math.round(camera.x || 0);
+      camera.y = Math.round(camera.y || 0);
+      ctx.imageSmoothingEnabled = false;
+    }
+    return drawBeforeAntiFlicker();
+  };
+})();
