@@ -8052,8 +8052,7 @@ function drawInteriorRoomBackdropV2(scene) {
   fillPixelV2(HOME_WIDTH - 160, 74, 96, 10, "rgba(85, 196, 255, 0.10)");
 
   if (scene === "home") {
-    drawFloorRugOverlayV2(9 * TILE, 11 * TILE, 8 * TILE, 4 * TILE, "#9d3555", "#d24c63");
-    drawFloorRugOverlayV2(20 * TILE, 13 * TILE, 5 * TILE, 3 * TILE, "#315a78", "#55c4ff");
+    // Tapetes da mansao removidos a pedido do Gabryel.
   } else if (scene === "shopInterior") {
     drawFloorRugOverlayV2(8 * TILE, 10 * TILE, 12 * TILE, 3 * TILE, "#674261", "#9b5fc7");
     fillPixelV2(3 * TILE, 4 * TILE, 24 * TILE, 4, "rgba(255, 242, 100, 0.11)");
@@ -18077,9 +18076,7 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_REALISTIC_COMBAT_PATCH
     // sombra suave de divisao.
     fillPixelV2(18 * TILE, 2 * TILE, 2, 14 * TILE, 'rgba(40, 25, 18, 0.26)');
 
-    // brilho do tapete e da area de estar.
-    fillPixelV2(4 * TILE, 11 * TILE, 10 * TILE, 5 * TILE, 'rgba(130, 45, 36, 0.06)');
-    fillPixelV2(20 * TILE, 14 * TILE, 5 * TILE, 3 * TILE, 'rgba(53, 91, 119, 0.07)');
+    // Tapetes removidos da mansao.
   };
 })();
 
@@ -18555,11 +18552,7 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_REALISTIC_COMBAT_PATCH
     drawInteriorRoomBackdropBeforeInteractiveHome(scene);
     if (scene !== 'home') return;
 
-    // tapetes desenhados NO CHAO, antes dos objetos e antes do jogador.
-    drawHomeRugBelowPlayer(4 * TILE, 11 * TILE, 10 * TILE, 5 * TILE, { base: '#6b231f', inner: '#8a342d', accent: '#d3a88b' });
-    drawHomeRugBelowPlayer(20 * TILE, 5 * TILE, 8 * TILE, 1 * TILE, { base: '#5b416e', inner: '#8566a5', accent: '#e1d5f0' });
-    drawHomeRugBelowPlayer(20 * TILE, 11 * TILE, 8 * TILE, 1 * TILE, { base: '#5b416e', inner: '#8566a5', accent: '#e1d5f0' });
-    drawHomeRugBelowPlayer(20 * TILE, 14 * TILE, 5 * TILE, 3 * TILE, { base: '#355b77', inner: '#678eb4', accent: '#c9d4e8' });
+    // Tapetes da mansao removidos: chao limpo e sem sobreposicao.
 
     const state = getHomeState();
     if (!state.lightsOn) fillPixelV2(camera.x, camera.y, canvas.width, canvas.height, 'rgba(15, 10, 18, 0.20)');
@@ -20273,5 +20266,74 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       ctx.imageSmoothingEnabled = false;
     }
     return drawBeforeTrueNoFlicker();
+  };
+})();
+
+
+/* ==================================================
+   Patch final: mansao sem tapetes e sem objetos piscando
+   - Remove tapetes apenas da casa/mansao.
+   - Remove somente os objetos pequenos que estavam piscando no mobile.
+   - Mantem moveis grandes, HUD, inventario, armas e musica.
+   ================================================== */
+(function mansionNoRugsNoBlinkingObjectsPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_MANSION_NO_RUGS_NO_BLINK_OBJECTS_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_MANSION_NO_RUGS_NO_BLINK_OBJECTS_PATCH = true;
+
+  const removedHomeKinds = new Set([
+    // objetos pequenos de parede/decoracao que piscavam no mobile
+    'windowLife', 'wallLampWarmLife', 'paintingWarmLife', 'pottedPlantTallLife',
+    'window', 'lamp', 'wallLampWarm', 'painting', 'paintingWarm', 'paintingWide',
+    'vase', 'tallPlant', 'pottedPlantTall',
+
+    // objetos pequenos de chao que tambem podiam piscar/tremer
+    'sideCabinetLife', 'homeChestLife', 'dresserCabinetLife', 'nightstand',
+
+    // todos os tapetes antigos da mansao, caso algum patch antigo tente recolocar
+    'largeRug', 'blueRug', 'rugSmall',
+    'solidRugRed', 'solidRugBlue', 'solidRugPurple',
+    'cozyRugRed', 'cozyRugBlue', 'cozyRugPurple'
+  ]);
+
+  function isHomeRug(obj) {
+    if (!obj) return false;
+    const kind = String(obj.kind || '').toLowerCase();
+    const id = String(obj.id || '').toLowerCase();
+    return kind.includes('rug') || id.includes('rug');
+  }
+
+  function isBlinkingMansionObject(obj) {
+    if (!obj || obj.type === 'block' || obj.type === 'player') return false;
+    if (isHomeRug(obj)) return true;
+    return removedHomeKinds.has(obj.kind);
+  }
+
+  function cleanMansionObjects() {
+    if (!Array.isArray(homeObjects)) return;
+    const cleaned = homeObjects.filter((obj) => !isBlinkingMansionObject(obj));
+    if (cleaned.length !== homeObjects.length) {
+      homeObjects.splice(0, homeObjects.length, ...cleaned);
+    }
+
+    if (currentScene === 'home') {
+      objects = homeObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  cleanMansionObjects();
+
+  const setActiveSceneBeforeMansionClean = setActiveScene;
+  setActiveScene = function setActiveSceneMansionClean(scene) {
+    const result = setActiveSceneBeforeMansionClean(scene);
+    if (scene === 'home') cleanMansionObjects();
+    return result;
+  };
+
+  const drawFurnitureBeforeMansionClean = drawFurniture;
+  drawFurniture = function drawFurnitureMansionClean(obj) {
+    if (currentScene === 'home' && isBlinkingMansionObject(obj)) return;
+    return drawFurnitureBeforeMansionClean(obj);
   };
 })();

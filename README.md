@@ -1,12 +1,14 @@
-Eternal Rift - Mobile True No Flicker
-
-Correção definitiva para objetos pequenos piscando no celular.
+Eternal Rift - mansão sem tapetes e sem objetos piscando
 
 Mudanças:
-- no mobile, o canvas não usa mais zoom fracionado por padrão;
-- objetos pequenos são desenhados maiores e estáticos;
-- sinais, quadros, lâmpadas, janelas, plantas, baús pequenos e postes foram estabilizados;
-- restante do jogo mantido.
+- Removidos os tapetes da mansão/casa.
+- Removidos somente os objetos pequenos que estavam piscando no mobile.
+- Mantidos móveis grandes, HUD, inventário, armas, música e demais sistemas.
 
-Teste no GitHub Pages com:
-?play=1&lite=1&v=true-no-flicker1
+Objetos removidos da mansão:
+- luminárias pequenas
+- janelas decorativas pequenas
+- quadros pequenos
+- plantas pequenas
+- baús/armários pequenos que tremiam
+- tapetes
