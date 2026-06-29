@@ -12095,3 +12095,7373 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_PERFORMANCE_PATCH) {
     }, 800);
   }
 }
+
+// === Camera zoom-out + medieval menu music patch ===
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_CAMERA_MENU_MUSIC_PATCH) {
+  window.ETERNAL_RIFT_CAMERA_MENU_MUSIC_PATCH = true;
+
+  const CAMERA_ZOOM_DEFAULT_PC = 0.80;
+  const CAMERA_ZOOM_DEFAULT_MOBILE = 0.88;
+  let lastCameraCanvasWidth = 0;
+  let lastCameraCanvasHeight = 0;
+
+  function getCameraZoomOutValue() {
+    const requested = Number(urlParams.get("zoom"));
+    if (Number.isFinite(requested) && requested >= 0.65 && requested <= 1.15) return requested;
+    return isMobile ? CAMERA_ZOOM_DEFAULT_MOBILE : CAMERA_ZOOM_DEFAULT_PC;
+  }
+
+  const ensureCanvasSizeBeforeCameraZoom = ensureCanvasSize;
+  ensureCanvasSize = function ensureCanvasSizeCameraZoomPatch() {
+    ensureCanvasSizeBeforeCameraZoom();
+
+    const rect = canvas.getBoundingClientRect();
+    const cssWidth = Math.max(320, Math.round(rect.width || window.innerWidth || 960));
+    const cssHeight = Math.max(240, Math.round(rect.height || window.innerHeight || 640));
+    const zoom = getCameraZoomOutValue();
+    const targetWidth = Math.round(cssWidth / zoom);
+    const targetHeight = Math.round(cssHeight / zoom);
+
+    if (Math.abs(canvas.width - targetWidth) > 2 || Math.abs(canvas.height - targetHeight) > 2) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      lastCameraCanvasWidth = targetWidth;
+      lastCameraCanvasHeight = targetHeight;
+    }
+
+    if (miniMapCanvas.width <= 0) miniMapCanvas.width = 170;
+    if (miniMapCanvas.height <= 0) miniMapCanvas.height = 124;
+  };
+
+  let medievalMenuTimer = null;
+  let medievalMenuGain = null;
+  let medievalMenuStep = 0;
+  let menuMusicStartedOnce = false;
+
+  function playMenuTone(frequency, startOffset, duration, volume = 0.08, type = "triangle") {
+    if (!audioContext || !medievalMenuGain) return;
+    const now = audioContext.currentTime + startOffset;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    oscillator.connect(gain);
+    gain.connect(medievalMenuGain);
+    oscillator.start(now);
+    oscillator.stop(now + duration + 0.04);
+  }
+
+  function playMedievalMenuBar() {
+    if (!audioContext || !medievalMenuGain || startScreen?.classList.contains("hidden")) return;
+
+    const melody = [392, 440, 523, 494, 440, 392, 330, 349, 392, 330, 294, 330, 349, 392, 440, 392];
+    const bass = [196, 196, 220, 220, 174, 174, 196, 196];
+    const note = melody[medievalMenuStep % melody.length];
+    const bassNote = bass[Math.floor(medievalMenuStep / 2) % bass.length];
+
+    playMenuTone(note, 0, 0.36, 0.07, "triangle");
+    if (medievalMenuStep % 2 === 0) {
+      playMenuTone(bassNote, 0, 0.62, 0.035, "sine");
+      playMenuTone(note * 1.5, 0.02, 0.22, 0.024, "sine");
+    }
+
+    medievalMenuStep += 1;
+  }
+
+  function startMedievalMenuMusic() {
+    ensureAudio();
+    if (!audioContext || medievalMenuTimer || startScreen?.classList.contains("hidden")) return;
+
+    try {
+      if (audioContext.state === "suspended") audioContext.resume();
+    } catch (error) {
+      return;
+    }
+
+    medievalMenuGain = audioContext.createGain();
+    medievalMenuGain.gain.value = isMobile ? 0.035 : 0.045;
+    medievalMenuGain.connect(audioContext.destination);
+    medievalMenuStep = 0;
+    playMedievalMenuBar();
+    medievalMenuTimer = setInterval(playMedievalMenuBar, 380);
+    menuMusicStartedOnce = true;
+  }
+
+  function stopMedievalMenuMusic() {
+    if (medievalMenuTimer) {
+      clearInterval(medievalMenuTimer);
+      medievalMenuTimer = null;
+    }
+    if (medievalMenuGain && audioContext) {
+      try {
+        medievalMenuGain.gain.cancelScheduledValues(audioContext.currentTime);
+        medievalMenuGain.gain.setValueAtTime(medievalMenuGain.gain.value, audioContext.currentTime);
+        medievalMenuGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+        setTimeout(() => {
+          try { medievalMenuGain?.disconnect(); } catch (error) { return; }
+          medievalMenuGain = null;
+        }, 420);
+      } catch (error) {
+        medievalMenuGain = null;
+      }
+    }
+  }
+
+  function tryStartMenuMusicFromUserGesture() {
+    if (!gameStarted && startScreen && !startScreen.classList.contains("hidden")) {
+      startMedievalMenuMusic();
+    }
+  }
+
+  startScreen?.addEventListener("pointerdown", tryStartMenuMusicFromUserGesture);
+  startScreen?.addEventListener("click", tryStartMenuMusicFromUserGesture);
+  document.addEventListener("keydown", () => {
+    if (!gameStarted && startScreen && !startScreen.classList.contains("hidden")) startMedievalMenuMusic();
+  });
+
+  const startNewGameBeforeMenuMusicPatch = startNewGame;
+  startNewGame = function startNewGameCameraMenuMusicPatch() {
+    stopMedievalMenuMusic();
+    return startNewGameBeforeMenuMusicPatch();
+  };
+
+  const startGameBeforeMenuMusicPatch = startGame;
+  startGame = function startGameCameraMenuMusicPatch(loadSave = false) {
+    stopMedievalMenuMusic();
+    return startGameBeforeMenuMusicPatch(loadSave);
+  };
+
+  const updateDebugPanelBeforeCameraMusicPatch = updateDebugPanel;
+  updateDebugPanel = function updateDebugPanelCameraMusicPatch(delta) {
+    updateDebugPanelBeforeCameraMusicPatch(delta);
+    if (!debugEnabled || !debugPanel || debugPanel.classList.contains("hidden")) return;
+    const zoom = getCameraZoomOutValue();
+    debugPanel.innerHTML += `<br>Camera: ${Math.round(zoom * 100)}% | Canvas: ${canvas.width}x${canvas.height}<br>Musica menu: ${medievalMenuTimer ? "tocando" : menuMusicStartedOnce ? "parada" : "aguardando toque"}`;
+  };
+}
+
+// === Celestial dimension expansion patch ===
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_CELESTIAL_DIMENSION_PATCH) {
+  window.ETERNAL_RIFT_CELESTIAL_DIMENSION_PATCH = true;
+
+  const CELESTIAL_COLS = 56;
+  const CELESTIAL_ROWS = 42;
+  const CELESTIAL_WIDTH = CELESTIAL_COLS * TILE;
+  const CELESTIAL_HEIGHT = CELESTIAL_ROWS * TILE;
+  const CELESTIAL_TILES = {
+    VOID: "Z",
+    MARBLE: "Y",
+    CLOUD: "J",
+    GOLD: "K",
+    WATER: "R",
+    STAIRS: "S",
+    STAR: "E"
+  };
+  const CELESTIAL_ENTRY_TILE = { x: 27, y: 36 };
+  const CELESTIAL_DESERT_PORTAL_TILE = { x: 122, y: 12 };
+  const celestialDimensionMap = createCelestialDimensionMap();
+  const celestialDimensionObjects = [];
+  let celestialEventTimer = 26;
+  let celestialCurrentEvent = "";
+  let celestialEventDuration = 0;
+  let celestialFallCooldown = 0;
+
+  function fillCelestialRect(map, startX, startY, width, height, tile) {
+    for (let y = startY; y < startY + height; y++) {
+      for (let x = startX; x < startX + width; x++) {
+        if (y >= 0 && y < map.length && x >= 0 && x < map[0].length) map[y][x] = tile;
+      }
+    }
+  }
+
+  function paintCelestialEllipse(map, centerX, centerY, radiusX, radiusY, tile) {
+    for (let y = centerY - radiusY; y <= centerY + radiusY; y++) {
+      for (let x = centerX - radiusX; x <= centerX + radiusX; x++) {
+        if (y < 0 || y >= map.length || x < 0 || x >= map[0].length) continue;
+        const dx = (x - centerX) / Math.max(1, radiusX);
+        const dy = (y - centerY) / Math.max(1, radiusY);
+        if (dx * dx + dy * dy <= 1) map[y][x] = tile;
+      }
+    }
+  }
+
+  function lineCelestial(map, x1, y1, x2, y2, thickness, tile) {
+    const minX = Math.min(x1, x2) - thickness;
+    const maxX = Math.max(x1, x2) + thickness;
+    const minY = Math.min(y1, y2) - thickness;
+    const maxY = Math.max(y1, y2) + thickness;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy || 1;
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        if (y < 0 || y >= map.length || x < 0 || x >= map[0].length) continue;
+        const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / lenSq));
+        const px = x1 + dx * t;
+        const py = y1 + dy * t;
+        const dist = Math.hypot(x - px, y - py);
+        if (dist <= thickness) map[y][x] = tile;
+      }
+    }
+  }
+
+  function createCelestialDimensionMap() {
+    const map = Array.from({ length: CELESTIAL_ROWS }, () => Array(CELESTIAL_COLS).fill(CELESTIAL_TILES.VOID));
+
+    // Templo principal.
+    fillCelestialRect(map, 18, 1, 20, 10, CELESTIAL_TILES.MARBLE);
+    fillCelestialRect(map, 21, 0, 14, 2, CELESTIAL_TILES.STAIRS);
+    fillCelestialRect(map, 23, 9, 10, 7, CELESTIAL_TILES.MARBLE);
+    fillCelestialRect(map, 26, 6, 4, 7, CELESTIAL_TILES.GOLD);
+    fillCelestialRect(map, 24, 4, 8, 2, CELESTIAL_TILES.STAIRS);
+
+    // Praca central e entrada.
+    fillCelestialRect(map, 12, 16, 32, 16, CELESTIAL_TILES.MARBLE);
+    fillCelestialRect(map, 22, 31, 12, 5, CELESTIAL_TILES.MARBLE);
+    fillCelestialRect(map, 24, 34, 8, 6, CELESTIAL_TILES.STAIRS);
+    fillCelestialRect(map, 22, 39, 12, 2, CELESTIAL_TILES.MARBLE);
+
+    // Jardim das nuvens.
+    paintCelestialEllipse(map, 10, 24, 8, 7, CELESTIAL_TILES.CLOUD);
+    fillCelestialRect(map, 6, 21, 9, 6, CELESTIAL_TILES.MARBLE);
+    fillCelestialRect(map, 8, 23, 4, 3, CELESTIAL_TILES.WATER);
+    fillCelestialRect(map, 14, 24, 4, 4, CELESTIAL_TILES.CLOUD);
+
+    // Biblioteca divina.
+    paintCelestialEllipse(map, 46, 22, 8, 7, CELESTIAL_TILES.CLOUD);
+    fillCelestialRect(map, 41, 18, 10, 8, CELESTIAL_TILES.MARBLE);
+    fillCelestialRect(map, 44, 26, 5, 4, CELESTIAL_TILES.CLOUD);
+
+    // Arena dos guardioes.
+    paintCelestialEllipse(map, 46, 8, 8, 6, CELESTIAL_TILES.MARBLE);
+    fillCelestialRect(map, 44, 6, 4, 4, CELESTIAL_TILES.STAR);
+
+    // Ilhas flutuantes pequenas.
+    paintCelestialEllipse(map, 28, 14, 5, 3, CELESTIAL_TILES.CLOUD);
+    paintCelestialEllipse(map, 6, 11, 5, 3, CELESTIAL_TILES.CLOUD);
+    paintCelestialEllipse(map, 51, 13, 4, 3, CELESTIAL_TILES.CLOUD);
+    paintCelestialEllipse(map, 19, 8, 4, 3, CELESTIAL_TILES.CLOUD);
+
+    // Pontes de luz e nuvens solidas.
+    lineCelestial(map, 28, 15, 28, 30, 1, CELESTIAL_TILES.GOLD);
+    lineCelestial(map, 16, 24, 23, 24, 1, CELESTIAL_TILES.GOLD);
+    lineCelestial(map, 33, 24, 41, 24, 1, CELESTIAL_TILES.GOLD);
+    lineCelestial(map, 31, 16, 42, 10, 1, CELESTIAL_TILES.GOLD);
+    lineCelestial(map, 24, 13, 20, 10, 1, CELESTIAL_TILES.GOLD);
+    lineCelestial(map, 12, 17, 22, 18, 1, CELESTIAL_TILES.CLOUD);
+    lineCelestial(map, 34, 18, 49, 14, 1, CELESTIAL_TILES.CLOUD);
+
+    // Peças decorativas de estrela no piso.
+    for (const [sx, sy] of [[17, 20], [38, 20], [28, 23], [28, 27], [24, 30], [32, 30], [9, 28], [48, 29]]) {
+      if (map[sy] && map[sy][sx]) map[sy][sx] = CELESTIAL_TILES.STAR;
+    }
+
+    return map;
+  }
+
+  function celestialFeature(tileX, tileY, kind, options = {}) {
+    const width = options.width || 24;
+    const height = options.height || 24;
+    return {
+      type: "celestialFeature",
+      kind,
+      role: options.role || "",
+      x: tileX * TILE + (options.offsetX ?? Math.max(0, (TILE - width) / 2)),
+      y: tileY * TILE + (options.offsetY ?? Math.max(0, (TILE - height) / 2)),
+      width,
+      height,
+      solid: Boolean(options.solid),
+      message: options.message || "",
+      points: options.points || 0,
+      rewardItems: options.rewardItems || null,
+      chestId: options.chestId || "",
+      opened: Boolean(options.opened),
+      platformGroup: options.platformGroup || "",
+      active: options.active !== false,
+      blinkOffset: options.blinkOffset || 0,
+      checkpoint: Boolean(options.checkpoint)
+    };
+  }
+
+  function celestialCrystal(tileX, tileY, crystalKey, title, message) {
+    return {
+      type: "celestialCrystal",
+      crystalKey,
+      title,
+      x: tileX * TILE + 6,
+      y: tileY * TILE - 2,
+      width: 22,
+      height: 34,
+      solid: false,
+      message,
+      activated: false,
+      activatedAt: 0
+    };
+  }
+
+  function celestialChest(tileX, tileY, chestId, rewardItems, requiresBoss = "") {
+    return {
+      type: "celestialChest",
+      x: tileX * TILE,
+      y: tileY * TILE + 8,
+      width: TILE * 2,
+      height: TILE,
+      solid: true,
+      message: "Bau celestial: um fecho de luz protege o conteudo.",
+      chestId,
+      rewardItems: rewardItems || [],
+      requiresBoss,
+      opened: false
+    };
+  }
+
+  function celestialGate(tileX, tileY) {
+    return {
+      type: "celestialGate",
+      role: "celestialEntry",
+      x: tileX * TILE,
+      y: tileY * TILE - 8,
+      width: TILE * 2,
+      height: TILE * 3,
+      solid: false,
+      message: "Portal Sagrado: pressione E para subir a Dimensao Celestial."
+    };
+  }
+
+  function celestialCollectible(tileX, tileY, item, label, message = "") {
+    return {
+      type: "celestialCollectible",
+      item,
+      label,
+      x: tileX * TILE + 8,
+      y: tileY * TILE + 8,
+      width: 16,
+      height: 16,
+      solid: false,
+      collected: false,
+      message
+    };
+  }
+
+  function ensureCelestialState() {
+    if (!questBook.celestial || typeof questBook.celestial !== "object") {
+      questBook.celestial = {};
+    }
+    const c = questBook.celestial;
+    if (!c.crystals || typeof c.crystals !== "object") c.crystals = { light: false, aurora: false, stars: false };
+    if (!c.openedChests || typeof c.openedChests !== "object") c.openedChests = {};
+    if (!c.eventsSeen || typeof c.eventsSeen !== "object") c.eventsSeen = {};
+    if (!c.resources || typeof c.resources !== "object") c.resources = {};
+    c.entered = Boolean(c.entered);
+    c.portalOpen = Boolean(c.portalOpen);
+    c.bridgeOpen = Boolean(c.bridgeOpen);
+    c.introDone = Boolean(c.introDone);
+    c.starPuzzleSolved = Boolean(c.starPuzzleSolved);
+    c.lightPuzzleSolved = Boolean(c.lightPuzzleSolved);
+    c.libraryPuzzleSolved = Boolean(c.libraryPuzzleSolved);
+    c.seraphPurified = Boolean(c.seraphPurified);
+    c.guardianChallengeDone = Boolean(c.guardianChallengeDone);
+    c.angelQuestDone = Boolean(c.angelQuestDone);
+    c.dashCelestialUnlocked = Boolean(c.dashCelestialUnlocked);
+    c.feathers = Number.isFinite(c.feathers) ? c.feathers : 0;
+    if (!c.checkpoint || !Number.isFinite(c.checkpoint.x) || !Number.isFinite(c.checkpoint.y)) {
+      c.checkpoint = {
+        x: CELESTIAL_ENTRY_TILE.x * TILE + 4,
+        y: CELESTIAL_ENTRY_TILE.y * TILE + 4
+      };
+    }
+  }
+
+  function ensureCelestialInventory() {
+    if (!Array.isArray(inventory.celestialResources)) inventory.celestialResources = [];
+    if (!Array.isArray(inventory.celestialRelics)) inventory.celestialRelics = [];
+    if (!Array.isArray(inventory.itensBoss)) inventory.itensBoss = [];
+  }
+
+  function addCelestialInventoryItem(name, type = "resource") {
+    ensureCelestialInventory();
+    const list = type === "relic" ? inventory.celestialRelics : inventory.celestialResources;
+    if (!list.includes(name)) list.push(name);
+    if (type === "relic" && !inventory.itensBoss.includes(name)) inventory.itensBoss.push(name);
+  }
+
+  function syncCelestialObjectState() {
+    ensureCelestialState();
+    ensureCelestialInventory();
+    for (const obj of celestialDimensionObjects) {
+      if (obj.type === "celestialCrystal") {
+        obj.activated = Boolean(questBook.celestial.crystals[obj.crystalKey]);
+        obj.activatedAt = obj.activated ? performance.now() - 1000 : 0;
+      }
+      if (obj.type === "celestialChest") {
+        obj.opened = Boolean(questBook.celestial.openedChests[obj.chestId]);
+      }
+    }
+  }
+
+  function countActivatedCelestialCrystals() {
+    ensureCelestialState();
+    return Object.values(questBook.celestial.crystals).filter(Boolean).length;
+  }
+
+  function areAllCelestialCrystalsActive() {
+    return countActivatedCelestialCrystals() >= 3;
+  }
+
+  function updateCelestialProgress() {
+    ensureCelestialState();
+    questBook.celestial.bridgeOpen = areAllCelestialCrystalsActive();
+    questBook.celestial.portalOpen = questBook.celestial.bridgeOpen && questBook.celestial.seraphPurified;
+  }
+
+  function setCelestialCheckpoint(x, y) {
+    ensureCelestialState();
+    questBook.celestial.checkpoint = { x, y };
+  }
+
+  function resetCelestialPosition() {
+    ensureCelestialState();
+    player.x = questBook.celestial.checkpoint.x;
+    player.y = questBook.celestial.checkpoint.y;
+    showHudToast("Voce caiu no vazio e voltou para a ponte inicial.");
+    spawnFloatingText("Retorno celestial", player.x, player.y - 18, "#9defff");
+    celestialFallCooldown = 1.2;
+  }
+
+  function enterCelestialDimension() {
+    ensureCelestialState();
+    ensureCelestialInventory();
+    setActiveScene("celestialDimension");
+    player.x = CELESTIAL_ENTRY_TILE.x * TILE + 4;
+    player.y = CELESTIAL_ENTRY_TILE.y * TILE + 4;
+    setCelestialCheckpoint(player.x, player.y);
+    player.direction = "up";
+    player.oxygen = player.maxOxygen;
+    questBook.celestial.entered = true;
+    if (!questBook.discoveredAreas || typeof questBook.discoveredAreas !== "object") questBook.discoveredAreas = {};
+    questBook.discoveredAreas.celestialDimension = true;
+    updateCelestialProgress();
+    updateHud();
+    renderInventory();
+    if (!questBook.celestial.introDone) {
+      questBook.celestial.introDone = true;
+      showDialogMessage("Voce chegou a Dimensao Celestial. Ative os 3 Cristais Celestiais e purifique o Serafim Corrompido para abrir o Portal do Nexus.");
+    }
+  }
+
+  function exitCelestialDimension() {
+    setActiveScene("village");
+    player.x = CELESTIAL_DESERT_PORTAL_TILE.x * TILE + 4;
+    player.y = (CELESTIAL_DESERT_PORTAL_TILE.y + 2) * TILE + 4;
+    player.direction = "down";
+    updateHud();
+  }
+
+  function initCelestialObjects() {
+    if (celestialDimensionObjects.length) return;
+    celestialDimensionObjects.push(
+      dimensionPortal(27, 37, "exit"),
+      npc(27, 33, "Guardiao da Luz", "Guardiao da Luz: Somente quem carrega coragem pode tocar os cristais celestiais.", "celestialGuide"),
+      npc(42, 20, "Ferreiro Celestial", "Ferreiro Celestial: Eu moldo armas de luz para herois que provam seu valor.", "celestialSmith"),
+      npc(11, 24, "Curandeira das Nuvens", "Curandeira das Nuvens: A fonte sagrada cura o corpo e acalma a mente.", "cloudHealer"),
+      npc(46, 22, "Sabio Aster", "Sabio Aster: A Biblioteca Divina guarda a historia do mundo e os simbolos da passagem estelar.", "celestialSage"),
+      npc(16, 30, "Anjo Perdido", "Anjo Perdido: Minhas asas se desfizeram. Se encontrar 3 Penas Douradas, posso lhe ensinar o Dash Celestial.", "lostAngel"),
+      celestialCrystal(28, 5, "light", "Cristal da Luz", "Cristal da Luz"),
+      celestialCrystal(9, 23, "aurora", "Cristal da Aurora", "Cristal da Aurora"),
+      celestialCrystal(49, 13, "stars", "Cristal das Estrelas", "Cristal das Estrelas"),
+      celestialChest(6, 10, "cloudChest", ["Pocao de Luz", "Fragmento de Estrela", "Botas das Nuvens"], ""),
+      celestialChest(51, 12, "starChest", ["Cristal Azul Celestial", "Anel de Mana Celestial"], ""),
+      celestialChest(28, 2, "templeChest", ["Espada Solar", "Cajado da Aurora", "Arco Estelar"], "serafimCorrompido"),
+      celestialFeature(10, 25, "sacredFountain", { width: 40, height: 40, solid: true, role: "heal", message: "Fonte sagrada: pressione E para receber Cura Divina.", checkpoint: true }),
+      celestialFeature(7, 21, "cloudTree", { width: 26, height: 34, solid: true }),
+      celestialFeature(13, 21, "cloudTree", { width: 26, height: 34, solid: true }),
+      celestialFeature(43, 18, "bookshelf", { width: 26, height: 40, solid: true, message: "Estante antiga: livros magicos flutuam sozinhos diante de voce." }),
+      celestialFeature(47, 18, "bookshelf", { width: 26, height: 40, solid: true, message: "Pergaminhos dourados contam a queda do Serafim Corrompido." }),
+      celestialFeature(45, 24, "starPuzzle", { width: 28, height: 18, solid: false, role: "starPuzzle", message: "Puzzle das estrelas: Sol -> Lua -> Estrela -> Asa -> Cristal." }),
+      celestialFeature(22, 12, "mirrorPuzzle", { width: 30, height: 22, solid: false, role: "mirrorPuzzle", message: "Puzzle dos raios de luz: espelhos refletem energia ate o cristal central." }),
+      celestialFeature(44, 8, "guardianArenaCrystal", { width: 24, height: 28, solid: false, role: "arenaCrystal", message: "Cristal da Arena: pressione E para iniciar o desafio dos Guardioes." }),
+      celestialFeature(33, 18, "angelStatue", { width: 28, height: 44, solid: true, role: "statue", message: "Estatua de anjo: 'Somente a luz pura abre o Portal Sagrado'." }),
+      celestialFeature(21, 18, "angelStatue", { width: 28, height: 44, solid: true, role: "statue", message: "Estatua de anjo: 'As estrelas apontam o caminho para o Nexus'." }),
+      celestialFeature(28, 16, "blueFlame", { width: 16, height: 26, solid: false }),
+      celestialFeature(24, 16, "blueFlame", { width: 16, height: 26, solid: false }),
+      celestialFeature(32, 16, "blueFlame", { width: 16, height: 26, solid: false }),
+      celestialFeature(28, 33, "nexusGate", { width: 56, height: 86, solid: false, role: "nexusGate", message: "Portal Sagrado: ele se abrira quando os cristais forem ativados e o Serafim for purificado." }),
+      celestialFeature(26, 19, "celestialPlatform", { width: 32, height: 12, solid: true, role: "platform", platformGroup: "bridgeA", blinkOffset: 0.0 }),
+      celestialFeature(29, 18, "celestialPlatform", { width: 32, height: 12, solid: true, role: "platform", platformGroup: "bridgeA", blinkOffset: 0.4 }),
+      celestialFeature(32, 17, "celestialPlatform", { width: 32, height: 12, solid: true, role: "platform", platformGroup: "bridgeA", blinkOffset: 0.8 }),
+      celestialFeature(35, 16, "celestialPlatform", { width: 32, height: 12, solid: true, role: "platform", platformGroup: "bridgeA", blinkOffset: 1.2 }),
+      celestialFeature(38, 15, "celestialPlatform", { width: 32, height: 12, solid: true, role: "platform", platformGroup: "bridgeA", blinkOffset: 1.6 }),
+      celestialCollectible(7, 9, "penaDourada", "Pena Dourada", "Uma pena dourada pulsa com energia leve."),
+      celestialCollectible(49, 11, "penaDourada", "Pena Dourada", "Uma pena dourada flutua ao redor de uma estrela."),
+      celestialCollectible(15, 28, "penaDourada", "Pena Dourada", "Uma pena dourada repousa entre flores celestiais."),
+      celestialCollectible(11, 27, "florAurora", "Flor da Aurora", "Flor da Aurora"),
+      celestialCollectible(8, 20, "lagrimaAnjo", "Lagrima de Anjo", "Lagrima de Anjo"),
+      celestialCollectible(47, 27, "fragmentoEstrela", "Fragmento de Estrela", "Fragmento de Estrela"),
+      celestialCollectible(29, 3, "essenciaLuz", "Essencia de Luz", "Essencia de Luz"),
+      celestialCollectible(25, 13, "pedraMarmore", "Pedra de Marmore Sagrado", "Pedra de Marmore Sagrado"),
+      celestialCollectible(51, 15, "poNuvem", "Po de Nuvem", "Po de Nuvem"),
+      enemy(17, 22, "slimeLuz"), enemy(12, 27, "espiritoEstelar"), enemy(45, 19, "livroMagicoVivo"),
+      enemy(48, 24, "sentinelaCristalAzul"), enemy(32, 22, "guardiaoMarmore"), enemy(39, 11, "cavaleiroAurora"),
+      enemy(23, 9, "miniAnjoCorrompido"), enemy(49, 9, "passaroCelestial"),
+      boss(46, 8, "guardiaoCelestial"),
+      boss(27, 4, "serafimCorrompido"),
+      boss(7, 11, "dragaoAurora")
+    );
+
+    // Objetos decorativos extras leves.
+    for (const [fx, fy] of [[8, 28], [14, 29], [40, 27], [49, 28], [26, 28], [30, 28], [22, 21], [34, 21]]) {
+      celestialDimensionObjects.push(celestialFeature(fx, fy, "glowFlower", { width: 14, height: 14, solid: false }));
+    }
+    for (const [tx, ty] of [[20, 2], [36, 2], [18, 8], [38, 8], [6, 20], [14, 20], [41, 17], [50, 17], [24, 39], [31, 39]]) {
+      celestialDimensionObjects.push(celestialFeature(tx, ty, "blueFlame", { width: 16, height: 26, solid: false }));
+    }
+    syncCelestialObjectState();
+  }
+
+  initCelestialObjects();
+  ensureCelestialState();
+  ensureCelestialInventory();
+
+  if (!villageObjects.some((obj) => obj.type === "celestialGate")) {
+    villageObjects.push(celestialGate(CELESTIAL_DESERT_PORTAL_TILE.x, CELESTIAL_DESERT_PORTAL_TILE.y));
+  }
+
+  const setActiveSceneBeforeCelestialPatch = setActiveScene;
+  setActiveScene = function setActiveSceneCelestialPatch(scene) {
+    if (scene === "celestialDimension") {
+      currentScene = "celestialDimension";
+      objects = celestialDimensionObjects;
+      colliders = objects.filter((obj) => obj.solid || obj.type === "celestialPlatform" || obj.type === "celestialChest");
+      interactables = objects.filter((obj) => obj.message);
+      syncCelestialObjectState();
+      return;
+    }
+    setActiveSceneBeforeCelestialPatch(scene);
+    if (currentScene === "village" || currentScene === "home" || currentScene === "shopInterior" || currentScene === "mayorInterior" || currentScene === "crystalDimension") {
+      interactables = objects.filter((obj) => obj.message);
+    }
+  };
+
+  const getSceneNameBeforeCelestialPatch = getSceneName;
+  getSceneName = function getSceneNameCelestialPatch() {
+    if (currentScene === "celestialDimension") return "Dimensao Celestial";
+    return getSceneNameBeforeCelestialPatch();
+  };
+
+  const getSceneWidthBeforeCelestialPatch = getSceneWidth;
+  getSceneWidth = function getSceneWidthCelestialPatch() {
+    if (currentScene === "celestialDimension") return CELESTIAL_WIDTH;
+    return getSceneWidthBeforeCelestialPatch();
+  };
+
+  const getSceneHeightBeforeCelestialPatch = getSceneHeight;
+  getSceneHeight = function getSceneHeightCelestialPatch() {
+    if (currentScene === "celestialDimension") return CELESTIAL_HEIGHT;
+    return getSceneHeightBeforeCelestialPatch();
+  };
+
+  function getCelestialTileAt(tileX, tileY) {
+    if (tileX < 0 || tileY < 0 || tileX >= CELESTIAL_COLS || tileY >= CELESTIAL_ROWS) return CELESTIAL_TILES.VOID;
+    return celestialDimensionMap[tileY][tileX];
+  }
+
+  const hitsWaterBeforeCelestialPatch = hitsWater;
+  hitsWater = function hitsWaterCelestialPatch(rect) {
+    if (currentScene !== "celestialDimension") return hitsWaterBeforeCelestialPatch(rect);
+    const left = Math.floor(rect.x / TILE);
+    const right = Math.floor((rect.x + rect.width - 1) / TILE);
+    const top = Math.floor(rect.y / TILE);
+    const bottom = Math.floor((rect.y + rect.height - 1) / TILE);
+    for (let y = top; y <= bottom; y++) {
+      for (let x = left; x <= right; x++) {
+        const tile = getCelestialTileAt(x, y);
+        if (tile === CELESTIAL_TILES.VOID || tile === CELESTIAL_TILES.WATER) return true;
+      }
+    }
+    return false;
+  };
+
+  const isColliderActiveBeforeCelestialPatch = isColliderActive;
+  isColliderActive = function isColliderActiveCelestialPatch(obj) {
+    if (obj?.type === "celestialFeature" && obj.role === "platform") return Boolean(obj.active);
+    return isColliderActiveBeforeCelestialPatch(obj);
+  };
+
+  const canMoveToBeforeCelestialPatch = canMoveTo;
+  canMoveTo = function canMoveToCelestialPatch(nextX, nextY) {
+    if (currentScene !== "celestialDimension") return canMoveToBeforeCelestialPatch(nextX, nextY);
+    const rect = getPlayerRect(nextX, nextY);
+    if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > CELESTIAL_WIDTH || rect.y + rect.height > CELESTIAL_HEIGHT) return false;
+
+    const supportedByPlatform = celestialDimensionObjects.some((obj) => obj.type === "celestialFeature" && obj.role === "platform" && obj.active && rectsOverlap(rect, obj));
+    if (!supportedByPlatform && hitsWater(rect)) return false;
+
+    return !colliders.some((obj) => isColliderActive(obj) && rectsOverlap(rect, obj));
+  };
+
+  const canEntityMoveToBeforeCelestialPatch = canEntityMoveTo;
+  canEntityMoveTo = function canEntityMoveToCelestialPatch(entity, nextX, nextY) {
+    if (currentScene !== "celestialDimension") return canEntityMoveToBeforeCelestialPatch(entity, nextX, nextY);
+    const rect = { x: nextX, y: nextY, width: entity.width, height: entity.height };
+    if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > CELESTIAL_WIDTH || rect.y + rect.height > CELESTIAL_HEIGHT) return false;
+    if (hitsWater(rect)) return false;
+    return !colliders.some((obj) => (
+      obj !== entity &&
+      obj.type !== "enemy" &&
+      isColliderActive(obj) &&
+      !entityIgnoresCollider(entity, obj) &&
+      rectsOverlap(rect, obj)
+    ));
+  };
+
+  function drawCelestialVoid(x, y, tileX, tileY) {
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#dceeff" : "#d4e6ff";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    ctx.fillRect(x + 4, y + 4, 2, 2);
+    ctx.fillRect(x + 23, y + 9, 2, 2);
+  }
+
+  function drawCelestialMarble(x, y, tileX, tileY) {
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#f7f7fb" : "#eff1f6";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.strokeStyle = "rgba(188, 196, 214, 0.55)";
+    ctx.beginPath();
+    ctx.moveTo(x, y + TILE - 1);
+    ctx.lineTo(x + TILE, y + TILE - 1);
+    ctx.moveTo(x + TILE - 1, y);
+    ctx.lineTo(x + TILE - 1, y + TILE);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(212, 190, 124, 0.28)";
+    ctx.beginPath();
+    ctx.moveTo(x + 6, y + 6);
+    ctx.lineTo(x + 26, y + 24);
+    ctx.stroke();
+  }
+
+  function drawCelestialCloud(x, y, tileX, tileY) {
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#f8fbff" : "#edf5ff";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.beginPath();
+    ctx.arc(x + 12, y + 20, 7, 0, Math.PI * 2);
+    ctx.arc(x + 20, y + 16, 8, 0, Math.PI * 2);
+    ctx.arc(x + 8, y + 15, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawCelestialGold(x, y, tileX, tileY) {
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#e7d391" : "#ddc16d";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.strokeStyle = "rgba(255, 252, 219, 0.65)";
+    ctx.strokeRect(x + 2, y + 2, TILE - 4, TILE - 4);
+    ctx.fillStyle = "rgba(255,255,255,0.32)";
+    ctx.fillRect(x + 4, y + 4, TILE - 8, 4);
+  }
+
+  function drawCelestialWater(x, y, tileX, tileY) {
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#bfeeff" : "#afe4ff";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.beginPath();
+    ctx.arc(x + 16, y + 16, 9, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  function drawCelestialStairs(x, y) {
+    drawCelestialMarble(x, y, 0, 0);
+    ctx.fillStyle = "rgba(215, 195, 136, 0.6)";
+    for (let i = 0; i < 4; i++) ctx.fillRect(x + 3, y + 4 + i * 7, 26, 3);
+  }
+
+  function drawCelestialStarTile(x, y) {
+    drawCelestialMarble(x, y, 0, 0);
+    ctx.fillStyle = "rgba(255, 228, 112, 0.85)";
+    ctx.fillRect(x + 15, y + 7, 2, 18);
+    ctx.fillRect(x + 7, y + 15, 18, 2);
+    ctx.fillRect(x + 10, y + 10, 12, 12);
+  }
+
+  const drawMapBeforeCelestialPatch = drawMap;
+  drawMap = function drawMapCelestialPatch() {
+    if (currentScene !== "celestialDimension") return drawMapBeforeCelestialPatch();
+
+    const startCol = Math.floor(camera.x / TILE) - 1;
+    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const startRow = Math.floor(camera.y / TILE) - 1;
+    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+
+    for (let y = startRow; y <= endRow; y++) {
+      for (let x = startCol; x <= endCol; x++) {
+        if (x < 0 || y < 0 || x >= CELESTIAL_COLS || y >= CELESTIAL_ROWS) continue;
+        const tile = celestialDimensionMap[y][x];
+        const px = x * TILE;
+        const py = y * TILE;
+        if (tile === CELESTIAL_TILES.MARBLE) drawCelestialMarble(px, py, x, y);
+        else if (tile === CELESTIAL_TILES.CLOUD) drawCelestialCloud(px, py, x, y);
+        else if (tile === CELESTIAL_TILES.GOLD) drawCelestialGold(px, py, x, y);
+        else if (tile === CELESTIAL_TILES.WATER) drawCelestialWater(px, py, x, y);
+        else if (tile === CELESTIAL_TILES.STAIRS) drawCelestialStairs(px, py, x, y);
+        else if (tile === CELESTIAL_TILES.STAR) drawCelestialStarTile(px, py, x, y);
+        else drawCelestialVoid(px, py, x, y);
+      }
+    }
+
+    ctx.fillStyle = "rgba(255,255,255,0.16)";
+    for (let i = 0; i < 18; i++) {
+      const sx = camera.x + ((i * 179 + performance.now() * 0.02) % (canvas.width + 90)) - 45;
+      const sy = camera.y + ((i * 113 + performance.now() * 0.05) % (canvas.height + 70)) - 35;
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+    ctx.fillStyle = "rgba(255,255,220,0.08)";
+    ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+  };
+
+  const drawObjectBeforeCelestialPatch = drawObject;
+  drawObject = function drawObjectCelestialPatch(obj) {
+    if (obj.type === "celestialGate") return drawCelestialGate(obj);
+    if (obj.type === "celestialFeature") return drawCelestialFeature(obj);
+    if (obj.type === "celestialCrystal") return drawCelestialCrystalObject(obj);
+    if (obj.type === "celestialChest") return drawCelestialChest(obj);
+    if (obj.type === "celestialCollectible") return drawCelestialCollectible(obj);
+    drawObjectBeforeCelestialPatch(obj);
+  };
+
+  function drawCelestialGate(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    pixelRect(x + 8, y + 16, 48, 64, "#f5f7ff");
+    pixelRect(x + 12, y + 20, 40, 56, "#dceeff");
+    pixelRect(x + 16, y + 24, 32, 48, "#a7dcff");
+    ctx.strokeStyle = "rgba(255,255,255,0.75)";
+    ctx.strokeRect(x + 20, y + 28, 24, 40);
+    ctx.fillStyle = "#d5b971";
+    ctx.fillRect(x + 6, y + 10, 52, 6);
+    ctx.fillRect(x + 10, y + 12, 44, 3);
+    ctx.fillRect(x + 6, y + 76, 52, 5);
+    ctx.fillStyle = "rgba(114, 198, 255, 0.32)";
+    ctx.fillRect(x + 18, y + 26, 28, 44);
+  }
+
+  function drawCelestialCrystalObject(obj) {
+    const x = obj.x;
+    const y = obj.y + Math.sin(performance.now() / 220 + x * 0.01) * 1.5;
+    const glow = obj.activated ? "rgba(130, 220, 255, 0.38)" : "rgba(130, 220, 255, 0.18)";
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x + 11, y + 15, obj.activated ? 18 : 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = obj.activated ? "#bff8ff" : "#7fd5ff";
+    ctx.fillRect(x + 9, y + 2, 4, 22);
+    ctx.fillRect(x + 6, y + 8, 10, 12);
+    ctx.fillStyle = "#edfaff";
+    ctx.fillRect(x + 10, y + 5, 2, 12);
+    ctx.strokeStyle = "#8fd5ff";
+    ctx.strokeRect(x + 6, y + 8, 10, 12);
+    if (obj.activated) {
+      ctx.fillStyle = "rgba(255, 241, 176, 0.8)";
+      ctx.fillRect(x + 2, y + 1, 2, 2);
+      ctx.fillRect(x + 18, y + 4, 2, 2);
+      ctx.fillRect(x + 4, y + 24, 2, 2);
+    }
+  }
+
+  function drawCelestialChest(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    pixelRect(x + 2, y + 5, 60, 18, obj.opened ? "#b7cadb" : "#d7b66a");
+    pixelRect(x + 6, y + 8, 52, 12, obj.opened ? "#d9ebff" : "#7f4350");
+    ctx.fillStyle = "#f7e7a5";
+    ctx.fillRect(x + 28, y + 9, 6, 9);
+  }
+
+  function drawCelestialCollectible(obj) {
+    const x = obj.x;
+    const y = obj.y + Math.sin(performance.now() / 260 + x * 0.01) * 1.2;
+    if (obj.collected) return;
+    if (obj.item === "penaDourada") {
+      ctx.fillStyle = "#f5e28c";
+      ctx.fillRect(x + 7, y + 2, 2, 12);
+      ctx.fillRect(x + 5, y + 5, 6, 2);
+      ctx.fillRect(x + 4, y + 8, 7, 2);
+    } else if (obj.item === "fragmentoEstrela") {
+      ctx.fillStyle = "#fff3ae";
+      ctx.fillRect(x + 7, y + 2, 2, 12);
+      ctx.fillRect(x + 2, y + 7, 12, 2);
+      ctx.fillRect(x + 4, y + 4, 8, 8);
+    } else if (obj.item === "florAurora") {
+      ctx.fillStyle = "#ffd3ec";
+      ctx.fillRect(x + 5, y + 4, 6, 6);
+      ctx.fillStyle = "#8ef39e";
+      ctx.fillRect(x + 7, y + 10, 2, 6);
+    } else if (obj.item === "lagrimaAnjo") {
+      ctx.fillStyle = "#b7f2ff";
+      ctx.fillRect(x + 6, y + 3, 4, 10);
+      ctx.fillRect(x + 5, y + 5, 6, 6);
+    } else if (obj.item === "essenciaLuz") {
+      ctx.fillStyle = "#fff4bc";
+      ctx.fillRect(x + 7, y + 2, 2, 12);
+      ctx.fillRect(x + 3, y + 6, 10, 2);
+    } else if (obj.item === "pedraMarmore") {
+      ctx.fillStyle = "#f3f5fa";
+      ctx.fillRect(x + 4, y + 4, 8, 8);
+      ctx.strokeStyle = "#bcc6d8";
+      ctx.strokeRect(x + 4, y + 4, 8, 8);
+    } else if (obj.item === "poNuvem") {
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(x + 8, y + 8, 5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = "#9defff";
+      ctx.fillRect(x + 4, y + 4, 8, 8);
+    }
+  }
+
+  function drawCelestialFeature(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    if (obj.kind === "sacredFountain") {
+      pixelRect(x + 4, y + 20, 32, 12, "#d6b86d");
+      pixelRect(x + 8, y + 8, 24, 16, "#dfeeff");
+      ctx.fillStyle = "#8fe3ff";
+      ctx.fillRect(x + 13, y + 4, 14, 12);
+      ctx.fillRect(x + 15, y, 10, 8);
+      return;
+    }
+    if (obj.kind === "cloudTree") {
+      ctx.fillStyle = "#d9c489";
+      ctx.fillRect(x + 10, y + 14, 6, 20);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(x + 13, y + 10, 12, 0, Math.PI * 2);
+      ctx.arc(x + 7, y + 14, 10, 0, Math.PI * 2);
+      ctx.arc(x + 19, y + 14, 10, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    if (obj.kind === "bookshelf") {
+      pixelRect(x, y, 24, 38, "#95734b");
+      ctx.fillStyle = "#d8bc75";
+      ctx.fillRect(x + 3, y + 4, 18, 4);
+      ctx.fillRect(x + 3, y + 16, 18, 4);
+      ctx.fillRect(x + 3, y + 28, 18, 4);
+      ctx.fillStyle = "#6ac8ff";
+      ctx.fillRect(x + 5, y + 6, 3, 8);
+      ctx.fillStyle = "#ef86dd";
+      ctx.fillRect(x + 10, y + 6, 3, 8);
+      ctx.fillStyle = "#fff2a8";
+      ctx.fillRect(x + 15, y + 6, 3, 8);
+      return;
+    }
+    if (obj.kind === "starPuzzle") {
+      ctx.fillStyle = "rgba(255, 231, 143, 0.22)";
+      ctx.fillRect(x, y, obj.width, obj.height);
+      ctx.fillStyle = "#f8edaf";
+      for (let i = 0; i < 5; i++) ctx.fillRect(x + 3 + i * 5, y + 6 + (i % 2) * 4, 4, 4);
+      return;
+    }
+    if (obj.kind === "mirrorPuzzle") {
+      ctx.fillStyle = "#edf5ff";
+      ctx.fillRect(x + 2, y + 2, obj.width - 4, obj.height - 4);
+      ctx.strokeStyle = "#b8cef5";
+      ctx.strokeRect(x + 2, y + 2, obj.width - 4, obj.height - 4);
+      ctx.strokeStyle = "#f5df86";
+      ctx.beginPath();
+      ctx.moveTo(x + 4, y + obj.height - 4);
+      ctx.lineTo(x + obj.width - 4, y + 4);
+      ctx.stroke();
+      return;
+    }
+    if (obj.kind === "guardianArenaCrystal") {
+      drawCelestialCrystalObject({ ...obj, activated: questBook.defeatedBosses?.guardiaoCelestial });
+      return;
+    }
+    if (obj.kind === "angelStatue") {
+      pixelRect(x + 8, y + 18, 12, 22, "#e9edf4");
+      pixelRect(x + 3, y + 12, 6, 14, "#f2f6fb");
+      pixelRect(x + 19, y + 12, 6, 14, "#f2f6fb");
+      ctx.fillStyle = "#f7e6a9";
+      ctx.fillRect(x + 10, y + 4, 8, 8);
+      return;
+    }
+    if (obj.kind === "blueFlame") {
+      const flicker = Math.sin(performance.now() / 180 + x * 0.02) * 2;
+      ctx.fillStyle = "#f0d996";
+      ctx.fillRect(x + 6, y + 16, 4, 10);
+      ctx.fillStyle = "rgba(117, 227, 255, 0.25)";
+      ctx.beginPath();
+      ctx.arc(x + 8, y + 10, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#8defff";
+      ctx.fillRect(x + 5, y + 6 - flicker * 0.2, 6, 10 + flicker * 0.4);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(x + 7, y + 9 - flicker * 0.15, 2, 4 + flicker * 0.3);
+      return;
+    }
+    if (obj.kind === "nexusGate") {
+      pixelRect(x + 6, y + 16, 44, 58, "#f7fbff");
+      pixelRect(x + 10, y + 20, 36, 50, "#b8dfff");
+      ctx.fillStyle = questBook.celestial.portalOpen ? "#94d2ff" : "rgba(148,210,255,0.35)";
+      ctx.fillRect(x + 14, y + 24, 28, 42);
+      ctx.fillStyle = "#d8be6c";
+      ctx.fillRect(x + 4, y + 10, 48, 6);
+      ctx.fillRect(x + 4, y + 74, 48, 5);
+      return;
+    }
+    if (obj.kind === "celestialPlatform") {
+      if (!obj.active) return;
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.fillRect(x, y, obj.width, obj.height);
+      ctx.fillStyle = "rgba(147, 222, 255, 0.65)";
+      ctx.fillRect(x + 2, y + obj.height - 4, obj.width - 4, 2);
+      return;
+    }
+    if (obj.kind === "glowFlower") {
+      ctx.fillStyle = "#9be48f";
+      ctx.fillRect(x + 5, y + 6, 2, 6);
+      ctx.fillStyle = "#ffd8f3";
+      ctx.fillRect(x + 2, y + 2, 8, 6);
+      return;
+    }
+  }
+
+  function getCelestialNpcMessage(npcObj) {
+    ensureCelestialState();
+    ensureCelestialInventory();
+    updateCelestialProgress();
+
+    if (npcObj.role === "celestialGuide") {
+      if (!questBook.celestial.bridgeOpen) {
+        return `Guardiao da Luz: Ative os 3 Cristais Celestiais. Progresso ${countActivatedCelestialCrystals()}/3.`;
+      }
+      if (!questBook.celestial.seraphPurified) {
+        return "Guardiao da Luz: O Portal Sagrado ainda rejeita nossa luz. Purifique o Serafim Corrompido no templo principal.";
+      }
+      return "Guardiao da Luz: O Portal do Nexus agora responde a sua presenca. A aurora voltou a brilhar.";
+    }
+
+    if (npcObj.role === "cloudHealer") {
+      player.health = player.maxHealth;
+      player.mana = player.maxMana;
+      playSound("heal");
+      return "Curandeira das Nuvens: A Fonte Sagrada restaurou sua vida e sua mana.";
+    }
+
+    if (npcObj.role === "celestialSage") {
+      if (!questBook.celestial.libraryPuzzleSolved) {
+        questBook.celestial.libraryPuzzleSolved = true;
+        awardXp(120, "Biblioteca Divina");
+        addCelestialInventoryItem("Pergaminho da Biblioteca", "resource");
+        return "Sabio Aster: Os simbolos certos sao Sol, Lua, Estrela, Asa e Cristal. Tome este Pergaminho da Biblioteca.";
+      }
+      return "Sabio Aster: A Dimensao Celestial era um lugar de paz ate um cristal ser corrompido por energia sombria.";
+    }
+
+    if (npcObj.role === "celestialSmith") {
+      const rewards = [];
+      if (questBook.defeatedBosses?.guardiaoCelestial && !inventory.celestialRelics.includes("Espada Celestial")) {
+        addCelestialInventoryItem("Espada Celestial", "relic");
+        rewards.push("Espada Celestial");
+      }
+      if (questBook.defeatedBosses?.serafimCorrompido && !inventory.celestialRelics.includes("Cajado Sagrado")) {
+        addCelestialInventoryItem("Cajado Sagrado", "relic");
+        rewards.push("Cajado Sagrado");
+      }
+      if (questBook.defeatedBosses?.dragaoAurora && !inventory.celestialRelics.includes("Armadura da Aurora")) {
+        addCelestialInventoryItem("Armadura da Aurora", "relic");
+        rewards.push("Armadura da Aurora");
+      }
+      if (questBook.celestial.bridgeOpen && !inventory.celestialRelics.includes("Arco Estelar")) {
+        addCelestialInventoryItem("Arco Estelar", "relic");
+        rewards.push("Arco Estelar");
+      }
+      if (rewards.length) {
+        awardXp(140, "Forja Celestial");
+        renderInventory();
+        return `Ferreiro Celestial: Sua prova foi suficiente. Eu forjei ${rewards.join(", ")} para voce.`;
+      }
+      return "Ferreiro Celestial: Derrote os guardioes e traga fragmentos da aurora. Entao eu poderei melhorar suas armas de luz.";
+    }
+
+    if (npcObj.role === "lostAngel") {
+      if (questBook.celestial.feathers >= 3 && !questBook.celestial.angelQuestDone) {
+        questBook.celestial.angelQuestDone = true;
+        questBook.celestial.dashCelestialUnlocked = true;
+        player.baseSpeed += 12;
+        player.speed = Math.max(player.speed, player.baseSpeed);
+        addCelestialInventoryItem("Asas Pequenas", "relic");
+        awardXp(180, "Anjo perdido");
+        return "Anjo Perdido: Minhas penas voltaram! Como recompensa, voce aprendeu o Dash Celestial e recebeu Asas Pequenas.";
+      }
+      return `Anjo Perdido: Ainda preciso de 3 Penas Douradas. Progresso ${questBook.celestial.feathers}/3.`;
+    }
+
+    return npcObj.message;
+  }
+
+  function activateCelestialCrystal(obj) {
+    ensureCelestialState();
+    if (obj.activated) {
+      return `${obj.title}: este cristal ja esta ativo. Progresso ${countActivatedCelestialCrystals()}/3.`;
+    }
+    obj.activated = true;
+    obj.activatedAt = performance.now();
+    questBook.celestial.crystals[obj.crystalKey] = true;
+    updateCelestialProgress();
+    playSound("crystal");
+    awardXp(160, obj.title);
+    if (areAllCelestialCrystalsActive()) {
+      playSound("mission");
+      return `${obj.title} foi ativado! Os 3 Cristais Celestiais despertaram e o caminho para o Portal Sagrado ficou disponivel.`;
+    }
+    return `${obj.title} foi ativado! Cristais despertos: ${countActivatedCelestialCrystals()}/3.`;
+  }
+
+  function openCelestialChest(obj) {
+    ensureCelestialState();
+    ensureCelestialInventory();
+    if (obj.requiresBoss && !questBook.defeatedBosses?.[obj.requiresBoss]) {
+      return "Bau celestial: um selo impede sua abertura. Derrote o guardiao deste santuario primeiro.";
+    }
+    if (questBook.celestial.openedChests[obj.chestId] || obj.opened) {
+      return "Bau celestial: ele ja foi aberto.";
+    }
+    obj.opened = true;
+    questBook.celestial.openedChests[obj.chestId] = true;
+    for (const reward of obj.rewardItems || []) addCelestialInventoryItem(reward, "relic");
+    inventory.moedas += 18;
+    inventory.pocoes += 1;
+    awardXp(120, "Bau celestial");
+    playSound("chest");
+    renderInventory();
+    updateHud();
+    return `Bau celestial aberto! Recompensas: ${(obj.rewardItems || []).join(", ")}.`;
+  }
+
+  const getQuestMessageBeforeCelestialPatch = getQuestMessage;
+  getQuestMessage = function getQuestMessageCelestialPatch(npcObj) {
+    if (npcObj?.type === "celestialGate") {
+      enterCelestialDimension();
+      return "";
+    }
+    if (currentScene === "celestialDimension") {
+      if (npcObj.type === "dimensionPortal") {
+        exitCelestialDimension();
+        return "";
+      }
+      if (npcObj.type === "celestialCrystal") return activateCelestialCrystal(npcObj);
+      if (npcObj.type === "celestialChest") return openCelestialChest(npcObj);
+      if (npcObj.type === "npc") return getCelestialNpcMessage(npcObj);
+      if (npcObj.type === "celestialFeature" && npcObj.kind === "sacredFountain") {
+        player.health = player.maxHealth;
+        player.mana = player.maxMana;
+        setCelestialCheckpoint(player.x, player.y);
+        playSound("heal");
+        return "Fonte Sagrada: sua vida e mana foram restauradas. Este lugar agora serve como seu ponto de retorno.";
+      }
+      if (npcObj.type === "celestialFeature" && npcObj.role === "starPuzzle") {
+        if (!questBook.celestial.starPuzzleSolved) {
+          questBook.celestial.starPuzzleSolved = true;
+          addCelestialInventoryItem("Pingente da Aurora", "relic");
+          awardXp(130, "Puzzle das Estrelas");
+          return "As estrelas responderam a ordem correta! Voce recebeu o Pingente da Aurora.";
+        }
+        return "Puzzle das Estrelas: as constelacoes ja se alinharam para voce.";
+      }
+      if (npcObj.type === "celestialFeature" && npcObj.role === "mirrorPuzzle") {
+        if (!questBook.celestial.lightPuzzleSolved) {
+          questBook.celestial.lightPuzzleSolved = true;
+          addCelestialInventoryItem("Amuleto de Luz", "relic");
+          awardXp(130, "Puzzle dos Raios de Luz");
+          return "Os espelhos desviaram a luz para o cristal central! Voce recebeu o Amuleto de Luz.";
+        }
+        return "Puzzle dos Raios de Luz: a energia ja segue brilhando pelo templo.";
+      }
+      if (npcObj.type === "celestialFeature" && npcObj.role === "arenaCrystal") {
+        if (!questBook.celestial.guardianChallengeDone && questBook.defeatedBosses?.guardiaoCelestial) {
+          questBook.celestial.guardianChallengeDone = true;
+          addCelestialInventoryItem("Fragmento da Aurora", "relic");
+          awardXp(180, "Arena dos Guardioes");
+          return "O desafio da arena foi concluido. O Cristal Central entregou a voce um Fragmento da Aurora.";
+        }
+        return questBook.defeatedBosses?.guardiaoCelestial
+          ? "Cristal Central: a arena reconhece sua vitoria."
+          : "Cristal Central: derrote o Guardiao Celestial para conquistar este desafio.";
+      }
+      if (npcObj.type === "celestialFeature" && npcObj.role === "nexusGate") {
+        updateCelestialProgress();
+        if (!questBook.celestial.portalOpen) {
+          return "Portal Sagrado: ative os 3 cristais e purifique o Serafim Corrompido para abrir o Nexus.";
+        }
+        addCelestialInventoryItem("Cristal Supremo Celestial", "relic");
+        return "Portal do Nexus: a aurora sorri para voce. O Cristal Supremo Celestial foi despertado.";
+      }
+    }
+    return getQuestMessageBeforeCelestialPatch(npcObj);
+  };
+
+  const collectWorldItemsBeforeCelestialPatch = collectWorldItems;
+  collectWorldItems = function collectWorldItemsCelestialPatch() {
+    if (currentScene !== "celestialDimension") return collectWorldItemsBeforeCelestialPatch();
+    ensureCelestialState();
+    ensureCelestialInventory();
+    const playerRect = getPlayerRect();
+    for (const obj of celestialDimensionObjects) {
+      if (obj.type !== "celestialCollectible" || obj.collected || !rectsOverlap(playerRect, obj)) continue;
+      obj.collected = true;
+      if (obj.item === "penaDourada") {
+        questBook.celestial.feathers += 1;
+        addCelestialInventoryItem("Pena Dourada", "resource");
+      } else if (obj.item === "fragmentoEstrela") {
+        addCelestialInventoryItem("Fragmento de Estrela", "resource");
+      } else if (obj.item === "florAurora") {
+        addCelestialInventoryItem("Flor da Aurora", "resource");
+      } else if (obj.item === "lagrimaAnjo") {
+        addCelestialInventoryItem("Lagrima de Anjo", "resource");
+      } else if (obj.item === "essenciaLuz") {
+        addCelestialInventoryItem("Essencia de Luz", "resource");
+      } else if (obj.item === "pedraMarmore") {
+        addCelestialInventoryItem("Pedra de Marmore Sagrado", "resource");
+      } else if (obj.item === "poNuvem") {
+        addCelestialInventoryItem("Po de Nuvem", "resource");
+      }
+      awardXp(30, obj.label || "Recurso celestial");
+      playSound("coin");
+    }
+  };
+
+  const getEnemyStatsBeforeCelestialPatch = getEnemyStats;
+  getEnemyStats = function getEnemyStatsCelestialPatch(kind) {
+    const base = getEnemyStatsBeforeCelestialPatch(kind);
+    const extra = {
+      slimeLuz: { width: 24, height: 20, hp: 6, damage: 1, speed: 44, aggroRange: 180, attackRange: 145, attackDelay: 1.2, coinReward: 11, projectileType: "lightBolt", dropTable: { coin: 1, potion: 0.10, powerUp: 0.16, loot: 0.24 }, xpReward: 16 },
+      espiritoEstelar: { width: 22, height: 26, hp: 6, damage: 1, speed: 62, aggroRange: 260, attackRange: 220, attackDelay: 1.08, coinReward: 12, canFly: true, projectileType: "starShot", dropTable: { coin: 1, potion: 0.12, powerUp: 0.18, loot: 0.26 }, xpReward: 18 },
+      guardiaoMarmore: { width: 28, height: 34, hp: 10, damage: 2, speed: 34, aggroRange: 220, attackRange: 34, attackDelay: 1.14, coinReward: 16, defense: 1, dropTable: { coin: 1, potion: 0.12, powerUp: 0.18, loot: 0.3 }, xpReward: 26 },
+      passaroCelestial: { width: 24, height: 18, hp: 4, damage: 1, speed: 84, aggroRange: 250, attackRange: 170, attackDelay: 1.0, coinReward: 10, canFly: true, projectileType: "lightBolt", dropTable: { coin: 0.9, potion: 0.08, powerUp: 0.14, loot: 0.2 }, xpReward: 14 },
+      cavaleiroAurora: { width: 24, height: 32, hp: 11, damage: 2, speed: 48, aggroRange: 250, attackRange: 36, attackDelay: 1.08, coinReward: 18, projectileType: "lightBolt", dropTable: { coin: 1, potion: 0.12, powerUp: 0.18, loot: 0.34 }, xpReward: 28 },
+      livroMagicoVivo: { width: 20, height: 20, hp: 5, damage: 1, speed: 58, aggroRange: 230, attackRange: 210, attackDelay: 1.05, coinReward: 12, canFly: true, projectileType: "starShot", dropTable: { coin: 1, potion: 0.1, powerUp: 0.18, loot: 0.28 }, xpReward: 16 },
+      sentinelaCristalAzul: { width: 24, height: 28, hp: 8, damage: 2, speed: 42, aggroRange: 240, attackRange: 220, attackDelay: 1.18, coinReward: 14, projectileType: "lightBolt", dropTable: { coin: 1, potion: 0.12, powerUp: 0.16, loot: 0.28 }, xpReward: 22 },
+      miniAnjoCorrompido: { width: 22, height: 28, hp: 7, damage: 2, speed: 56, aggroRange: 260, attackRange: 210, attackDelay: 1.0, coinReward: 15, canFly: true, projectileType: "auroraFeather", dropTable: { coin: 1, potion: 0.12, powerUp: 0.18, loot: 0.32 }, xpReward: 22 },
+      guardiaoCelestial: { width: 40, height: 46, hp: 60, damage: 3, speed: 38, aggroRange: 400, attackRange: 270, attackDelay: 1.0, coinReward: 95, boss: true, bossItem: "Espada Celestial", projectileType: "lightBolt", dropTable: { coin: 1, potion: 1, powerUp: 1, loot: 1 }, xpReward: 90 },
+      serafimCorrompido: { width: 36, height: 44, hp: 64, damage: 3, speed: 44, aggroRange: 420, attackRange: 290, attackDelay: 0.95, coinReward: 98, boss: true, bossItem: "Cajado Sagrado", projectileType: "auroraFeather", dropTable: { coin: 1, potion: 1, powerUp: 1, loot: 1 }, xpReward: 94 },
+      dragaoAurora: { width: 52, height: 40, hp: 72, damage: 4, speed: 34, aggroRange: 450, attackRange: 300, attackDelay: 1.12, coinReward: 110, boss: true, bossItem: "Armadura da Aurora", projectileType: "sunRay", canFly: true, dropTable: { coin: 1, potion: 1, powerUp: 1, loot: 1 }, xpReward: 110 }
+    };
+    return extra[kind] || base;
+  };
+
+  const getEnemyProjectileConfigBeforeCelestialPatch = getEnemyProjectileConfig;
+  getEnemyProjectileConfig = function getEnemyProjectileConfigCelestialPatch(type, obj) {
+    const existing = getEnemyProjectileConfigBeforeCelestialPatch(type, obj);
+    if (existing && !["lightBolt", "starShot", "auroraFeather", "sunRay"].includes(type)) return existing;
+    const bossBoost = obj?.boss ? 1.2 : 1;
+    const extra = {
+      lightBolt: { width: 12, height: 12, speed: 190 * bossBoost, timer: 2.2 },
+      starShot: { width: 11, height: 11, speed: 200 * bossBoost, timer: 2.15 },
+      auroraFeather: { width: 14, height: 8, speed: 210 * bossBoost, timer: 2.1 },
+      sunRay: { width: 16, height: 10, speed: 215 * bossBoost, timer: 2.1 }
+    };
+    return extra[type] || existing;
+  };
+
+  const getEnemyProjectileColorBeforeCelestialPatch = getEnemyProjectileColor;
+  getEnemyProjectileColor = function getEnemyProjectileColorCelestialPatch(type) {
+    if (type === "lightBolt") return { glow: "rgba(255, 245, 165, 0.35)", main: "#f3d86f", core: "#fffdf0" };
+    if (type === "starShot") return { glow: "rgba(173, 220, 255, 0.35)", main: "#8dd8ff", core: "#ffffff" };
+    if (type === "auroraFeather") return { glow: "rgba(204, 171, 255, 0.35)", main: "#c4a1ff", core: "#ffffff" };
+    if (type === "sunRay") return { glow: "rgba(255, 224, 136, 0.35)", main: "#ffd36a", core: "#ffffff" };
+    return getEnemyProjectileColorBeforeCelestialPatch(type);
+  };
+
+  const fireBossPatternBeforeCelestialPatch = fireBossPattern;
+  fireBossPattern = function fireBossPatternCelestialPatch(obj, targetX, targetY) {
+    if (obj.kind === "guardiaoCelestial") {
+      for (const offset of [-0.25, 0, 0.25]) fireEnemyProjectile(obj, targetX, targetY, offset);
+      spawnHazardZone("celestialRay", targetX, targetY, 42, 1.8, 1);
+      return;
+    }
+    if (obj.kind === "serafimCorrompido") {
+      for (const offset of [-0.35, 0, 0.35]) fireEnemyProjectile(obj, targetX, targetY, offset);
+      spawnHazardZone("sacredCircle", targetX, targetY, 46, 1.7, 1);
+      return;
+    }
+    if (obj.kind === "dragaoAurora") {
+      for (const offset of [-0.42, -0.16, 0.16, 0.42]) fireEnemyProjectile(obj, targetX, targetY, offset);
+      spawnHazardZone("starRain", targetX, targetY, 48, 1.8, 1);
+      return;
+    }
+    fireBossPatternBeforeCelestialPatch(obj, targetX, targetY);
+  };
+
+  const drawHazardsBeforeCelestialPatch = drawHazards;
+  drawHazards = function drawHazardsCelestialPatch() {
+    drawHazardsBeforeCelestialPatch();
+    for (const obj of hazardZones) {
+      const alpha = Math.max(0, obj.timer / obj.maxTimer);
+      if (obj.type === "celestialRay") {
+        ctx.strokeStyle = `rgba(255, 245, 181, ${0.52 * alpha})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (obj.type === "sacredCircle") {
+        ctx.strokeStyle = `rgba(192, 170, 255, ${0.52 * alpha})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (obj.type === "starRain") {
+        ctx.fillStyle = `rgba(141, 216, 255, ${0.16 * alpha})`;
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  };
+
+  const updateEnemiesBeforeCelestialPatch = updateEnemies;
+  updateEnemies = function updateEnemiesCelestialPatch(delta) {
+    updateEnemiesBeforeCelestialPatch(delta);
+    if (currentScene !== "celestialDimension") return;
+    for (const obj of celestialDimensionObjects) {
+      if (obj.type !== "enemy" || !obj.alive) continue;
+      if (obj.kind === "serafimCorrompido" && obj.state === "chase" && Math.random() < delta * 0.25) {
+        obj.x = clamp(obj.x + (Math.random() > 0.5 ? 48 : -48), 0, CELESTIAL_WIDTH - obj.width);
+        obj.y = clamp(obj.y + (Math.random() > 0.5 ? 32 : -32), 0, CELESTIAL_HEIGHT - obj.height);
+      }
+      if (obj.kind === "miniAnjoCorrompido" && obj.state === "chase" && Math.random() < delta * 0.34) {
+        spawnHazardZone("sacredCircle", obj.x + obj.width / 2, obj.y + obj.height / 2, 22, 1.1, 1);
+      }
+    }
+  };
+
+  const defeatEnemyBeforeCelestialPatch = defeatEnemy;
+  defeatEnemy = function defeatEnemyCelestialPatch(obj) {
+    defeatEnemyBeforeCelestialPatch(obj);
+    if (!["guardiaoCelestial", "serafimCorrompido", "dragaoAurora"].includes(obj.kind)) return;
+    ensureCelestialState();
+    if (obj.kind === "guardiaoCelestial") {
+      questBook.celestial.guardianChallengeDone = true;
+    }
+    if (obj.kind === "serafimCorrompido") {
+      questBook.celestial.seraphPurified = true;
+    }
+    updateCelestialProgress();
+    addCelestialInventoryItem(obj.bossItem || "Reliquia Celestial", "relic");
+    if (obj.kind === "dragaoAurora") addCelestialInventoryItem("Cristal Azul Celestial", "resource");
+  };
+
+  const updateBeforeCelestialPatch = update;
+  update = function updateCelestialPatch(delta) {
+    updateBeforeCelestialPatch(delta);
+    if (currentScene !== "celestialDimension") return;
+
+    ensureCelestialState();
+    updateCelestialProgress();
+
+    celestialFallCooldown = Math.max(0, celestialFallCooldown - delta);
+
+    for (const obj of celestialDimensionObjects) {
+      if (obj.type === "celestialFeature" && obj.role === "platform") {
+        const cycle = (performance.now() / 1000 + obj.blinkOffset) % 2.4;
+        obj.active = cycle < 1.55;
+      }
+    }
+
+    const playerRect = getPlayerRect();
+    const standingOnPlatform = celestialDimensionObjects.some((obj) => obj.type === "celestialFeature" && obj.role === "platform" && obj.active && rectsOverlap(playerRect, obj));
+    if (!standingOnPlatform && hitsWater(playerRect) && celestialFallCooldown <= 0) {
+      resetCelestialPosition();
+    }
+
+    const area = getAreaName();
+    if (area === "Jardim das Nuvens" && player.health < player.maxHealth && Math.random() < delta * 0.22) {
+      player.health = Math.min(player.maxHealth, player.health + 1);
+    }
+
+    celestialEventTimer -= delta;
+    if (celestialEventTimer <= 0) {
+      const events = [
+        { key: "chuvaEstrelas", duration: 12, message: "Chuva de estrelas: fragmentos celestiais estao caindo do ceu!" },
+        { key: "bencaoAurora", duration: 14, message: "Bencao da Aurora: voce recebeu velocidade, mana e cura lenta." },
+        { key: "eclipseSagrado", duration: 10, message: "Eclipse Sagrado: a luz enfraqueceu e guardioes corrompidos despertaram." },
+        { key: "invasaoSombria", duration: 10, message: "Invasao Sombria: criaturas do abismo tentam invadir o templo celestial." }
+      ];
+      const chosen = events[Math.floor(Math.random() * events.length)];
+      celestialCurrentEvent = chosen.key;
+      celestialEventDuration = chosen.duration;
+      celestialEventTimer = 30 + Math.random() * 16;
+      showHudToast(chosen.message);
+    }
+
+    if (celestialEventDuration > 0) {
+      celestialEventDuration -= delta;
+      if (celestialCurrentEvent === "bencaoAurora") {
+        player.mana = Math.min(player.maxMana, player.mana + delta * 0.9);
+        player.health = Math.min(player.maxHealth, player.health + delta * 0.12);
+      } else if (celestialCurrentEvent === "chuvaEstrelas" && Math.random() < delta * 0.25) {
+        spawnFloatingText("*", camera.x + 40 + Math.random() * (canvas.width - 80), camera.y + 20 + Math.random() * (canvas.height - 40), "#fff4ac");
+      }
+      if (celestialEventDuration <= 0) celestialCurrentEvent = "";
+    }
+  };
+
+  const getAreaNameBeforeCelestialPatch = getAreaName;
+  getAreaName = function getAreaNameCelestialPatch() {
+    if (currentScene !== "celestialDimension") return getAreaNameBeforeCelestialPatch();
+    const tileX = Math.floor(player.x / TILE);
+    const tileY = Math.floor(player.y / TILE);
+    if (tileY <= 10 && tileX >= 18 && tileX <= 38) return "Templo Celestial";
+    if (tileX <= 18 && tileY >= 18 && tileY <= 31) return "Jardim das Nuvens";
+    if (tileX >= 40 && tileY >= 17 && tileY <= 30) return "Biblioteca Divina";
+    if (tileX >= 39 && tileY <= 14) return "Arena dos Guardioes";
+    return "Ilhas Flutuantes";
+  };
+
+  const renderMissionsPanelBeforeCelestialPatch = renderMissionsPanel;
+  renderMissionsPanel = function renderMissionsPanelCelestialPatch() {
+    renderMissionsPanelBeforeCelestialPatch();
+    ensureCelestialState();
+    if (!missionsList) return;
+    missionsList.innerHTML += `<li><span>Celestial</span><strong>Cristais ${countActivatedCelestialCrystals()}/3 | Serafim ${questBook.celestial.seraphPurified ? "purificado" : "corrompido"} | Penas ${questBook.celestial.feathers}/3</strong></li>`;
+  };
+
+  const getCompactMissionTextBeforeCelestialPatch = getCompactMissionText;
+  getCompactMissionText = function getCompactMissionTextCelestialPatch() {
+    if (currentScene === "celestialDimension") {
+      if (!questBook.celestial.crystals.light) return "Celestial: ative o Cristal da Luz";
+      if (!questBook.celestial.crystals.aurora) return "Celestial: ative o Cristal da Aurora";
+      if (!questBook.celestial.crystals.stars) return "Celestial: ative o Cristal das Estrelas";
+      if (!questBook.celestial.seraphPurified) return "Celestial: purifique o Serafim Corrompido";
+      if (!questBook.celestial.portalOpen) return "Celestial: abra o Portal Sagrado";
+      return "Celestial: o Nexus foi despertado";
+    }
+    return getCompactMissionTextBeforeCelestialPatch();
+  };
+
+  const getInventoryItemsBeforeCelestialPatch = getInventoryItems;
+  getInventoryItems = function getInventoryItemsCelestialPatch() {
+    const items = getInventoryItemsBeforeCelestialPatch();
+    ensureCelestialInventory();
+    for (const resource of inventory.celestialResources) {
+      items.push({
+        id: `celestial-resource-${String(resource).replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+        name: resource,
+        icon: "C",
+        quantity: 1,
+        category: "materiais",
+        typeLabel: "Recurso celestial",
+        rarity: "incomum",
+        description: "Recurso coletado na Dimensao Celestial.",
+        effect: "Pode ser usado futuramente para craftar armas, pocoes e armaduras celestiais.",
+        locked: true
+      });
+    }
+    for (const relic of inventory.celestialRelics) {
+      items.push({
+        id: `celestial-relic-${String(relic).replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+        name: relic,
+        icon: "★",
+        quantity: 1,
+        category: "raros",
+        typeLabel: "Reliquia celestial",
+        rarity: "lendario",
+        description: "Item unico da Dimensao Celestial.",
+        effect: "Recompensa especial de puzzles, baus, NPCs ou bosses celestiais.",
+        locked: true
+      });
+    }
+    return items;
+  };
+
+  const saveGameBeforeCelestialPatch = saveGame;
+  saveGame = function saveGameCelestialPatch() {
+    const ok = saveGameBeforeCelestialPatch();
+    try {
+      const raw = readSaveRaw();
+      if (!raw) return ok;
+      const parsed = JSON.parse(raw);
+      parsed.scene = currentScene;
+      parsed.futureState = parsed.futureState || {};
+      parsed.futureState.celestial = {
+        state: JSON.parse(JSON.stringify(questBook.celestial || {})),
+        collected: celestialDimensionObjects
+          .filter((obj) => obj.type === "celestialCollectible" && obj.collected)
+          .map(getSaveObjectKey),
+        enemies: celestialDimensionObjects
+          .filter((obj) => obj.type === "enemy")
+          .map((obj) => ({ key: getSaveObjectKey(obj), alive: obj.alive, hp: obj.hp, phase: obj.phase })),
+        chests: { ...(questBook.celestial?.openedChests || {}) }
+      };
+      writeSaveRaw(JSON.stringify(parsed));
+    } catch (error) {
+      console.error("Erro ao salvar estado celestial", error);
+    }
+    return ok;
+  };
+
+  const loadGameBeforeCelestialPatch = loadGame;
+  loadGame = function loadGameCelestialPatch() {
+    let parsed = null;
+    try {
+      const raw = readSaveRaw() || (() => {
+        try { return localStorage.getItem("eternalRiftAutosaveBackup"); } catch (error) { return null; }
+      })();
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      parsed = null;
+    }
+
+    const ok = loadGameBeforeCelestialPatch();
+    ensureCelestialState();
+    ensureCelestialInventory();
+    syncCelestialObjectState();
+
+    const celestialSave = parsed?.futureState?.celestial;
+    if (celestialSave) {
+      if (celestialSave.state && typeof celestialSave.state === "object") {
+        Object.assign(questBook.celestial, celestialSave.state);
+      }
+      const collected = new Set(celestialSave.collected || []);
+      const enemies = new Map((celestialSave.enemies || []).map((entry) => [entry.key, entry]));
+      for (const obj of celestialDimensionObjects) {
+        if (obj.type === "celestialCollectible") {
+          obj.collected = collected.has(getSaveObjectKey(obj));
+        }
+        if (obj.type === "enemy") {
+          const savedEnemy = enemies.get(getSaveObjectKey(obj));
+          obj.alive = savedEnemy ? savedEnemy.alive : true;
+          obj.hp = savedEnemy ? savedEnemy.hp : obj.maxHp;
+          obj.phase = savedEnemy?.phase || 1;
+        }
+        if (obj.type === "celestialChest") {
+          obj.opened = Boolean(celestialSave.chests?.[obj.chestId]);
+        }
+      }
+      syncCelestialObjectState();
+    }
+
+    if (parsed?.scene === "celestialDimension") {
+      setActiveScene("celestialDimension");
+      player.x = parsed.player?.x ?? CELESTIAL_ENTRY_TILE.x * TILE + 4;
+      player.y = parsed.player?.y ?? CELESTIAL_ENTRY_TILE.y * TILE + 4;
+    }
+    return ok || Boolean(parsed);
+  };
+
+  // Garante que o estado da nova cena fique valido ao iniciar.
+  if (currentScene === "celestialDimension") {
+    objects = celestialDimensionObjects;
+    colliders = objects.filter((obj) => obj.solid || obj.type === "celestialPlatform" || obj.type === "celestialChest");
+    interactables = objects.filter((obj) => obj.message);
+  }
+}
+
+
+// === Celestial dimension crash-safe runtime patch ===
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_CELESTIAL_RUNTIME_SAFE_PATCH) {
+  window.ETERNAL_RIFT_CELESTIAL_RUNTIME_SAFE_PATCH = true;
+
+  const updateBeforeCelestialRuntimeSafePatch = update;
+  update = function updateCelestialRuntimeSafePatch(delta) {
+    if (currentScene !== "celestialDimension") {
+      return updateBeforeCelestialRuntimeSafePatch(delta);
+    }
+
+    try {
+      ensureCanvasSize();
+      if (!gameStarted) {
+        updateHud();
+        updateDebugPanel(delta);
+        updateHudToast(delta);
+        return;
+      }
+
+      if (gameOver) {
+        updateHud();
+        updateDebugPanel(delta);
+        updateHudToast(delta);
+        return;
+      }
+
+      updateTimedEffects(delta);
+      player.levelGlowTimer = Math.max(0, Number(player.levelGlowTimer || 0) - delta);
+
+      if (hitstopTimer > 0) {
+        hitstopTimer = Math.max(0, hitstopTimer - delta);
+        updateAttack(delta);
+        updateFloatingTexts(delta);
+        updateVisualEffects(delta);
+        updateHud();
+        updateHudToast(delta);
+        return;
+      }
+
+      if (pauseOpen || inventoryOpen || shopOpen) {
+        updateHud();
+        updateInteractionHint();
+        updateDebugPanel(delta);
+        updateHudToast(delta);
+        return;
+      }
+
+      const movement = getMovementInput();
+      const inputX = movement.x;
+      const inputY = movement.y;
+      player.moving = inputX !== 0 || inputY !== 0;
+
+      applyPlayerKnockback(delta);
+      updateSwimming(delta);
+
+      if (player.moving && !dialogOpen && !inventoryOpen && !shopOpen && Math.abs(playerKnockbackX) + Math.abs(playerKnockbackY) < 8) {
+        const length = Math.hypot(inputX, inputY) || 1;
+        const strength = movement.strength;
+        const moveX = (inputX / length) * getPlayerSpeed() * strength * delta;
+        const moveY = (inputY / length) * getPlayerSpeed() * strength * delta;
+
+        if (Math.abs(inputX) > Math.abs(inputY)) {
+          player.direction = inputX > 0 ? "right" : "left";
+        } else if (inputY !== 0) {
+          player.direction = inputY > 0 ? "down" : "up";
+        }
+
+        if (canMoveTo(player.x + moveX, player.y)) player.x += moveX;
+        if (canMoveTo(player.x, player.y + moveY)) player.y += moveY;
+
+        player.animTimer += delta;
+        if (player.animTimer > 0.14) {
+          player.frame = (player.frame + 1) % 4;
+          player.animTimer = 0;
+        }
+      } else {
+        player.frame = 0;
+        player.animTimer = 0;
+      }
+
+      // Atualizacoes leves da cena celestial sem chamar o update antigo, que resetava cenas desconhecidas.
+      updateProjectiles(delta);
+      updateEnemyProjectiles(delta);
+      updateHazards(delta);
+      collectWorldItems();
+      updateLoot(delta);
+      updateAttack(delta);
+      updateFloatingTexts(delta);
+      updateVisualEffects(delta);
+
+      // IA simples e barata para inimigos celestiais: só ativa perto da câmera/jogador.
+      if (Array.isArray(objects)) {
+        const px = player.x + player.width / 2;
+        const py = player.y + player.height / 2;
+        for (const obj of objects) {
+          if (!obj || obj.type !== "enemy" || !obj.alive) continue;
+          const distance = Math.hypot((obj.x + obj.width / 2) - px, (obj.y + obj.height / 2) - py);
+          if (distance > Math.max(obj.aggroRange || 240, 420)) continue;
+
+          obj.attackCooldown = Math.max(0, Number(obj.attackCooldown || 0) - delta);
+          obj.invulnerableTimer = Math.max(0, Number(obj.invulnerableTimer || 0) - delta);
+
+          const dx = px - (obj.x + obj.width / 2);
+          const dy = py - (obj.y + obj.height / 2);
+          const len = Math.hypot(dx, dy) || 1;
+          const range = obj.attackRange || 34;
+
+          if (distance > range * 0.75) {
+            const nextX = obj.x + (dx / len) * (obj.speed || 40) * delta;
+            const nextY = obj.y + (dy / len) * (obj.speed || 40) * delta;
+            if (canEntityMoveTo(obj, nextX, obj.y)) obj.x = nextX;
+            if (canEntityMoveTo(obj, obj.x, nextY)) obj.y = nextY;
+          }
+
+          if (distance <= range && obj.attackCooldown <= 0) {
+            if (obj.projectileType && typeof fireEnemyProjectile === "function") {
+              fireEnemyProjectile(obj, px, py, 0);
+            } else if (damageCooldown <= 0) {
+              takeDamage(obj.damage || 1, obj.x + obj.width / 2, obj.y + obj.height / 2);
+            }
+            obj.attackCooldown = obj.attackDelay || 1;
+          }
+
+          if (obj.boss && distance < (obj.aggroRange || 380) && obj.attackCooldown <= 0.05 && typeof fireBossPattern === "function") {
+            fireBossPattern(obj, px, py);
+            obj.attackCooldown = obj.attackDelay || 1.1;
+          }
+        }
+      }
+
+      // Parte especial da Dimensao Celestial: plataformas, queda no vazio e eventos.
+      ensureCelestialState();
+      updateCelestialProgress();
+
+      celestialFallCooldown = Math.max(0, celestialFallCooldown - delta);
+
+      for (const obj of celestialDimensionObjects) {
+        if (obj.type === "celestialFeature" && obj.role === "platform") {
+          const cycle = (performance.now() / 1000 + obj.blinkOffset) % 2.4;
+          obj.active = cycle < 1.55;
+        }
+      }
+
+      const playerRect = getPlayerRect();
+      const standingOnPlatform = celestialDimensionObjects.some((obj) => (
+        obj.type === "celestialFeature" &&
+        obj.role === "platform" &&
+        obj.active &&
+        rectsOverlap(playerRect, obj)
+      ));
+
+      if (!standingOnPlatform && hitsWater(playerRect) && celestialFallCooldown <= 0) {
+        resetCelestialPosition();
+      }
+
+      if (getAreaName() === "Jardim das Nuvens" && player.health < player.maxHealth && Math.random() < delta * 0.22) {
+        player.health = Math.min(player.maxHealth, player.health + 1);
+      }
+
+      celestialEventTimer -= delta;
+      if (celestialEventTimer <= 0) {
+        const events = [
+          { key: "chuvaEstrelas", duration: 12, message: "Chuva de estrelas: fragmentos celestiais estao caindo do ceu!" },
+          { key: "bencaoAurora", duration: 14, message: "Bencao da Aurora: voce recebeu velocidade, mana e cura lenta." },
+          { key: "eclipseSagrado", duration: 10, message: "Eclipse Sagrado: a luz enfraqueceu e guardioes corrompidos despertaram." },
+          { key: "invasaoSombria", duration: 10, message: "Invasao Sombria: criaturas do abismo tentam invadir o templo celestial." }
+        ];
+        const chosen = events[Math.floor(Math.random() * events.length)];
+        celestialCurrentEvent = chosen.key;
+        celestialEventDuration = chosen.duration;
+        celestialEventTimer = 30 + Math.random() * 16;
+        showHudToast(chosen.message);
+      }
+
+      if (celestialEventDuration > 0) {
+        celestialEventDuration -= delta;
+        if (celestialCurrentEvent === "bencaoAurora") {
+          player.mana = Math.min(player.maxMana, player.mana + delta * 0.9);
+          player.health = Math.min(player.maxHealth, player.health + delta * 0.12);
+        } else if (celestialCurrentEvent === "chuvaEstrelas" && Math.random() < delta * 0.25) {
+          spawnFloatingText("*", camera.x + 40 + Math.random() * Math.max(20, canvas.width - 80), camera.y + 20 + Math.random() * Math.max(20, canvas.height - 40), "#fff4ac");
+        }
+        if (celestialEventDuration <= 0) celestialCurrentEvent = "";
+      }
+
+      camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, Math.max(0, getSceneWidth() - canvas.width));
+      camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, Math.max(0, getSceneHeight() - canvas.height));
+
+      playerPositionEl.textContent = getAreaName();
+      updateHud();
+      updateInteractionHint();
+      updateDebugPanel(delta);
+      updateHudToast(delta);
+      if (saveNoticeTimer > 0) saveNoticeTimer = Math.max(0, saveNoticeTimer - delta);
+    } catch (error) {
+      console.error("Erro seguro na Dimensao Celestial:", error);
+      showHudToast("Erro celestial evitado. Voltando ao deserto.");
+      setActiveScene("village");
+      player.x = 122 * TILE + 4;
+      player.y = 14 * TILE + 4;
+      currentScene = "village";
+      updateHud();
+    }
+  };
+
+  const drawMiniMapBeforeCelestialRuntimeSafePatch = drawMiniMap;
+  drawMiniMap = function drawMiniMapCelestialRuntimeSafePatch() {
+    if (currentScene !== "celestialDimension") {
+      return drawMiniMapBeforeCelestialRuntimeSafePatch();
+    }
+
+    try {
+      miniCtx.clearRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+      miniCtx.fillStyle = "rgba(225, 238, 255, 0.95)";
+      miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+
+      const sx = miniMapCanvas.width / (56 * TILE);
+      const sy = miniMapCanvas.height / (42 * TILE);
+
+      for (let y = 0; y < 42; y++) {
+        for (let x = 0; x < 56; x++) {
+          const tile = celestialDimensionMap[y]?.[x];
+          if (!tile || tile === "Z") continue;
+          miniCtx.fillStyle = tile === "K" ? "#d7b66a" : tile === "J" ? "#ffffff" : tile === "R" ? "#9defff" : "#eef4ff";
+          miniCtx.fillRect(x * TILE * sx, y * TILE * sy, Math.ceil(TILE * sx), Math.ceil(TILE * sy));
+        }
+      }
+
+      miniCtx.fillStyle = "#55e8ff";
+      for (const obj of celestialDimensionObjects) {
+        if (obj.type === "celestialCrystal" || obj.type === "celestialGate" || obj.type === "dimensionPortal") {
+          miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 5, 5);
+        }
+      }
+
+      miniCtx.fillStyle = "#fff264";
+      for (const obj of celestialDimensionObjects) {
+        if (obj.type === "npc" || obj.type === "celestialChest") {
+          miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 5, 5);
+        }
+      }
+
+      miniCtx.fillStyle = "#d24c63";
+      miniCtx.fillRect(player.x * sx - 3, player.y * sy - 3, 7, 7);
+    } catch (error) {
+      console.error("Erro no minimapa celestial:", error);
+    }
+  };
+
+  // Corrige saves antigos que ficaram presos na cena celestial quebrada.
+  const loadGameBeforeCelestialSafePatch = loadGame;
+  loadGame = function loadGameCelestialSafePatch() {
+    const result = loadGameBeforeCelestialSafePatch();
+    if (currentScene === "celestialDimension") {
+      try {
+        objects = celestialDimensionObjects;
+        colliders = objects.filter((obj) => obj.solid || obj.type === "celestialChest");
+        interactables = objects.filter((obj) => obj.message);
+        ensureCelestialState();
+        syncCelestialObjectState();
+      } catch (error) {
+        console.error("Save celestial antigo corrigido:", error);
+        setActiveScene("village");
+        player.x = 122 * TILE + 4;
+        player.y = 14 * TILE + 4;
+      }
+    }
+    return result;
+  };
+}
+
+
+// === Celestial dimension runtime-safe patch V2 ===
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_CELESTIAL_RUNTIME_SAFE_PATCH_V2) {
+  window.ETERNAL_RIFT_CELESTIAL_RUNTIME_SAFE_PATCH_V2 = true;
+  window.__celestialSafe = window.__celestialSafe || {
+    fallCooldown: 0,
+    eventTimer: 28,
+    eventName: "",
+    eventDuration: 0
+  };
+
+  const updateBeforeCelestialRuntimeSafePatchV2 = update;
+  update = function updateCelestialRuntimeSafePatchV2(delta) {
+    if (currentScene !== "celestialDimension") {
+      return updateBeforeCelestialRuntimeSafePatchV2(delta);
+    }
+
+    try {
+      ensureCanvasSize();
+
+      if (typeof ensureCelestialState === "function") ensureCelestialState();
+      if (typeof ensureCelestialInventory === "function") ensureCelestialInventory();
+      if (typeof updateCelestialProgress === "function") updateCelestialProgress();
+
+      if (!gameStarted) {
+        updateHud();
+        updateDebugPanel(delta);
+        updateHudToast(delta);
+        return;
+      }
+
+      if (gameOver) {
+        updateHud();
+        updateDebugPanel(delta);
+        updateHudToast(delta);
+        return;
+      }
+
+      updateTimedEffects(delta);
+      player.levelGlowTimer = Math.max(0, Number(player.levelGlowTimer || 0) - delta);
+
+      if (hitstopTimer > 0) {
+        hitstopTimer = Math.max(0, hitstopTimer - delta);
+        updateAttack(delta);
+        updateFloatingTexts(delta);
+        updateVisualEffects(delta);
+        updateHud();
+        updateHudToast(delta);
+        return;
+      }
+
+      if (pauseOpen || inventoryOpen || shopOpen) {
+        updateHud();
+        updateInteractionHint();
+        updateDebugPanel(delta);
+        updateHudToast(delta);
+        return;
+      }
+
+      const movement = getMovementInput();
+      const inputX = movement.x;
+      const inputY = movement.y;
+      player.moving = inputX !== 0 || inputY !== 0;
+
+      applyPlayerKnockback(delta);
+      updateSwimming(delta);
+
+      if (player.moving && !dialogOpen && !inventoryOpen && !shopOpen && Math.abs(playerKnockbackX) + Math.abs(playerKnockbackY) < 8) {
+        const length = Math.hypot(inputX, inputY) || 1;
+        const strength = movement.strength;
+        const moveX = (inputX / length) * getPlayerSpeed() * strength * delta;
+        const moveY = (inputY / length) * getPlayerSpeed() * strength * delta;
+
+        if (Math.abs(inputX) > Math.abs(inputY)) {
+          player.direction = inputX > 0 ? "right" : "left";
+        } else if (inputY !== 0) {
+          player.direction = inputY > 0 ? "down" : "up";
+        }
+
+        if (canMoveTo(player.x + moveX, player.y)) player.x += moveX;
+        if (canMoveTo(player.x, player.y + moveY)) player.y += moveY;
+
+        player.animTimer += delta;
+        if (player.animTimer > 0.14) {
+          player.frame = (player.frame + 1) % 4;
+          player.animTimer = 0;
+        }
+      } else {
+        player.frame = 0;
+        player.animTimer = 0;
+      }
+
+      updateProjectiles(delta);
+      updateEnemyProjectiles(delta);
+      updateHazards(delta);
+      collectWorldItems();
+      updateLoot(delta);
+      updateAttack(delta);
+      updateFloatingTexts(delta);
+      updateVisualEffects(delta);
+
+      const px = player.x + player.width / 2;
+      const py = player.y + player.height / 2;
+      for (const obj of objects) {
+        if (!obj || obj.type !== "enemy" || !obj.alive) continue;
+        const ex = obj.x + obj.width / 2;
+        const ey = obj.y + obj.height / 2;
+        const distance = Math.hypot(ex - px, ey - py);
+        if (distance > Math.max(obj.aggroRange || 240, 420)) continue;
+
+        obj.attackCooldown = Math.max(0, Number(obj.attackCooldown || 0) - delta);
+        obj.invulnerableTimer = Math.max(0, Number(obj.invulnerableTimer || 0) - delta);
+
+        const dx = px - ex;
+        const dy = py - ey;
+        const len = Math.hypot(dx, dy) || 1;
+        const range = obj.attackRange || 34;
+
+        if (distance > range * 0.75) {
+          const nextX = obj.x + (dx / len) * (obj.speed || 40) * delta;
+          const nextY = obj.y + (dy / len) * (obj.speed || 40) * delta;
+          if (canEntityMoveTo(obj, nextX, obj.y)) obj.x = nextX;
+          if (canEntityMoveTo(obj, obj.x, nextY)) obj.y = nextY;
+        }
+
+        if (distance <= range && obj.attackCooldown <= 0) {
+          if (obj.projectileType && typeof fireEnemyProjectile === "function") {
+            fireEnemyProjectile(obj, px, py, 0);
+          } else if (damageCooldown <= 0) {
+            takeDamage(obj.damage || 1, ex, ey);
+          }
+          obj.attackCooldown = obj.attackDelay || 1;
+        }
+
+        if (obj.boss && distance < (obj.aggroRange || 380) && obj.attackCooldown <= 0.05 && typeof fireBossPattern === "function") {
+          fireBossPattern(obj, px, py);
+          obj.attackCooldown = obj.attackDelay || 1.1;
+        }
+      }
+
+      const celestialSafe = window.__celestialSafe;
+      celestialSafe.fallCooldown = Math.max(0, celestialSafe.fallCooldown - delta);
+
+      for (const obj of objects) {
+        if (obj?.type === "celestialFeature" && obj.role === "platform") {
+          const cycle = (performance.now() / 1000 + (obj.blinkOffset || 0)) % 2.4;
+          obj.active = cycle < 1.55;
+        }
+      }
+
+      const playerRect = getPlayerRect();
+      const standingOnPlatform = objects.some((obj) => (
+        obj?.type === "celestialFeature" &&
+        obj.role === "platform" &&
+        obj.active &&
+        rectsOverlap(playerRect, obj)
+      ));
+
+      if (!standingOnPlatform && hitsWater(playerRect) && celestialSafe.fallCooldown <= 0) {
+        if (typeof resetCelestialPosition === "function") {
+          resetCelestialPosition();
+        } else {
+          player.x = 27 * TILE + 4;
+          player.y = 36 * TILE + 4;
+          showHudToast("Voce caiu no vazio e voltou para a ponte inicial.");
+        }
+        celestialSafe.fallCooldown = 1.2;
+      }
+
+      if (getAreaName() === "Jardim das Nuvens" && player.health < player.maxHealth && Math.random() < delta * 0.22) {
+        player.health = Math.min(player.maxHealth, player.health + 1);
+      }
+
+      celestialSafe.eventTimer -= delta;
+      if (celestialSafe.eventTimer <= 0) {
+        const events = [
+          { key: "chuvaEstrelas", duration: 12, message: "Chuva de estrelas: fragmentos celestiais estao caindo do ceu!" },
+          { key: "bencaoAurora", duration: 14, message: "Bencao da Aurora: voce recebeu velocidade, mana e cura lenta." },
+          { key: "eclipseSagrado", duration: 10, message: "Eclipse Sagrado: a luz enfraqueceu e guardioes corrompidos despertaram." },
+          { key: "invasaoSombria", duration: 10, message: "Invasao Sombria: criaturas do abismo tentam invadir o templo celestial." }
+        ];
+        const chosen = events[Math.floor(Math.random() * events.length)];
+        celestialSafe.eventName = chosen.key;
+        celestialSafe.eventDuration = chosen.duration;
+        celestialSafe.eventTimer = 30 + Math.random() * 16;
+        showHudToast(chosen.message);
+      }
+
+      if (celestialSafe.eventDuration > 0) {
+        celestialSafe.eventDuration -= delta;
+        if (celestialSafe.eventName === "bencaoAurora") {
+          player.mana = Math.min(player.maxMana, player.mana + delta * 0.9);
+          player.health = Math.min(player.maxHealth, player.health + delta * 0.12);
+        } else if (celestialSafe.eventName === "chuvaEstrelas" && Math.random() < delta * 0.25) {
+          spawnFloatingText("*", camera.x + 40 + Math.random() * Math.max(20, canvas.width - 80), camera.y + 20 + Math.random() * Math.max(20, canvas.height - 40), "#fff4ac");
+        }
+        if (celestialSafe.eventDuration <= 0) celestialSafe.eventName = "";
+      }
+
+      camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, Math.max(0, getSceneWidth() - canvas.width));
+      camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, Math.max(0, getSceneHeight() - canvas.height));
+
+      playerPositionEl.textContent = getAreaName();
+      updateHud();
+      updateInteractionHint();
+      updateDebugPanel(delta);
+      updateHudToast(delta);
+      if (saveNoticeTimer > 0) saveNoticeTimer = Math.max(0, saveNoticeTimer - delta);
+    } catch (error) {
+      console.error("Erro seguro na Dimensao Celestial V2:", error);
+      showHudToast("Erro celestial evitado. Voltando ao deserto.");
+      setActiveScene("village");
+      player.x = 122 * TILE + 4;
+      player.y = 14 * TILE + 4;
+      updateHud();
+    }
+  };
+
+  const drawMiniMapBeforeCelestialRuntimeSafePatchV2 = drawMiniMap;
+  drawMiniMap = function drawMiniMapCelestialRuntimeSafePatchV2() {
+    if (currentScene !== "celestialDimension") return drawMiniMapBeforeCelestialRuntimeSafePatchV2();
+
+    try {
+      miniCtx.clearRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+      miniCtx.fillStyle = "rgba(225, 238, 255, 0.95)";
+      miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+
+      const sx = miniMapCanvas.width / Math.max(1, getSceneWidth());
+      const sy = miniMapCanvas.height / Math.max(1, getSceneHeight());
+
+      miniCtx.fillStyle = "#f7f7fb";
+      miniCtx.fillRect(12, 8, miniMapCanvas.width - 24, miniMapCanvas.height - 16);
+
+      miniCtx.fillStyle = "#d7b66a";
+      miniCtx.fillRect(miniMapCanvas.width * 0.43, miniMapCanvas.height * 0.40, miniMapCanvas.width * 0.14, 4);
+      miniCtx.fillRect(miniMapCanvas.width * 0.50, miniMapCanvas.height * 0.20, 4, miniMapCanvas.height * 0.55);
+
+      miniCtx.fillStyle = "#55e8ff";
+      for (const obj of objects) {
+        if (obj.type === "celestialCrystal" || obj.type === "dimensionPortal" || obj.type === "celestialGate") {
+          miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 5, 5);
+        }
+      }
+
+      miniCtx.fillStyle = "#fff264";
+      for (const obj of objects) {
+        if (obj.type === "npc" || obj.type === "celestialChest") {
+          miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 5, 5);
+        }
+      }
+
+      miniCtx.fillStyle = "#d24c63";
+      miniCtx.fillRect(player.x * sx - 3, player.y * sy - 3, 7, 7);
+    } catch (error) {
+      console.error("Erro no minimapa celestial V2:", error);
+    }
+  };
+}
+
+// === Realistic combat feel patch ===
+// Deixa o combate mais pesado, legivel e tatico sem alterar o HUD desktop.
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_REALISTIC_COMBAT_PATCH) {
+  window.ETERNAL_RIFT_REALISTIC_COMBAT_PATCH = true;
+
+  const realisticCombat = {
+    stamina: 100,
+    maxStamina: 100,
+    regen: 22,
+    exhaustedTimer: 0,
+    lastAttackKind: "",
+    lastImpactTimer: 0,
+    pendingRanged: null,
+    statusTimer: 0,
+    statusText: "",
+    comboWindow: 0,
+    comboStep: 0
+  };
+
+  function realisticProfileForWeapon(weaponKey = getCurrentWeaponKey()) {
+    const weapon = weapons[weaponKey] || weapons.sword;
+    const elemental = weapon.elemental || "";
+    const isElementalSword = Boolean(weapon.bossWeapon || elemental);
+
+    const baseProfiles = {
+      sword: {
+        stamina: 18,
+        windup: 0.13,
+        active: 0.15,
+        recovery: 0.22,
+        cooldown: 0.48,
+        range: 52,
+        arc: Math.PI * 0.68,
+        knockback: 155,
+        movementPenalty: 0.72,
+        name: "Corte curto",
+        visual: "slash"
+      },
+      spear: {
+        stamina: 24,
+        windup: 0.20,
+        active: 0.17,
+        recovery: 0.34,
+        cooldown: 0.72,
+        range: 86,
+        arc: Math.PI * 0.18,
+        knockback: 210,
+        movementPenalty: 0.60,
+        name: "Estocada precisa",
+        visual: "thrust"
+      },
+      bow: {
+        stamina: 16,
+        windup: 0.34,
+        active: 0.08,
+        recovery: 0.20,
+        cooldown: 0.62,
+        range: Math.max(420, weapon.range || 420),
+        arc: Math.PI * 0.12,
+        knockback: 105,
+        movementPenalty: 0.56,
+        name: "Disparo tensionado",
+        visual: "bow"
+      },
+      staff: {
+        stamina: 22,
+        windup: 0.30,
+        active: 0.10,
+        recovery: 0.28,
+        cooldown: 0.72,
+        range: Math.max(390, weapon.range || 390),
+        arc: Math.PI * 0.18,
+        knockback: 130,
+        movementPenalty: 0.62,
+        name: "Conjuracao",
+        visual: "cast"
+      }
+    };
+
+    let profile = baseProfiles[weaponKey] || (weapon.kind === "projectile" ? baseProfiles.staff : baseProfiles.sword);
+    profile = { ...profile };
+
+    if (weapon.kind === "line") {
+      profile = { ...baseProfiles.spear, range: Math.max(profile.range, weapon.range || 72), arc: Math.min(profile.arc, weapon.arc || profile.arc) };
+    } else if (weapon.kind === "projectile") {
+      profile = { ...(weapon.projectile === "arrow" ? baseProfiles.bow : baseProfiles.staff), range: weapon.range || profile.range };
+    } else if (weapon.kind === "melee" && weaponKey !== "sword") {
+      profile = {
+        ...baseProfiles.sword,
+        stamina: isElementalSword ? 23 : 20,
+        windup: elemental === "storm" ? 0.11 : 0.16,
+        active: 0.16,
+        recovery: elemental === "ice" ? 0.30 : 0.25,
+        cooldown: Math.max(0.52, weapon.cooldown || 0.52),
+        range: Math.max(58, weapon.range || 58),
+        arc: weapon.arc || Math.PI * 0.74,
+        knockback: elemental === "fire" ? 195 : elemental === "ice" ? 170 : 165,
+        movementPenalty: 0.66,
+        name: weapon.name || "Espada elemental",
+        visual: elemental || "slash"
+      };
+    }
+
+    profile.damage = Math.max(1, Number(weapon.damage || 2));
+    profile.damageType = weapon.damageType || "fisico";
+    profile.projectile = weapon.projectile || null;
+    profile.projectileSpeed = weapon.projectileSpeed || (weapon.projectile === "arrow" ? 440 : 340);
+    profile.weaponName = weapon.name || "Arma";
+    return profile;
+  }
+
+  function canUseRealisticCombatInScene() {
+    return !["home", "shopInterior", "mayorInterior"].includes(currentScene);
+  }
+
+  function getAttackableObjectsForCurrentScene() {
+    if (currentScene === "village") return villageObjects;
+    if (Array.isArray(objects)) return objects;
+    return [];
+  }
+
+  function setRealisticCombatStatus(text, seconds = 1.2) {
+    realisticCombat.statusText = text;
+    realisticCombat.statusTimer = seconds;
+  }
+
+  function spendCombatStamina(amount) {
+    if (realisticCombat.stamina + 0.001 < amount) {
+      realisticCombat.exhaustedTimer = 0.8;
+      setRealisticCombatStatus("Sem folego", 0.9);
+      spawnFloatingText("Sem folego", player.x + 4, player.y - 18, "#fff264");
+      playSound("invalid");
+      vibrate(10);
+      return false;
+    }
+    realisticCombat.stamina = Math.max(0, realisticCombat.stamina - amount);
+    return true;
+  }
+
+  function startRealisticMeleeAttack(weaponKey, weapon, profile, aim, swimPenalty) {
+    const comboBonus = realisticCombat.comboWindow > 0 ? Math.min(2, realisticCombat.comboStep + 1) : 0;
+    realisticCombat.comboStep = comboBonus;
+    realisticCombat.comboWindow = 0.48;
+
+    const activeTime = profile.active * swimPenalty;
+    const totalTime = (profile.windup + profile.active + profile.recovery) * swimPenalty;
+    attackDirection = player.direction;
+    attackWindupTimer = profile.windup * swimPenalty;
+    attackRecoveryTimer = (profile.recovery + profile.active) * swimPenalty;
+    attackTimer = totalTime;
+    weaponCooldownTimer = Math.max(profile.cooldown, totalTime) * swimPenalty;
+    attackHitDone = false;
+
+    currentMeleeAttack = {
+      weaponKey,
+      angle: aim.angle,
+      range: (isMobile ? profile.range + 12 : profile.range),
+      arc: isMobile ? Math.min(Math.PI * 0.92, profile.arc * 1.14) : profile.arc,
+      timer: totalTime,
+      maxTimer: totalTime,
+      windup: profile.windup * swimPenalty,
+      active: activeTime,
+      recovery: profile.recovery * swimPenalty,
+      profile,
+      comboStep: comboBonus,
+      hitboxLength: profile.range,
+      realistic: true
+    };
+
+    realisticCombat.lastAttackKind = profile.visual;
+    setRealisticCombatStatus(profile.name, 0.65);
+    playSound("attack");
+    vibrate(18);
+  }
+
+  function startRealisticRangedAttack(weaponKey, weapon, profile, aim, swimPenalty) {
+    attackWindupTimer = profile.windup * swimPenalty;
+    attackRecoveryTimer = (profile.recovery + profile.active) * swimPenalty;
+    attackTimer = (profile.windup + profile.active + profile.recovery) * swimPenalty;
+    weaponCooldownTimer = profile.cooldown * swimPenalty;
+    attackHitDone = true;
+    currentMeleeAttack = null;
+    realisticCombat.pendingRanged = {
+      weaponKey,
+      weapon,
+      profile,
+      aim: { ...aim },
+      timer: profile.windup * swimPenalty,
+      fired: false
+    };
+    realisticCombat.lastAttackKind = profile.visual;
+    setRealisticCombatStatus(profile.name, 0.65);
+    playSound(weapon.projectile === "arrow" ? "bow" : "magic");
+    vibrate(12);
+  }
+
+  triggerPrimaryAttack = function triggerPrimaryAttackRealisticCombat() {
+    if (gameOver || dialogOpen || inventoryOpen || shopOpen || pauseOpen || !canUseRealisticCombatInScene()) return;
+    if (weaponCooldownTimer > 0 || attackWindupTimer > 0 || attackRecoveryTimer > 0 || attackTimer > 0 || realisticCombat.pendingRanged) return;
+
+    updateDirectionFromAim();
+    const weaponKey = getCurrentWeaponKey();
+    const weapon = getCurrentWeapon() || weapons.sword;
+    const profile = realisticProfileForWeapon(weaponKey);
+    const aim = getAimVector();
+    const swimPenalty = player.isSwimming && weapon.kind !== "projectile" ? 1.35 : 1;
+    const staminaCost = profile.stamina * (player.isSwimming ? 1.15 : 1);
+
+    if (!spendCombatStamina(staminaCost)) {
+      weaponCooldownTimer = 0.18;
+      return;
+    }
+
+    if (weapon.kind === "projectile") {
+      if (weapon.projectile === "arrow" && inventory.flechas <= 0) {
+        realisticCombat.stamina = Math.min(realisticCombat.maxStamina, realisticCombat.stamina + staminaCost * 0.72);
+        weaponCooldownTimer = 0.18;
+        spawnFloatingText("Sem flechas", player.x + 4, player.y - 16, "#fff264");
+        playSound("invalid");
+        return;
+      }
+      startRealisticRangedAttack(weaponKey, weapon, profile, aim, swimPenalty);
+      return;
+    }
+
+    startRealisticMeleeAttack(weaponKey, weapon, profile, aim, swimPenalty);
+  };
+
+  triggerAttack = function triggerAttackRealisticCombat() {
+    triggerPrimaryAttack();
+  };
+
+  const updateAttackBeforeRealisticCombat = updateAttack;
+  updateAttack = function updateAttackRealisticCombat(delta) {
+    realisticCombat.comboWindow = Math.max(0, realisticCombat.comboWindow - delta);
+    if (realisticCombat.comboWindow <= 0) realisticCombat.comboStep = 0;
+
+    const staminaRegenPenalty = (attackWindupTimer > 0 || attackRecoveryTimer > 0 || realisticCombat.pendingRanged) ? 0.34 : 1;
+    const staminaRegen = realisticCombat.regen * staminaRegenPenalty * (realisticCombat.exhaustedTimer > 0 ? 0.45 : 1);
+    realisticCombat.stamina = Math.min(realisticCombat.maxStamina, realisticCombat.stamina + staminaRegen * delta);
+    realisticCombat.exhaustedTimer = Math.max(0, realisticCombat.exhaustedTimer - delta);
+    realisticCombat.lastImpactTimer = Math.max(0, realisticCombat.lastImpactTimer - delta);
+    realisticCombat.statusTimer = Math.max(0, realisticCombat.statusTimer - delta);
+
+    if (realisticCombat.pendingRanged) {
+      const pending = realisticCombat.pendingRanged;
+      pending.timer = Math.max(0, pending.timer - delta);
+      if (!pending.fired && pending.timer <= 0) {
+        pending.fired = true;
+        const weapon = pending.weapon || getCurrentWeapon() || weapons.sword;
+        const profile = pending.profile || realisticProfileForWeapon(pending.weaponKey);
+        const aim = pending.aim || getAimVector();
+        const finalWeapon = { ...weapon, damage: profile.damage, range: profile.range, projectileSpeed: profile.projectileSpeed };
+        fireWeaponProjectile(finalWeapon, aim);
+        realisticCombat.lastImpactTimer = 0.12;
+      }
+      if (pending.fired && attackRecoveryTimer <= 0.02) realisticCombat.pendingRanged = null;
+    }
+
+    updateAttackBeforeRealisticCombat(delta);
+  };
+
+  resolveBasicAttack = function resolveBasicAttackRealisticCombat() {
+    if (!currentMeleeAttack) return;
+    const profile = currentMeleeAttack.profile || realisticProfileForWeapon(currentMeleeAttack.weaponKey);
+    let hit = false;
+    let hitCount = 0;
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+
+    const attackables = getAttackableObjectsForCurrentScene();
+    for (const obj of attackables) {
+      if (obj.type !== "enemy" || !obj.alive || !enemyInRealisticMeleeArc(obj, currentMeleeAttack)) continue;
+      hitCount += 1;
+      const targetCenterX = obj.x + obj.width / 2;
+      const targetCenterY = obj.y + obj.height / 2;
+      const distance = Math.hypot(targetCenterX - centerX, targetCenterY - centerY);
+      const sweetSpot = clamp(1 - Math.abs(distance - currentMeleeAttack.range * 0.68) / Math.max(1, currentMeleeAttack.range), 0.82, 1.18);
+      const multiTargetPenalty = hitCount > 1 && profile.visual !== "slash" ? 0.72 : 1;
+      const comboBonus = currentMeleeAttack.comboStep ? currentMeleeAttack.comboStep * 0.12 : 0;
+      const damage = Math.max(1, Math.round(getBasicAttackDamage(currentMeleeAttack.weaponKey) * sweetSpot * multiTargetPenalty * (1 + comboBonus)));
+      const knockback = profile.knockback * (obj.boss ? 0.42 : 1) * (profile.visual === "thrust" ? 1.18 : 1);
+      if (damageEnemy(obj, damage, centerX, centerY, knockback, profile.damageType)) {
+        hit = true;
+        obj.attackCooldown = Math.max(obj.attackCooldown || 0, profile.visual === "thrust" ? 0.35 : 0.22);
+      }
+    }
+
+    if (hit) {
+      realisticCombat.lastImpactTimer = 0.16;
+      hitstopTimer = Math.max(hitstopTimer || 0, 0.045);
+      playSound("hitEnemy");
+      vibrate(hitCount > 1 ? [12, 18, 12] : 22);
+    } else {
+      setRealisticCombatStatus("Errou", 0.45);
+      realisticCombat.comboWindow = 0;
+      realisticCombat.comboStep = 0;
+    }
+  };
+
+  function enemyInRealisticMeleeArc(enemyObj, attack) {
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const enemyX = enemyObj.x + enemyObj.width / 2;
+    const enemyY = enemyObj.y + enemyObj.height / 2;
+    const dx = enemyX - centerX;
+    const dy = enemyY - centerY;
+    const distance = Math.hypot(dx, dy);
+    const targetRadius = Math.max(enemyObj.width, enemyObj.height) * 0.46;
+    if (distance > attack.range + targetRadius) return false;
+
+    const angle = Math.atan2(dy, dx);
+    const diff = Math.abs(angleDifference(angle, attack.angle));
+    const closeGrace = distance < 26 ? Math.PI * 0.18 : 0;
+    return diff <= attack.arc / 2 + closeGrace;
+  }
+
+  const updateProjectilesBeforeRealisticCombat = updateProjectiles;
+  updateProjectiles = function updateProjectilesRealisticCombat(delta) {
+    updateProjectilesBeforeRealisticCombat(delta);
+    if (currentScene === "village") return;
+    const attackables = getAttackableObjectsForCurrentScene();
+    if (!Array.isArray(projectiles) || !attackables.length) return;
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const obj = projectiles[i];
+      const target = attackables.find((enemyObj) => enemyObj.type === "enemy" && enemyObj.alive && rectsOverlap(obj, enemyObj));
+      if (!target) continue;
+      const targetKey = getSaveObjectKey(target);
+      if (!obj.hitKeys) obj.hitKeys = new Set();
+      if (obj.hitKeys.has(targetKey)) continue;
+      damageEnemy(target, obj.damage || 1, obj.x, obj.y, obj.type === "arrow" ? 160 : 185, obj.damageType || "fisico");
+      obj.hitKeys.add(targetKey);
+      if (obj.pierce > 0) obj.pierce -= 1;
+      else projectiles.splice(i, 1);
+    }
+  };
+
+  const getPlayerSpeedBeforeRealisticCombat = getPlayerSpeed;
+  getPlayerSpeed = function getPlayerSpeedRealisticCombat() {
+    let speed = getPlayerSpeedBeforeRealisticCombat();
+    const weaponKey = getCurrentWeaponKey();
+    const profile = realisticProfileForWeapon(weaponKey);
+    if (attackWindupTimer > 0 || realisticCombat.pendingRanged) speed *= profile.movementPenalty;
+    else if (attackRecoveryTimer > 0 || attackTimer > 0) speed *= Math.min(0.86, profile.movementPenalty + 0.16);
+    if (realisticCombat.stamina <= 8) speed *= 0.88;
+    return speed;
+  };
+
+  function drawRealisticAttackArc(attack, profile, progress, activeProgress) {
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const preparing = attackWindupTimer > 0;
+    const impact = realisticCombat.lastImpactTimer > 0;
+    const visual = profile.visual;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(attack.angle);
+
+    if (visual === "thrust") {
+      const reach = 18 + attack.range * (preparing ? 0.42 : 0.72 + activeProgress * 0.28);
+      ctx.fillStyle = preparing ? "rgba(235, 245, 255, 0.18)" : "rgba(230, 235, 245, 0.32)";
+      ctx.fillRect(12, -4, reach, 8);
+      ctx.strokeStyle = impact ? "#fff4bc" : "#e9ffff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(10, 0);
+      ctx.lineTo(reach + 20, 0);
+      ctx.stroke();
+      ctx.fillStyle = "#c8d0d8";
+      ctx.beginPath();
+      ctx.moveTo(reach + 26, 0);
+      ctx.lineTo(reach + 12, -7);
+      ctx.lineTo(reach + 12, 7);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      const radius = attack.range * (preparing ? 0.62 : 0.9 + activeProgress * 0.1);
+      const start = -attack.arc / 2 + activeProgress * 0.25;
+      const end = attack.arc / 2 + activeProgress * 0.25;
+      const elementalColor = visual === "fire" ? "255, 108, 48" : visual === "ice" ? "128, 220, 255" : visual === "storm" ? "255, 235, 91" : visual === "shadow" ? "174, 95, 255" : "255, 242, 180";
+      ctx.fillStyle = preparing ? `rgba(${elementalColor}, 0.10)` : `rgba(${elementalColor}, 0.24)`;
+      ctx.strokeStyle = impact ? "#ffffff" : `rgba(${elementalColor}, 0.86)`;
+      ctx.lineWidth = preparing ? 2 : 4;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, radius, start, end);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(39, 48, 82, 0.48)";
+      ctx.beginPath();
+      ctx.arc(0, 0, radius + 2, start, end);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  drawAttack = function drawAttackRealisticCombat() {
+    if (attackTimer <= 0 && !realisticCombat.pendingRanged) return;
+
+    if (realisticCombat.pendingRanged) {
+      const pending = realisticCombat.pendingRanged;
+      const profile = pending.profile || realisticProfileForWeapon(pending.weaponKey);
+      const progress = 1 - clamp(pending.timer / Math.max(0.001, profile.windup), 0, 1);
+      const centerX = player.x + player.width / 2;
+      const centerY = player.y + player.height / 2;
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(pending.aim?.angle || getAimVector().angle);
+      if (profile.visual === "bow") {
+        ctx.strokeStyle = "rgba(217, 155, 103, 0.95)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(13, 0, 17, -1.25, 1.25);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(245, 243, 226, 0.85)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(18, -16);
+        ctx.lineTo(18 - progress * 14, 0);
+        ctx.lineTo(18, 16);
+        ctx.stroke();
+        ctx.fillStyle = "#e9ffff";
+        ctx.fillRect(3 - progress * 10, -2, 28, 4);
+      } else {
+        ctx.fillStyle = `rgba(85, 232, 255, ${0.16 + progress * 0.22})`;
+        ctx.beginPath();
+        ctx.arc(22, 0, 8 + progress * 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#e9ffff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(2, 0);
+        ctx.lineTo(34 + progress * 10, 0);
+        ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
+
+    if (!currentMeleeAttack) return;
+    const profile = currentMeleeAttack.profile || realisticProfileForWeapon(currentMeleeAttack.weaponKey);
+    const progress = 1 - clamp(currentMeleeAttack.timer / Math.max(0.001, currentMeleeAttack.maxTimer || attackTimer), 0, 1);
+    const activeStart = currentMeleeAttack.windup / Math.max(0.001, currentMeleeAttack.maxTimer);
+    const activeEnd = (currentMeleeAttack.windup + currentMeleeAttack.active) / Math.max(0.001, currentMeleeAttack.maxTimer);
+    const activeProgress = clamp((progress - activeStart) / Math.max(0.001, activeEnd - activeStart), 0, 1);
+    drawRealisticAttackArc(currentMeleeAttack, profile, progress, activeProgress);
+  };
+
+  const drawBeforeRealisticCombat = draw;
+  draw = function drawRealisticCombatHud() {
+    drawBeforeRealisticCombat();
+    drawCombatStaminaHud();
+  };
+
+  function drawCombatStaminaHud() {
+    if (!gameStarted || startScreen?.classList.contains("hidden") === false) return;
+    if (realisticCombat.stamina > 97 && attackTimer <= 0 && !realisticCombat.pendingRanged && realisticCombat.statusTimer <= 0) return;
+
+    const screenX = Math.round(player.x + player.width / 2 - camera.x);
+    const screenY = Math.round(player.y - camera.y - 14);
+    const width = isMobile ? 54 : 62;
+    const height = 6;
+    const x = screenX - width / 2;
+    const y = screenY;
+    const percent = clamp(realisticCombat.stamina / realisticCombat.maxStamina, 0, 1);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(21, 25, 44, 0.72)";
+    ctx.fillRect(x - 2, y - 2, width + 4, height + 4);
+    ctx.fillStyle = "rgba(58, 49, 44, 0.92)";
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = percent < 0.22 ? "#ff7a5f" : percent < 0.5 ? "#fff264" : "#77e67a";
+    ctx.fillRect(x, y, width * percent, height);
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.strokeRect(x - 0.5, y - 0.5, width + 1, height + 1);
+
+    if (realisticCombat.statusTimer > 0 && realisticCombat.statusText) {
+      ctx.font = isMobile ? "10px Arial" : "11px Arial";
+      ctx.textAlign = "center";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(21, 25, 44, 0.92)";
+      ctx.fillStyle = "#fff3d6";
+      ctx.strokeText(realisticCombat.statusText, screenX, y - 4);
+      ctx.fillText(realisticCombat.statusText, screenX, y - 4);
+    }
+    ctx.restore();
+  }
+
+  const updateHudBeforeRealisticCombat = updateHud;
+  updateHud = function updateHudRealisticCombat() {
+    updateHudBeforeRealisticCombat();
+    if (weaponHud && canUseRealisticCombatInScene()) {
+      const staminaText = realisticCombat.stamina < 28 ? " | Folego baixo" : "";
+      weaponHud.textContent = `${weaponHud.textContent}${staminaText}`;
+    }
+  };
+}
+
+// === Realistic 2D pixel sword visuals patch ===
+(function () {
+  function getSwordThemeForGame(weaponKey) {
+    const key = weaponKey || safeCurrentWeaponKeyForVisual();
+    const base = {
+      key,
+      guard: "#d2a95a",
+      guardShadow: "#7d5832",
+      grip: "#38548a",
+      gripShadow: "#1f2d4d",
+      pommel: "#d2a95a",
+      gem: "#63d4ff",
+      gemGlow: "rgba(99,212,255,0.35)",
+      bladeCore: "#f8fbff",
+      bladeMid: "#b9c8e8",
+      bladeEdge: "#5b78b3",
+      bladeShadow: "#26355b",
+      bladeAccent: "#ebf4ff",
+      slashMain: "rgba(255,252,210,0.92)",
+      slashGlow: "rgba(130,195,255,0.40)",
+      aura: "rgba(99,212,255,0.20)",
+      element: "classic",
+      serrated: false,
+      crystal: false,
+      dark: false,
+      lightning: false
+    };
+
+    if (key === "stormSword") {
+      return {
+        ...base,
+        guard: "#d6b05a",
+        guardShadow: "#715527",
+        grip: "#294f86",
+        gripShadow: "#162844",
+        gem: "#5fe8ff",
+        gemGlow: "rgba(95,232,255,0.45)",
+        bladeCore: "#ffe67b",
+        bladeMid: "#3c5ea2",
+        bladeEdge: "#92d9ff",
+        bladeShadow: "#17325f",
+        bladeAccent: "#f7fbff",
+        slashMain: "rgba(255,235,121,0.90)",
+        slashGlow: "rgba(95,232,255,0.42)",
+        aura: "rgba(95,232,255,0.22)",
+        element: "storm",
+        lightning: true
+      };
+    }
+    if (key === "fireSword") {
+      return {
+        ...base,
+        guard: "#4d2c24",
+        guardShadow: "#22120f",
+        grip: "#6c4330",
+        gripShadow: "#362116",
+        pommel: "#4d2c24",
+        gem: "#ff6b2f",
+        gemGlow: "rgba(255,107,47,0.45)",
+        bladeCore: "#ff7f32",
+        bladeMid: "#7c120d",
+        bladeEdge: "#ffcf54",
+        bladeShadow: "#2c0908",
+        bladeAccent: "#ffd56b",
+        slashMain: "rgba(255,142,68,0.92)",
+        slashGlow: "rgba(255,78,37,0.36)",
+        aura: "rgba(255,84,34,0.18)",
+        element: "fire",
+        serrated: true,
+        dark: true
+      };
+    }
+    if (key === "iceSword") {
+      return {
+        ...base,
+        guard: "#c5d9f3",
+        guardShadow: "#61779d",
+        grip: "#356fbf",
+        gripShadow: "#1e3b67",
+        pommel: "#c5d9f3",
+        gem: "#63d4ff",
+        gemGlow: "rgba(115,213,255,0.50)",
+        bladeCore: "#c7f7ff",
+        bladeMid: "#55bff1",
+        bladeEdge: "#dff8ff",
+        bladeShadow: "#225ca7",
+        bladeAccent: "#ffffff",
+        slashMain: "rgba(210,248,255,0.94)",
+        slashGlow: "rgba(115,213,255,0.40)",
+        aura: "rgba(115,213,255,0.22)",
+        element: "ice",
+        crystal: true
+      };
+    }
+    if (key === "shadowSword") {
+      return {
+        ...base,
+        guard: "#352245",
+        guardShadow: "#17101f",
+        grip: "#3c3051",
+        gripShadow: "#1d1628",
+        pommel: "#352245",
+        gem: "#b86bff",
+        gemGlow: "rgba(184,107,255,0.45)",
+        bladeCore: "#6b3bd3",
+        bladeMid: "#20152f",
+        bladeEdge: "#b98dff",
+        bladeShadow: "#09060d",
+        bladeAccent: "#d8beff",
+        slashMain: "rgba(198,136,255,0.92)",
+        slashGlow: "rgba(112,72,165,0.34)",
+        aura: "rgba(155,95,199,0.24)",
+        element: "shadow",
+        dark: true
+      };
+    }
+    return base;
+  }
+
+  function drawPixelDiamond(cx, cy, w, h, fill, outline) {
+    ctx.fillStyle = outline || "#273052";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - h / 2 - 1);
+    ctx.lineTo(cx + w / 2 + 1, cy);
+    ctx.lineTo(cx, cy + h / 2 + 1);
+    ctx.lineTo(cx - w / 2 - 1, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - h / 2);
+    ctx.lineTo(cx + w / 2, cy);
+    ctx.lineTo(cx, cy + h / 2);
+    ctx.lineTo(cx - w / 2, cy);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawRealisticSwordAura(theme, progress) {
+    const pulse = 0.8 + Math.sin(((performance.now ? performance.now() : Date.now()) / 120) % (Math.PI * 2)) * 0.2;
+    const alpha = (0.14 + Math.max(0, progress) * 0.18) * pulse;
+    ctx.fillStyle = theme.aura.replace(/0\.\d+\)/, `${Math.min(0.55, alpha).toFixed(2)})`);
+    if (theme.element === "shadow") {
+      ctx.fillRect(1, -12, 32, 24);
+      ctx.fillRect(6, -15, 22, 30);
+    } else if (theme.element === "fire") {
+      ctx.fillRect(5, -10, 26, 20);
+      ctx.fillRect(10, -13, 16, 26);
+    } else {
+      ctx.fillRect(4, -10, 28, 20);
+      ctx.fillRect(10, -13, 16, 26);
+    }
+
+    if (theme.lightning) {
+      ctx.strokeStyle = "rgba(95,232,255,0.65)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(10, -10); ctx.lineTo(14, -4); ctx.lineTo(11, 0); ctx.lineTo(17, 7);
+      ctx.moveTo(23, -9); ctx.lineTo(27, -2); ctx.lineTo(24, 3); ctx.lineTo(29, 10);
+      ctx.stroke();
+    } else if (theme.element === "fire") {
+      ctx.fillStyle = "rgba(255,214,107,0.55)";
+      ctx.fillRect(27, -11, 2, 2); ctx.fillRect(30, -6, 2, 2); ctx.fillRect(28, 7, 2, 2);
+    } else if (theme.element === "ice") {
+      ctx.fillStyle = "rgba(223,248,255,0.75)";
+      ctx.fillRect(27, -9, 2, 2); ctx.fillRect(29, 2, 2, 2); ctx.fillRect(8, -12, 2, 2);
+    } else if (theme.element === "shadow") {
+      ctx.fillStyle = "rgba(184,107,255,0.45)";
+      ctx.fillRect(29, -11, 2, 2); ctx.fillRect(30, 8, 2, 2); ctx.fillRect(6, -13, 2, 2);
+    }
+  }
+
+  function drawOrnateSwordBody(theme, progress) {
+    const thrust = progress > 0 ? Math.sin(Math.min(1, progress) * Math.PI) * 9 : 0;
+    ctx.translate(7 + thrust, 0);
+
+    drawRealisticSwordAura(theme, progress);
+
+    // Grip
+    ctx.fillStyle = theme.gripShadow;
+    ctx.fillRect(-10, -4, 12, 8);
+    ctx.fillStyle = theme.grip;
+    ctx.fillRect(-9, -3, 10, 6);
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    ctx.fillRect(-7, -2, 6, 1);
+    ctx.fillStyle = theme.guardShadow;
+    for (let i = -8; i <= -1; i += 3) ctx.fillRect(i, -3, 1, 6);
+
+    // Pommel
+    ctx.fillStyle = theme.guardShadow;
+    ctx.fillRect(-13, -3, 4, 6);
+    drawPixelDiamond(-14, 0, 6, 8, theme.gem, theme.guardShadow);
+
+    // Guard
+    ctx.fillStyle = theme.guardShadow;
+    ctx.fillRect(-1, -7, 8, 14);
+    ctx.fillRect(1, -9, 4, 18);
+    ctx.fillRect(3, -10, 2, 20);
+
+    ctx.fillStyle = theme.guard;
+    ctx.fillRect(0, -6, 6, 12);
+    ctx.fillRect(2, -8, 2, 16);
+    ctx.fillRect(-2, -3, 6, 2);
+    ctx.fillRect(-3, -4, 7, 2);
+    ctx.fillRect(-4, -5, 8, 1);
+    ctx.fillRect(-2, 1, 6, 2);
+    ctx.fillRect(-3, 3, 7, 1);
+
+    if (theme.element === "fire" || theme.element === "shadow") {
+      ctx.fillStyle = theme.guard;
+      ctx.fillRect(-4, -8, 3, 3); ctx.fillRect(-5, -9, 2, 2);
+      ctx.fillRect(-4, 5, 3, 3); ctx.fillRect(-5, 7, 2, 2);
+      ctx.fillRect(4, -8, 3, 3); ctx.fillRect(5, -9, 2, 2);
+      ctx.fillRect(4, 5, 3, 3); ctx.fillRect(5, 7, 2, 2);
+    } else {
+      ctx.fillStyle = theme.guard;
+      ctx.fillRect(-5, -6, 4, 2); ctx.fillRect(-6, -7, 2, 2);
+      ctx.fillRect(-5, 4, 4, 2); ctx.fillRect(-6, 5, 2, 2);
+      ctx.fillRect(4, -6, 4, 2); ctx.fillRect(7, -7, 2, 2);
+      ctx.fillRect(4, 4, 4, 2); ctx.fillRect(7, 5, 2, 2);
+    }
+
+    drawPixelDiamond(3, 0, 7, 8, theme.gem, theme.guardShadow);
+
+    // Blade outline and body
+    ctx.fillStyle = theme.bladeShadow;
+    ctx.beginPath();
+    ctx.moveTo(6, -7);
+    ctx.lineTo(14, -7);
+    ctx.lineTo(34, -2);
+    ctx.lineTo(39, 0);
+    ctx.lineTo(34, 2);
+    ctx.lineTo(14, 7);
+    ctx.lineTo(6, 7);
+    ctx.closePath();
+    ctx.fill();
+
+    if (theme.crystal) {
+      ctx.fillStyle = theme.bladeMid;
+      ctx.beginPath();
+      ctx.moveTo(8, -5);
+      ctx.lineTo(15, -5);
+      ctx.lineTo(33, -1);
+      ctx.lineTo(37, 0);
+      ctx.lineTo(33, 1);
+      ctx.lineTo(15, 5);
+      ctx.lineTo(8, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = theme.bladeAccent;
+      ctx.fillRect(14, -3, 18, 2);
+      ctx.fillRect(14, 1, 18, 1);
+      ctx.fillRect(20, -7, 3, 3); ctx.fillRect(26, -8, 3, 3);
+      ctx.fillRect(20, 4, 3, 3); ctx.fillRect(26, 5, 3, 3);
+    } else {
+      ctx.fillStyle = theme.bladeMid;
+      ctx.beginPath();
+      ctx.moveTo(8, -5);
+      ctx.lineTo(14, -5);
+      ctx.lineTo(33, -1);
+      ctx.lineTo(37, 0);
+      ctx.lineTo(33, 1);
+      ctx.lineTo(14, 5);
+      ctx.lineTo(8, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = theme.bladeCore;
+      ctx.fillRect(16, -2, 15, 4);
+      ctx.fillStyle = theme.bladeAccent;
+      ctx.fillRect(16, -4, 14, 1);
+    }
+
+    ctx.fillStyle = theme.bladeEdge;
+    ctx.fillRect(9, -5, 2, 10);
+    ctx.fillRect(32, -2, 4, 4);
+    if (theme.serrated) {
+      ctx.fillRect(19, -6, 3, 1); ctx.fillRect(24, -7, 3, 1); ctx.fillRect(19, 5, 3, 1); ctx.fillRect(24, 6, 3, 1);
+    }
+    if (theme.element === "shadow") {
+      ctx.fillStyle = theme.bladeAccent;
+      for (let i = 13; i < 30; i += 4) { ctx.fillRect(i, -1, 2, 1); ctx.fillRect(i + 1, 1, 1, 1); }
+    }
+    if (theme.lightning) {
+      ctx.fillStyle = theme.bladeCore;
+      ctx.fillRect(18, -1, 3, 1); ctx.fillRect(21, 0, 2, 1); ctx.fillRect(23, -1, 3, 1); ctx.fillRect(26, 0, 2, 1);
+    }
+  }
+
+  drawSwordInHand = function drawSwordInHandRealistic(progress, weaponKey) {
+    const theme = getSwordThemeForGame(weaponKey || safeCurrentWeaponKeyForVisual());
+    drawOrnateSwordBody(theme, progress || 0);
+  };
+
+  drawEquippedWeapon = function drawEquippedWeaponRealistic() {
+    try {
+      if (!player || gameOver) return;
+      const weaponKey = safeCurrentWeaponKeyForVisual();
+      const aim = safeAimForWeaponVisual();
+      const progress = getWeaponVisualProgress();
+      const angle = getWeaponVisualAngle(aim, weaponKey);
+      const centerX = player.x + player.width / 2;
+      const centerY = player.y + player.height / 2;
+      const handDistance = weaponKey === "bow" ? 7 : 8;
+      const handX = centerX + Math.cos(angle) * handDistance;
+      const handY = centerY + Math.sin(angle) * (weaponKey === "spear" ? 6 : 7) + 3;
+
+      ctx.save();
+      ctx.translate(handX, handY);
+      ctx.rotate(angle);
+      if (Math.cos(angle) < -0.05) ctx.scale(1, -1);
+
+      if (weaponKey === "spear") drawSpearInHand(progress);
+      else if (weaponKey === "bow") drawBowInHand(progress || (weaponVisualState.weaponKey === "bow" ? getWeaponVisualProgress() : 0));
+      else if (weaponKey === "staff") drawStaffInHand(progress || (weaponVisualState.weaponKey === "staff" ? getWeaponVisualProgress() : 0));
+      else drawSwordInHand(progress, weaponKey);
+
+      ctx.restore();
+    } catch (error) {
+      drawWeaponPatchError("Erro arma: " + (error?.message || error));
+    }
+  };
+
+  drawSwordSwingEffect = function drawSwordSwingEffectRealistic(attack, progress) {
+    const theme = getSwordThemeForGame(attack?.weaponKey || safeCurrentWeaponKeyForVisual());
+    const range = attack?.range || 48;
+    const arc = attack?.arc || Math.PI * 0.72;
+    const sweep = -arc / 2 + arc * progress;
+
+    ctx.strokeStyle = theme.slashGlow;
+    ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.arc(0, 0, range - 4, sweep - 0.18, sweep + 0.18);
+    ctx.stroke();
+
+    ctx.strokeStyle = theme.slashMain;
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(0, 0, range, sweep - 0.30, sweep + 0.30);
+    ctx.stroke();
+
+    const tipX = Math.cos(sweep) * range;
+    const tipY = Math.sin(sweep) * range;
+    if (theme.element === "storm") {
+      ctx.strokeStyle = "rgba(95,232,255,0.8)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(tipX - 3, tipY - 9); ctx.lineTo(tipX + 1, tipY - 2); ctx.lineTo(tipX - 2, tipY + 2); ctx.lineTo(tipX + 5, tipY + 10);
+      ctx.stroke();
+    } else if (theme.element === "fire") {
+      ctx.fillStyle = "rgba(255,214,107,0.7)";
+      ctx.fillRect(tipX - 2, tipY - 6, 2, 2); ctx.fillRect(tipX + 2, tipY - 1, 2, 2); ctx.fillRect(tipX - 1, tipY + 4, 2, 2);
+    } else if (theme.element === "ice") {
+      ctx.fillStyle = "rgba(223,248,255,0.8)";
+      ctx.fillRect(tipX - 5, tipY - 1, 4, 1); ctx.fillRect(tipX + 1, tipY - 4, 1, 4); ctx.fillRect(tipX + 3, tipY + 2, 3, 1);
+    } else if (theme.element === "shadow") {
+      ctx.fillStyle = "rgba(184,107,255,0.55)";
+      ctx.fillRect(tipX - 4, tipY - 4, 8, 8);
+    }
+  };
+})();
+
+// === Realistic 2D pixel visuals for spear, bow, and staff ===
+(function () {
+  function weaponGlowSpark(color, x, y) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, 2, 2);
+    ctx.fillRect(x + 2, y + 1, 1, 1);
+  }
+
+  drawSpearInHand = function drawSpearInHandRealistic(progress) {
+    const thrust = progress > 0 ? Math.sin(Math.min(1, progress) * Math.PI) * 17 : 0;
+    const shimmer = 0.2 + Math.max(0, progress) * 0.35;
+    ctx.translate(7 + thrust, 0);
+
+    // Soft thrust aura
+    ctx.fillStyle = `rgba(205,240,255,${shimmer * 0.35})`;
+    ctx.fillRect(2, -8, 42, 16);
+
+    // Counterweight / butt cap
+    ctx.fillStyle = "#2a324f";
+    ctx.fillRect(-16, -3, 6, 6);
+    ctx.fillStyle = "#c3ccd8";
+    ctx.fillRect(-15, -2, 4, 4);
+
+    // Shaft outline and wood
+    ctx.fillStyle = "#25304d";
+    ctx.fillRect(-10, -3, 47, 6);
+    ctx.fillStyle = "#8f5c36";
+    ctx.fillRect(-9, -2, 45, 4);
+    ctx.fillStyle = "#b47949";
+    ctx.fillRect(-6, -1, 34, 1);
+
+    // Grip wrapping
+    ctx.fillStyle = "#563726";
+    for (let i = -2; i < 12; i += 4) {
+      ctx.fillRect(i, -2, 1, 4);
+    }
+
+    // Gold ring / center band
+    ctx.fillStyle = "#d1af65";
+    ctx.fillRect(13, -4, 3, 8);
+    ctx.fillStyle = "#70552a";
+    ctx.fillRect(14, -3, 1, 6);
+
+    // Small cloth pennant near the head
+    ctx.fillStyle = "#9cc7ff";
+    ctx.fillRect(26, -7, 4, 5);
+    ctx.fillRect(28, -2, 3, 3);
+    ctx.fillStyle = "#4568a8";
+    ctx.fillRect(27, -6, 1, 6);
+
+    // Head outline
+    ctx.fillStyle = "#25304d";
+    ctx.beginPath();
+    ctx.moveTo(31, -10);
+    ctx.lineTo(46, 0);
+    ctx.lineTo(31, 10);
+    ctx.lineTo(27, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Main metal head
+    ctx.fillStyle = "#dbe6f4";
+    ctx.beginPath();
+    ctx.moveTo(32, -8);
+    ctx.lineTo(44, 0);
+    ctx.lineTo(32, 8);
+    ctx.lineTo(29, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#f8fcff";
+    ctx.fillRect(33, -2, 9, 2);
+    ctx.fillStyle = "#98b1d6";
+    ctx.fillRect(33, 1, 8, 2);
+    ctx.fillStyle = "#6b83aa";
+    ctx.fillRect(36, -5, 1, 10);
+
+    // Side wings for an ornate look
+    ctx.fillStyle = "#aabdd6";
+    ctx.fillRect(27, -5, 4, 2);
+    ctx.fillRect(27, 3, 4, 2);
+
+    if (progress > 0.02) {
+      // Impact trail
+      ctx.fillStyle = `rgba(235,250,255,${0.42 + shimmer * 0.4})`;
+      ctx.fillRect(40, -3, 16, 6);
+      ctx.fillStyle = "rgba(125,211,252,0.5)";
+      ctx.fillRect(48, -1, 10, 2);
+    }
+  };
+
+  drawBowInHand = function drawBowInHandRealistic(progress) {
+    const t = Math.max(0, Math.min(1, progress || 0));
+    const tension = Math.sin(t * Math.PI) * 7;
+    ctx.translate(6, 0);
+
+    // Bow glow/backing
+    ctx.fillStyle = `rgba(255,228,171,${0.10 + t * 0.15})`;
+    ctx.fillRect(-18, -18, 28, 36);
+
+    // Outer frame outline
+    ctx.strokeStyle = "#25304d";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(-1, 0, 17, -1.18, 1.18);
+    ctx.stroke();
+
+    // Wooden body
+    ctx.strokeStyle = "#8e5a37";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(-1, 0, 17, -1.12, 1.12);
+    ctx.stroke();
+
+    // Inner gilded trim
+    ctx.strokeStyle = "#d0b06a";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(-1, 0, 15, -1.03, 1.03);
+    ctx.stroke();
+
+    // Tips / reinforced horns
+    ctx.fillStyle = "#25304d";
+    ctx.fillRect(2, -15, 4, 3);
+    ctx.fillRect(2, 12, 4, 3);
+    ctx.fillStyle = "#d0b06a";
+    ctx.fillRect(3, -14, 2, 2);
+    ctx.fillRect(3, 12, 2, 2);
+
+    // Grip block
+    ctx.fillStyle = "#25304d";
+    ctx.fillRect(-6, -4, 8, 8);
+    ctx.fillStyle = "#6f452e";
+    ctx.fillRect(-5, -3, 6, 6);
+    ctx.fillStyle = "#c9c3a8";
+    ctx.fillRect(-4, -1, 4, 2);
+
+    // Bow string
+    ctx.strokeStyle = "#f6ecd1";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(4, -13);
+    ctx.lineTo(-5 - tension, 0);
+    ctx.lineTo(4, 13);
+    ctx.stroke();
+
+    // Arrow always visible while bow equipped, more pulled during attack
+    const arrowBack = -5 - tension;
+    ctx.fillStyle = "#25304d";
+    ctx.fillRect(arrowBack, -2, 28 + tension, 4);
+    ctx.fillStyle = "#c99157";
+    ctx.fillRect(arrowBack + 1, -1, 23 + tension, 2);
+    ctx.fillStyle = "#eef8ff";
+    ctx.beginPath();
+    ctx.moveTo(19 + tension, -5);
+    ctx.lineTo(29 + tension, 0);
+    ctx.lineTo(19 + tension, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#9cd4ff";
+    ctx.fillRect(21 + tension, -1, 5, 1);
+
+    // Fletching
+    ctx.fillStyle = "#b8d8ff";
+    ctx.fillRect(arrowBack - 2, -3, 3, 2);
+    ctx.fillRect(arrowBack - 2, 1, 3, 2);
+    ctx.fillStyle = "#5d84b8";
+    ctx.fillRect(arrowBack - 1, -2, 1, 4);
+
+    if (t > 0.02) {
+      ctx.fillStyle = `rgba(245,233,190,${0.35 + t * 0.25})`;
+      ctx.fillRect(24 + tension, -3, 12, 6);
+      ctx.fillStyle = "rgba(180,220,255,0.45)";
+      ctx.fillRect(33 + tension, -1, 10, 2);
+    }
+  };
+
+  drawStaffInHand = function drawStaffInHandRealistic(progress) {
+    const t = Math.max(0, Math.min(1, progress || 0));
+    const glow = 0.25 + Math.sin(t * Math.PI) * 0.35;
+    ctx.translate(7, 0);
+
+    // Aura behind head crystal
+    ctx.fillStyle = `rgba(125,215,255,${glow * 0.35})`;
+    ctx.fillRect(13, -15, 26, 30);
+
+    // Shaft outline and wood
+    ctx.fillStyle = "#24304a";
+    ctx.fillRect(-11, -3, 34, 6);
+    ctx.fillStyle = "#7a4e37";
+    ctx.fillRect(-10, -2, 31, 4);
+    ctx.fillStyle = "#9b6b4c";
+    ctx.fillRect(-7, -1, 21, 1);
+
+    // Decorative wraps
+    ctx.fillStyle = "#ccb06a";
+    ctx.fillRect(-1, -4, 2, 8);
+    ctx.fillRect(8, -4, 2, 8);
+    ctx.fillRect(16, -4, 2, 8);
+
+    // Forked head / ornament
+    ctx.fillStyle = "#24304a";
+    ctx.fillRect(18, -12, 6, 24);
+    ctx.fillRect(21, -15, 5, 5);
+    ctx.fillRect(21, 10, 5, 5);
+    ctx.fillRect(24, -9, 4, 3);
+    ctx.fillRect(24, 6, 4, 3);
+
+    ctx.fillStyle = "#ccb06a";
+    ctx.fillRect(19, -11, 4, 22);
+    ctx.fillRect(22, -14, 3, 4);
+    ctx.fillRect(22, 10, 3, 4);
+    ctx.fillRect(24, -8, 3, 2);
+    ctx.fillRect(24, 6, 3, 2);
+
+    // Main crystal
+    ctx.fillStyle = "rgba(109,225,255,0.25)";
+    ctx.fillRect(24, -12, 17, 24);
+    ctx.fillStyle = "#24304a";
+    ctx.beginPath();
+    ctx.moveTo(29, -10);
+    ctx.lineTo(37, 0);
+    ctx.lineTo(29, 10);
+    ctx.lineTo(24, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#65e7ff";
+    ctx.beginPath();
+    ctx.moveTo(30, -8);
+    ctx.lineTo(36, 0);
+    ctx.lineTo(30, 8);
+    ctx.lineTo(26, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#f6fdff";
+    ctx.fillRect(30, -4, 2, 6);
+    ctx.fillRect(28, -1, 5, 1);
+
+    // Side shards
+    ctx.fillStyle = "#b6f4ff";
+    ctx.beginPath();
+    ctx.moveTo(25, -4); ctx.lineTo(21, -8); ctx.lineTo(23, -1); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(25, 4); ctx.lineTo(21, 8); ctx.lineTo(23, 1); ctx.closePath(); ctx.fill();
+
+    // Small orbit runes
+    weaponGlowSpark("rgba(109,225,255,0.70)", 38, -8);
+    weaponGlowSpark("rgba(183,132,255,0.55)", 40, 5);
+
+    if (t > 0.02) {
+      ctx.fillStyle = `rgba(183,132,255,${0.28 + t * 0.35})`;
+      ctx.fillRect(35, -5, 16, 10);
+      ctx.fillStyle = `rgba(109,225,255,${0.40 + t * 0.30})`;
+      ctx.fillRect(42, -2, 12, 4);
+      weaponGlowSpark("rgba(240,250,255,0.8)", 45, -7);
+      weaponGlowSpark("rgba(240,250,255,0.8)", 47, 6);
+    }
+  };
+})();
+
+// === Usable custom item system patch ===
+(function () {
+  function normalizeItemNameForUse(name) {
+    return String(name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  function ensureUsableItemState() {
+    if (!inventory.customItems || typeof inventory.customItems !== "object" || Array.isArray(inventory.customItems)) inventory.customItems = {};
+    if (!inventory.equippedCustomItems || typeof inventory.equippedCustomItems !== "object" || Array.isArray(inventory.equippedCustomItems)) {
+      inventory.equippedCustomItems = { armor: "", accessory: "", boots: "", charm: "" };
+    }
+    if (!inventory.customItemsUsed || typeof inventory.customItemsUsed !== "object" || Array.isArray(inventory.customItemsUsed)) inventory.customItemsUsed = {};
+    if (!Array.isArray(inventory.celestialRelics)) inventory.celestialRelics = [];
+    if (!Array.isArray(inventory.celestialResources)) inventory.celestialResources = [];
+    if (!Array.isArray(inventory.biomeRelics)) inventory.biomeRelics = [];
+    if (!Array.isArray(inventory.itensBoss)) inventory.itensBoss = [];
+  }
+
+  function addGameItem(name, amount = 1) {
+    ensureUsableItemState();
+    if (!name) return false;
+    const safeAmount = Math.max(1, Number(amount || 1));
+    inventory.customItems[name] = Number(inventory.customItems[name] || 0) + safeAmount;
+    renderInventory?.();
+    updateHud?.();
+    return true;
+  }
+  window.addGameItem = addGameItem;
+
+  const CUSTOM_ITEM_DEFS = {
+    // Deserto
+    "espada solar": { icon: "S", typeLabel: "Arma", category: "armas", rarity: "lendario", actionLabel: "Equipar espada", actionType: "weapon", weaponKey: "solarSword", description: "Espada de luz quente encontrada no deserto.", effect: "Desbloqueia e equipa uma espada solar de combate corpo a corpo." },
+    "cajado de areia": { icon: "W", typeLabel: "Arma", category: "armas", rarity: "epico", actionLabel: "Equipar cajado", actionType: "weapon", weaponKey: "sandStaff", description: "Cajado antigo capaz de disparar energia de areia.", effect: "Desbloqueia e equipa um cajado que dispara magia de areia." },
+    "botas do deserto": { icon: "B", typeLabel: "Botas", category: "raros", rarity: "epico", actionLabel: "Equipar botas", actionType: "gear", slot: "boots", description: "Botas feitas para cruzar dunas e areia movediça.", effect: "Aumenta velocidade e ajuda no deserto." },
+    "amuleto anti calor": { icon: "O", typeLabel: "Amuleto", category: "raros", rarity: "epico", actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm", description: "Amuleto frio ao toque mesmo sob sol forte.", effect: "Reduz efeitos de calor e aumenta defesa levemente." },
+    "coroa solar": { icon: "★", typeLabel: "Trofeu", category: "raros", rarity: "lendario", actionLabel: "Ativar aura", actionType: "buff", buff: "force", duration: 25, description: "Trofeu do Farao de Areia.", effect: "Ativa um bônus temporário de força." },
+
+    // Gelo
+    "arco congelante": { icon: "A", typeLabel: "Arma", category: "armas", rarity: "epico", actionLabel: "Equipar arco", actionType: "weapon", weaponKey: "frostBow", description: "Arco que congela a ponta das flechas.", effect: "Desbloqueia e equipa um arco com dano de gelo." },
+    "espada de gelo": { icon: "S", typeLabel: "Arma", category: "armas", rarity: "epico", actionLabel: "Equipar espada", actionType: "weapon", weaponKey: "frostSword", description: "Lâmina fria feita de gelo mágico.", effect: "Desbloqueia e equipa uma espada de gelo." },
+    "armadura polar": { icon: "D", typeLabel: "Armadura", category: "raros", rarity: "lendario", actionLabel: "Equipar armadura", actionType: "gear", slot: "armor", description: "Armadura resistente ao frio extremo.", effect: "Aumenta defesa e resistência no gelo." },
+    "pocao anti frio": { icon: "P", typeLabel: "Consumivel", category: "consumiveis", rarity: "raro", actionLabel: "Usar poção", actionType: "consumable", buff: "antiCold", duration: 70, consume: true, description: "Poção azul que aquece por dentro.", effect: "Ativa resistência ao frio por tempo limitado." },
+    "botas antiderrapantes": { icon: "B", typeLabel: "Botas", category: "raros", rarity: "epico", actionLabel: "Equipar botas", actionType: "gear", slot: "boots", description: "Botas que agarram no gelo.", effect: "Melhora controle em pisos escorregadios." },
+    "pelagem ancestral": { icon: "★", typeLabel: "Trofeu", category: "raros", rarity: "lendario", actionLabel: "Ativar proteção", actionType: "buff", buff: "shield", duration: 25, description: "Trofeu do Yeti Ancestral.", effect: "Ativa um escudo temporário." },
+
+    // Pântano
+    "cajado venenoso": { icon: "W", typeLabel: "Arma", category: "armas", rarity: "epico", actionLabel: "Equipar cajado", actionType: "weapon", weaponKey: "poisonStaff", description: "Cajado verde que canaliza veneno.", effect: "Desbloqueia e equipa um cajado venenoso." },
+    "pocao antidoto": { icon: "P", typeLabel: "Consumivel", category: "consumiveis", rarity: "raro", actionLabel: "Usar antídoto", actionType: "consumable", buff: "antiPoison", duration: 70, consume: true, description: "Poção que limpa veneno do corpo.", effect: "Ativa resistência contra veneno por tempo limitado." },
+    "armadura de musgo": { icon: "D", typeLabel: "Armadura", category: "raros", rarity: "epico", actionLabel: "Equipar armadura", actionType: "gear", slot: "armor", description: "Armadura coberta por musgo vivo.", effect: "Aumenta defesa e ajuda contra veneno." },
+    "anel contra veneno": { icon: "O", typeLabel: "Anel", category: "raros", rarity: "epico", actionLabel: "Equipar anel", actionType: "gear", slot: "accessory", description: "Anel que filtra toxinas do pântano.", effect: "Protege contra lama e água venenosa." },
+    "lanca do brejo": { icon: "L", typeLabel: "Arma", category: "armas", rarity: "epico", actionLabel: "Equipar lança", actionType: "weapon", weaponKey: "marshSpear", description: "Lança pesada usada por guerreiros do brejo.", effect: "Desbloqueia e equipa uma lança venenosa." },
+    "lagrima do brejo": { icon: "★", typeLabel: "Trofeu", category: "raros", rarity: "lendario", actionLabel: "Ativar regeneração", actionType: "buff", buff: "regen", duration: 24, description: "Trofeu da Bruxa do Pântano.", effect: "Ativa regeneração temporária." },
+
+    // Celestial: armas e equipamentos
+    "espada celestial": { icon: "S", typeLabel: "Arma", category: "armas", rarity: "lendario", actionLabel: "Equipar espada", actionType: "weapon", weaponKey: "celestialSword", description: "Espada luminosa de um guardião celestial.", effect: "Desbloqueia e equipa uma espada celestial." },
+    "cajado sagrado": { icon: "W", typeLabel: "Arma", category: "armas", rarity: "lendario", actionLabel: "Equipar cajado", actionType: "weapon", weaponKey: "holyStaff", description: "Cajado sagrado purificado pela aurora.", effect: "Desbloqueia e equipa um cajado sagrado." },
+    "cajado da aurora": { icon: "W", typeLabel: "Arma", category: "armas", rarity: "lendario", actionLabel: "Equipar cajado", actionType: "weapon", weaponKey: "auroraStaff", description: "Cajado que carrega a primeira luz do dia.", effect: "Desbloqueia e equipa um cajado da aurora." },
+    "arco estelar": { icon: "A", typeLabel: "Arma", category: "armas", rarity: "lendario", actionLabel: "Equipar arco", actionType: "weapon", weaponKey: "starBow", description: "Arco que dispara flechas com brilho de constelação.", effect: "Desbloqueia e equipa um arco estelar." },
+    "armadura da aurora": { icon: "D", typeLabel: "Armadura", category: "raros", rarity: "lendario", actionLabel: "Equipar armadura", actionType: "gear", slot: "armor", description: "Armadura dourada e azul iluminada pela aurora.", effect: "Aumenta bastante defesa e mana." },
+    "botas das nuvens": { icon: "B", typeLabel: "Botas", category: "raros", rarity: "lendario", actionLabel: "Equipar botas", actionType: "gear", slot: "boots", description: "Botas leves como nuvens sólidas.", effect: "Aumenta velocidade e ajuda em regiões celestiais." },
+    "anel de mana celestial": { icon: "O", typeLabel: "Anel", category: "raros", rarity: "lendario", actionLabel: "Equipar anel", actionType: "gear", slot: "accessory", description: "Anel que expande a energia mágica.", effect: "Aumenta mana máxima." },
+    "amuleto de luz": { icon: "O", typeLabel: "Amuleto", category: "raros", rarity: "lendario", actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm", description: "Amuleto de luz usado contra energia sombria.", effect: "Aumenta proteção e ativa escudo ao equipar." },
+    "pingente da aurora": { icon: "O", typeLabel: "Pingente", category: "raros", rarity: "lendario", actionLabel: "Equipar pingente", actionType: "gear", slot: "accessory", description: "Pingente obtido no puzzle das estrelas.", effect: "Aumenta mana e velocidade." },
+    "asas pequenas": { icon: "B", typeLabel: "Acessorio", category: "raros", rarity: "lendario", actionLabel: "Equipar asas", actionType: "gear", slot: "boots", description: "Asas pequenas dadas pelo Anjo Perdido.", effect: "Aumenta velocidade e ativa Dash Celestial." },
+    "fragmento da aurora": { icon: "★", typeLabel: "Material", category: "materiais", rarity: "lendario", actionLabel: "Ativar força", actionType: "buff", buff: "force", duration: 30, description: "Fragmento quente da primeira luz.", effect: "Ativa força temporária." },
+    "cristal supremo celestial": { icon: "★", typeLabel: "Reliquia", category: "raros", rarity: "lendario", actionLabel: "Ativar bênção", actionType: "buff", buff: "regen", duration: 35, description: "Cristal maior da dimensão celestial.", effect: "Ativa regeneração e escudo." },
+
+    // Celestial: consumíveis e recursos
+    "pocao de luz": { icon: "P", typeLabel: "Consumivel", category: "consumiveis", rarity: "raro", actionLabel: "Usar poção", actionType: "consumable", heal: 2, consume: true, description: "Poção brilhante de cura celestial.", effect: "Recupera vida." },
+    "pocao de mana celestial": { icon: "P", typeLabel: "Consumivel", category: "consumiveis", rarity: "raro", actionLabel: "Usar mana", actionType: "consumable", mana: 999, consume: true, description: "Poção azul-prateada cheia de energia.", effect: "Recupera mana." },
+    "bencao de protecao": { icon: "O", typeLabel: "Benção", category: "consumiveis", rarity: "epico", actionLabel: "Ativar bênção", actionType: "consumable", buff: "shield", duration: 35, consume: true, description: "Benção que cria uma barreira de luz.", effect: "Ativa escudo por tempo limitado." },
+    "antidoto contra maldicao": { icon: "P", typeLabel: "Consumivel", category: "consumiveis", rarity: "epico", actionLabel: "Usar antídoto", actionType: "consumable", buff: "antiCurse", duration: 60, consume: true, description: "Antídoto usado contra maldição sombria.", effect: "Ativa proteção contra maldição." },
+    "pena dourada": { icon: "C", typeLabel: "Recurso", category: "materiais", rarity: "raro", actionLabel: "Ativar leveza", actionType: "buff", buff: "speed", duration: 18, description: "Pena leve que carrega vento celestial.", effect: "Ativa velocidade temporária." },
+    "fragmento de estrela": { icon: "C", typeLabel: "Recurso", category: "materiais", rarity: "raro", actionLabel: "Ativar estrela", actionType: "buff", buff: "force", duration: 18, description: "Fragmento brilhante caído do céu.", effect: "Ativa força temporária." },
+    "cristal azul celestial": { icon: "C", typeLabel: "Recurso", category: "materiais", rarity: "epico", actionLabel: "Recarregar mana", actionType: "consumable", mana: 999, consume: false, description: "Cristal azul cheio de mana celestial.", effect: "Recarrega mana." },
+    "flor da aurora": { icon: "C", typeLabel: "Recurso", category: "materiais", rarity: "raro", actionLabel: "Usar flor", actionType: "consumable", heal: 1, consume: false, description: "Flor que nasce no Jardim das Nuvens.", effect: "Recupera um pouco de vida." },
+    "essencia de luz": { icon: "C", typeLabel: "Recurso", category: "materiais", rarity: "raro", actionLabel: "Ativar luz", actionType: "buff", buff: "shield", duration: 16, description: "Essência pura de luz.", effect: "Ativa escudo curto." },
+    "pedra de marmore sagrado": { icon: "C", typeLabel: "Recurso", category: "materiais", rarity: "raro", actionLabel: "Endurecer pele", actionType: "buff", buff: "shield", duration: 20, description: "Pedra usada em templos celestiais.", effect: "Ativa proteção temporária." },
+    "po de nuvem": { icon: "C", typeLabel: "Recurso", category: "materiais", rarity: "raro", actionLabel: "Usar pó", actionType: "buff", buff: "speed", duration: 18, description: "Pó branco coletado nas ilhas flutuantes.", effect: "Ativa velocidade temporária." },
+    "lagrima de anjo": { icon: "C", typeLabel: "Recurso", category: "materiais", rarity: "epico", actionLabel: "Usar lágrima", actionType: "consumable", heal: 2, mana: 2, consume: false, description: "Lágrima sagrada com poder de cura.", effect: "Recupera vida e mana." },
+    "pergaminho da biblioteca": { icon: "L", typeLabel: "Conhecimento", category: "raros", rarity: "epico", actionLabel: "Ler pergaminho", actionType: "buff", buff: "regen", duration: 18, description: "Pergaminho que ensina símbolos antigos.", effect: "Ativa regeneração curta." }
+  };
+
+  function getCustomItemDef(name) {
+    return CUSTOM_ITEM_DEFS[normalizeItemNameForUse(name)] || null;
+  }
+  window.getCustomItemDef = getCustomItemDef;
+
+  function registerUsableCustomWeapons() {
+    const customWeapons = {
+      solarSword: { name: "Espada Solar", damage: 7, range: 66, cooldown: 0.36, arc: Math.PI * 0.82, kind: "melee", damageType: "solar", customWeapon: true },
+      sandStaff: { name: "Cajado de Areia", damage: 5, range: 385, cooldown: 0.50, projectile: "sandBolt", projectileSpeed: 315, kind: "projectile", damageType: "areia", customWeapon: true },
+      frostBow: { name: "Arco Congelante", damage: 4, range: 440, cooldown: 0.44, projectile: "arrow", projectileSpeed: 430, kind: "projectile", damageType: "gelo", customWeapon: true },
+      frostSword: { name: "Espada de Gelo", damage: 6, range: 64, cooldown: 0.37, arc: Math.PI * 0.82, kind: "melee", damageType: "gelo", customWeapon: true },
+      poisonStaff: { name: "Cajado Venenoso", damage: 5, range: 385, cooldown: 0.50, projectile: "poison", projectileSpeed: 315, kind: "projectile", damageType: "veneno", customWeapon: true },
+      marshSpear: { name: "Lança do Brejo", damage: 6, range: 84, cooldown: 0.48, arc: Math.PI * 0.24, kind: "line", damageType: "veneno", customWeapon: true },
+      celestialSword: { name: "Espada Celestial", damage: 8, range: 70, cooldown: 0.34, arc: Math.PI * 0.86, kind: "melee", damageType: "luz", customWeapon: true },
+      holyStaff: { name: "Cajado Sagrado", damage: 7, range: 420, cooldown: 0.48, projectile: "sunRay", projectileSpeed: 350, kind: "projectile", damageType: "luz", customWeapon: true },
+      auroraStaff: { name: "Cajado da Aurora", damage: 6, range: 410, cooldown: 0.46, projectile: "blueMagic", projectileSpeed: 360, kind: "projectile", damageType: "aurora", customWeapon: true },
+      starBow: { name: "Arco Estelar", damage: 5, range: 470, cooldown: 0.42, projectile: "arrow", projectileSpeed: 455, kind: "projectile", damageType: "estrela", customWeapon: true },
+      lightDagger: { name: "Adaga de Luz", damage: 5, range: 46, cooldown: 0.24, arc: Math.PI * 0.70, kind: "melee", damageType: "luz", customWeapon: true },
+      sacredHammer: { name: "Martelo Sagrado", damage: 9, range: 58, cooldown: 0.58, arc: Math.PI * 0.92, kind: "melee", damageType: "sagrado", customWeapon: true }
+    };
+    for (const [key, weapon] of Object.entries(customWeapons)) {
+      if (!weapons[key]) weapons[key] = weapon;
+    }
+  }
+  registerUsableCustomWeapons();
+
+  function itemCountInCustomSources(name) {
+    ensureUsableItemState();
+    let count = 0;
+    count += Number(inventory.customItems[name] || 0);
+    for (const list of [inventory.biomeRelics, inventory.celestialRelics, inventory.celestialResources, inventory.itensBoss]) {
+      if (Array.isArray(list)) count += list.filter((entry) => entry === name).length;
+    }
+    return count;
+  }
+
+  function consumeCustomItemIfPossible(name) {
+    ensureUsableItemState();
+    if (Number(inventory.customItems[name] || 0) > 0) {
+      inventory.customItems[name] -= 1;
+      if (inventory.customItems[name] <= 0) delete inventory.customItems[name];
+      return true;
+    }
+    for (const list of [inventory.celestialResources, inventory.celestialRelics, inventory.biomeRelics, inventory.itensBoss]) {
+      const index = Array.isArray(list) ? list.indexOf(name) : -1;
+      if (index >= 0) {
+        list.splice(index, 1);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function applyCustomGearStats() {
+    ensureUsableItemState();
+    if (!Number.isFinite(player.customBaseDefense)) player.customBaseDefense = Number(player.defense || 0);
+    if (!Number.isFinite(player.customBaseMaxMana)) player.customBaseMaxMana = Number(player.maxMana || 0);
+    if (!Number.isFinite(player.customBaseMaxHealth)) player.customBaseMaxHealth = Number(player.maxHealth || 0);
+
+    const gear = inventory.equippedCustomItems || {};
+    let defenseBonus = 0;
+    let maxManaBonus = 0;
+    let maxHealthBonus = 0;
+
+    const equippedNames = Object.values(gear).filter(Boolean).map(normalizeItemNameForUse);
+    if (equippedNames.includes("armadura polar")) defenseBonus += 2;
+    if (equippedNames.includes("armadura de musgo")) defenseBonus += 1;
+    if (equippedNames.includes("armadura da aurora")) { defenseBonus += 3; maxManaBonus += 2; }
+    if (equippedNames.includes("amuleto anti calor")) defenseBonus += 1;
+    if (equippedNames.includes("amuleto de luz")) defenseBonus += 1;
+    if (equippedNames.includes("anel de mana celestial")) maxManaBonus += 2;
+    if (equippedNames.includes("pingente da aurora")) maxManaBonus += 1;
+    if (equippedNames.includes("asas pequenas")) maxHealthBonus += 1;
+
+    player.defense = Math.max(0, player.customBaseDefense + defenseBonus);
+    player.maxMana = Math.max(1, player.customBaseMaxMana + maxManaBonus);
+    player.maxHealth = Math.max(1, player.customBaseMaxHealth + maxHealthBonus);
+    player.mana = Math.min(player.mana, player.maxMana);
+    player.health = Math.min(player.health, player.maxHealth);
+  }
+
+  function equipCustomGear(name, def) {
+    ensureUsableItemState();
+    const slot = def.slot || "accessory";
+    inventory.equippedCustomItems[slot] = name;
+    applyCustomGearStats();
+    if (normalizeItemNameForUse(name) === "amuleto de luz") activePowerUps.shield = Math.max(activePowerUps.shield || 0, 12);
+    if (normalizeItemNameForUse(name) === "asas pequenas") activePowerUps.speed = Math.max(activePowerUps.speed || 0, 12);
+    playSound("equipItem");
+    showHudToast(`${name} equipado.`);
+    renderInventory();
+    updateHud();
+    return true;
+  }
+
+  function useCustomInventoryItem(name) {
+    ensureUsableItemState();
+    const def = getCustomItemDef(name);
+    if (!def) {
+      playSound("invalid");
+      showHudToast("Esse item ainda nao tem uso configurado.");
+      return false;
+    }
+
+    if (def.actionType === "weapon") {
+      registerUsableCustomWeapons();
+      if (!Array.isArray(player.unlockedWeapons)) player.unlockedWeapons = ["sword", "bow", "staff", "spear"];
+      if (!player.unlockedWeapons.includes(def.weaponKey)) player.unlockedWeapons.push(def.weaponKey);
+      equipWeapon(def.weaponKey);
+      showHudToast(`${name} equipado.`);
+      return true;
+    }
+
+    if (def.actionType === "gear") {
+      return equipCustomGear(name, def);
+    }
+
+    if (def.actionType === "buff" || def.actionType === "consumable") {
+      if (def.heal) player.health = Math.min(player.maxHealth, player.health + def.heal);
+      if (def.mana) player.mana = Math.min(player.maxMana, player.mana + def.mana);
+      if (def.buff) activePowerUps[def.buff] = Math.max(activePowerUps[def.buff] || 0, def.duration || 20);
+      if (normalizeItemNameForUse(name) === "cristal supremo celestial") activePowerUps.shield = Math.max(activePowerUps.shield || 0, 25);
+      if (def.consume) consumeCustomItemIfPossible(name);
+      playSound(def.heal ? "heal" : "usePotion");
+      showHudToast(`${name} usado.`);
+      renderInventory();
+      updateHud();
+      return true;
+    }
+
+    playSound("invalid");
+    return false;
+  }
+  window.useCustomInventoryItem = useCustomInventoryItem;
+
+  const getWeaponDescriptionBeforeUsableItems = getWeaponDescription;
+  getWeaponDescription = function getWeaponDescriptionUsableItems(weaponKey) {
+    const custom = weapons[weaponKey];
+    if (custom?.customWeapon) return `${custom.name}: arma especial desbloqueada por item unico.`;
+    return getWeaponDescriptionBeforeUsableItems(weaponKey);
+  };
+
+  const getPowerUpNameBeforeUsableItems = getPowerUpName;
+  getPowerUpName = function getPowerUpNameUsableItems(kind) {
+    if (kind === "antiCold") return "Anti-frio";
+    if (kind === "antiPoison") return "Antidoto";
+    if (kind === "antiHeat") return "Anti-calor";
+    if (kind === "antiCurse") return "Anti-maldicao";
+    return getPowerUpNameBeforeUsableItems(kind);
+  };
+
+  const getInventoryItemsBeforeUsableItems = getInventoryItems;
+  getInventoryItems = function getInventoryItemsUsableItems() {
+    ensureUsableItemState();
+    registerUsableCustomWeapons();
+    const items = getInventoryItemsBeforeUsableItems();
+    const seen = new Set(items.map((item) => item.name));
+
+    // Itens que foram guardados via addGameItem(name, amount)
+    for (const [name, amount] of Object.entries(inventory.customItems || {})) {
+      if (!amount || seen.has(name)) continue;
+      const def = getCustomItemDef(name) || {};
+      items.push({
+        id: `custom-${String(name).replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+        name,
+        icon: def.icon || "I",
+        quantity: amount,
+        category: def.category || "raros",
+        typeLabel: def.typeLabel || "Item",
+        rarity: def.rarity || "raro",
+        description: def.description || "Item especial adicionado ao jogo.",
+        effect: def.effect || "Item preparado para uso no inventario.",
+        action: def.actionType ? "useCustomItem" : "",
+        customItemName: name,
+        customUsable: Boolean(def.actionType),
+        locked: !def.actionType
+      });
+      seen.add(name);
+    }
+
+    return items.map((item) => {
+      const def = getCustomItemDef(item.name);
+      if (!def) return item;
+      return {
+        ...item,
+        icon: def.icon || item.icon,
+        category: def.category || item.category,
+        typeLabel: def.typeLabel || item.typeLabel,
+        rarity: def.rarity || item.rarity,
+        description: def.description || item.description,
+        effect: def.effect || item.effect,
+        action: "useCustomItem",
+        customItemName: item.name,
+        customUsable: true,
+        locked: false
+      };
+    });
+  };
+
+  const getInventoryActionHtmlBeforeUsableItems = getInventoryActionHtml;
+  getInventoryActionHtml = function getInventoryActionHtmlUsableItems(item) {
+    if (item?.action === "useCustomItem" || item?.customUsable) {
+      const name = item.customItemName || item.name;
+      const def = getCustomItemDef(name);
+      const label = def?.actionLabel || "Usar item";
+      const slot = def?.slot;
+      const equipped = slot && inventory.equippedCustomItems?.[slot] === name;
+      const safeName = String(name).replace(/"/g, "&quot;");
+      if (equipped) return `<button type="button" disabled>Equipado</button>`;
+      return `<button type="button" data-inventory-action="useCustomItem" data-custom-item-name="${safeName}">${label}</button>`;
+    }
+    return getInventoryActionHtmlBeforeUsableItems(item);
+  };
+
+  const handleInventoryActionBeforeUsableItems = handleInventoryAction;
+  handleInventoryAction = function handleInventoryActionUsableItems(actionButton) {
+    if (actionButton?.dataset?.inventoryAction === "useCustomItem") {
+      useCustomInventoryItem(actionButton.dataset.customItemName || "");
+      return;
+    }
+    handleInventoryActionBeforeUsableItems(actionButton);
+  };
+
+  const renderEquipmentSlotsBeforeUsableItems = renderEquipmentSlots;
+  renderEquipmentSlots = function renderEquipmentSlotsUsableItems() {
+    renderEquipmentSlotsBeforeUsableItems();
+    if (!equipmentSlots) return;
+    ensureUsableItemState();
+    const gear = inventory.equippedCustomItems || {};
+    const extraSlots = [
+      ["Armadura", gear.armor || "Vazio"],
+      ["Acessorio", gear.accessory || "Vazio"],
+      ["Botas", gear.boots || "Vazio"],
+      ["Amuleto", gear.charm || "Vazio"]
+    ];
+    equipmentSlots.innerHTML += extraSlots.map(([label, value]) => `
+      <div class="equipment-slot">
+        <span>${label}</span>
+        <strong>${value}</strong>
+      </div>
+    `).join("");
+  };
+
+  const getPlayerSpeedBeforeUsableItems = getPlayerSpeed;
+  getPlayerSpeed = function getPlayerSpeedUsableItems() {
+    let speed = getPlayerSpeedBeforeUsableItems();
+    ensureUsableItemState();
+    const equipped = Object.values(inventory.equippedCustomItems || {}).map(normalizeItemNameForUse);
+    if (equipped.includes("botas do deserto")) speed += 18;
+    if (equipped.includes("botas antiderrapantes")) speed += 12;
+    if (equipped.includes("botas das nuvens")) speed += 20;
+    if (equipped.includes("asas pequenas")) speed += 18;
+    if (equipped.includes("pingente da aurora")) speed += 8;
+    return speed;
+  };
+
+  const takeDamageBeforeUsableItems = takeDamage;
+  takeDamage = function takeDamageUsableItems(amount, sourceX = player.x, sourceY = player.y) {
+    ensureUsableItemState();
+    const equipped = Object.values(inventory.equippedCustomItems || {}).map(normalizeItemNameForUse);
+    let reduced = amount;
+    if (equipped.includes("anel contra veneno") && activePowerUps.antiPoison > 0) reduced = Math.max(0, reduced - 1);
+    if (equipped.includes("amuleto anti calor") && activePowerUps.antiHeat > 0) reduced = Math.max(0, reduced - 1);
+    if (equipped.includes("amuleto de luz") && activePowerUps.antiCurse > 0) reduced = Math.max(0, reduced - 1);
+    return takeDamageBeforeUsableItems(reduced, sourceX, sourceY);
+  };
+
+  const loadGameBeforeUsableItems = loadGame;
+  loadGame = function loadGameUsableItems() {
+    const ok = loadGameBeforeUsableItems();
+    ensureUsableItemState();
+    registerUsableCustomWeapons();
+    applyCustomGearStats();
+    return ok;
+  };
+
+  const saveGameBeforeUsableItems = saveGame;
+  saveGame = function saveGameUsableItems() {
+    ensureUsableItemState();
+    return saveGameBeforeUsableItems();
+  };
+
+  // Ajusta visual das armas novas: cajados personalizados aparecem como cajado, arcos como arco e lanças como lança.
+  drawEquippedWeapon = function drawEquippedWeaponAllUsableItems() {
+    try {
+      if (!player || gameOver) return;
+      const weaponKey = safeCurrentWeaponKeyForVisual();
+      const weapon = weapons[weaponKey] || weapons.sword;
+      const aim = safeAimForWeaponVisual();
+      const progress = getWeaponVisualProgress();
+      const angle = getWeaponVisualAngle(aim, weaponKey);
+      const centerX = player.x + player.width / 2;
+      const centerY = player.y + player.height / 2;
+      const handX = centerX + Math.cos(angle) * 8;
+      const handY = centerY + Math.sin(angle) * 7 + 3;
+
+      ctx.save();
+      ctx.translate(handX, handY);
+      ctx.rotate(angle);
+      if (Math.cos(angle) < -0.05) ctx.scale(1, -1);
+
+      if (weapon.kind === "line" || weaponKey.toLowerCase().includes("spear")) drawSpearInHand(progress);
+      else if (weapon.projectile === "arrow" || weaponKey.toLowerCase().includes("bow")) drawBowInHand(progress || (weaponVisualState.weaponKey === "bow" ? getWeaponVisualProgress() : 0));
+      else if (weapon.kind === "projectile" || weaponKey.toLowerCase().includes("staff")) drawStaffInHand(progress || (weaponVisualState.weaponKey === "staff" ? getWeaponVisualProgress() : 0));
+      else drawSwordInHand(progress, weaponKey);
+
+      ctx.restore();
+    } catch (error) {
+      drawWeaponPatchError("Erro arma: " + (error?.message || error));
+    }
+  };
+
+  ensureUsableItemState();
+  registerUsableCustomWeapons();
+  applyCustomGearStats();
+})();
+
+// === One equipped weapon only: troca de arma apenas pelo inventario ===
+(function () {
+  const ONE_WEAPON_PATCH = "one-weapon-inventory-equip-v1";
+  window.ETERNAL_RIFT_ONE_WEAPON_PATCH = ONE_WEAPON_PATCH;
+
+  function normalizeWeaponListForEquipOnly() {
+    if (!Array.isArray(player.unlockedWeapons) || !player.unlockedWeapons.length) {
+      player.unlockedWeapons = ["sword"];
+    }
+
+    // Remove armas repetidas e armas que nao existem mais, sem apagar recompensas validas.
+    player.unlockedWeapons = [...new Set(player.unlockedWeapons)].filter((key) => weapons[key]);
+    if (!player.unlockedWeapons.length) player.unlockedWeapons = ["sword"];
+
+    if (!player.equippedWeaponKey || !weapons[player.equippedWeaponKey] || !player.unlockedWeapons.includes(player.equippedWeaponKey)) {
+      const indexKey = player.unlockedWeapons[currentWeaponIndex] || player.unlockedWeapons[0] || "sword";
+      player.equippedWeaponKey = weapons[indexKey] ? indexKey : "sword";
+    }
+
+    currentWeaponIndex = Math.max(0, player.unlockedWeapons.indexOf(player.equippedWeaponKey));
+    return player.equippedWeaponKey;
+  }
+
+  const getCurrentWeaponKeyBeforeOneWeapon = getCurrentWeaponKey;
+  getCurrentWeaponKey = function getCurrentWeaponKeyInventoryOnly() {
+    try {
+      return normalizeWeaponListForEquipOnly();
+    } catch (error) {
+      try {
+        return getCurrentWeaponKeyBeforeOneWeapon();
+      } catch (fallbackError) {
+        return "sword";
+      }
+    }
+  };
+
+  getCurrentWeapon = function getCurrentWeaponInventoryOnly() {
+    return weapons[getCurrentWeaponKey()] || weapons.sword;
+  };
+
+  equipWeapon = function equipWeaponFromInventoryOnly(weaponKey) {
+    normalizeWeaponListForEquipOnly();
+    if (!weaponKey || !weapons[weaponKey] || !player.unlockedWeapons.includes(weaponKey)) {
+      showHudToast("Essa arma ainda nao esta no inventario.");
+      playSound("invalid");
+      return false;
+    }
+
+    player.equippedWeaponKey = weaponKey;
+    currentWeaponIndex = player.unlockedWeapons.indexOf(weaponKey);
+    weaponCooldownTimer = 0;
+    attackWindupTimer = 0;
+    attackRecoveryTimer = 0;
+    attackTimer = 0;
+    currentMeleeAttack = null;
+
+    spawnFloatingText(`Arma equipada: ${weapons[weaponKey].name}`, player.x + 10, player.y - 18, "#fff264");
+    showHudToast(`Equipado pelo inventario: ${weapons[weaponKey].name}`);
+    playSound("equipItem");
+    updateHud();
+    return true;
+  };
+
+  cycleWeapon = function cycleWeaponDisabledInventoryOnly() {
+    normalizeWeaponListForEquipOnly();
+    inventoryTab = "armas";
+    selectedInventoryItemId = `weapon-${getCurrentWeaponKey()}`;
+    showHudToast("Troca de arma agora e so pelo inventario.");
+    if (typeof toggleInventory === "function") toggleInventory(true);
+    if (typeof renderInventory === "function") renderInventory();
+    playSound("inventoryOpen");
+  };
+
+  // Baus de boss e recompensas novas adicionam a arma no inventario, mas nao equipam automaticamente.
+  if (typeof unlockElementalWeapon === "function") {
+    unlockElementalWeapon = function unlockElementalWeaponWithoutAutoEquip(weaponKey) {
+      if (!weapons[weaponKey] && typeof registerElementalBossSwords === "function") registerElementalBossSwords();
+      if (!Array.isArray(player.unlockedWeapons)) player.unlockedWeapons = ["sword"];
+      if (weapons[weaponKey] && !player.unlockedWeapons.includes(weaponKey)) player.unlockedWeapons.push(weaponKey);
+      normalizeWeaponListForEquipOnly();
+      updateHud();
+    };
+  }
+
+  function openWeaponInventoryFromMobileButton(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+    cycleWeapon();
+  }
+
+  function replaceMobileWeaponButton() {
+    const oldButton = document.getElementById("touchWeaponButton");
+    if (!oldButton || oldButton.dataset.inventoryEquipOnly === "1") return;
+    const newButton = oldButton.cloneNode(true);
+    newButton.dataset.inventoryEquipOnly = "1";
+    newButton.setAttribute("aria-label", "Abrir armas no inventario");
+    newButton.textContent = "Armas";
+    newButton.addEventListener("pointerdown", openWeaponInventoryFromMobileButton, true);
+    newButton.addEventListener("click", openWeaponInventoryFromMobileButton, true);
+    oldButton.replaceWith(newButton);
+  }
+
+  replaceMobileWeaponButton();
+  window.addEventListener("DOMContentLoaded", replaceMobileWeaponButton);
+
+  const loadGameBeforeOneWeapon = loadGame;
+  loadGame = function loadGameOneWeaponInventoryOnly() {
+    const ok = loadGameBeforeOneWeapon();
+    try {
+      const raw = typeof readSaveRaw === "function" ? readSaveRaw() : null;
+      const save = raw ? JSON.parse(raw) : null;
+      const savedKey = save?.futureState?.currentWeaponKey || save?.futureState?.player?.equippedWeaponKey || save?.player?.equippedWeaponKey;
+      if (savedKey && weapons[savedKey] && Array.isArray(player.unlockedWeapons) && player.unlockedWeapons.includes(savedKey)) {
+        player.equippedWeaponKey = savedKey;
+      }
+    } catch (error) {
+      // Se o save antigo nao tiver a chave, o normalizador escolhe uma arma segura.
+    }
+    normalizeWeaponListForEquipOnly();
+    updateHud();
+    return ok;
+  };
+
+  const saveGameBeforeOneWeapon = saveGame;
+  saveGame = function saveGameOneWeaponInventoryOnly() {
+    normalizeWeaponListForEquipOnly();
+    player.equippedWeaponKey = getCurrentWeaponKey();
+    return saveGameBeforeOneWeapon();
+  };
+
+  const renderInventoryBeforeOneWeapon = renderInventory;
+  renderInventory = function renderInventoryOneWeaponMode() {
+    normalizeWeaponListForEquipOnly();
+    return renderInventoryBeforeOneWeapon();
+  };
+
+  const getInventoryActionHtmlBeforeOneWeapon = getInventoryActionHtml;
+  getInventoryActionHtml = function getInventoryActionHtmlOneWeaponMode(item) {
+    if (item?.action === "equipWeapon") {
+      const isEquipped = item.weaponKey === getCurrentWeaponKey();
+      return `<button type="button" data-inventory-action="equipWeapon" data-weapon-key="${item.weaponKey}"${isEquipped ? " disabled" : ""}>${isEquipped ? "Arma equipada" : "Equipar esta arma"}</button>`;
+    }
+    return getInventoryActionHtmlBeforeOneWeapon(item);
+  };
+
+  const updateHudBeforeOneWeapon = updateHud;
+  updateHud = function updateHudOneWeaponMode() {
+    normalizeWeaponListForEquipOnly();
+    updateHudBeforeOneWeapon();
+    if (weaponHud) {
+      const current = getCurrentWeapon();
+      weaponHud.textContent = `Arma equipada: ${current.name}${getCurrentWeaponKey() === "bow" ? ` (${inventory.flechas})` : ""}`;
+    }
+  };
+
+  normalizeWeaponListForEquipOnly();
+  updateHud();
+})();
+
+// === Wife companions patch: esposas/companheiras do jogador ===
+(function () {
+  const WIFE_PATCH_VERSION = "wife-companions-v1";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_WIFE_PATCH === WIFE_PATCH_VERSION) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_WIFE_PATCH = WIFE_PATCH_VERSION;
+
+  const WIFE_DEFS = [
+    {
+      id: "selene",
+      name: "Selene",
+      title: "Maga Lunar",
+      file: "assets/wives/selene.png",
+      tileX: 22,
+      tileY: 31,
+      color: "#d98cff",
+      gem: "#f7d36b",
+      bonus: "Regenera mana aos poucos.",
+      line: "Selene: Vou iluminar seu caminho com magia lunar. Estou com voce."
+    },
+    {
+      id: "nyra",
+      name: "Nyra",
+      title: "Ladra Felina",
+      file: "assets/wives/nyra.png",
+      tileX: 25,
+      tileY: 31,
+      color: "#9b5fc7",
+      gem: "#d1a55f",
+      bonus: "Aumenta velocidade e reflexo.",
+      line: "Nyra: Se precisar fugir ou atacar rapido, deixa comigo."
+    },
+    {
+      id: "lilith",
+      name: "Lilith",
+      title: "Dama Sombria",
+      file: "assets/wives/lilith.png",
+      tileX: 28,
+      tileY: 31,
+      color: "#8b36c9",
+      gem: "#ff79f2",
+      bonus: "Aumenta dano fisico e magico.",
+      line: "Lilith: Inimigo nenhum vai encostar em voce sem pagar caro."
+    },
+    {
+      id: "yumi",
+      name: "Yumi",
+      title: "Raposa Violeta",
+      file: "assets/wives/yumi.png",
+      tileX: 31,
+      tileY: 31,
+      color: "#b13bb4",
+      gem: "#7d7cff",
+      bonus: "Melhora movimento e recuperacao.",
+      line: "Yumi: Vou ficar por perto. A estrada fica mais leve quando andamos juntos."
+    },
+    {
+      id: "mika",
+      name: "Mika",
+      title: "Guarda Felina",
+      file: "assets/wives/mika.png",
+      tileX: 23,
+      tileY: 36,
+      color: "#7b4bd1",
+      gem: "#b46dff",
+      bonus: "Reduz parte do dano recebido.",
+      line: "Mika: Eu cuido da defesa. Voce cuida da aventura."
+    },
+    {
+      id: "violet",
+      name: "Violet",
+      title: "Nobre Arcana",
+      file: "assets/wives/violet.png",
+      tileX: 27,
+      tileY: 36,
+      color: "#a73cdf",
+      gem: "#3f8fe5",
+      bonus: "Fortalece ataques magicos.",
+      line: "Violet: Minha magia vai acompanhar seus golpes."
+    },
+    {
+      id: "aurora",
+      name: "Aurora",
+      title: "Coelha Estelar",
+      file: "assets/wives/aurora.png",
+      tileX: 31,
+      tileY: 36,
+      color: "#d783ff",
+      gem: "#fff264",
+      bonus: "Cura o jogador aos poucos.",
+      line: "Aurora: Prometo cuidar de voce depois das batalhas."
+    }
+  ];
+
+  const wifeById = WIFE_DEFS.reduce((acc, wife) => {
+    acc[wife.id] = wife;
+    return acc;
+  }, {});
+
+  const wifeImages = {};
+  if (typeof Image !== "undefined") {
+    for (const wife of WIFE_DEFS) {
+      const img = new Image();
+      img.src = wife.file;
+      wifeImages[wife.id] = img;
+    }
+  }
+
+  let wifeSupportTimer = 0;
+  let wifeSparkTimer = 0;
+
+  function wifeClamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function ensureWifeSystemState() {
+    if (!questBook.wives || typeof questBook.wives !== "object" || Array.isArray(questBook.wives)) {
+      questBook.wives = { activeId: "selene", wives: {}, totalTalks: 0 };
+    }
+    if (!questBook.wives.wives || typeof questBook.wives.wives !== "object" || Array.isArray(questBook.wives.wives)) {
+      questBook.wives.wives = {};
+    }
+    for (const wife of WIFE_DEFS) {
+      if (!questBook.wives.wives[wife.id]) {
+        questBook.wives.wives[wife.id] = {
+          married: true,
+          affection: 1,
+          talks: 0,
+          giftLevel: 0
+        };
+      }
+      questBook.wives.wives[wife.id].married = true;
+      questBook.wives.wives[wife.id].affection = wifeClamp(Number(questBook.wives.wives[wife.id].affection || 1), 1, 100);
+      questBook.wives.wives[wife.id].talks = Number(questBook.wives.wives[wife.id].talks || 0);
+    }
+    if (!wifeById[questBook.wives.activeId]) questBook.wives.activeId = "selene";
+    return questBook.wives;
+  }
+
+  function getActiveWifeDef() {
+    const state = ensureWifeSystemState();
+    return wifeById[state.activeId] || WIFE_DEFS[0];
+  }
+
+  function getActiveWifeState() {
+    const state = ensureWifeSystemState();
+    const active = getActiveWifeDef();
+    return state.wives[active.id];
+  }
+
+  function setActiveWife(wifeId, fromInventory = false) {
+    const wife = wifeById[wifeId] || WIFE_DEFS[0];
+    const state = ensureWifeSystemState();
+    state.activeId = wife.id;
+    state.wives[wife.id].affection = wifeClamp(Number(state.wives[wife.id].affection || 1) + (fromInventory ? 0 : 1), 1, 100);
+    state.wives[wife.id].talks = Number(state.wives[wife.id].talks || 0) + (fromInventory ? 0 : 1);
+    if (!fromInventory) state.totalTalks = Number(state.totalTalks || 0) + 1;
+
+    if (typeof spawnFloatingText === "function") {
+      spawnFloatingText(`♥ ${wife.name}`, player.x + 8, player.y - 24, wife.color);
+    }
+    if (typeof showHudToast === "function") {
+      showHudToast(`${wife.name} agora esta te acompanhando.`);
+    }
+    if (typeof playSound === "function") playSound("equipItem");
+    if (typeof updateHud === "function") updateHud();
+    return wife;
+  }
+
+  function createWifeNpc(wife) {
+    const obj = typeof npc === "function"
+      ? npc(wife.tileX, wife.tileY, wife.name, `${wife.name}: ${wife.bonus}`, "wife")
+      : {
+          type: "npc",
+          name: wife.name,
+          role: "wife",
+          x: wife.tileX * TILE + 5,
+          y: wife.tileY * TILE + 4,
+          width: 22,
+          height: 28,
+          solid: true,
+          message: `${wife.name}: ${wife.bonus}`,
+          bob: Math.random() * Math.PI * 2,
+          speed: 10,
+          direction: "idle",
+          moveTimer: 1,
+          spawnX: wife.tileX * TILE + 5,
+          spawnY: wife.tileY * TILE + 4
+        };
+    obj.role = "wife";
+    obj.wifeId = wife.id;
+    obj.wifeTitle = wife.title;
+    obj.message = `${wife.name}: ${wife.bonus}`;
+    obj.speed = 10;
+    obj.width = 24;
+    obj.height = 31;
+    return obj;
+  }
+
+  function refreshVillageSceneListsForWives() {
+    try {
+      if (currentScene === "village") {
+        objects = villageObjects;
+        colliders = objects.filter((obj) => obj.solid);
+        interactables = objects.filter((obj) => obj.message);
+      }
+    } catch (error) {
+      // Mantem o jogo rodando mesmo se a cena ainda estiver carregando.
+    }
+  }
+
+  function addWifeNpcsToVillage() {
+    ensureWifeSystemState();
+    for (const wife of WIFE_DEFS) {
+      const alreadyExists = villageObjects.some((obj) => obj?.type === "npc" && obj.role === "wife" && obj.wifeId === wife.id);
+      if (!alreadyExists) villageObjects.push(createWifeNpc(wife));
+    }
+    refreshVillageSceneListsForWives();
+  }
+
+  function getWifeLook(wife) {
+    const looks = {
+      selene: { hair: "#ba63f7", outfit: "#6c49c5", trim: "#f0d57d", accent: "#f9f1ff", feature: "moon" },
+      nyra: { hair: "#54316b", outfit: "#2e2547", trim: "#b46dff", accent: "#d9b57c", feature: "cat" },
+      lilith: { hair: "#6f2a8f", outfit: "#4b235f", trim: "#ff7adf", accent: "#b98cff", feature: "demon" },
+      yumi: { hair: "#8b2aa0", outfit: "#7640ae", trim: "#fff264", accent: "#7d7cff", feature: "fox" },
+      mika: { hair: "#4a2c68", outfit: "#5c4597", trim: "#caa7ff", accent: "#92b7ff", feature: "guardcat" },
+      violet: { hair: "#7f33ae", outfit: "#5d2d83", trim: "#f7d36b", accent: "#55c4ff", feature: "crown" },
+      aurora: { hair: "#cf80ff", outfit: "#8d56ca", trim: "#fff4bf", accent: "#fff264", feature: "bunny" }
+    };
+    return looks[wife.id] || { hair: wife.color || "#9b5fc7", outfit: wife.color || "#7b4bd1", trim: wife.gem || "#fff264", accent: "#fff3d6", feature: "none" };
+  }
+
+  function drawWifePixelFallback(x, y, wife, scale = 1, active = false) {
+    const look = getWifeLook(wife);
+    const skin = "#f4bd8f";
+    const outline = typeof VISUAL_V2 !== "undefined" ? VISUAL_V2.outline : "#273052";
+    const time = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 330;
+    const bob = Math.sin(time + wife.id.length) * 1.4;
+    const s = scale;
+    const px = x;
+    const py = y + bob;
+    if (typeof drawSoftShadow === "function") drawSoftShadow(px + 3 * s, py + 26 * s, 21 * s, 5 * s, 0.24);
+
+    ctx.save();
+    const oldSmooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+
+    // Cauda / asas por tras do corpo
+    if (look.feature === "fox") {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 15 * s, py + 11 * s, 12 * s, 12 * s);
+      ctx.fillStyle = look.hair;
+      ctx.fillRect(px + 16 * s, py + 12 * s, 10 * s, 10 * s);
+      ctx.fillStyle = look.trim;
+      ctx.fillRect(px + 21 * s, py + 18 * s, 5 * s, 3 * s);
+    }
+    if (look.feature === "cat" || look.feature === "guardcat") {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 21 * s, py + 15 * s, 7 * s, 9 * s);
+      ctx.fillStyle = look.hair;
+      ctx.fillRect(px + 22 * s, py + 16 * s, 5 * s, 7 * s);
+    }
+    if (look.feature === "demon") {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px - 2 * s, py + 10 * s, 8 * s, 9 * s);
+      ctx.fillRect(px + 20 * s, py + 10 * s, 8 * s, 9 * s);
+      ctx.fillStyle = look.outfit;
+      ctx.fillRect(px - 1 * s, py + 11 * s, 6 * s, 7 * s);
+      ctx.fillRect(px + 21 * s, py + 11 * s, 6 * s, 7 * s);
+    }
+
+    // Corpo principal estilo NPC top-down bonito
+    if (typeof outlinePixelV2 === "function" && typeof fillPixelV2 === "function") {
+      outlinePixelV2(px + 5 * s, py + 11 * s, 16 * s, 15 * s, look.outfit);
+      fillPixelV2(px + 8 * s, py + 14 * s, 10 * s, 4 * s, look.trim);
+      fillPixelV2(px + 9 * s, py + 19 * s, 8 * s, 5 * s, look.accent);
+      outlinePixelV2(px + 7 * s, py + 4 * s, 14 * s, 11 * s, skin);
+      fillPixelV2(px + 5 * s, py + 2 * s, 18 * s, 5 * s, look.hair);
+      fillPixelV2(px + 4 * s, py + 6 * s, 5 * s, 8 * s, look.hair);
+      fillPixelV2(px + 18 * s, py + 7 * s, 3 * s, 5 * s, look.hair);
+      fillPixelV2(px + 8 * s, py + 27 * s, 4 * s, 6 * s, outline);
+      fillPixelV2(px + 15 * s, py + 27 * s, 4 * s, 6 * s, outline);
+      fillPixelV2(px + 10 * s, py + 8 * s, 2 * s, 2 * s, outline);
+      fillPixelV2(px + 16 * s, py + 8 * s, 2 * s, 2 * s, outline);
+    } else {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 5 * s, py + 11 * s, 16 * s, 15 * s);
+      ctx.fillStyle = look.outfit;
+      ctx.fillRect(px + 6 * s, py + 12 * s, 14 * s, 13 * s);
+      ctx.fillStyle = look.trim;
+      ctx.fillRect(px + 8 * s, py + 14 * s, 10 * s, 4 * s);
+      ctx.fillStyle = skin;
+      ctx.fillRect(px + 7 * s, py + 4 * s, 14 * s, 11 * s);
+      ctx.fillStyle = look.hair;
+      ctx.fillRect(px + 5 * s, py + 2 * s, 18 * s, 5 * s);
+      ctx.fillRect(px + 4 * s, py + 6 * s, 5 * s, 8 * s);
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 8 * s, py + 27 * s, 4 * s, 6 * s);
+      ctx.fillRect(px + 15 * s, py + 27 * s, 4 * s, 6 * s);
+    }
+
+    // Detalhes bonitos / silhueta unica por esposa
+    ctx.fillStyle = outline;
+    if (look.feature === "moon") {
+      ctx.fillRect(px + 18 * s, py + 1 * s, 3 * s, 3 * s);
+      ctx.fillStyle = look.trim;
+      ctx.fillRect(px + 19 * s, py, 4 * s, 4 * s);
+    }
+    if (look.feature === "cat" || look.feature === "guardcat") {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 7 * s, py + 1 * s, 3 * s, 4 * s);
+      ctx.fillRect(px + 17 * s, py + 1 * s, 3 * s, 4 * s);
+      ctx.fillStyle = look.hair;
+      ctx.fillRect(px + 8 * s, py + 2 * s, 2 * s, 3 * s);
+      ctx.fillRect(px + 17 * s, py + 2 * s, 2 * s, 3 * s);
+      if (look.feature === "guardcat") {
+        ctx.fillStyle = look.accent;
+        ctx.fillRect(px + 3 * s, py + 12 * s, 3 * s, 8 * s);
+      }
+    }
+    if (look.feature === "demon") {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 8 * s, py + 1 * s, 3 * s, 4 * s);
+      ctx.fillRect(px + 16 * s, py + 1 * s, 3 * s, 4 * s);
+      ctx.fillStyle = look.trim;
+      ctx.fillRect(px + 9 * s, py + 1 * s, 2 * s, 3 * s);
+      ctx.fillRect(px + 16 * s, py + 1 * s, 2 * s, 3 * s);
+    }
+    if (look.feature === "fox") {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 7 * s, py + 1 * s, 3 * s, 4 * s);
+      ctx.fillRect(px + 17 * s, py + 1 * s, 3 * s, 4 * s);
+      ctx.fillStyle = look.hair;
+      ctx.fillRect(px + 8 * s, py + 2 * s, 2 * s, 3 * s);
+      ctx.fillRect(px + 17 * s, py + 2 * s, 2 * s, 3 * s);
+      ctx.fillStyle = look.trim;
+      ctx.fillRect(px + 20 * s, py + 17 * s, 2 * s, 2 * s);
+    }
+    if (look.feature === "crown") {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 9 * s, py, 8 * s, 3 * s);
+      ctx.fillStyle = look.trim;
+      ctx.fillRect(px + 9 * s, py, 2 * s, 2 * s);
+      ctx.fillRect(px + 12 * s, py - 1 * s, 2 * s, 3 * s);
+      ctx.fillRect(px + 15 * s, py, 2 * s, 2 * s);
+      ctx.fillStyle = look.accent;
+      ctx.fillRect(px + 12 * s, py + 2 * s, 2 * s, 2 * s);
+    }
+    if (look.feature === "bunny") {
+      ctx.fillStyle = outline;
+      ctx.fillRect(px + 8 * s, py - 4 * s, 3 * s, 7 * s);
+      ctx.fillRect(px + 16 * s, py - 4 * s, 3 * s, 7 * s);
+      ctx.fillStyle = look.trim;
+      ctx.fillRect(px + 9 * s, py - 3 * s, 1 * s, 5 * s);
+      ctx.fillRect(px + 17 * s, py - 3 * s, 1 * s, 5 * s);
+    }
+
+    // Brilho/gema
+    ctx.fillStyle = look.trim;
+    ctx.fillRect(px + 12 * s, py + 16 * s, 3 * s, 3 * s);
+    ctx.fillStyle = look.accent;
+    ctx.fillRect(px + 13 * s, py + 17 * s, 1 * s, 1 * s);
+
+    if (active) {
+      ctx.fillStyle = wife.color || look.trim;
+      ctx.fillRect(px + 10 * s, py - 6 * s, 2 * s, 2 * s);
+      ctx.fillRect(px + 16 * s, py - 6 * s, 2 * s, 2 * s);
+      ctx.fillRect(px + 12 * s, py - 4 * s, 4 * s, 2 * s);
+      ctx.fillRect(px + 13 * s, py - 2 * s, 2 * s, 2 * s);
+    }
+
+    ctx.imageSmoothingEnabled = oldSmooth;
+    ctx.restore();
+  }
+
+  function drawWifeImageAt(wifeId, centerX, footY, height, active = false) {
+    const wife = wifeById[wifeId] || WIFE_DEFS[0];
+    const s = Math.max(0.75, height / 36);
+    const x = centerX - 14 * s;
+    const y = footY - 32 * s;
+    drawWifePixelFallback(x, y, wife, s, active);
+  }
+
+  const drawNpcBeforeWives = drawNpc;
+  drawNpc = function drawNpcWithWives(obj) {
+    if (obj?.role === "wife" && obj.wifeId) {
+      const state = ensureWifeSystemState();
+      drawWifeImageAt(obj.wifeId, obj.x + obj.width / 2, obj.y + obj.height + 6, 34, state.activeId === obj.wifeId);
+      return;
+    }
+    return drawNpcBeforeWives(obj);
+  };
+
+  const drawPlayerBeforeWifeFollower = drawPlayer;
+  drawPlayer = function drawPlayerWithWifeFollower() {
+    try {
+      if (gameStarted && !gameOver) {
+        const wife = getActiveWifeDef();
+        const offsets = {
+          up: { x: -18, y: 20 },
+          down: { x: 18, y: 18 },
+          left: { x: 22, y: 18 },
+          right: { x: -20, y: 18 }
+        };
+        const off = offsets[player.direction] || offsets.down;
+        drawWifeImageAt(wife.id, player.x + player.width / 2 + off.x, player.y + player.height + off.y, 30, false);
+      }
+    } catch (error) {
+      // Desenho extra nunca deve quebrar o jogador.
+    }
+    return drawPlayerBeforeWifeFollower();
+  };
+
+  function interactWithWifeNpc(wifeId) {
+    const wife = setActiveWife(wifeId, false);
+    const wifeState = getActiveWifeState();
+    const affection = wifeState.affection;
+    let extra = "";
+
+    if (wife.id === "aurora" && player.health < player.maxHealth) {
+      player.health = Math.min(player.maxHealth, player.health + 1);
+      extra = " Ela curou 1 coracao.";
+    } else if (wife.id === "selene" && player.mana < player.maxMana) {
+      player.mana = Math.min(player.maxMana, player.mana + 1);
+      extra = " Ela recuperou 1 ponto de mana.";
+    } else if (wife.id === "mika") {
+      activePowerUps.shield = Math.max(Number(activePowerUps.shield || 0), 6);
+      extra = " Escudo leve ativado por alguns segundos.";
+    }
+
+    return `${wife.line} Bonus: ${wife.bonus} Afinidade: ${affection}/100.${extra} Use a Alianca de ${wife.name} no inventario para chama-la quando quiser.`;
+  }
+
+  const getQuestMessageBeforeWives = getQuestMessage;
+  getQuestMessage = function getQuestMessageWifePatch(npcObj) {
+    if (npcObj?.type === "npc" && npcObj.role === "wife" && npcObj.wifeId) {
+      return interactWithWifeNpc(npcObj.wifeId);
+    }
+    return getQuestMessageBeforeWives(npcObj);
+  };
+
+  const updateInteractionHintBeforeWives = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintWives() {
+    updateInteractionHintBeforeWives();
+    try {
+      const target = findInteraction();
+      if (target?.role === "wife") {
+        interactionHint.textContent = "Pressione E para chamar esposa";
+        if (touchContextLabel) touchContextLabel.textContent = "Chamar";
+      }
+    } catch (error) {
+      // Ignora se a interface ainda nao existir.
+    }
+  };
+
+  const getInventoryItemsBeforeWives = getInventoryItems;
+  getInventoryItems = function getInventoryItemsWithWifeRings() {
+    const items = getInventoryItemsBeforeWives();
+    const state = ensureWifeSystemState();
+    for (const wife of WIFE_DEFS) {
+      const wifeState = state.wives[wife.id];
+      items.push({
+        id: `wife-ring-${wife.id}`,
+        name: `Alianca de ${wife.name}`,
+        icon: "♥",
+        quantity: 1,
+        category: "raros",
+        typeLabel: "Esposa",
+        rarity: state.activeId === wife.id ? "lendario" : "epico",
+        description: `${wife.name}, ${wife.title}. Ela pode acompanhar o jogador como esposa/companheira.`,
+        effect: `${wife.bonus} Afinidade ${wifeState.affection}/100.`,
+        action: "summonWife",
+        wifeId: wife.id
+      });
+    }
+    return items;
+  };
+
+  const getInventoryActionHtmlBeforeWives = getInventoryActionHtml;
+  getInventoryActionHtml = function getInventoryActionHtmlWives(item) {
+    if (item?.action === "summonWife") {
+      const state = ensureWifeSystemState();
+      const active = state.activeId === item.wifeId;
+      return `<button type="button" data-inventory-action="summonWife" data-wife-id="${item.wifeId}"${active ? " disabled" : ""}>${active ? "Acompanhando" : "Chamar esposa"}</button>`;
+    }
+    return getInventoryActionHtmlBeforeWives(item);
+  };
+
+  const handleInventoryActionBeforeWives = handleInventoryAction;
+  handleInventoryAction = function handleInventoryActionWives(actionButton) {
+    if (actionButton?.dataset?.inventoryAction === "summonWife") {
+      setActiveWife(actionButton.dataset.wifeId, true);
+      if (typeof renderInventory === "function") renderInventory();
+      return;
+    }
+    return handleInventoryActionBeforeWives(actionButton);
+  };
+
+  const renderEquipmentSlotsBeforeWives = renderEquipmentSlots;
+  renderEquipmentSlots = function renderEquipmentSlotsWives() {
+    renderEquipmentSlotsBeforeWives();
+    try {
+      if (!equipmentSlots) return;
+      const wife = getActiveWifeDef();
+      const wifeState = getActiveWifeState();
+      equipmentSlots.innerHTML += `
+        <div class="equipment-slot">
+          <span>Esposa</span>
+          <strong>${wife.name} ${wifeState.affection}/100</strong>
+        </div>
+      `;
+    } catch (error) {
+      // Nao quebra inventario se algo estiver vazio.
+    }
+  };
+
+  const getPlayerSpeedBeforeWives = getPlayerSpeed;
+  getPlayerSpeed = function getPlayerSpeedWifeBonus() {
+    let speed = getPlayerSpeedBeforeWives();
+    const wife = getActiveWifeDef();
+    if (wife.id === "nyra") speed += 14;
+    if (wife.id === "yumi") speed += 10;
+    if (wife.id === "aurora") speed += 4;
+    return speed;
+  };
+
+  const getBasicAttackDamageBeforeWives = getBasicAttackDamage;
+  getBasicAttackDamage = function getBasicAttackDamageWifeBonus(weaponKey = getCurrentWeaponKey()) {
+    let damage = getBasicAttackDamageBeforeWives(weaponKey);
+    const wife = getActiveWifeDef();
+    if (wife.id === "lilith") damage += 1;
+    if (wife.id === "nyra" && weaponKey !== "bow") damage += 1;
+    if (wife.id === "violet" && (weapons[weaponKey]?.kind === "projectile" || String(weapons[weaponKey]?.damageType || "").includes("magic"))) damage += 1;
+    return damage;
+  };
+
+  const takeDamageBeforeWives = takeDamage;
+  takeDamage = function takeDamageWifeBonus(amount, sourceX = player.x, sourceY = player.y) {
+    const wife = getActiveWifeDef();
+    let reduced = amount;
+    if (wife.id === "mika") reduced = Math.max(0, reduced - 1);
+    if (wife.id === "selene" && player.mana > 0 && amount > 1) {
+      player.mana = Math.max(0, player.mana - 1);
+      reduced = Math.max(0, reduced - 1);
+    }
+    return takeDamageBeforeWives(reduced, sourceX, sourceY);
+  };
+
+  const updateBeforeWives = update;
+  update = function updateWifeSupport(delta) {
+    updateBeforeWives(delta);
+    try {
+      if (!gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen) return;
+      ensureWifeSystemState();
+      const wife = getActiveWifeDef();
+      wifeSupportTimer += delta;
+      wifeSparkTimer += delta;
+
+      if (wifeSupportTimer >= 1) {
+        wifeSupportTimer = 0;
+        if (wife.id === "selene") {
+          player.mana = Math.min(player.maxMana, Number(player.mana || 0) + 0.20);
+        }
+        if (wife.id === "aurora" && player.health < player.maxHealth) {
+          const state = getActiveWifeState();
+          if (state.affection >= 8) player.health = Math.min(player.maxHealth, Number(player.health || 0) + 0.04);
+        }
+        if (wife.id === "violet") {
+          player.mana = Math.min(player.maxMana, Number(player.mana || 0) + 0.08);
+        }
+      }
+
+      if (wifeSparkTimer >= 4.5) {
+        wifeSparkTimer = 0;
+        if (typeof spawnFloatingText === "function") {
+          spawnFloatingText(`♥ ${wife.name}`, player.x + player.width / 2, player.y - 20, wife.color);
+        }
+      }
+    } catch (error) {
+      // Bonus das esposas nunca deve travar o update principal.
+    }
+  };
+
+  const updateHudBeforeWives = updateHud;
+  updateHud = function updateHudWithWifeInfo() {
+    updateHudBeforeWives();
+    try {
+      const wife = getActiveWifeDef();
+      const wifeState = getActiveWifeState();
+      if (areaHud && gameStarted) {
+        const base = areaHud.textContent.replace(/ \| Esposa:.*/, "");
+        areaHud.textContent = `${base} | Esposa: ${wife.name} ${wifeState.affection}/100`;
+      }
+    } catch (error) {
+      // HUD segue normal.
+    }
+  };
+
+  const loadGameBeforeWives = loadGame;
+  loadGame = function loadGameWives() {
+    const ok = loadGameBeforeWives();
+    ensureWifeSystemState();
+    addWifeNpcsToVillage();
+    return ok;
+  };
+
+  const saveGameBeforeWives = saveGame;
+  saveGame = function saveGameWives() {
+    ensureWifeSystemState();
+    return saveGameBeforeWives();
+  };
+
+  ensureWifeSystemState();
+  addWifeNpcsToVillage();
+})();
+
+// === Hide decorative trophy/question inventory icons patch ===
+// Mantem os itens nos sistemas internos do jogo, mas remove da grade do inventario
+// os trofeus decorativos de boss e os recursos sem uso que apareciam com interrogação.
+(function () {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HIDE_DECORATIVE_INVENTORY_ICONS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HIDE_DECORATIVE_INVENTORY_ICONS_PATCH = true;
+
+  function normalizeHiddenInventoryName(name) {
+    return String(name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  const hiddenDecorativeResourceNames = new Set([
+    "pena dourada",
+    "fragmento de estrela",
+    "cristal azul celestial",
+    "flor da aurora",
+    "essencia de luz",
+    "pedra de marmore sagrado",
+    "po de nuvem",
+    "pergaminho antigo",
+    "reliquia celestial",
+    "trofeu raro"
+  ]);
+
+  function shouldHideDecorativeInventoryItem(item) {
+    if (!item) return false;
+    const id = String(item.id || "");
+    const type = normalizeHiddenInventoryName(item.typeLabel || "");
+    const category = normalizeHiddenInventoryName(item.category || "");
+    const name = normalizeHiddenInventoryName(item.name || "");
+
+    // Icone de trofeu do boss: continua salvo em inventory.itensBoss e no jogo,
+    // mas nao ocupa mais espaco na bolsa.
+    if (id.startsWith("boss-") || type === "boss") return true;
+
+    // Recursos/reliquias apenas decorativos que estavam aparecendo como interrogação.
+    // Itens usaveis de verdade continuam aparecendo.
+    const looksLikeDecorativeUnknown =
+      id.startsWith("celestial-resource-") ||
+      id.startsWith("celestial-relic-") ||
+      id.startsWith("relic-") ||
+      type === "recurso celestial" ||
+      type === "reliquia celestial" ||
+      type === "bioma";
+
+    if (looksLikeDecorativeUnknown && !item.action && !item.customUsable) return true;
+    if (hiddenDecorativeResourceNames.has(name) && !item.action && !item.customUsable) return true;
+
+    // Evita esconder arma, poder, esposa ou item com ação real.
+    return false;
+  }
+
+  function tinyInventorySvg(inner) {
+    return `<span class="inventory-icon-wrap"><svg class="inventory-art" viewBox="0 0 32 32" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${inner}</svg></span>`;
+  }
+
+  function customVisibleInventoryIconHtml(item) {
+    if (!item) return "";
+    const id = String(item.id || "");
+    const icon = String(item.icon || "").trim();
+    const cat = normalizeHiddenInventoryName(item.category || "");
+
+    if (id.startsWith("wife-ring-")) {
+      return tinyInventorySvg(`
+        <circle cx="13" cy="16" r="6" fill="none" stroke="#f5ce79" stroke-width="3"/>
+        <circle cx="20" cy="16" r="6" fill="none" stroke="#fff264" stroke-width="3"/>
+        <path d="M16 9l2 3 4 .5-3 2.5.8 4-3.8-2-3.8 2 .8-4-3-2.5 4-.5z" fill="#ff7ab5" stroke="#7d3a60" stroke-width="1.2"/>
+      `);
+    }
+
+    if (icon === "S") return tinyInventorySvg(`
+      <path d="M18 4 24 10 14 20 12 18z" fill="#e9ffff" stroke="#394066" stroke-width="2"/>
+      <path d="M10 20 7 23l2 2-2 2 1 1 2-2 2 2 1-1-2-2 2-2z" fill="#f5ce79" stroke="#5c413c" stroke-width="1.5"/>
+    `);
+    if (icon === "A") return tinyInventorySvg(`
+      <path d="M11 5c7 5 7 17 0 22" fill="none" stroke="#d99b67" stroke-width="3"/>
+      <path d="M11 5v22" stroke="#fff3d6" stroke-width="1.5"/>
+      <path d="M13 16h12" stroke="#c8d0d8" stroke-width="2"/>
+      <path d="M22 13 27 16 22 19" fill="#e9ffff" stroke="#394066" stroke-width="1.5"/>
+    `);
+    if (icon === "W") return tinyInventorySvg(`
+      <path d="M13 6v20" stroke="#8f5a3f" stroke-width="3"/>
+      <path d="M16 3 22 9 16 15 10 9z" fill="#55e8ff" stroke="#273052" stroke-width="2"/>
+      <path d="M21 12c4 1 6 4 7 8" stroke="#9ee6ff" stroke-width="2" opacity=".8"/>
+    `);
+    if (icon === "L") return tinyInventorySvg(cat === "armas" ? `
+      <path d="M8 24 24 8" stroke="#d99b67" stroke-width="3"/>
+      <path d="M24 8l2-5 3 3-5 2z" fill="#e9ffff" stroke="#394066" stroke-width="1.5"/>
+      <path d="M8 24l-3 3" stroke="#5c413c" stroke-width="2"/>
+    ` : `
+      <rect x="6" y="8" width="20" height="16" rx="2" fill="#fff3d6" stroke="#7d4d38" stroke-width="2"/>
+      <path d="M7 10 16 17 25 10" fill="none" stroke="#c94a5c" stroke-width="2"/>
+    `);
+    if (icon === "P") return tinyInventorySvg(`
+      <rect x="12" y="5" width="8" height="5" rx="1" fill="#9ee6ff" stroke="#273052" stroke-width="2"/>
+      <path d="M12 10h8v3l3 4v8c0 2-2 3-4 3H13c-2 0-4-1-4-3v-8l3-4z" fill="#d24c63" stroke="#273052" stroke-width="2"/>
+      <circle cx="15" cy="20" r="2" fill="#fff3d6" opacity=".8"/>
+    `);
+    if (icon === "B") return tinyInventorySvg(`
+      <path d="M9 11h7v9h6c2 0 4 2 4 4v2H8V12z" fill="#6b4b8f" stroke="#273052" stroke-width="2"/>
+      <path d="M11 9h5v5h-5z" fill="#9b5fc7" stroke="#273052" stroke-width="1.5"/>
+      <path d="M9 25h16" stroke="#f5ce79" stroke-width="2"/>
+    `);
+    if (icon === "D") return tinyInventorySvg(`
+      <path d="M16 4 25 8v7c0 7-4 11-9 14-5-3-9-7-9-14V8z" fill="#6f86b8" stroke="#273052" stroke-width="2"/>
+      <path d="M16 7v18M10 12h12" stroke="#e9ffff" stroke-width="2" opacity=".75"/>
+    `);
+    if (icon === "O") return tinyInventorySvg(`
+      <circle cx="16" cy="17" r="8" fill="none" stroke="#f5ce79" stroke-width="3"/>
+      <path d="M16 5 21 10 16 14 11 10z" fill="#55e8ff" stroke="#394066" stroke-width="1.5"/>
+      <path d="M12 25h8" stroke="#8a5b2a" stroke-width="2"/>
+    `);
+    if (icon === "C") return tinyInventorySvg(`
+      <path d="M16 3 23 8 24 17 16 29 8 17 9 8z" fill="#55e8ff" stroke="#1f7bd8" stroke-width="2"/>
+      <path d="M16 7v18M11 11l5 5 5-5" stroke="#e9ffff" stroke-width="2" opacity=".85"/>
+    `);
+    if (icon === "★" || icon === "*") return tinyInventorySvg(`
+      <path d="M16 4 19 11 27 11 21 16 23 24 16 19 9 24 11 16 5 11 13 11z" fill="#fff264" stroke="#8a5b2a" stroke-width="2"/>
+      <circle cx="16" cy="16" r="3" fill="#55c4ff"/>
+    `);
+    if (icon === "♥" || icon === "❤") return tinyInventorySvg(`
+      <path d="M16 25C8 19 5 15 5 10c0-3 2-5 5-5 2 0 4 1 6 4 2-3 4-4 6-4 3 0 5 2 5 5 0 5-3 9-11 15z" fill="#ff7ab5" stroke="#7d3a60" stroke-width="2"/>
+      <path d="M12 10c1-1 3-1 4 1" stroke="#fff3d6" stroke-width="1.5" opacity=".8"/>
+    `);
+
+    return "";
+  }
+
+  function itemNeedsCustomIcon(item) {
+    if (!item) return false;
+    const id = String(item.id || "");
+    if (id.startsWith("wife-ring-")) return true;
+    if (id.startsWith("custom-")) return true;
+    if (item.customItemName || item.customUsable) return true;
+    return false;
+  }
+
+  const getInventoryItemsBeforeHideDecorativeIcons = getInventoryItems;
+  getInventoryItems = function getInventoryItemsHideDecorativeIcons() {
+    return getInventoryItemsBeforeHideDecorativeIcons().filter((item) => !shouldHideDecorativeInventoryItem(item));
+  };
+
+  const renderInventoryGridBeforeHideDecorativeIcons = renderInventoryGrid;
+  renderInventoryGrid = function renderInventoryGridHideDecorativeIcons(filteredItems, totalItems) {
+    const visibleItems = (filteredItems || []).filter((item) => !shouldHideDecorativeInventoryItem(item));
+    renderInventoryGridBeforeHideDecorativeIcons(visibleItems, visibleItems.length);
+
+    if (!inventoryGrid) return;
+    for (const item of visibleItems) {
+      if (!itemNeedsCustomIcon(item)) continue;
+      const html = customVisibleInventoryIconHtml(item);
+      if (!html) continue;
+      const safeId = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(item.id) : String(item.id).replace(/"/g, '\\"');
+      const slotIcon = inventoryGrid.querySelector(`[data-item-id="${safeId}"] .item-icon`);
+      if (slotIcon) slotIcon.innerHTML = html;
+    }
+  };
+
+  const renderItemDetailsBeforeHideDecorativeIcons = renderItemDetails;
+  renderItemDetails = function renderItemDetailsHideDecorativeIcons(item) {
+    if (shouldHideDecorativeInventoryItem(item)) {
+      renderItemDetailsBeforeHideDecorativeIcons(null);
+      return;
+    }
+    renderItemDetailsBeforeHideDecorativeIcons(item);
+    if (!itemDetailName || !itemNeedsCustomIcon(item)) return;
+    const html = customVisibleInventoryIconHtml(item);
+    if (html) itemDetailName.innerHTML = `<span class="item-detail-icon-preview">${html}</span><span>${item.name}</span>`;
+  };
+
+  try { renderInventory?.(); } catch (error) { console.warn("Inventario atualizado sem itens decorativos", error); }
+})();
+
+// === Ultra biome bosses + arrows in every chest patch ===
+(function () {
+  const PATCH_ID = "ultra-biome-bosses-arrows-v1";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ULTRA_BIOME_BOSSES === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ULTRA_BIOME_BOSSES = PATCH_ID;
+
+  const ULTRA_BIOME_BOSSES = {
+    imperadorDunas: {
+      kind: "imperadorDunas",
+      name: "Imperador das Dunas",
+      biome: "Deserto",
+      tileX: 135,
+      tileY: 14,
+      color: "#e7c267",
+      core: "#fff264",
+      projectile: "sandLance",
+      hazard: "sandstorm",
+      chestArrows: 22
+    },
+    dragaoGlacialAntigo: {
+      kind: "dragaoGlacialAntigo",
+      name: "Dragao Glacial Antigo",
+      biome: "Congelado",
+      tileX: 137,
+      tileY: 55,
+      color: "#8bd8ff",
+      core: "#e9ffff",
+      projectile: "iceShard",
+      hazard: "frost",
+      chestArrows: 22
+    },
+    hidraVenenosa: {
+      kind: "hidraVenenosa",
+      name: "Hidra Venenosa",
+      biome: "Pantano",
+      tileX: 75,
+      tileY: 88,
+      color: "#9aff72",
+      core: "#d9ff73",
+      projectile: "poisonOrb",
+      hazard: "poisonCloud",
+      chestArrows: 22
+    }
+  };
+
+  const ULTRA_BOSS_KINDS = Object.keys(ULTRA_BIOME_BOSSES);
+
+  function ultraClamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function ensureUltraBossState() {
+    if (!questBook.ultraBiomeBosses || typeof questBook.ultraBiomeBosses !== "object" || Array.isArray(questBook.ultraBiomeBosses)) {
+      questBook.ultraBiomeBosses = { defeated: {}, rewards: {}, arrowsFromChests: {} };
+    }
+    if (!questBook.ultraBiomeBosses.defeated || typeof questBook.ultraBiomeBosses.defeated !== "object") questBook.ultraBiomeBosses.defeated = {};
+    if (!questBook.ultraBiomeBosses.rewards || typeof questBook.ultraBiomeBosses.rewards !== "object") questBook.ultraBiomeBosses.rewards = {};
+    if (!questBook.ultraBiomeBosses.arrowsFromChests || typeof questBook.ultraBiomeBosses.arrowsFromChests !== "object") questBook.ultraBiomeBosses.arrowsFromChests = {};
+    if (!questBook.defeatedBosses || typeof questBook.defeatedBosses !== "object") questBook.defeatedBosses = {};
+    if (!Number.isFinite(inventory.flechas)) inventory.flechas = 0;
+    return questBook.ultraBiomeBosses;
+  }
+
+  const getEnemyStatsBeforeUltraBiomeBosses = getEnemyStats;
+  getEnemyStats = function getEnemyStatsUltraBiomeBosses(kind) {
+    if (kind === "imperadorDunas") {
+      return {
+        width: 52, height: 50, hp: 180, damage: 5, speed: 54,
+        aggroRange: 430, attackRange: 250, attackDelay: 0.72, coinReward: 95,
+        projectileType: "sandLance", dropTable: { coin: 1, potion: 0.45, loot: 1, powerUp: 0.25 }, xpReward: 2600,
+        boss: true, defense: 2,
+        resistances: { fireSword: 0.75, iceSword: 1.15, stormSword: 0.9, shadowSword: 1 }
+      };
+    }
+    if (kind === "dragaoGlacialAntigo") {
+      return {
+        width: 56, height: 50, hp: 200, damage: 5, speed: 50,
+        aggroRange: 440, attackRange: 270, attackDelay: 0.78, coinReward: 105,
+        projectileType: "iceShard", dropTable: { coin: 1, potion: 0.5, loot: 1, powerUp: 0.25 }, xpReward: 2800,
+        boss: true, defense: 3,
+        resistances: { iceSword: 0.65, fireSword: 1.18, stormSword: 0.95, shadowSword: 1 }
+      };
+    }
+    if (kind === "hidraVenenosa") {
+      return {
+        width: 58, height: 48, hp: 210, damage: 5, speed: 48,
+        aggroRange: 430, attackRange: 240, attackDelay: 0.68, coinReward: 110,
+        projectileType: "poisonOrb", dropTable: { coin: 1, potion: 0.55, loot: 1, powerUp: 0.3 }, xpReward: 2900,
+        boss: true, canSwim: true, defense: 2,
+        resistances: { shadowSword: 0.85, fireSword: 1.1, stormSword: 1, iceSword: 1 }
+      };
+    }
+    return getEnemyStatsBeforeUltraBiomeBosses(kind);
+  };
+
+  const getEnemyDisplayNameBeforeUltraBiomeBosses = getEnemyDisplayName;
+  getEnemyDisplayName = function getEnemyDisplayNameUltraBiomeBosses(kind) {
+    if (ULTRA_BIOME_BOSSES[kind]) return ULTRA_BIOME_BOSSES[kind].name;
+    return getEnemyDisplayNameBeforeUltraBiomeBosses(kind);
+  };
+
+  const getEnemyXpRewardBeforeUltraBiomeBosses = getEnemyXpReward;
+  getEnemyXpReward = function getEnemyXpRewardUltraBiomeBosses(obj) {
+    if (obj?.kind === "imperadorDunas") return 2600;
+    if (obj?.kind === "dragaoGlacialAntigo") return 2800;
+    if (obj?.kind === "hidraVenenosa") return 2900;
+    return getEnemyXpRewardBeforeUltraBiomeBosses(obj);
+  };
+
+  const getEnemyProjectileConfigBeforeUltraBiomeBosses = getEnemyProjectileConfig;
+  getEnemyProjectileConfig = function getEnemyProjectileConfigUltraBiomeBosses(type, obj) {
+    if (type === "sandLance") return { width: 20, height: 10, speed: 245, timer: 2.4 };
+    if (type === "iceShard") return { width: 18, height: 18, speed: 230, timer: 2.5 };
+    if (type === "poisonOrb") return { width: 17, height: 17, speed: 220, timer: 2.35 };
+    return getEnemyProjectileConfigBeforeUltraBiomeBosses(type, obj);
+  };
+
+  const getEnemyProjectileColorBeforeUltraBiomeBosses = getEnemyProjectileColor;
+  getEnemyProjectileColor = function getEnemyProjectileColorUltraBiomeBosses(type) {
+    if (type === "sandLance") return { glow: "rgba(231,194,103,0.38)", main: "#c9973f", core: "#fff264" };
+    if (type === "iceShard") return { glow: "rgba(139,216,255,0.38)", main: "#55c4ff", core: "#e9ffff" };
+    if (type === "poisonOrb") return { glow: "rgba(154,255,114,0.36)", main: "#62c95d", core: "#d9ff73" };
+    return getEnemyProjectileColorBeforeUltraBiomeBosses(type);
+  };
+
+  const fireBossPatternBeforeUltraBiomeBosses = fireBossPattern;
+  fireBossPattern = function fireBossPatternUltraBiomeBosses(obj, targetX, targetY) {
+    if (obj?.kind === "imperadorDunas") {
+      for (const offset of [-0.48, -0.2, 0.2, 0.48]) fireEnemyProjectile(obj, targetX, targetY, offset);
+      spawnHazardZone("sandstorm", targetX, targetY, obj.phase === 2 ? 56 : 44, 2.2, 1);
+      return;
+    }
+    if (obj?.kind === "dragaoGlacialAntigo") {
+      for (const offset of [-0.55, -0.25, 0, 0.25, 0.55]) fireEnemyProjectile(obj, targetX, targetY, offset);
+      spawnHazardZone("frost", targetX, targetY, obj.phase === 2 ? 58 : 46, 2.3, 1);
+      return;
+    }
+    if (obj?.kind === "hidraVenenosa") {
+      for (const offset of [-0.6, -0.3, 0, 0.3, 0.6]) fireEnemyProjectile(obj, targetX, targetY, offset);
+      spawnHazardZone("poisonCloud", targetX, targetY, obj.phase === 2 ? 60 : 48, 2.4, 1);
+      return;
+    }
+    return fireBossPatternBeforeUltraBiomeBosses(obj, targetX, targetY);
+  };
+
+  function createUltraBiomeBoss(def) {
+    const obj = boss(def.tileX, def.tileY, def.kind);
+    obj.ultraBiomeBoss = true;
+    obj.bossTitle = def.name;
+    obj.name = def.name;
+    obj.message = `${def.name}: um chefe muito forte do bioma ${def.biome}.`;
+    obj.width = getEnemyStats(def.kind).width;
+    obj.height = getEnemyStats(def.kind).height;
+    obj.spawnX = def.tileX * TILE + 4;
+    obj.spawnY = def.tileY * TILE + 4;
+    obj.x = obj.spawnX;
+    obj.y = obj.spawnY;
+    obj.aggroRange = getEnemyStats(def.kind).aggroRange;
+    obj.attackRange = getEnemyStats(def.kind).attackRange;
+    return obj;
+  }
+
+  function ultraBossKey(kind) {
+    const def = ULTRA_BIOME_BOSSES[kind];
+    if (!def) return "";
+    return `enemy:${kind}:${Math.round(def.tileX * TILE + 4)}:${Math.round(def.tileY * TILE + 4)}`;
+  }
+
+  function ensureUltraBiomeBossesOnMap() {
+    ensureUltraBossState();
+    if (!Array.isArray(villageObjects)) return;
+    for (const def of Object.values(ULTRA_BIOME_BOSSES)) {
+      const existing = villageObjects.find((obj) => obj?.type === "enemy" && obj.kind === def.kind);
+      if (!existing) {
+        const obj = createUltraBiomeBoss(def);
+        obj.alive = !questBook.defeatedBosses?.[def.kind] && !questBook.ultraBiomeBosses.defeated?.[def.kind];
+        villageObjects.push(obj);
+      } else {
+        existing.ultraBiomeBoss = true;
+        existing.boss = true;
+        existing.name = def.name;
+        existing.bossTitle = def.name;
+        if (questBook.defeatedBosses?.[def.kind] || questBook.ultraBiomeBosses.defeated?.[def.kind]) existing.alive = false;
+      }
+    }
+    try {
+      if (currentScene === "village") {
+        objects = villageObjects;
+        colliders = objects.filter((obj) => obj.solid);
+        interactables = objects.filter((obj) => obj.message);
+      }
+    } catch (error) {
+      // Nao trava o jogo se a vila ainda estiver carregando.
+    }
+  }
+
+  const normalizeRuntimeStateBeforeUltraBiomeBosses = normalizeRuntimeState;
+  normalizeRuntimeState = function normalizeRuntimeStateUltraBiomeBosses() {
+    normalizeRuntimeStateBeforeUltraBiomeBosses();
+    ensureUltraBiomeBossesOnMap();
+  };
+
+  const loadGameBeforeUltraBiomeBosses = loadGame;
+  loadGame = function loadGameUltraBiomeBosses() {
+    const loaded = loadGameBeforeUltraBiomeBosses();
+    ensureUltraBiomeBossesOnMap();
+    return loaded;
+  };
+
+  const resetProgressBeforeUltraBiomeBosses = resetProgressForNewGame;
+  resetProgressForNewGame = function resetProgressForNewGameUltraBiomeBosses(name) {
+    resetProgressBeforeUltraBiomeBosses(name);
+    if (questBook.ultraBiomeBosses) {
+      questBook.ultraBiomeBosses.defeated = {};
+      questBook.ultraBiomeBosses.rewards = {};
+      questBook.ultraBiomeBosses.arrowsFromChests = {};
+    }
+    for (const obj of villageObjects) {
+      if (obj?.type === "enemy" && ULTRA_BIOME_BOSSES[obj.kind]) {
+        const stats = getEnemyStats(obj.kind);
+        obj.alive = true;
+        obj.hp = stats.hp;
+        obj.maxHp = stats.hp;
+        obj.x = obj.spawnX;
+        obj.y = obj.spawnY;
+        obj.phase = 1;
+      }
+    }
+    ensureUltraBiomeBossesOnMap();
+  };
+
+  const setActiveSceneBeforeUltraBiomeBosses = setActiveScene;
+  setActiveScene = function setActiveSceneUltraBiomeBosses(scene) {
+    setActiveSceneBeforeUltraBiomeBosses(scene);
+    ensureUltraBiomeBossesOnMap();
+  };
+
+  const updateEnemiesBeforeUltraBiomeBosses = updateEnemies;
+  updateEnemies = function updateEnemiesUltraBiomeBosses(delta) {
+    updateEnemiesBeforeUltraBiomeBosses(delta);
+    if (currentScene !== "village") return;
+    const px = player.x + player.width / 2;
+    const py = player.y + player.height / 2;
+    for (const obj of villageObjects) {
+      if (!obj?.alive || !ULTRA_BIOME_BOSSES[obj.kind]) continue;
+      const def = ULTRA_BIOME_BOSSES[obj.kind];
+      const cx = obj.x + obj.width / 2;
+      const cy = obj.y + obj.height / 2;
+      const dist = Math.hypot(px - cx, py - cy);
+      if (dist < obj.aggroRange && Math.random() < delta * (obj.phase === 2 ? 0.38 : 0.22)) {
+        spawnHazardZone(def.hazard, px + (Math.random() - 0.5) * 90, py + (Math.random() - 0.5) * 70, obj.phase === 2 ? 46 : 36, 1.8, 1);
+      }
+      if (obj.phase === 2 && dist < obj.attackRange && Math.random() < delta * 0.18) {
+        fireBossPattern(obj, px, py);
+      }
+    }
+  };
+
+  const drawEnemyBeforeUltraBiomeBosses = drawEnemy;
+  drawEnemy = function drawEnemyUltraBiomeBosses(obj) {
+    drawEnemyBeforeUltraBiomeBosses(obj);
+    const def = ULTRA_BIOME_BOSSES[obj?.kind];
+    if (!def || !obj.alive) return;
+    const x = obj.x;
+    const y = obj.y;
+    const t = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 180;
+    const pulse = 0.22 + Math.sin(t) * 0.08;
+    ctx.save();
+    ctx.fillStyle = `rgba(255,242,100,${ultraClamp(pulse, 0.08, 0.32)})`;
+    ctx.fillRect(x - 5, y - 7, obj.width + 10, obj.height + 12);
+    ctx.fillStyle = def.color;
+    ctx.fillRect(x + 6, y - 8, obj.width - 12, 5);
+    ctx.fillStyle = def.core;
+    ctx.fillRect(x + obj.width / 2 - 4, y - 12, 8, 5);
+    ctx.fillStyle = "rgba(39,48,82,0.85)";
+    ctx.fillRect(x + 8, y + obj.height - 3, obj.width - 16, 5);
+    if (obj.kind === "imperadorDunas") {
+      ctx.fillStyle = "#7d5832";
+      ctx.fillRect(x + 10, y + 8, obj.width - 20, 10);
+      ctx.fillStyle = def.core;
+      ctx.fillRect(x + 14, y + 4, obj.width - 28, 5);
+      ctx.fillRect(x + obj.width / 2 - 3, y, 6, 8);
+    } else if (obj.kind === "dragaoGlacialAntigo") {
+      ctx.fillStyle = "rgba(139,216,255,0.75)";
+      ctx.fillRect(x - 6, y + 15, 12, 18);
+      ctx.fillRect(x + obj.width - 6, y + 15, 12, 18);
+      ctx.fillStyle = def.core;
+      ctx.fillRect(x + obj.width / 2 - 10, y + 5, 20, 5);
+    } else if (obj.kind === "hidraVenenosa") {
+      ctx.fillStyle = "rgba(154,255,114,0.55)";
+      ctx.fillRect(x + 6, y + 6, 9, 18);
+      ctx.fillRect(x + obj.width / 2 - 5, y + 2, 10, 22);
+      ctx.fillRect(x + obj.width - 15, y + 6, 9, 18);
+      ctx.fillStyle = def.core;
+      ctx.fillRect(x + 10, y + 8, 5, 5);
+      ctx.fillRect(x + obj.width / 2 - 3, y + 5, 6, 6);
+      ctx.fillRect(x + obj.width - 15, y + 8, 5, 5);
+    }
+    ctx.restore();
+  };
+
+  const defeatEnemyBeforeUltraBiomeBosses = defeatEnemy;
+  defeatEnemy = function defeatEnemyUltraBiomeBosses(obj) {
+    const isUltraBoss = Boolean(obj && ULTRA_BIOME_BOSSES[obj.kind]);
+    defeatEnemyBeforeUltraBiomeBosses(obj);
+    if (!isUltraBoss) return;
+    const state = ensureUltraBossState();
+    if (state.rewards[obj.kind]) return;
+    state.defeated[obj.kind] = true;
+    state.rewards[obj.kind] = true;
+    questBook.defeatedBosses[obj.kind] = true;
+    inventory.moedas += 120;
+    inventory.pocoes += 2;
+    inventory.flechas += 30;
+    player.maxMana += 1;
+    player.mana = player.maxMana;
+    awardXp(900, ULTRA_BIOME_BOSSES[obj.kind].name);
+    spawnFloatingText("BOSS SUPREMO DERROTADO!", obj.x, obj.y - 58, ULTRA_BIOME_BOSSES[obj.kind].color);
+    spawnFloatingText("+30 flechas", obj.x, obj.y - 38, "#fff3d6");
+    if (typeof showHudToast === "function") showHudToast(`${ULTRA_BIOME_BOSSES[obj.kind].name} caiu! +30 flechas, +120 moedas e +1 mana.`);
+    updateHud();
+    renderInventory();
+  };
+
+  function isChestLikeForArrowReward(obj) {
+    if (!obj) return false;
+    if (["chest", "rareChest", "dimensionChest", "elementalBossChest", "celestialChest"].includes(obj.type)) return true;
+    if (obj.type === "biomeFeature" && obj.role === "biomeChest") return true;
+    return false;
+  }
+
+  function getArrowChestKey(obj) {
+    if (!obj) return "unknown";
+    if (obj.type === "rareChest") return "rareChest:ruins";
+    if (obj.type === "dimensionChest") return "dimensionChest:crystal";
+    if (obj.type === "elementalBossChest") return `elementalBossChest:${obj.bossKind || obj.chestId || Math.round(obj.x)}:${Math.round(obj.y)}`;
+    if (obj.type === "celestialChest") return `celestialChest:${obj.chestId || Math.round(obj.x) + ':' + Math.round(obj.y)}`;
+    if (obj.type === "biomeFeature" && obj.role === "biomeChest") return `biomeChest:${obj.chestId || Math.round(obj.x) + ':' + Math.round(obj.y)}`;
+    return `${obj.type || "chest"}:${obj.chestId || obj.kind || Math.round(obj.x) + ':' + Math.round(obj.y)}`;
+  }
+
+  function getChestOpenedState(obj) {
+    if (!obj) return false;
+    if (obj.type === "rareChest") return Boolean(questBook.bossChestOpened);
+    if (obj.type === "dimensionChest") return Boolean(dimensionQuest.chestOpened);
+    if (obj.type === "elementalBossChest") {
+      const key = typeof elementalChestKey === "function" && obj.bossKind ? elementalChestKey(obj.bossKind) : "";
+      return Boolean(obj.opened || (key && questBook.openedChests?.[key]));
+    }
+    if (obj.type === "celestialChest") return Boolean(obj.opened || questBook.celestial?.openedChests?.[obj.chestId]);
+    if (obj.type === "biomeFeature" && obj.role === "biomeChest") return Boolean(obj.opened || questBook.biomeMissions?.chests?.[obj.chestId]);
+    return Boolean(obj.opened);
+  }
+
+  function getArrowAmountForChest(obj) {
+    if (obj?.type === "rareChest") return 18;
+    if (obj?.type === "dimensionChest") return 14;
+    if (obj?.type === "elementalBossChest") return 12;
+    if (obj?.type === "celestialChest") return 16;
+    if (obj?.type === "biomeFeature" && obj.role === "biomeChest") return 20;
+    return 8;
+  }
+
+  function awardArrowsForChest(obj) {
+    const state = ensureUltraBossState();
+    const key = getArrowChestKey(obj);
+    if (state.arrowsFromChests[key]) return false;
+    const amount = getArrowAmountForChest(obj);
+    inventory.flechas += amount;
+    state.arrowsFromChests[key] = true;
+    spawnFloatingText(`+${amount} flechas`, obj.x || player.x, (obj.y || player.y) - 16, "#fff3d6");
+    if (typeof showHudToast === "function") showHudToast(`Bau aberto: +${amount} flechas.`);
+    updateHud();
+    renderInventory();
+    return true;
+  }
+
+  const getQuestMessageBeforeArrowChestPatch = getQuestMessage;
+  getQuestMessage = function getQuestMessageArrowChestPatch(npcObj) {
+    const isChest = isChestLikeForArrowReward(npcObj);
+    const wasOpened = isChest ? getChestOpenedState(npcObj) : false;
+    const result = getQuestMessageBeforeArrowChestPatch(npcObj);
+    if (isChest) {
+      const nowOpened = getChestOpenedState(npcObj);
+      const openedByText = typeof result === "string" && /aberto!|aberto\s*\!/i.test(result) && !/ja foi aberto|já foi aberto/i.test(result);
+      if (!wasOpened && (nowOpened || openedByText)) awardArrowsForChest(npcObj);
+    }
+    return result;
+  };
+
+  function updateUltraBossMissionPanelText() {
+    ensureUltraBossState();
+    const defeated = ULTRA_BOSS_KINDS.filter((kind) => questBook.defeatedBosses?.[kind] || questBook.ultraBiomeBosses?.defeated?.[kind]).length;
+    return `${defeated}/${ULTRA_BOSS_KINDS.length}`;
+  }
+
+  if (typeof renderMissionsPanel === "function") {
+    const renderMissionsPanelBeforeUltraBiomeBosses = renderMissionsPanel;
+    renderMissionsPanel = function renderMissionsPanelUltraBiomeBosses() {
+      renderMissionsPanelBeforeUltraBiomeBosses();
+      try {
+        const missionPanel = document.getElementById("missionsPanel") || document.querySelector(".missions-panel");
+        if (!missionPanel || missionPanel.querySelector("[data-ultra-biome-bosses]")) return;
+        const row = document.createElement("div");
+        row.className = "mission-row";
+        row.dataset.ultraBiomeBosses = "true";
+        row.innerHTML = `<span>Bosses supremos dos biomas</span><strong>${updateUltraBossMissionPanelText()}</strong>`;
+        missionPanel.appendChild(row);
+      } catch (error) {
+        // Painel opcional.
+      }
+    };
+  }
+
+  ensureUltraBossState();
+  ensureUltraBiomeBossesOnMap();
+})();
+
+/* ==================================================
+   Patch: Casa do jogador mais realista + exterior de spawn chamativo
+   ================================================== */
+(function heroHomeRealisticAndSpawnPatch() {
+  function resetHomeMapForHeroHouse() {
+    if (!Array.isArray(homeMap)) return;
+    for (let y = 0; y < HOME_ROWS; y++) {
+      for (let x = 0; x < HOME_COLS; x++) {
+        homeMap[y][x] = "I";
+      }
+    }
+    fillHomeRect(homeMap, 0, 0, HOME_COLS, 1, "B");
+    fillHomeRect(homeMap, 0, HOME_ROWS - 1, HOME_COLS, 1, "B");
+    fillHomeRect(homeMap, 0, 0, 1, HOME_ROWS, "B");
+    fillHomeRect(homeMap, HOME_COLS - 1, 0, 1, HOME_ROWS, "B");
+    fillHomeRect(homeMap, 14, HOME_ROWS - 1, 2, 1, "I");
+    fillHomeRect(homeMap, 3, 3, 7, 4, "R");      // quarto
+    fillHomeRect(homeMap, 8, 10, 10, 4, "R");    // sala principal
+    fillHomeRect(homeMap, 18, 12, 8, 3, "R");    // area social
+  }
+
+  function rebuildHeroHomeInterior() {
+    resetHomeMapForHeroHouse();
+    homeObjects.length = 0;
+    homeObjects.push(
+      block(0, 0, HOME_COLS, 1),
+      block(0, 0, 1, HOME_ROWS),
+      block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+      block(0, HOME_ROWS - 1, 14, 1),
+      block(16, HOME_ROWS - 1, 14, 1),
+
+      interiorBed(3, 3),
+      interiorFurniture(2, 4, "nightstand", true, 1, 1),
+      interiorFurniture(9, 4, "nightstand", true, 1, 1),
+      interiorFurniture(4, 2, "window", false, 2, 1),
+      interiorFurniture(23, 2, "window", false, 2, 1),
+      interiorFurniture(12, 2, "wallBanner", false, 5, 2),
+      interiorBookshelf(25, 3),
+      interiorFurniture(22, 4, "displayShelf", true, 3, 2),
+      interiorFurniture(18, 5, "kitchenCounter", true, 4, 2),
+      interiorFurniture(12, 7, "roundTable", true, 2, 2),
+      interiorFurniture(10, 7, "chair", true, 1, 1),
+      interiorFurniture(15, 8, "chair", true, 1, 1),
+      interiorFurniture(8, 10, "largeRug", false, 10, 4),
+      interiorFurniture(19, 12, "sofa", true, 4, 2),
+      interiorFurniture(24, 10, "fireplace", true, 3, 3),
+      interiorChest(3, 13),
+      interiorFurniture(25, 13, "tallPlant", true, 1, 2),
+      interiorFurniture(6, 13, "barrel", true, 1, 1),
+      interiorFurniture(8, 13, "vase", true, 1, 1),
+      interiorFurniture(19, 15, "shelf", false, 2, 1),
+      sign(14, 17, "Saida da casa: caminhe para baixo para voltar a vila. Aqui tambem e o seu ponto de spawn.")
+    );
+
+    if (currentScene === "home") {
+      objects = homeObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  function rebuildSpawnExterior() {
+    const existingHouse = villageObjects.find((obj) => obj.type === "playerHouse");
+    if (existingHouse) {
+      existingHouse.title = "Casa do Heroi";
+      existingHouse.isSpawnHouse = true;
+    }
+
+    for (let i = villageObjects.length - 1; i >= 0; i--) {
+      if (villageObjects[i] && villageObjects[i].spawnUpgradeTag) villageObjects.splice(i, 1);
+    }
+
+    const spawnExtras = [
+      outdoorDecor(23, 34, "lampPost", true),
+      outdoorDecor(28, 34, "lampPost", true),
+      outdoorDecor(22, 35, "flowerBed", false),
+      outdoorDecor(29, 35, "flowerBed", false),
+      outdoorDecor(24, 36, "stonePath", false),
+      outdoorDecor(25, 36, "stonePath", false),
+      outdoorDecor(26, 36, "stonePath", false),
+      outdoorDecor(24, 37, "stonePath", false),
+      outdoorDecor(25, 37, "stonePath", false),
+      outdoorDecor(26, 37, "stonePath", false),
+      outdoorDecor(22, 33, "flag", true),
+      outdoorDecor(29, 33, "flag", true),
+      outdoorDecor(29, 36, "mailbox", true),
+      sign(27, 37, "SPAWN: esta casa e o ponto principal de inicio e retorno do jogador.")
+    ];
+
+    for (const obj of spawnExtras) {
+      obj.spawnUpgradeTag = true;
+      villageObjects.push(obj);
+    }
+
+    if (currentScene === "village") {
+      objects = villageObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  rebuildHeroHomeInterior();
+  rebuildSpawnExterior();
+
+  const drawPlayerHouseBeforeSpawnUpgrade = drawPlayerHouse;
+  drawPlayerHouse = function drawPlayerHouseSpawnUpgrade(obj) {
+    drawPlayerHouseBeforeSpawnUpgrade(obj);
+    const x = obj.x;
+    const y = obj.y;
+    const glow = 0.65 + Math.sin(performance.now() / 280) * 0.08;
+
+    drawSoftShadow(x + 18, y + 90, 92, 11, 0.32);
+
+    // placa brilhante indicando spawn
+    fillPixelV2(x + 32, y + 34, 64, 18, `rgba(85, 232, 255, ${0.12 * glow})`);
+    outlinePixelV2(x + 36, y + 38, 56, 13, "#273052");
+    fillPixelV2(x + 40, y + 41, 48, 3, "#fff264");
+    fillPixelV2(x + 46, y + 45, 8, 2, "#55e8ff");
+    fillPixelV2(x + 58, y + 45, 8, 2, "#fff264");
+    fillPixelV2(x + 70, y + 45, 8, 2, "#55e8ff");
+
+    // cristal luminoso no topo do telhado
+    fillPixelV2(x + 51, y + 4, 26, 24, `rgba(255, 242, 100, ${0.14 * glow})`);
+    outlinePixelV2(x + 57, y + 8, 14, 14, "#55e8ff");
+    fillPixelV2(x + 61, y + 10, 6, 10, "#fff264");
+    fillPixelV2(x + 59, y + 12, 2, 6, "#e9ffff");
+    fillPixelV2(x + 67, y + 12, 2, 6, "#e9ffff");
+
+    // luzes do alpendre
+    fillPixelV2(x + 20, y + 66, 10, 14, `rgba(255, 242, 100, ${0.20 * glow})`);
+    fillPixelV2(x + 98, y + 66, 10, 14, `rgba(255, 242, 100, ${0.20 * glow})`);
+    outlinePixelV2(x + 22, y + 70, 6, 10, "#fff264");
+    outlinePixelV2(x + 100, y + 70, 6, 10, "#fff264");
+
+    // varanda/entrada para chamar atencao
+    outlinePixelV2(x + 22, y + 89, 84, 10, "#a66a43");
+    fillPixelV2(x + 28, y + 92, 72, 3, "#f2d4a0");
+    fillPixelV2(x + 45, y + 86, 32, 4, "#d24c63");
+    fillPixelV2(x + 49, y + 87, 24, 2, "#fff264");
+
+    // pequenos brilhos
+    fillPixelV2(x + 14, y + 23, 4, 4, "#fff264");
+    fillPixelV2(x + 110, y + 22, 4, 4, "#fff264");
+    fillPixelV2(x + 18, y + 27, 2, 2, "#e9ffff");
+    fillPixelV2(x + 106, y + 27, 2, 2, "#e9ffff");
+  };
+
+  const drawInteriorRoomBackdropBeforeHomeUpgrade = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorRoomBackdropHomeUpgrade(scene) {
+    drawInteriorRoomBackdropBeforeHomeUpgrade(scene);
+    if (scene !== "home") return;
+
+    // parede superior com faixa decorativa e luz quente
+    fillPixelV2(36, 42, HOME_WIDTH - 72, 10, "rgba(255, 245, 210, 0.10)");
+    fillPixelV2(40, 60, HOME_WIDTH - 80, 4, "rgba(39, 48, 82, 0.30)");
+    fillPixelV2(70, 86, 120, 8, "rgba(255, 242, 100, 0.10)");
+    fillPixelV2(HOME_WIDTH - 190, 86, 120, 8, "rgba(255, 242, 100, 0.10)");
+
+    // divisao visual de ambientes
+    fillPixelV2(10 * TILE, 8 * TILE, 2, 8 * TILE, "rgba(116, 70, 49, 0.18)");
+    fillPixelV2(20 * TILE, 8 * TILE, 2, 8 * TILE, "rgba(116, 70, 49, 0.18)");
+  };
+})();
+
+/* ==================================================
+   Patch: exterior da casa mais epico + loja e casa do prefeito melhoradas
+   ================================================== */
+(function epicSpawnShopMayorPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EPIC_SPAWN_SHOP_MAYOR_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EPIC_SPAWN_SHOP_MAYOR_PATCH = true;
+
+  function removeByVisualPrefix(target, prefixes) {
+    for (let i = target.length - 1; i >= 0; i--) {
+      const id = target[i] && target[i].visualV2Id;
+      if (id && prefixes.some((prefix) => id.startsWith(prefix))) target.splice(i, 1);
+    }
+  }
+
+  removeByVisualPrefix(shopInteriorObjects, ["shop-"]);
+  removeByVisualPrefix(mayorInteriorObjects, ["mayor-"]);
+  for (let i = villageObjects.length - 1; i >= 0; i--) {
+    if (villageObjects[i] && villageObjects[i].spawnEpicTag) villageObjects.splice(i, 1);
+  }
+
+  addVisualV2Objects(shopInteriorObjects, [
+    furnitureV2("shop-window-left", 2, 2, "window", false, 2, 1),
+    furnitureV2("shop-window-right", 26, 2, "window", false, 2, 1),
+    furnitureV2("shop-banner", 11, 1, "wallBanner", false, 7, 2),
+    furnitureV2("shop-display-left", 2, 4, "displayShelf", true, 4, 2),
+    furnitureV2("shop-display-right", 24, 4, "displayShelf", true, 4, 2),
+    furnitureV2("shop-cash-register", 19, 4, "cashRegister", false, 1, 1),
+    furnitureV2("shop-notice", 11, 2, "noticeBoard", false, 6, 2),
+    furnitureV2("shop-rug", 8, 10, "largeRug", false, 12, 4),
+    furnitureV2("shop-table-left", 3, 12, "merchantTable", true, 3, 2),
+    furnitureV2("shop-table-right", 23, 12, "merchantTable", true, 3, 2),
+    furnitureV2("shop-armor-left", 3, 8, "armorStand", true, 1, 2),
+    furnitureV2("shop-armor-right", 25, 8, "armorStand", true, 1, 2),
+    furnitureV2("shop-sofa", 11, 14, "sofa", true, 4, 2),
+    furnitureV2("shop-tall-plant-left", 2, 14, "tallPlant", true, 1, 2),
+    furnitureV2("shop-tall-plant-right", 27, 14, "tallPlant", true, 1, 2)
+  ]);
+
+  addVisualV2Objects(mayorInteriorObjects, [
+    furnitureV2("mayor-pillar-left", 2, 2, "pillar", true, 1, 3),
+    furnitureV2("mayor-pillar-right", 27, 2, "pillar", true, 1, 3),
+    furnitureV2("mayor-banner-left", 5, 1, "wallBanner", false, 4, 2),
+    furnitureV2("mayor-banner-right", 21, 1, "wallBanner", false, 4, 2),
+    furnitureV2("mayor-throne", 12, 2, "throne", true, 4, 3),
+    furnitureV2("mayor-display-left", 2, 5, "displayShelf", true, 3, 2),
+    furnitureV2("mayor-display-right", 25, 5, "displayShelf", true, 3, 2),
+    furnitureV2("mayor-rug", 9, 8, "largeRug", false, 12, 5),
+    furnitureV2("mayor-map-table", 5, 12, "mapTable", true, 4, 2),
+    furnitureV2("mayor-office", 20, 12, "officeDesk", true, 4, 2),
+    furnitureV2("mayor-sofa", 10, 14, "sofa", true, 5, 2),
+    furnitureV2("mayor-fireplace", 24, 11, "fireplace", true, 2, 2),
+    furnitureV2("mayor-tall-plant-left", 3, 14, "tallPlant", true, 1, 2),
+    furnitureV2("mayor-tall-plant-right", 26, 14, "tallPlant", true, 1, 2)
+  ]);
+
+  const epicSpawnExtras = [
+    outdoorV2("spawn-epic-banner-left", 22, 33, "spawnBanner", true, 1, 2),
+    outdoorV2("spawn-epic-banner-right", 29, 33, "spawnBanner", true, 1, 2),
+    outdoorV2("spawn-epic-brazier-left", 23, 36, "crystalBrazier", true, 1, 1),
+    outdoorV2("spawn-epic-brazier-right", 28, 36, "crystalBrazier", true, 1, 1),
+    outdoorV2("spawn-epic-path-a", 24, 36, "stonePath", false),
+    outdoorV2("spawn-epic-path-b", 25, 36, "stonePath", false),
+    outdoorV2("spawn-epic-path-c", 26, 36, "stonePath", false),
+    outdoorV2("spawn-epic-path-d", 24, 37, "stonePath", false),
+    outdoorV2("spawn-epic-path-e", 25, 37, "stonePath", false),
+    outdoorV2("spawn-epic-path-f", 26, 37, "stonePath", false),
+    outdoorV2("spawn-epic-flowers-left", 21, 36, "flowerBed", false),
+    outdoorV2("spawn-epic-flowers-right", 30, 36, "flowerBed", false),
+    outdoorV2("spawn-epic-mailbox", 29, 35, "mailbox", true),
+    outdoorV2("spawn-epic-arch", 24, 35, "spawnArch", false, 3, 2, "Portal do Lar: este e o ponto de spawn principal do jogador."),
+    sign(27, 38, "Spawn Principal: volte para ca depois das aventuras para descansar e organizar seu inventario.")
+  ];
+  for (const obj of epicSpawnExtras) {
+    obj.spawnEpicTag = true;
+    villageObjects.push(obj);
+  }
+
+  if (currentScene === "shopInterior") objects = shopInteriorObjects;
+  else if (currentScene === "mayorInterior") objects = mayorInteriorObjects;
+  else if (currentScene === "village") objects = villageObjects;
+  colliders = objects.filter((obj) => obj.solid);
+  interactables = objects.filter((obj) => obj.message);
+
+  const drawFurnitureBeforeEpicPatch = drawFurniture;
+  drawFurniture = function drawFurnitureEpicPatch(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+    if (obj.kind === "merchantTable") {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 7, 0.2);
+      outlinePixelV2(x, y + 6, w, h - 8, "#8f5a3f");
+      fillPixelV2(x + 6, y + 8, w - 12, 10, "#d99b67");
+      fillPixelV2(x + 8, y + 12, 7, 8, "#d24c63");
+      fillPixelV2(x + 18, y + 11, 6, 9, "#55c4ff");
+      fillPixelV2(x + 28, y + 12, 6, 8, "#7bdb73");
+      fillPixelV2(x + w - 14, y + 11, 5, 5, "#fff264");
+      return;
+    }
+    if (obj.kind === "armorStand") {
+      drawSoftShadow(x + 5, y + h - 3, w - 10, 6, 0.18);
+      fillPixelV2(x + 14, y + 8, 4, h - 14, "#7d4d38");
+      outlinePixelV2(x + 6, y + 4, 20, 18, "#273052");
+      fillPixelV2(x + 10, y + 8, 12, 10, "#b46dff");
+      fillPixelV2(x + 11, y + 20, 10, 6, "#fff264");
+      fillPixelV2(x + 23, y + 5, 5, 18, "#c8d0d8");
+      return;
+    }
+    if (obj.kind === "pillar") {
+      outlinePixelV2(x + 8, y, w - 16, h, "#8c8a96");
+      fillPixelV2(x + 12, y + 6, w - 24, h - 12, "#d9d7e4");
+      fillPixelV2(x + 6, y + h - 8, w - 12, 6, "#b6b3c8");
+      fillPixelV2(x + 6, y + 2, w - 12, 6, "#f1eff7");
+      return;
+    }
+    if (obj.kind === "throne") {
+      drawSoftShadow(x + 6, y + h - 3, w - 12, 7, 0.22);
+      outlinePixelV2(x + 6, y + 8, w - 12, h - 10, "#71476c");
+      fillPixelV2(x + 14, y + 12, w - 28, h - 24, "#d24c63");
+      fillPixelV2(x + 18, y + 4, w - 36, 12, "#fff264");
+      fillPixelV2(x + 10, y + h - 18, w - 20, 8, "#9b5fc7");
+      fillPixelV2(x + w / 2 - 4, y + 16, 8, 8, "#55e8ff");
+      return;
+    }
+    if (obj.kind === "mapTable") {
+      drawSoftShadow(x + 4, y + h - 3, w - 8, 7, 0.2);
+      outlinePixelV2(x, y + 6, w, h - 8, "#8f5a3f");
+      fillPixelV2(x + 6, y + 9, w - 12, h - 18, "#d99b67");
+      fillPixelV2(x + 12, y + 12, w - 24, h - 24, "#fff3d6");
+      fillPixelV2(x + 18, y + 16, 16, 6, "#55c4ff");
+      fillPixelV2(x + 40, y + 19, 14, 5, "#7bdb73");
+      fillPixelV2(x + 62, y + 15, 10, 10, "#d24c63");
+      return;
+    }
+    if (obj.kind === "officeDesk") {
+      drawSoftShadow(x + 4, y + h - 3, w - 8, 7, 0.22);
+      outlinePixelV2(x, y + 5, w, h - 8, "#7d4d38");
+      fillPixelV2(x + 6, y + 8, w - 12, 11, "#c48a5a");
+      fillPixelV2(x + 12, y + 12, 20, 5, "#fff3d6");
+      fillPixelV2(x + 36, y + 12, 12, 6, "#55c4ff");
+      fillPixelV2(x + 56, y + 10, 16, 8, "#d24c63");
+      fillPixelV2(x + 16, y + 23, 14, 10, "#6d5c75");
+      fillPixelV2(x + 48, y + 23, 16, 10, "#6d5c75");
+      return;
+    }
+    return drawFurnitureBeforeEpicPatch(obj);
+  };
+
+  const drawOutdoorBeforeEpicPatch = drawOutdoorDecor;
+  drawOutdoorDecor = function drawOutdoorEpicPatch(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const pulse = 0.72 + Math.sin(performance.now() / 260) * 0.12;
+    if (obj.kind === "spawnBanner") {
+      fillPixelV2(x + 14, y + 2, 4, 28, "#7d4d38");
+      outlinePixelV2(x + 18, y + 4, 14, 18, "#273052");
+      fillPixelV2(x + 20, y + 6, 10, 14, "#55c4ff");
+      fillPixelV2(x + 22, y + 9, 6, 6, "#fff264");
+      return;
+    }
+    if (obj.kind === "crystalBrazier") {
+      drawSoftShadow(x + 4, y + 24, 24, 6, 0.22);
+      outlinePixelV2(x + 6, y + 16, 20, 10, "#8f5a3f");
+      fillPixelV2(x + 10, y + 10, 12, 10, `rgba(85, 232, 255, ${0.18 * pulse})`);
+      fillPixelV2(x + 12, y + 12, 8, 8, "#55e8ff");
+      fillPixelV2(x + 14, y + 14, 4, 4, "#fff264");
+      return;
+    }
+    if (obj.kind === "spawnArch") {
+      fillPixelV2(x + 10, y + 18, 6, 34, "#8f5a3f");
+      fillPixelV2(x + obj.width - 16, y + 18, 6, 34, "#8f5a3f");
+      outlinePixelV2(x + 10, y + 12, obj.width - 20, 10, "#273052");
+      fillPixelV2(x + 16, y + 14, obj.width - 32, 6, "#55e8ff");
+      fillPixelV2(x + obj.width / 2 - 6, y + 4, 12, 12, "#fff264");
+      fillPixelV2(x + obj.width / 2 - 4, y + 7, 8, 6, "#55e8ff");
+      fillPixelV2(x + 6, y + 8, obj.width - 12, 24, `rgba(255, 242, 100, ${0.08 * pulse})`);
+      return;
+    }
+    return drawOutdoorBeforeEpicPatch(obj);
+  };
+
+  const drawPlayerHouseBeforeEpicPatch = drawPlayerHouse;
+  drawPlayerHouse = function drawPlayerHouseEpicPatch(obj) {
+    drawPlayerHouseBeforeEpicPatch(obj);
+    const x = obj.x;
+    const y = obj.y;
+    const pulse = 0.8 + Math.sin(performance.now() / 240) * 0.12;
+
+    // faixas laterais do spawn
+    outlinePixelV2(x + 10, y + 34, 12, 30, "#273052");
+    outlinePixelV2(x + 102, y + 34, 12, 30, "#273052");
+    fillPixelV2(x + 12, y + 36, 8, 26, "#55c4ff");
+    fillPixelV2(x + 104, y + 36, 8, 26, "#55c4ff");
+    fillPixelV2(x + 14, y + 42, 4, 8, "#fff264");
+    fillPixelV2(x + 106, y + 42, 4, 8, "#fff264");
+
+    // emblema central
+    fillPixelV2(x + 49, y + 48, 18, 18, `rgba(255, 242, 100, ${0.16 * pulse})`);
+    outlinePixelV2(x + 53, y + 52, 10, 10, "#fff264");
+    fillPixelV2(x + 56, y + 55, 4, 4, "#55e8ff");
+
+    // varanda e degraus mais nobres
+    fillPixelV2(x + 40, y + 96, 44, 4, "#f5ce79");
+    fillPixelV2(x + 44, y + 100, 36, 4, "#d99b67");
+    fillPixelV2(x + 48, y + 104, 28, 4, "#b9845a");
+
+    // janelas mais brilhantes
+    fillPixelV2(x + 26, y + 61, 14, 14, `rgba(255, 242, 100, ${0.18 * pulse})`);
+    fillPixelV2(x + 85, y + 61, 14, 14, `rgba(255, 242, 100, ${0.18 * pulse})`);
+    fillPixelV2(x + 30, y + 65, 6, 6, "#fff264");
+    fillPixelV2(x + 89, y + 65, 6, 6, "#fff264");
+  };
+
+  const drawInteriorBackdropBeforeEpicPatch = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorRoomBackdropEpicPatch(scene) {
+    drawInteriorBackdropBeforeEpicPatch(scene);
+    if (scene === "shopInterior") {
+      // vigas e luz quente de loja
+      fillPixelV2(2 * TILE, 2 * TILE, 26 * TILE, 6, "rgba(120, 78, 46, 0.22)");
+      fillPixelV2(5 * TILE, 3 * TILE, 20 * TILE, 4, "rgba(255, 242, 100, 0.08)");
+      fillPixelV2(3 * TILE, 9 * TILE, 24 * TILE, 3, "rgba(39, 48, 82, 0.10)");
+      fillPixelV2(3 * TILE, 14 * TILE, 24 * TILE, 3, "rgba(39, 48, 82, 0.10)");
+    }
+    if (scene === "mayorInterior") {
+      // sala mais nobre do prefeito
+      fillPixelV2(3 * TILE, 2 * TILE, 24 * TILE, 5, "rgba(255, 242, 100, 0.12)");
+      fillPixelV2(5 * TILE, 4 * TILE, 20 * TILE, 3, "rgba(85, 196, 255, 0.10)");
+      fillPixelV2(8 * TILE, 7 * TILE, 14 * TILE, 4, "rgba(107, 45, 74, 0.18)");
+      fillPixelV2(4 * TILE, 13 * TILE, 22 * TILE, 3, "rgba(39, 48, 82, 0.12)");
+    }
+  };
+})();
+
+/* ==================================================
+   Patch extra: casa maior por dentro + quarto especial das esposas
+   ================================================== */
+(function expandedHomeAndWivesRoomPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EXPANDED_HOME_WIVES_ROOM_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EXPANDED_HOME_WIVES_ROOM_PATCH = true;
+
+  function resetHomeInteriorLayout() {
+    homeObjects.length = 0;
+
+    // paredes e saida
+    homeObjects.push(
+      block(0, 0, HOME_COLS, 1),
+      block(0, 0, 1, HOME_ROWS),
+      block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+      block(0, HOME_ROWS - 1, 14, 1),
+      block(16, HOME_ROWS - 1, 14, 1),
+      sign(14, 17, "Porta de saida: caminhe para baixo para voltar a vila."),
+
+      // ala principal - casa mais ampla, organizada e aconchegante
+      interiorBed(2, 2),
+      interiorBookshelf(6, 2),
+      interiorTable(10, 3),
+      interiorChest(2, 12),
+      interiorPlant(8, 12),
+      furnitureV2("home-window-left", 3, 2, "window", false, 2, 1),
+      furnitureV2("home-window-mid", 12, 2, "window", false, 2, 1),
+      furnitureV2("home-window-right", 16, 2, "window", false, 2, 1),
+      furnitureV2("home-chair-a", 10, 5, "chair", true),
+      furnitureV2("home-chair-b", 13, 5, "chair", true),
+      furnitureV2("home-chair-c", 12, 8, "chair", true),
+      furnitureV2("home-reading-rug", 2, 6, "rugSmall", false, 6, 3),
+      furnitureV2("home-grand-rug", 8, 10, "rugSmall", false, 8, 4),
+      furnitureV2("home-stove", 10, 12, "stove", true, 2, 2),
+      furnitureV2("home-shelf", 13, 12, "shelf", false, 2, 1),
+      furnitureV2("home-vase", 16, 12, "vase", true),
+      furnitureV2("home-armoire", 5, 11, "armoire", true, 2, 3),
+      furnitureV2("home-lamp-a", 8, 2, "lamp", false),
+      furnitureV2("home-lamp-b", 15, 2, "lamp", false),
+      furnitureV2("home-family-frame", 15, 4, "wifePortrait", false, 2, 1, "Lar do heroi: este salao ficou maior por dentro para o jogador descansar, organizar equipamentos e viver com suas esposas."),
+
+      // divisoria / corredor para a suite das esposas
+      furnitureV2("wives-partition-top", 19, 2, "partition", true, 1, 4),
+      furnitureV2("wives-partition-bottom", 19, 8, "partition", true, 1, 7),
+
+      // suite especial das esposas
+      furnitureV2("wives-title-frame", 22, 2, "wifePortrait", false, 2, 1, "Suite das Esposas: um quarto especial preparado para Selene, Nyra, Lilith, Yumi, Aurora, Mika e Violet."),
+      furnitureV2("wives-bed-1", 21, 3, "wifeCanopyBed", true, 3, 2),
+      furnitureV2("wives-bed-2", 24, 3, "wifeCanopyBed", true, 3, 2),
+      furnitureV2("wives-plaque-a", 21, 6, "wifePortrait", false, 2, 1, "Moradoras: Selene, Nyra e Lilith."),
+      furnitureV2("wives-plaque-b", 24, 6, "wifePortrait", false, 2, 1, "Moradoras: Yumi, Aurora, Mika e Violet."),
+      furnitureV2("wives-bed-3", 21, 8, "wifeCanopyBed", true, 3, 2),
+      furnitureV2("wives-bed-4", 24, 8, "wifeCanopyBed", true, 3, 2),
+      furnitureV2("wives-vanity", 21, 12, "vanityTable", true, 3, 2, "Penteadeira delicada das esposas: perfume, joias, flores e cartas guardadas com carinho."),
+      furnitureV2("wives-chest", 25, 12, "wivesChest", true, 2, 1, "Bau das Esposas: vestidos, fitas, presentes e lembrancas especiais do lar."),
+      furnitureV2("wives-armoire", 27, 11, "armoire", true, 2, 3),
+      furnitureV2("wives-rug", 21, 14, "rugSmall", false, 7, 2),
+      furnitureV2("wives-vase", 27, 3, "vase", true),
+      sign(22, 15, "Quarto das Esposas: um espaco reservado e bonito dentro da casa do jogador.")
+    );
+  }
+
+  resetHomeInteriorLayout();
+
+  if (currentScene === "home") {
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  const drawFurnitureBeforeExpandedHomePatch = drawFurniture;
+  drawFurniture = function drawFurnitureExpandedHomePatch(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+
+    if (obj.kind === "partition") {
+      drawSoftShadow(x + 3, y + h - 4, w - 6, 5, 0.18);
+      fillPixelV2(x + 10, y, w - 20, h, "#8f5a3f");
+      fillPixelV2(x + 3, y + 4, w - 6, 6, "#d99b67");
+      fillPixelV2(x + 3, y + h - 10, w - 6, 6, "#d99b67");
+      fillPixelV2(x + 5, y + 12, w - 10, h - 24, "#7b4bd1");
+      fillPixelV2(x + 8, y + 16, w - 16, h - 32, "#a56bff");
+      return;
+    }
+
+    if (obj.kind === "wifeCanopyBed") {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.20);
+      // dossel
+      outlinePixelV2(x + 4, y + 2, w - 8, 10, "#6d3d89");
+      fillPixelV2(x + 8, y + 5, w - 16, 6, "#c98aff");
+      fillPixelV2(x + 4, y + 2, 4, h - 10, "#8f5a3f");
+      fillPixelV2(x + w - 8, y + 2, 4, h - 10, "#8f5a3f");
+      // colchao
+      outlinePixelV2(x + 8, y + 18, w - 16, h - 22, "#71476c");
+      fillPixelV2(x + 12, y + 22, w - 24, 10, "#fff3d6");
+      fillPixelV2(x + 12, y + 34, w - 24, h - 40, "#d48cff");
+      fillPixelV2(x + 14, y + 24, 10, 6, "#f5ce79");
+      fillPixelV2(x + w - 24, y + 24, 10, 6, "#f5ce79");
+      fillPixelV2(x + w / 2 - 3, y + 7, 6, 6, "#fff264");
+      return;
+    }
+
+    if (obj.kind === "vanityTable") {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.18);
+      outlinePixelV2(x + 2, y + 18, w - 4, h - 20, "#8f5a3f");
+      fillPixelV2(x + 8, y + 22, w - 16, 9, "#d99b67");
+      // espelho
+      outlinePixelV2(x + 18, y + 2, w - 36, 18, "#6d3d89");
+      fillPixelV2(x + 22, y + 6, w - 44, 10, "#bde8ff");
+      fillPixelV2(x + 10, y + 25, 6, 5, "#ff7ab5");
+      fillPixelV2(x + 18, y + 24, 6, 6, "#fff264");
+      fillPixelV2(x + 26, y + 24, 6, 6, "#55e8ff");
+      return;
+    }
+
+    if (obj.kind === "wifePortrait") {
+      outlinePixelV2(x + 4, y + 4, w - 8, h - 8, "#6d3d89");
+      fillPixelV2(x + 8, y + 8, w - 16, h - 16, "#f5e0ff");
+      fillPixelV2(x + w / 2 - 10, y + 12, 20, 3, "#c98aff");
+      fillPixelV2(x + w / 2 - 4, y + 16, 8, 8, "#fff264");
+      fillPixelV2(x + w / 2 - 2, y + 18, 4, 4, "#55e8ff");
+      return;
+    }
+
+    if (obj.kind === "wivesChest") {
+      drawSoftShadow(x + 4, y + h - 3, w - 8, 5, 0.18);
+      outlinePixelV2(x + 2, y + 10, w - 4, h - 12, "#7d4d38");
+      fillPixelV2(x + 6, y + 14, w - 12, h - 20, "#b87955");
+      fillPixelV2(x + 10, y + 6, w - 20, 10, "#8e59ca");
+      fillPixelV2(x + w / 2 - 3, y + 16, 6, 6, "#fff264");
+      return;
+    }
+
+    return drawFurnitureBeforeExpandedHomePatch(obj);
+  };
+
+  const drawInteriorBackdropBeforeExpandedHomePatch = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorBackdropExpandedHomePatch(scene) {
+    drawInteriorBackdropBeforeExpandedHomePatch(scene);
+    if (scene !== "home") return;
+
+    // sala principal mais ampla
+    fillPixelV2(2 * TILE, 2 * TILE, 16 * TILE, 13 * TILE, "rgba(255, 245, 210, 0.045)");
+    fillPixelV2(3 * TILE, 3 * TILE, 14 * TILE, 3, "rgba(255, 242, 100, 0.08)");
+    fillPixelV2(9 * TILE, 9 * TILE, 7 * TILE, 4 * TILE, "rgba(210, 76, 99, 0.12)");
+
+    // corredor / porta visual para a suite das esposas
+    fillPixelV2(19 * TILE - 3, 2 * TILE, 6, 13 * TILE, "rgba(116, 70, 49, 0.30)");
+    fillPixelV2(19 * TILE - 4, 6 * TILE, 8, 2 * TILE, "rgba(255, 242, 100, 0.10)");
+
+    // suite das esposas com tom roxo elegante
+    fillPixelV2(20 * TILE, 2 * TILE, 8 * TILE, 13 * TILE, "rgba(124, 77, 177, 0.08)");
+    fillPixelV2(21 * TILE, 3 * TILE, 6 * TILE, 8 * TILE, "rgba(201, 138, 255, 0.05)");
+    fillPixelV2(21 * TILE, 13 * TILE, 7 * TILE, 2 * TILE, "rgba(255, 242, 100, 0.08)");
+  };
+})();
+
+/* ==================================================
+   Patch extra 4: casa ultra realista + tapetes com colisao
+   ================================================== */
+(function ultraRealisticHomePatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_ULTRA_REALISTIC_HOME_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_ULTRA_REALISTIC_HOME_PATCH = true;
+
+  function rebuildUltraHome() {
+    homeObjects.length = 0;
+    homeObjects.push(
+      // limites da casa
+      block(0, 0, HOME_COLS, 1),
+      block(0, 0, 1, HOME_ROWS),
+      block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+      block(0, HOME_ROWS - 1, 14, 1),
+      block(16, HOME_ROWS - 1, 14, 1),
+      sign(14, 17, 'Porta de saida: caminhe para baixo para voltar para a vila.'),
+
+      // janelas e decoracao superior
+      furnitureV2('ultra-window-a', 2, 1, 'window', false, 2, 1),
+      furnitureV2('ultra-window-b', 7, 1, 'window', false, 2, 1),
+      furnitureV2('ultra-window-c', 12, 1, 'window', false, 2, 1),
+      furnitureV2('ultra-window-d', 21, 1, 'window', false, 2, 1),
+      furnitureV2('ultra-window-e', 25, 1, 'window', false, 2, 1),
+      furnitureV2('ultra-lamp-a', 4, 1, 'lamp', false),
+      furnitureV2('ultra-lamp-b', 17, 1, 'lamp', false),
+      furnitureV2('ultra-lamp-c', 27, 1, 'lamp', false),
+      furnitureV2('ultra-banner', 14, 1, 'royalBanner', false, 2, 3),
+      furnitureV2('ultra-frame-top', 15, 4, 'paintingWide', false, 3, 1),
+
+      // sala de estar principal (lado esquerdo)
+      furnitureV2('ultra-sofa-left', 2, 8, 'luxurySofa', true, 4, 2),
+      furnitureV2('ultra-sofa-right', 8, 8, 'luxurySofa', true, 4, 2),
+      furnitureV2('ultra-fireplace', 5, 11, 'stoneFireplace', true, 3, 2),
+      furnitureV2('ultra-coffee', 6, 7, 'coffeeTable', true, 2, 1),
+      furnitureV2('ultra-bookshelf', 2, 3, 'bookshelfTall', true, 2, 3),
+      furnitureV2('ultra-armoire-left', 10, 3, 'armoire', true, 2, 3),
+      furnitureV2('ultra-living-rug', 2, 6, 'solidRugRed', true, 10, 5, 'Tapete da sala: agora ele possui colisao para o jogador nao atravessar o desenho.'),
+
+      // cozinha e jantar (centro)
+      furnitureV2('ultra-kitchen-counter-a', 12, 5, 'kitchenCounter', true, 3, 1),
+      furnitureV2('ultra-kitchen-counter-b', 15, 5, 'kitchenCounter', true, 3, 1),
+      furnitureV2('ultra-kitchen-counter-c', 12, 6, 'kitchenCounter', true, 1, 2),
+      furnitureV2('ultra-stove', 16, 6, 'stoveDeluxe', true, 2, 2),
+      furnitureV2('ultra-sink', 14, 6, 'kitchenSink', true, 2, 1),
+      furnitureV2('ultra-table', 13, 9, 'diningTable', true, 4, 2),
+      furnitureV2('ultra-chair-a', 13, 8, 'chair', true),
+      furnitureV2('ultra-chair-b', 16, 8, 'chair', true),
+      furnitureV2('ultra-chair-c', 13, 11, 'chair', true),
+      furnitureV2('ultra-chair-d', 16, 11, 'chair', true),
+      furnitureV2('ultra-floor-rug', 12, 8, 'solidRugBlue', true, 6, 5, 'Tapete da sala de jantar: colisao ativada para nao ficar bugado.'),
+      furnitureV2('ultra-plant-center', 18, 8, 'vase', true),
+
+      // divisoria elegante para a suite das esposas
+      furnitureV2('ultra-divider-top', 19, 2, 'partitionGold', true, 1, 5),
+      furnitureV2('ultra-divider-bottom', 19, 9, 'partitionGold', true, 1, 6),
+
+      // suite das esposas (lado direito)
+      furnitureV2('ultra-wives-title', 22, 2, 'wifePortrait', false, 3, 1, 'Suite das esposas: um quarto mais bonito e digno para as companheiras do jogador.'),
+      furnitureV2('ultra-wives-bed-a', 21, 3, 'wifeCanopyBedDeluxe', true, 3, 2),
+      furnitureV2('ultra-wives-bed-b', 25, 3, 'wifeCanopyBedDeluxe', true, 3, 2),
+      furnitureV2('ultra-wives-bed-c', 21, 8, 'wifeCanopyBedDeluxe', true, 3, 2),
+      furnitureV2('ultra-wives-bed-d', 25, 8, 'wifeCanopyBedDeluxe', true, 3, 2),
+      furnitureV2('ultra-vanity', 21, 12, 'vanityTableDeluxe', true, 3, 2),
+      furnitureV2('ultra-wardrobe-right', 26, 11, 'armoire', true, 2, 3),
+      furnitureV2('ultra-wife-chest', 24, 12, 'wivesChest', true, 2, 1, 'Bau das esposas: vestidos, presentes e itens especiais guardados aqui.'),
+      furnitureV2('ultra-wife-rug', 21, 6, 'solidRugPurple', true, 7, 8, 'Tapete da suite: colisao ativada.'),
+      furnitureV2('ultra-wife-plant', 28, 6, 'vase', true),
+      furnitureV2('ultra-wife-shelf', 24, 14, 'shelf', false, 2, 1),
+      furnitureV2('ultra-wife-frame', 27, 2, 'paintingWide', false, 2, 1),
+      sign(22, 15, 'Quarto das esposas: um ambiente luxuoso, bonito e mais realista.')
+    );
+  }
+
+  rebuildUltraHome();
+  if (currentScene === 'home') {
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  const prevDrawFurnitureUltra = drawFurniture;
+  drawFurniture = function drawFurnitureUltraRealistic(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+
+    if (obj.kind === 'solidRugRed' || obj.kind === 'solidRugBlue' || obj.kind === 'solidRugPurple') {
+      const base = obj.kind === 'solidRugRed' ? '#b84d63' : obj.kind === 'solidRugBlue' ? '#5b93d1' : '#9363cb';
+      const dark = obj.kind === 'solidRugRed' ? '#8f3349' : obj.kind === 'solidRugBlue' ? '#376ea9' : '#6d42a8';
+      const light = obj.kind === 'solidRugRed' ? '#d96d82' : obj.kind === 'solidRugBlue' ? '#7fb8ec' : '#bc8ef4';
+      drawSoftShadow(x + 2, y + h - 3, w - 4, 5, 0.16);
+      outlinePixelV2(x, y, w, h, dark);
+      fillPixelV2(x + 2, y + 2, w - 4, h - 4, base);
+      for (let iy = y + 6; iy < y + h - 6; iy += 8) {
+        fillPixelV2(x + 4, iy, w - 8, 2, light);
+      }
+      for (let ix = x + 6; ix < x + w - 6; ix += 10) {
+        fillPixelV2(ix, y + 4, 2, h - 8, light);
+      }
+      fillPixelV2(x + 5, y + 5, w - 10, h - 10, 'rgba(255,255,255,0.06)');
+      return;
+    }
+
+    if (obj.kind === 'royalBanner') {
+      fillPixelV2(x + w / 2 - 2, y, 4, h, '#8f5a3f');
+      outlinePixelV2(x + 6, y + 3, w - 12, h - 8, '#20315e');
+      fillPixelV2(x + 8, y + 5, w - 16, h - 14, '#6a54d7');
+      fillPixelV2(x + w / 2 - 4, y + 10, 8, 8, '#fff264');
+      fillPixelV2(x + w / 2 - 8, y + 20, 16, 3, '#c7a13a');
+      return;
+    }
+
+    if (obj.kind === 'paintingWide') {
+      outlinePixelV2(x + 2, y + 2, w - 4, h - 4, '#6d3d89');
+      fillPixelV2(x + 6, y + 6, w - 12, h - 12, '#f4e8ff');
+      fillPixelV2(x + w / 2 - 10, y + h / 2 - 2, 20, 4, '#c98aff');
+      fillPixelV2(x + w / 2 - 3, y + h / 2 - 8, 6, 16, '#fff264');
+      return;
+    }
+
+    if (obj.kind === 'bookshelfTall') {
+      drawSoftShadow(x + 3, y + h - 3, w - 6, 5, 0.16);
+      outlinePixelV2(x + 2, y + 2, w - 4, h - 4, '#68452f');
+      fillPixelV2(x + 6, y + 6, w - 12, h - 12, '#8f5a3f');
+      for (let sy = y + 12; sy < y + h - 8; sy += 12) {
+        fillPixelV2(x + 8, sy, w - 16, 2, '#e7b97f');
+        fillPixelV2(x + 10, sy + 3, 5, 7, '#4fb1ff');
+        fillPixelV2(x + 17, sy + 3, 5, 7, '#df5ca8');
+        fillPixelV2(x + 24, sy + 3, 5, 7, '#fff264');
+      }
+      return;
+    }
+
+    if (obj.kind === 'luxurySofa') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 5, 0.18);
+      outlinePixelV2(x + 2, y + 8, w - 4, h - 10, '#5f3650');
+      fillPixelV2(x + 4, y + 10, w - 8, h - 14, '#8c5fd0');
+      fillPixelV2(x + 6, y + 14, w - 12, h - 18, '#b287f0');
+      fillPixelV2(x + 4, y + h - 8, w - 8, 4, '#6a4779');
+      fillPixelV2(x + 4, y + 4, 6, 8, '#774490');
+      fillPixelV2(x + w - 10, y + 4, 6, 8, '#774490');
+      return;
+    }
+
+    if (obj.kind === 'coffeeTable') {
+      drawSoftShadow(x + 2, y + h - 3, w - 4, 4, 0.16);
+      outlinePixelV2(x + 2, y + 4, w - 4, h - 8, '#7d4d38');
+      fillPixelV2(x + 4, y + 6, w - 8, h - 12, '#c98c62');
+      fillPixelV2(x + 8, y + 8, 6, 4, '#fff264');
+      fillPixelV2(x + 16, y + 8, 6, 4, '#ff7ab5');
+      return;
+    }
+
+    if (obj.kind === 'stoneFireplace') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 5, 0.20);
+      outlinePixelV2(x + 2, y + 6, w - 4, h - 8, '#4b556b');
+      fillPixelV2(x + 4, y + 8, w - 8, h - 12, '#6f778c');
+      fillPixelV2(x + 10, y + 14, w - 20, h - 20, '#2f2a34');
+      fillPixelV2(x + w / 2 - 8, y + 18, 16, 8, '#ff9a3c');
+      fillPixelV2(x + w / 2 - 4, y + 14, 8, 6, '#fff264');
+      fillPixelV2(x + 12, y + 2, w - 24, 6, '#a5afc2');
+      return;
+    }
+
+    if (obj.kind === 'kitchenCounter') {
+      drawSoftShadow(x + 3, y + h - 3, w - 6, 4, 0.14);
+      outlinePixelV2(x + 2, y + 6, w - 4, h - 8, '#704d38');
+      fillPixelV2(x + 4, y + 8, w - 8, h - 12, '#c08a63');
+      fillPixelV2(x + 2, y + 2, w - 4, 6, '#d8dfef');
+      return;
+    }
+
+    if (obj.kind === 'kitchenSink') {
+      drawSoftShadow(x + 2, y + h - 3, w - 4, 4, 0.12);
+      outlinePixelV2(x + 2, y + 4, w - 4, h - 6, '#5c6474');
+      fillPixelV2(x + 4, y + 6, w - 8, h - 10, '#c7d8ea');
+      fillPixelV2(x + 10, y + 10, w - 20, h - 18, '#8eb5d8');
+      fillPixelV2(x + w / 2 - 2, y + 2, 4, 8, '#7d4d38');
+      return;
+    }
+
+    if (obj.kind === 'stoveDeluxe') {
+      drawSoftShadow(x + 2, y + h - 3, w - 4, 4, 0.16);
+      outlinePixelV2(x + 2, y + 4, w - 4, h - 6, '#313645');
+      fillPixelV2(x + 4, y + 6, w - 8, h - 10, '#5e677c');
+      fillPixelV2(x + 8, y + 10, w - 16, 8, '#2e3444');
+      fillPixelV2(x + 10, y + 12, 6, 6, '#ff6b3d');
+      fillPixelV2(x + w - 16, y + 12, 6, 6, '#fff264');
+      return;
+    }
+
+    if (obj.kind === 'diningTable') {
+      drawSoftShadow(x + 4, y + h - 3, w - 8, 5, 0.16);
+      outlinePixelV2(x + 2, y + 4, w - 4, h - 8, '#744d34');
+      fillPixelV2(x + 4, y + 6, w - 8, h - 12, '#be8458');
+      fillPixelV2(x + 10, y + 10, w - 20, 4, '#f7d783');
+      fillPixelV2(x + w / 2 - 3, y + h / 2 - 3, 6, 6, '#ff7ab5');
+      return;
+    }
+
+    if (obj.kind === 'partitionGold') {
+      drawSoftShadow(x + 3, y + h - 4, w - 6, 5, 0.16);
+      fillPixelV2(x + 10, y, w - 20, h, '#8f5a3f');
+      fillPixelV2(x + 3, y + 4, w - 6, 6, '#f5ce79');
+      fillPixelV2(x + 3, y + h - 10, w - 6, 6, '#f5ce79');
+      fillPixelV2(x + 5, y + 12, w - 10, h - 24, '#8b62d5');
+      fillPixelV2(x + 8, y + 16, w - 16, h - 32, '#c98aff');
+      return;
+    }
+
+    if (obj.kind === 'wifeCanopyBedDeluxe') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.18);
+      fillPixelV2(x + 4, y + 2, 4, h - 6, '#8f5a3f');
+      fillPixelV2(x + w - 8, y + 2, 4, h - 6, '#8f5a3f');
+      outlinePixelV2(x + 4, y + 2, w - 8, 10, '#6d3d89');
+      fillPixelV2(x + 8, y + 5, w - 16, 6, '#c98aff');
+      outlinePixelV2(x + 8, y + 18, w - 16, h - 22, '#71476c');
+      fillPixelV2(x + 12, y + 22, w - 24, 10, '#fff1cf');
+      fillPixelV2(x + 12, y + 34, w - 24, h - 40, '#b685ff');
+      fillPixelV2(x + 14, y + 24, 9, 6, '#f5ce79');
+      fillPixelV2(x + w - 23, y + 24, 9, 6, '#f5ce79');
+      return;
+    }
+
+    if (obj.kind === 'vanityTableDeluxe') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 5, 0.18);
+      outlinePixelV2(x + 2, y + 18, w - 4, h - 20, '#8f5a3f');
+      fillPixelV2(x + 8, y + 22, w - 16, 9, '#d99b67');
+      outlinePixelV2(x + 18, y + 2, w - 36, 18, '#6d3d89');
+      fillPixelV2(x + 22, y + 6, w - 44, 10, '#bde8ff');
+      fillPixelV2(x + 10, y + 25, 6, 5, '#ff7ab5');
+      fillPixelV2(x + 19, y + 24, 6, 6, '#fff264');
+      fillPixelV2(x + 28, y + 24, 6, 6, '#55e8ff');
+      return;
+    }
+
+    return prevDrawFurnitureUltra(obj);
+  };
+
+  const prevBackdropUltra = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorRoomBackdropUltraRealistic(scene) {
+    prevBackdropUltra(scene);
+    if (scene !== 'home') return;
+
+    // piso de madeira com brilho suave
+    fillPixelV2(1 * TILE, 1 * TILE, 28 * TILE, 15 * TILE, 'rgba(255,245,220,0.02)');
+
+    // moldura de parede superior
+    fillPixelV2(1 * TILE, 1 * TILE, 28 * TILE, 1 * TILE, 'rgba(85,58,44,0.16)');
+    fillPixelV2(1 * TILE, 2 * TILE, 28 * TILE, 4, 'rgba(255,255,255,0.05)');
+
+    // destaque da sala principal
+    fillPixelV2(2 * TILE, 6 * TILE, 10 * TILE, 6 * TILE, 'rgba(255,214,170,0.05)');
+    // destaque da cozinha
+    fillPixelV2(12 * TILE, 5 * TILE, 6 * TILE, 8 * TILE, 'rgba(160,210,255,0.04)');
+    // destaque da suite
+    fillPixelV2(20 * TILE, 2 * TILE, 8 * TILE, 13 * TILE, 'rgba(188,142,244,0.06)');
+
+    // passadeira de entrada
+    fillPixelV2(13 * TILE, 14 * TILE, 4 * TILE, 3 * TILE, 'rgba(255,242,100,0.05)');
+  };
+})();
+
+/* ==================================================
+   Patch extra 5: interior da casa inspirado na imagem de referencia
+   Objetivo: deixar aconchegante, rico em detalhes e leve.
+   ================================================== */
+(function homeReferenceLitePatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_HOME_REFERENCE_LITE_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_HOME_REFERENCE_LITE_PATCH = true;
+
+  function rebuildHomeInspiredByReference() {
+    homeObjects.length = 0;
+
+    homeObjects.push(
+      // limites e saida
+      block(0, 0, HOME_COLS, 1),
+      block(0, 0, 1, HOME_ROWS),
+      block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+      block(0, HOME_ROWS - 1, 14, 1),
+      block(16, HOME_ROWS - 1, 14, 1),
+      sign(14, 17, 'Porta de saida: caminhe para baixo para voltar para a vila.'),
+
+      // janelas e iluminacao quente superiores
+      furnitureV2('ref-window-a', 4, 2, 'window', false, 2, 1),
+      furnitureV2('ref-window-b', 8, 2, 'window', false, 2, 1),
+      furnitureV2('ref-window-c', 22, 2, 'window', false, 2, 1),
+      furnitureV2('ref-window-d', 25, 2, 'window', false, 2, 1),
+      furnitureV2('ref-wall-lamp-a', 2, 2, 'wallLampWarm', false, 1, 1),
+      furnitureV2('ref-wall-lamp-b', 11, 2, 'wallLampWarm', false, 1, 1),
+      furnitureV2('ref-wall-lamp-c', 20, 2, 'wallLampWarm', false, 1, 1),
+      furnitureV2('ref-wall-lamp-d', 28, 2, 'wallLampWarm', false, 1, 1),
+
+      // lado esquerdo - escritorio/leitura
+      furnitureV2('ref-bookshelf-left', 2, 2, 'cozyBookshelf', true, 2, 3),
+      furnitureV2('ref-desk', 5, 3, 'writingDesk', true, 3, 2),
+      furnitureV2('ref-stool-a', 5, 5, 'stoolRound', true, 1, 1),
+      furnitureV2('ref-stool-b', 8, 5, 'stoolRound', true, 1, 1),
+      furnitureV2('ref-painting', 11, 5, 'paintingWarm', false, 3, 1),
+
+      // sala principal central
+      furnitureV2('ref-rug-main', 4, 11, 'cozyRugRed', false, 10, 5),
+      furnitureV2('ref-low-table', 7, 12, 'lowTableMeal', true, 3, 2),
+      furnitureV2('ref-wardrobe-left', 2, 13, 'wardrobeDark', true, 2, 3),
+      furnitureV2('ref-storage-left', 14, 12, 'sideCabinet', true, 1, 1),
+      furnitureV2('ref-plant-left', 2, 16, 'pottedPlantTall', true, 1, 1),
+      furnitureV2('ref-plant-mid', 14, 15, 'pottedPlantTall', true, 1, 1),
+
+      // colunas / divisorias centrais para separar ambientes
+      furnitureV2('ref-pillar-a', 18, 3, 'roomPillar', true, 1, 4),
+      furnitureV2('ref-pillar-b', 18, 8, 'roomPillar', true, 1, 5),
+      furnitureV2('ref-divider-top', 19, 3, 'roomDividerBeam', true, 1, 4),
+      furnitureV2('ref-divider-bottom', 19, 9, 'roomDividerBeam', true, 1, 4),
+
+      // dormitorio superior direito - 2 camas
+      furnitureV2('ref-bed-top-a', 21, 3, 'cozyBedPurple', true, 3, 2),
+      furnitureV2('ref-bed-top-b', 25, 3, 'cozyBedPurple', true, 3, 2),
+      furnitureV2('ref-bed-top-rug', 21, 5, 'cozyRugPurple', false, 7, 1),
+      furnitureV2('ref-side-table-top', 28, 4, 'sideCabinet', true, 1, 1),
+      furnitureV2('ref-bed-plant-top', 28, 3, 'pottedPlantTall', true, 1, 1),
+
+      // dormitorio inferior direito - 2 camas
+      furnitureV2('ref-bed-bottom-a', 21, 9, 'cozyBedPurple', true, 3, 2),
+      furnitureV2('ref-bed-bottom-b', 25, 9, 'cozyBedPurple', true, 3, 2),
+      furnitureV2('ref-bed-bottom-rug', 21, 11, 'cozyRugPurple', false, 7, 1),
+
+      // area social direita inferior
+      furnitureV2('ref-console', 21, 13, 'dresserCabinet', true, 4, 2),
+      furnitureV2('ref-trunk', 26, 13, 'sideCabinet', true, 1, 1),
+      furnitureV2('ref-blue-rug', 20, 14, 'cozyRugBlue', false, 5, 3),
+      furnitureV2('ref-daybed', 22, 16, 'daybedRed', true, 5, 2),
+      furnitureV2('ref-wardrobe-right', 28, 14, 'wardrobeDark', true, 1, 3),
+      furnitureV2('ref-room-plant', 20, 16, 'pottedPlantTall', true, 1, 1)
+    );
+  }
+
+  rebuildHomeInspiredByReference();
+
+  if (currentScene === 'home') {
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  const drawFurnitureBeforeReferencePatch = drawFurniture;
+  drawFurniture = function drawFurnitureReferencePatch(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+    const pulse = 0.86 + Math.sin(performance.now() / 320) * 0.10;
+
+    if (obj.kind === 'wallLampWarm') {
+      fillPixelV2(x + 8, y + 2, 16, 18, `rgba(255, 214, 120, ${0.18 * pulse})`);
+      outlinePixelV2(x + 12, y + 8, 8, 12, '#6f4a33');
+      fillPixelV2(x + 13, y + 9, 6, 7, '#ffcc6d');
+      fillPixelV2(x + 14, y + 6, 4, 4, '#fff3c8');
+      return;
+    }
+
+    if (obj.kind === 'cozyBookshelf') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.20);
+      outlinePixelV2(x + 2, y + 2, w - 4, h - 4, '#5a3c2c');
+      fillPixelV2(x + 6, y + 6, w - 12, h - 12, '#7e543a');
+      fillPixelV2(x + 8, y + 18, w - 16, 4, '#4a3126');
+      fillPixelV2(x + 10, y + 8, 6, 12, '#7aa8ff');
+      fillPixelV2(x + 18, y + 8, 5, 12, '#d96f6f');
+      fillPixelV2(x + 25, y + 8, 5, 12, '#f3d17e');
+      fillPixelV2(x + 10, y + 24, 7, 12, '#8cd79f');
+      fillPixelV2(x + 19, y + 24, 5, 12, '#c8b8ff');
+      fillPixelV2(x + 26, y + 24, 4, 12, '#87d9e8');
+      return;
+    }
+
+    if (obj.kind === 'writingDesk') {
+      drawSoftShadow(x + 6, y + h - 4, w - 12, 6, 0.18);
+      outlinePixelV2(x + 2, y + 10, w - 4, h - 12, '#6a4631');
+      fillPixelV2(x + 8, y + 14, w - 16, 12, '#a06a46');
+      fillPixelV2(x + 16, y + 16, 18, 10, '#f1e4c4');
+      fillPixelV2(x + 40, y + 14, 6, 10, '#d2b16d');
+      fillPixelV2(x + 41, y + 10, 4, 5, '#fff0b0');
+      return;
+    }
+
+    if (obj.kind === 'stoolRound') {
+      drawSoftShadow(x + 6, y + h - 4, w - 12, 5, 0.16);
+      outlinePixelV2(x + 8, y + 10, w - 16, 12, '#734d38');
+      fillPixelV2(x + 10, y + 12, w - 20, 8, '#b88158');
+      fillPixelV2(x + 12, y + 20, 3, 6, '#734d38');
+      fillPixelV2(x + w - 15, y + 20, 3, 6, '#734d38');
+      return;
+    }
+
+    if (obj.kind === 'paintingWarm') {
+      outlinePixelV2(x + 2, y + 4, w - 4, h - 8, '#6d5038');
+      fillPixelV2(x + 6, y + 8, w - 12, h - 16, '#d9c7aa');
+      fillPixelV2(x + 10, y + 12, 20, 5, '#7ea7c8');
+      fillPixelV2(x + 32, y + 14, 14, 6, '#8c6545');
+      fillPixelV2(x + 48, y + 10, 20, 8, '#73966d');
+      return;
+    }
+
+    if (obj.kind === 'cozyRugRed' || obj.kind === 'cozyRugBlue' || obj.kind === 'cozyRugPurple') {
+      const palette = obj.kind === 'cozyRugBlue'
+        ? { base: '#355b77', inner: '#678eb4', accent: '#c9d4e8' }
+        : obj.kind === 'cozyRugPurple'
+          ? { base: '#5b416e', inner: '#8566a5', accent: '#e1d5f0' }
+          : { base: '#6b231f', inner: '#8a342d', accent: '#d3a88b' };
+      fillPixelV2(x, y, w, h, palette.base);
+      fillPixelV2(x + 4, y + 4, w - 8, h - 8, palette.inner);
+      fillPixelV2(x + 10, y + 10, w - 20, h - 20, 'rgba(0,0,0,0.10)');
+      fillPixelV2(x + Math.max(8, w / 2 - 14), y + Math.max(8, h / 2 - 2), 28, 4, palette.accent);
+      fillPixelV2(x + 8, y + 8, 8, 4, 'rgba(255,255,255,0.14)');
+      fillPixelV2(x + w - 16, y + h - 12, 8, 4, 'rgba(0,0,0,0.16)');
+      return;
+    }
+
+    if (obj.kind === 'lowTableMeal') {
+      drawSoftShadow(x + 8, y + h - 4, w - 16, 6, 0.18);
+      outlinePixelV2(x + 4, y + 8, w - 8, h - 12, '#6e4933');
+      fillPixelV2(x + 10, y + 12, w - 20, h - 20, '#8d5d3f');
+      fillPixelV2(x + 26, y + 16, 12, 8, '#d9a05a');
+      fillPixelV2(x + 42, y + 15, 6, 10, '#fff1b2');
+      fillPixelV2(x + 43, y + 11, 4, 5, '#fff9dd');
+      fillPixelV2(x + 17, y + 15, 6, 6, '#7fb260');
+      return;
+    }
+
+    if (obj.kind === 'wardrobeDark') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.20);
+      outlinePixelV2(x + 2, y + 2, w - 4, h - 4, '#553826');
+      fillPixelV2(x + 6, y + 6, w - 12, h - 12, '#7c533b');
+      fillPixelV2(x + w / 2 - 2, y + 8, 4, h - 16, '#5c3d2c');
+      fillPixelV2(x + 12, y + h / 2, 3, 5, '#e5c36b');
+      fillPixelV2(x + w - 15, y + h / 2, 3, 5, '#e5c36b');
+      return;
+    }
+
+    if (obj.kind === 'pottedPlantTall') {
+      drawSoftShadow(x + 8, y + h - 4, 16, 5, 0.14);
+      outlinePixelV2(x + 8, y + h - 14, 16, 12, '#7e4c3a');
+      fillPixelV2(x + 10, y + h - 12, 12, 8, '#a8634a');
+      fillPixelV2(x + 15, y + 8, 4, h - 24, '#41744c');
+      fillPixelV2(x + 8, y + 6, 12, 10, '#71b77f');
+      fillPixelV2(x + 16, y + 2, 12, 10, '#8ad08a');
+      fillPixelV2(x + 6, y + 16, 12, 10, '#5e9868');
+      return;
+    }
+
+    if (obj.kind === 'roomPillar') {
+      outlinePixelV2(x + 10, y, w - 20, h, '#5a3b2b');
+      fillPixelV2(x + 13, y + 4, w - 26, h - 8, '#8d5f45');
+      fillPixelV2(x + 6, y + 2, w - 12, 5, '#b38360');
+      fillPixelV2(x + 6, y + h - 7, w - 12, 5, '#6a4631');
+      return;
+    }
+
+    if (obj.kind === 'roomDividerBeam') {
+      fillPixelV2(x + 10, y, w - 20, h, '#4f3427');
+      fillPixelV2(x + 8, y + 8, w - 16, h - 16, '#6f4a35');
+      return;
+    }
+
+    if (obj.kind === 'cozyBedPurple') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.20);
+      outlinePixelV2(x + 4, y + 8, w - 8, h - 10, '#553b2b');
+      fillPixelV2(x + 10, y + 12, w - 20, 12, '#f4efe5');
+      fillPixelV2(x + 10, y + 24, w - 20, h - 30, '#8562a0');
+      fillPixelV2(x + 12, y + 14, 14, 6, '#ffffff');
+      fillPixelV2(x + w - 26, y + 14, 14, 6, '#ece8e1');
+      fillPixelV2(x + 10, y + h - 10, w - 20, 4, '#6c4d86');
+      return;
+    }
+
+    if (obj.kind === 'sideCabinet') {
+      drawSoftShadow(x + 6, y + h - 4, w - 12, 6, 0.18);
+      outlinePixelV2(x + 4, y + 10, w - 8, h - 12, '#6a4732');
+      fillPixelV2(x + 8, y + 14, w - 16, h - 20, '#a06c4a');
+      fillPixelV2(x + w / 2 - 2, y + 18, 4, 4, '#e5c36b');
+      return;
+    }
+
+    if (obj.kind === 'dresserCabinet') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.18);
+      outlinePixelV2(x + 2, y + 10, w - 4, h - 12, '#6a4834');
+      fillPixelV2(x + 8, y + 14, w - 16, h - 22, '#946245');
+      fillPixelV2(x + 8, y + 24, w - 16, 3, '#6d4631');
+      fillPixelV2(x + 14, y + 18, 3, 3, '#e2bf69');
+      fillPixelV2(x + 34, y + 18, 3, 3, '#e2bf69');
+      fillPixelV2(x + 54, y + 18, 3, 3, '#e2bf69');
+      fillPixelV2(x + 74, y + 18, 3, 3, '#e2bf69');
+      fillPixelV2(x + 10, y + 12, 14, 6, '#b98464');
+      fillPixelV2(x + 28, y + 12, 12, 6, '#f0e1c0');
+      fillPixelV2(x + 44, y + 12, 8, 6, '#9a72d8');
+      return;
+    }
+
+    if (obj.kind === 'daybedRed') {
+      drawSoftShadow(x + 6, y + h - 4, w - 12, 7, 0.18);
+      outlinePixelV2(x + 2, y + 8, w - 4, h - 12, '#6c402f');
+      fillPixelV2(x + 8, y + 12, w - 16, h - 20, '#a56a46');
+      fillPixelV2(x + 10, y + 14, w - 20, h - 26, '#8a342d');
+      fillPixelV2(x + w - 20, y + 14, 12, h - 26, '#ece7dc');
+      fillPixelV2(x + 12, y + 16, w - 28, 4, 'rgba(255,255,255,0.10)');
+      return;
+    }
+
+    return drawFurnitureBeforeReferencePatch(obj);
+  };
+
+  const drawInteriorBackdropBeforeReferencePatch = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorBackdropReferencePatch(scene) {
+    drawInteriorBackdropBeforeReferencePatch(scene);
+    if (scene !== 'home') return;
+
+    // brilho quente no topo, inspirado na imagem de referencia, sem usar texturas pesadas.
+    fillPixelV2(2 * TILE, 2 * TILE, 27 * TILE, 2, 'rgba(255, 240, 200, 0.16)');
+    fillPixelV2(2 * TILE, 3 * TILE, 27 * TILE, 2, 'rgba(70, 46, 34, 0.18)');
+    fillPixelV2(2 * TILE, 5 * TILE, 15 * TILE, 3, 'rgba(255, 216, 140, 0.06)');
+    fillPixelV2(20 * TILE, 5 * TILE, 8 * TILE, 3, 'rgba(255, 216, 140, 0.07)');
+
+    // zonas dos quartos direitos.
+    fillPixelV2(20 * TILE, 3 * TILE, 9 * TILE, 3 * TILE, 'rgba(80, 55, 86, 0.08)');
+    fillPixelV2(20 * TILE, 9 * TILE, 9 * TILE, 3 * TILE, 'rgba(80, 55, 86, 0.08)');
+
+    // sombra suave de divisao.
+    fillPixelV2(18 * TILE, 2 * TILE, 2, 14 * TILE, 'rgba(40, 25, 18, 0.26)');
+
+    // brilho do tapete e da area de estar.
+    fillPixelV2(4 * TILE, 11 * TILE, 10 * TILE, 5 * TILE, 'rgba(130, 45, 36, 0.06)');
+    fillPixelV2(20 * TILE, 14 * TILE, 5 * TILE, 3 * TILE, 'rgba(53, 91, 119, 0.07)');
+  };
+})();
+
+/* ==================================================
+   Patch extra 6: tapetes por baixo do jogador + moveis interativos
+   - Tapete volta a ser piso decorativo: jogador anda POR CIMA dele.
+   - Moveis ganham interacoes de vida real.
+   - Cama das esposas permite descansar com a esposa ativa.
+   ================================================== */
+(function homeInteractiveRealLifePatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_HOME_INTERACTIVE_REAL_LIFE_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_HOME_INTERACTIVE_REAL_LIFE_PATCH = true;
+
+  const WIFE_NAME_BY_ID = {
+    selene: 'Selene', nyra: 'Nyra', lilith: 'Lilith', yumi: 'Yumi', mika: 'Mika', violet: 'Violet', aurora: 'Aurora'
+  };
+
+  function getHomeState() {
+    if (!questBook.homeLife) {
+      questBook.homeLife = {
+        lightsOn: true,
+        windowOpen: false,
+        outfit: 0,
+        sleepCount: 0,
+        wifeSleepCount: 0,
+        plantsWatered: 0,
+        chestOpened: false,
+        lastCookAt: 0,
+        lastMealAt: 0,
+        lastStudyAt: 0,
+        lastReadAt: 0,
+        lastVanityAt: 0
+      };
+    }
+    return questBook.homeLife;
+  }
+
+  function activeWifeId() {
+    return questBook?.wives?.activeId || 'selene';
+  }
+
+  function activeWifeName() {
+    return WIFE_NAME_BY_ID[activeWifeId()] || 'sua esposa';
+  }
+
+  function improveActiveWifeAffection(amount = 1) {
+    const id = activeWifeId();
+    if (!questBook.wives) return;
+    if (!questBook.wives.wives) questBook.wives.wives = {};
+    if (!questBook.wives.wives[id]) questBook.wives.wives[id] = { married: true, affection: 1, talks: 0 };
+    const current = Number(questBook.wives.wives[id].affection || 1);
+    questBook.wives.wives[id].affection = Math.max(1, Math.min(100, current + amount));
+  }
+
+  function healPlayerSmall(hp = 1, mana = 1) {
+    if (typeof player !== 'object') return;
+    player.health = Math.min(player.maxHealth || player.health, (player.health || 0) + hp);
+    player.mana = Math.min(player.maxMana || player.mana, (player.mana || 0) + mana);
+    if (typeof updateHud === 'function') updateHud();
+  }
+
+  function fullRestPlayer() {
+    player.health = player.maxHealth;
+    player.mana = player.maxMana;
+    if (player.oxygen !== undefined && player.maxOxygen !== undefined) player.oxygen = player.maxOxygen;
+    if (typeof updateHud === 'function') updateHud();
+  }
+
+  function f(id, tileX, tileY, kind, solid, widthTiles = 1, heightTiles = 1, message = '', action = '') {
+    const obj = furnitureV2(id, tileX, tileY, kind, solid, widthTiles, heightTiles, message);
+    obj.homeAction = action || kind;
+    obj.homeInteractive = true;
+    return obj;
+  }
+
+  function resetHomeMapToWoodOnly() {
+    if (!Array.isArray(homeMap)) return;
+    for (let y = 0; y < HOME_ROWS; y++) {
+      for (let x = 0; x < HOME_COLS; x++) homeMap[y][x] = 'I';
+    }
+    fillHomeRect(homeMap, 0, 0, HOME_COLS, 1, 'B');
+    fillHomeRect(homeMap, 0, HOME_ROWS - 1, HOME_COLS, 1, 'B');
+    fillHomeRect(homeMap, 0, 0, 1, HOME_ROWS, 'B');
+    fillHomeRect(homeMap, HOME_COLS - 1, 0, 1, HOME_ROWS, 'B');
+    fillHomeRect(homeMap, 14, HOME_ROWS - 1, 2, 1, 'I');
+  }
+
+  function rebuildInteractiveHome() {
+    resetHomeMapToWoodOnly();
+    homeObjects.length = 0;
+    homeObjects.push(
+      // paredes e saida
+      block(0, 0, HOME_COLS, 1), block(0, 0, 1, HOME_ROWS), block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+      block(0, HOME_ROWS - 1, 14, 1), block(16, HOME_ROWS - 1, 14, 1),
+      sign(14, 17, 'Porta de saida: caminhe para baixo para voltar para a vila.'),
+
+      // parede superior, janelas e luzes
+      f('life-window-a', 4, 2, 'windowLife', false, 2, 1, 'Janela: pressione E para abrir ou fechar e deixar o ar circular.', 'window'),
+      f('life-window-b', 9, 2, 'windowLife', false, 2, 1, 'Janela: pressione E para observar a vila la fora.', 'window'),
+      f('life-window-c', 22, 2, 'windowLife', false, 2, 1, 'Janela: pressione E para abrir ou fechar.', 'window'),
+      f('life-window-d', 25, 2, 'windowLife', false, 2, 1, 'Janela: pressione E para olhar a noite e as lanternas da vila.', 'window'),
+      f('life-lamp-a', 2, 2, 'wallLampWarmLife', false, 1, 1, 'Luminaria: pressione E para ligar ou desligar as luzes da casa.', 'lamp'),
+      f('life-lamp-b', 12, 2, 'wallLampWarmLife', false, 1, 1, 'Luminaria: pressione E para ajustar a luz quente.', 'lamp'),
+      f('life-lamp-c', 20, 2, 'wallLampWarmLife', false, 1, 1, 'Luminaria: pressione E para controlar a iluminacao.', 'lamp'),
+      f('life-lamp-d', 28, 2, 'wallLampWarmLife', false, 1, 1, 'Luminaria: pressione E para ligar ou desligar.', 'lamp'),
+
+      // escritorio e leitura
+      f('life-bookshelf-left', 2, 3, 'cozyBookshelfLife', true, 2, 3, 'Estante: pressione E para ler livros, estudar historia e ganhar conhecimento.', 'read'),
+      f('life-desk', 5, 3, 'writingDeskLife', true, 3, 2, 'Mesa de estudo: pressione E para estudar, escrever anotacoes e ganhar XP.', 'study'),
+      f('life-stool-a', 5, 5, 'stoolRoundLife', true, 1, 1, 'Banquinho: pressione E para sentar um pouco e recuperar mana.', 'sit'),
+      f('life-stool-b', 8, 5, 'stoolRoundLife', true, 1, 1, 'Banquinho: pressione E para descansar as pernas.', 'sit'),
+      f('life-painting', 11, 5, 'paintingWarmLife', false, 3, 1, 'Quadro: pressione E para admirar a paisagem pintada.', 'painting'),
+
+      // sala principal. Tapetes NAO entram como objetos para nao cobrir o jogador.
+      f('life-low-table', 7, 12, 'lowTableMealLife', true, 3, 2, 'Mesa de jantar: pressione E para comer uma refeicao e recuperar energia.', 'eat'),
+      f('life-wardrobe-left', 2, 13, 'wardrobeDarkLife', true, 2, 3, 'Guarda-roupa: pressione E para trocar o visual do personagem.', 'wardrobe'),
+      f('life-storage-left', 14, 12, 'sideCabinetLife', true, 1, 1, 'Armario pequeno: pressione E para organizar itens e verificar suprimentos.', 'cabinet'),
+      f('life-plant-left', 2, 16, 'pottedPlantTallLife', true, 1, 1, 'Planta: pressione E para regar e deixar a casa mais viva.', 'plant'),
+      f('life-plant-mid', 14, 15, 'pottedPlantTallLife', true, 1, 1, 'Planta: pressione E para cuidar dela.', 'plant'),
+      f('life-chest', 4, 14, 'homeChestLife', true, 2, 1, 'Bau de casa: pressione E para abrir e pegar suprimentos guardados.', 'homeChest'),
+
+      // divisorias centrais
+      f('life-pillar-a', 18, 3, 'roomPillarLife', true, 1, 4, 'Pilar de madeira: estrutura principal da casa.', 'look'),
+      f('life-pillar-b', 18, 8, 'roomPillarLife', true, 1, 5, 'Pilar de madeira: divide a sala e os quartos.', 'look'),
+      f('life-divider-top', 19, 3, 'roomDividerBeamLife', true, 1, 4, 'Divisoria: separa a area social do quarto das esposas.', 'look'),
+      f('life-divider-bottom', 19, 9, 'roomDividerBeamLife', true, 1, 4, 'Divisoria: deixa a casa organizada e realista.', 'look'),
+
+      // cozinha e utilidades
+      f('life-kitchen-counter', 12, 6, 'kitchenCounterLife', true, 4, 1, 'Balcao da cozinha: pressione E para preparar comida.', 'cook'),
+      f('life-sink', 14, 7, 'kitchenSinkLife', true, 2, 1, 'Pia: pressione E para lavar as maos e limpar os equipamentos.', 'sink'),
+      f('life-stove', 16, 7, 'stoveDeluxeLife', true, 2, 2, 'Fogao: pressione E para cozinhar uma refeicao quente.', 'cook'),
+      f('life-dining-table', 12, 9, 'diningTableLife', true, 4, 2, 'Mesa de refeicao: pressione E para comer e recuperar vida/mana.', 'eat'),
+      f('life-chair-a', 12, 8, 'chairLife', true, 1, 1, 'Cadeira: pressione E para sentar.', 'sit'),
+      f('life-chair-b', 16, 8, 'chairLife', true, 1, 1, 'Cadeira: pressione E para sentar.', 'sit'),
+      f('life-chair-c', 12, 11, 'chairLife', true, 1, 1, 'Cadeira: pressione E para sentar.', 'sit'),
+      f('life-chair-d', 16, 11, 'chairLife', true, 1, 1, 'Cadeira: pressione E para sentar.', 'sit'),
+
+      // quarto das esposas / area direita
+      f('life-bed-wife-a', 21, 3, 'cozyBedPurpleLife', true, 3, 2, 'Cama das esposas: pressione E para dormir ao lado da esposa ativa.', 'sleepWife'),
+      f('life-bed-wife-b', 25, 3, 'cozyBedPurpleLife', true, 3, 2, 'Cama das esposas: pressione E para descansar com sua esposa.', 'sleepWife'),
+      f('life-bed-wife-c', 21, 9, 'cozyBedPurpleLife', true, 3, 2, 'Cama das esposas: pressione E para dormir com sua esposa ativa.', 'sleepWife'),
+      f('life-bed-wife-d', 25, 9, 'cozyBedPurpleLife', true, 3, 2, 'Cama das esposas: pressione E para descansar ao lado dela.', 'sleepWife'),
+      f('life-side-table-top', 28, 4, 'sideCabinetLife', true, 1, 1, 'Criado-mudo: pressione E para acender a vela e guardar pequenos itens.', 'cabinet'),
+      f('life-bed-plant-top', 28, 3, 'pottedPlantTallLife', true, 1, 1, 'Planta do quarto: pressione E para regar.', 'plant'),
+      f('life-console', 21, 13, 'dresserCabinetLife', true, 4, 2, 'Comoda: pressione E para arrumar cartas, joias e presentes.', 'dresser'),
+      f('life-trunk', 26, 13, 'sideCabinetLife', true, 1, 1, 'Baul pequeno: pressione E para conferir lembrancas das esposas.', 'cabinet'),
+      f('life-daybed', 22, 16, 'daybedRedLife', true, 5, 2, 'Cama principal: pressione E para dormir e recuperar tudo.', 'sleep'),
+      f('life-wardrobe-right', 28, 14, 'wardrobeDarkLife', true, 1, 3, 'Guarda-roupa das esposas: pressione E para organizar roupas.', 'wardrobe'),
+      f('life-room-plant', 20, 16, 'pottedPlantTallLife', true, 1, 1, 'Planta do quarto: pressione E para cuidar.', 'plant'),
+      f('life-vanity', 24, 14, 'vanityTableLife', true, 2, 2, 'Penteadeira: pressione E para preparar um presente carinhoso para a esposa ativa.', 'vanity')
+    );
+  }
+
+  rebuildInteractiveHome();
+  if (currentScene === 'home') {
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  function homeCooldownReady(key, ms) {
+    const state = getHomeState();
+    const now = performance.now ? performance.now() : Date.now();
+    const last = Number(state[key] || 0);
+    if (now - last < ms) return false;
+    state[key] = now;
+    return true;
+  }
+
+  function homeActionMessage(obj) {
+    const state = getHomeState();
+    const action = obj.homeAction || obj.kind;
+    if (action === 'sleep') {
+      state.sleepCount += 1;
+      fullRestPlayer();
+      playSound?.('heal');
+      return 'Voce dormiu na cama principal. Vida, mana e oxigenio foram recuperados. O personagem acordou pronto para continuar a aventura.';
+    }
+    if (action === 'sleepWife') {
+      const wife = activeWifeName();
+      state.wifeSleepCount += 1;
+      improveActiveWifeAffection(3);
+      fullRestPlayer();
+      playSound?.('heal');
+      if (typeof spawnFloatingText === 'function') spawnFloatingText(`♥ ${wife}`, player.x + 8, player.y - 22, '#ff7ab5');
+      return `Voce descansou ao lado de ${wife}. Vida e mana recuperadas. Afinidade com ${wife} aumentou +3. Um descanso de verdade, sem travar o jogo e sem baguncar a casa.`;
+    }
+    if (action === 'cook') {
+      const ready = homeCooldownReady('lastCookAt', 25000);
+      healPlayerSmall(1, 2);
+      if (ready && inventory) inventory.pocoes = Number(inventory.pocoes || 0) + 1;
+      renderInventory?.();
+      updateHud?.();
+      return ready
+        ? 'Voce cozinhou uma refeicao quente. Recuperou energia e guardou 1 pocao de comida preparada.'
+        : 'Voce mexeu na cozinha e recuperou um pouco de energia. Ainda tem comida pronta, entao nao ganhou outra pocao agora.';
+    }
+    if (action === 'eat') {
+      homeCooldownReady('lastMealAt', 12000);
+      healPlayerSmall(2, 2);
+      playSound?.('heal');
+      return 'Voce comeu uma refeicao simples na mesa. Vida +2 e mana +2.';
+    }
+    if (action === 'study') {
+      if (homeCooldownReady('lastStudyAt', 30000)) {
+        awardXp?.(35, 'Estudo em casa');
+        return 'Voce estudou na mesa, escreveu anotacoes e ganhou 35 XP. A mente tambem precisa de treino.';
+      }
+      return 'Voce revisou suas anotacoes. Melhor esperar um pouco antes de ganhar XP estudando de novo.';
+    }
+    if (action === 'read') {
+      if (homeCooldownReady('lastReadAt', 30000)) {
+        awardXp?.(25, 'Leitura');
+        return 'Voce leu um livro antigo da estante e ganhou 25 XP. Algumas paginas falam sobre biomas e chefes secretos.';
+      }
+      return 'Voce folheou alguns livros. A estante ainda esta cheia de historias, mas o XP de leitura precisa descansar um pouco.';
+    }
+    if (action === 'homeChest') {
+      if (!state.chestOpened) {
+        state.chestOpened = true;
+        inventory.moedas = Number(inventory.moedas || 0) + 20;
+        inventory.flechas = Number(inventory.flechas || 0) + 12;
+        inventory.pocoes = Number(inventory.pocoes || 0) + 1;
+        renderInventory?.();
+        updateHud?.();
+        playSound?.('chest');
+        return 'Voce abriu o bau de casa e pegou 20 moedas, 12 flechas e 1 pocao. Agora o bau fica como armazenamento decorativo.';
+      }
+      return 'O bau de casa ja foi aberto. Voce confere os itens guardados e deixa tudo organizado.';
+    }
+    if (action === 'wardrobe') {
+      state.outfit = (Number(state.outfit || 0) + 1) % 4;
+      showHudToast?.(`Roupa ${state.outfit + 1} equipada`);
+      return `Voce trocou o visual no guarda-roupa. Roupa atual: conjunto ${state.outfit + 1}.`;
+    }
+    if (action === 'lamp') {
+      state.lightsOn = !state.lightsOn;
+      return state.lightsOn ? 'Voce acendeu as luminarias. A casa ficou quente e aconchegante.' : 'Voce apagou parte das luzes. A casa ficou mais calma e escura.';
+    }
+    if (action === 'window') {
+      state.windowOpen = !state.windowOpen;
+      return state.windowOpen ? 'Voce abriu a janela. Entrou ar fresco da vila.' : 'Voce fechou a janela. O interior ficou mais silencioso.';
+    }
+    if (action === 'plant') {
+      state.plantsWatered = Number(state.plantsWatered || 0) + 1;
+      healPlayerSmall(0, 1);
+      return 'Voce regou a planta. A casa ficou mais viva e voce recuperou 1 de mana pela calma do ambiente.';
+    }
+    if (action === 'sit') {
+      healPlayerSmall(0, 1);
+      return 'Voce sentou um pouco. Mana +1. As cadeiras agora servem para descansar, nao so enfeitar.';
+    }
+    if (action === 'sink') {
+      return 'Voce lavou as maos, limpou o rosto e organizou os equipamentos. A casa parece mais realista assim.';
+    }
+    if (action === 'vanity') {
+      const wife = activeWifeName();
+      improveActiveWifeAffection(1);
+      if (homeCooldownReady('lastVanityAt', 20000)) healPlayerSmall(0, 1);
+      return `Voce preparou um presente simples na penteadeira para ${wife}. Afinidade +1.`;
+    }
+    if (action === 'dresser') {
+      return 'Voce abriu a comoda, dobrou roupas, guardou cartas e ajeitou pequenos presentes. Tudo ficou arrumado.';
+    }
+    if (action === 'cabinet') {
+      return 'Voce abriu o armario, conferiu suprimentos e fechou tudo com cuidado.';
+    }
+    if (action === 'painting') {
+      return 'Voce observou o quadro. Ele mostra uma paisagem calma, perfeita para lembrar que sua casa e um lugar seguro.';
+    }
+    return obj.message || 'Voce interagiu com o movel.';
+  }
+
+  const getQuestMessageBeforeHomeInteractive = getQuestMessage;
+  getQuestMessage = function getQuestMessageHomeInteractive(obj) {
+    if (obj?.type === 'furniture' && obj.homeInteractive) return homeActionMessage(obj);
+    return getQuestMessageBeforeHomeInteractive(obj);
+  };
+
+  const updateInteractionHintBeforeHomeInteractive = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintHomeInteractive() {
+    updateInteractionHintBeforeHomeInteractive();
+    try {
+      const target = findInteraction();
+      if (!target || target.type !== 'furniture' || !target.homeInteractive || dialogOpen || shopOpen) return;
+      const labelMap = {
+        sleep: 'Dormir', sleepWife: 'Dormir com esposa', cook: 'Cozinhar', eat: 'Comer', study: 'Estudar', read: 'Ler',
+        homeChest: 'Abrir bau', wardrobe: 'Trocar roupa', lamp: 'Luz', window: 'Janela', plant: 'Regar', sit: 'Sentar',
+        vanity: 'Presente', sink: 'Lavar', dresser: 'Arrumar', cabinet: 'Abrir', painting: 'Olhar', look: 'Olhar'
+      };
+      const label = labelMap[target.homeAction] || 'Usar';
+      interactionHint.textContent = `Pressione E para ${label.toLowerCase()}`;
+      if (touchContextLabel) touchContextLabel.textContent = label;
+    } catch (error) {
+      // Dica opcional; nunca quebra o jogo.
+    }
+  };
+
+  const drawFurnitureBeforeInteractiveHome = drawFurniture;
+  drawFurniture = function drawFurnitureInteractiveHome(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const state = getHomeState();
+    const pulse = state.lightsOn ? (0.88 + Math.sin(performance.now() / 320) * 0.10) : 0.35;
+
+    if (obj.kind === 'wallLampWarmLife') {
+      fillPixelV2(x + 8, y + 2, 16, 18, `rgba(255, 214, 120, ${0.20 * pulse})`);
+      outlinePixelV2(x + 12, y + 8, 8, 12, '#6f4a33');
+      fillPixelV2(x + 13, y + 9, 6, 7, state.lightsOn ? '#ffcc6d' : '#7a5a3c');
+      fillPixelV2(x + 14, y + 6, 4, 4, state.lightsOn ? '#fff3c8' : '#4a3126');
+      return;
+    }
+
+    if (obj.kind === 'windowLife') {
+      outlinePixelV2(x + 4, y + 5, 40, 24, '#5c3d2c');
+      fillPixelV2(x + 8, y + 9, 32, 16, state.windowOpen ? '#9fe6ff' : '#73b8e8');
+      fillPixelV2(x + 22, y + 7, 3, 20, '#5c3d2c');
+      fillPixelV2(x + 7, y + 16, 34, 3, '#5c3d2c');
+      if (state.windowOpen) fillPixelV2(x + 40, y + 10, 5, 15, 'rgba(180,240,255,0.35)');
+      return;
+    }
+
+    if (obj.kind === 'cozyBookshelfLife') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.20);
+      outlinePixelV2(x + 2, y + 2, w - 4, h - 4, '#5a3c2c');
+      fillPixelV2(x + 6, y + 6, w - 12, h - 12, '#7e543a');
+      for (let row = 0; row < 2; row++) {
+        const sy = y + 10 + row * 21;
+        fillPixelV2(x + 8, sy + 12, w - 16, 3, '#4a3126');
+        const colors = ['#7aa8ff', '#d96f6f', '#f3d17e', '#8cd79f', '#c8b8ff'];
+        for (let i = 0; i < 5; i++) fillPixelV2(x + 10 + i * 6, sy, 4, 12, colors[(i + row) % colors.length]);
+      }
+      return;
+    }
+
+    if (obj.kind === 'writingDeskLife') {
+      drawSoftShadow(x + 6, y + h - 4, w - 12, 6, 0.18);
+      outlinePixelV2(x + 2, y + 10, w - 4, h - 12, '#6a4631');
+      fillPixelV2(x + 8, y + 14, w - 16, 12, '#a06a46');
+      fillPixelV2(x + 16, y + 16, 18, 10, '#f1e4c4');
+      fillPixelV2(x + 40, y + 14, 6, 10, '#d2b16d');
+      fillPixelV2(x + 41, y + 10, 4, 5, state.lightsOn ? '#fff0b0' : '#715a37');
+      return;
+    }
+
+    if (obj.kind === 'stoolRoundLife' || obj.kind === 'chairLife') {
+      drawSoftShadow(x + 6, y + h - 4, w - 12, 5, 0.16);
+      outlinePixelV2(x + 7, y + 8, w - 14, 14, '#734d38');
+      fillPixelV2(x + 10, y + 11, w - 20, 8, '#b88158');
+      fillPixelV2(x + 12, y + 20, 3, 7, '#734d38');
+      fillPixelV2(x + w - 15, y + 20, 3, 7, '#734d38');
+      return;
+    }
+
+    if (obj.kind === 'paintingWarmLife') {
+      outlinePixelV2(x + 2, y + 4, w - 4, h - 8, '#6d5038');
+      fillPixelV2(x + 6, y + 8, w - 12, h - 16, '#d9c7aa');
+      fillPixelV2(x + 10, y + 12, 20, 5, '#7ea7c8');
+      fillPixelV2(x + 32, y + 14, 14, 6, '#8c6545');
+      fillPixelV2(x + 48, y + 10, 20, 8, '#73966d');
+      return;
+    }
+
+    if (obj.kind === 'lowTableMealLife' || obj.kind === 'diningTableLife') {
+      drawSoftShadow(x + 8, y + h - 4, w - 16, 6, 0.18);
+      outlinePixelV2(x + 4, y + 8, w - 8, h - 12, '#6e4933');
+      fillPixelV2(x + 10, y + 12, w - 20, h - 20, '#8d5d3f');
+      fillPixelV2(x + Math.max(18, w / 2 - 6), y + 16, 12, 8, '#d9a05a');
+      fillPixelV2(x + Math.max(34, w / 2 + 10), y + 15, 6, 10, '#fff1b2');
+      fillPixelV2(x + Math.max(35, w / 2 + 11), y + 11, 4, 5, state.lightsOn ? '#fff9dd' : '#7b5d2f');
+      fillPixelV2(x + 17, y + 15, 6, 6, '#7fb260');
+      return;
+    }
+
+    if (obj.kind === 'wardrobeDarkLife') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.20);
+      outlinePixelV2(x + 2, y + 2, w - 4, h - 4, '#553826');
+      fillPixelV2(x + 6, y + 6, w - 12, h - 12, '#7c533b');
+      fillPixelV2(x + w / 2 - 2, y + 8, 4, h - 16, '#5c3d2c');
+      fillPixelV2(x + 12, y + h / 2, 3, 5, '#e5c36b');
+      fillPixelV2(x + w - 15, y + h / 2, 3, 5, '#e5c36b');
+      return;
+    }
+
+    if (obj.kind === 'sideCabinetLife' || obj.kind === 'dresserCabinetLife') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.18);
+      outlinePixelV2(x + 2, y + 10, w - 4, h - 12, '#6a4834');
+      fillPixelV2(x + 8, y + 14, w - 16, h - 22, '#946245');
+      fillPixelV2(x + 8, y + 24, w - 16, 3, '#6d4631');
+      fillPixelV2(x + w / 2 - 3, y + 18, 6, 4, '#e2bf69');
+      return;
+    }
+
+    if (obj.kind === 'pottedPlantTallLife') {
+      drawSoftShadow(x + 8, y + h - 4, 16, 5, 0.14);
+      outlinePixelV2(x + 8, y + h - 14, 16, 12, '#7e4c3a');
+      fillPixelV2(x + 10, y + h - 12, 12, 8, '#a8634a');
+      fillPixelV2(x + 15, y + 8, 4, h - 24, '#41744c');
+      fillPixelV2(x + 8, y + 6, 12, 10, '#71b77f');
+      fillPixelV2(x + 16, y + 2, 12, 10, '#8ad08a');
+      fillPixelV2(x + 6, y + 16, 12, 10, '#5e9868');
+      return;
+    }
+
+    if (obj.kind === 'homeChestLife') {
+      drawSoftShadow(x + 5, y + h - 4, w - 10, 6, 0.18);
+      outlinePixelV2(x + 4, y + 10, w - 8, h - 12, '#553826');
+      fillPixelV2(x + 8, y + 14, w - 16, h - 20, '#90603f');
+      fillPixelV2(x + 8, y + 8, w - 16, 8, '#45506e');
+      fillPixelV2(x + w / 2 - 4, y + 16, 8, 6, '#e5c36b');
+      return;
+    }
+
+    if (obj.kind === 'roomPillarLife' || obj.kind === 'roomDividerBeamLife') {
+      outlinePixelV2(x + 10, y, w - 20, h, '#5a3b2b');
+      fillPixelV2(x + 13, y + 4, w - 26, h - 8, '#8d5f45');
+      fillPixelV2(x + 6, y + 2, w - 12, 5, '#b38360');
+      fillPixelV2(x + 6, y + h - 7, w - 12, 5, '#6a4631');
+      return;
+    }
+
+    if (obj.kind === 'kitchenCounterLife' || obj.kind === 'kitchenSinkLife' || obj.kind === 'stoveDeluxeLife') {
+      drawSoftShadow(x + 3, y + h - 3, w - 6, 4, 0.14);
+      outlinePixelV2(x + 2, y + 6, w - 4, h - 8, '#704d38');
+      fillPixelV2(x + 4, y + 8, w - 8, h - 12, obj.kind === 'stoveDeluxeLife' ? '#5e677c' : '#c08a63');
+      fillPixelV2(x + 2, y + 2, w - 4, 6, '#d8dfef');
+      if (obj.kind === 'kitchenSinkLife') fillPixelV2(x + 10, y + 10, w - 20, h - 18, '#8eb5d8');
+      if (obj.kind === 'stoveDeluxeLife') {
+        fillPixelV2(x + 8, y + 10, w - 16, 8, '#2e3444');
+        fillPixelV2(x + 10, y + 12, 6, 6, '#ff6b3d');
+        fillPixelV2(x + w - 16, y + 12, 6, 6, '#fff264');
+      }
+      return;
+    }
+
+    if (obj.kind === 'cozyBedPurpleLife' || obj.kind === 'daybedRedLife') {
+      const blanket = obj.kind === 'daybedRedLife' ? '#8a342d' : '#8562a0';
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 6, 0.20);
+      outlinePixelV2(x + 4, y + 8, w - 8, h - 10, '#553b2b');
+      fillPixelV2(x + 10, y + 12, w - 20, 12, '#f4efe5');
+      fillPixelV2(x + 10, y + 24, w - 20, h - 30, blanket);
+      fillPixelV2(x + 12, y + 14, 14, 6, '#ffffff');
+      fillPixelV2(x + w - 26, y + 14, 14, 6, '#ece8e1');
+      fillPixelV2(x + 10, y + h - 10, w - 20, 4, '#6c4d86');
+      return;
+    }
+
+    if (obj.kind === 'vanityTableLife') {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 5, 0.18);
+      outlinePixelV2(x + 2, y + 18, w - 4, h - 20, '#8f5a3f');
+      fillPixelV2(x + 8, y + 22, w - 16, 9, '#d99b67');
+      outlinePixelV2(x + 18, y + 2, w - 36, 18, '#6d3d89');
+      fillPixelV2(x + 22, y + 6, w - 44, 10, '#bde8ff');
+      fillPixelV2(x + 10, y + 25, 6, 5, '#ff7ab5');
+      fillPixelV2(x + 19, y + 24, 6, 6, '#fff264');
+      fillPixelV2(x + 28, y + 24, 6, 6, '#55e8ff');
+      return;
+    }
+
+    return drawFurnitureBeforeInteractiveHome(obj);
+  };
+
+  function drawHomeRugBelowPlayer(x, y, w, h, palette) {
+    fillPixelV2(x, y, w, h, palette.base);
+    fillPixelV2(x + 4, y + 4, w - 8, h - 8, palette.inner);
+    fillPixelV2(x + 10, y + 10, w - 20, h - 20, 'rgba(0,0,0,0.10)');
+    fillPixelV2(x + Math.max(8, w / 2 - 14), y + Math.max(8, h / 2 - 2), 28, 4, palette.accent);
+    fillPixelV2(x + 8, y + 8, 8, 4, 'rgba(255,255,255,0.14)');
+    fillPixelV2(x + w - 16, y + h - 12, 8, 4, 'rgba(0,0,0,0.16)');
+  }
+
+  const drawInteriorRoomBackdropBeforeInteractiveHome = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorRoomBackdropInteractiveHome(scene) {
+    drawInteriorRoomBackdropBeforeInteractiveHome(scene);
+    if (scene !== 'home') return;
+
+    // tapetes desenhados NO CHAO, antes dos objetos e antes do jogador.
+    drawHomeRugBelowPlayer(4 * TILE, 11 * TILE, 10 * TILE, 5 * TILE, { base: '#6b231f', inner: '#8a342d', accent: '#d3a88b' });
+    drawHomeRugBelowPlayer(20 * TILE, 5 * TILE, 8 * TILE, 1 * TILE, { base: '#5b416e', inner: '#8566a5', accent: '#e1d5f0' });
+    drawHomeRugBelowPlayer(20 * TILE, 11 * TILE, 8 * TILE, 1 * TILE, { base: '#5b416e', inner: '#8566a5', accent: '#e1d5f0' });
+    drawHomeRugBelowPlayer(20 * TILE, 14 * TILE, 5 * TILE, 3 * TILE, { base: '#355b77', inner: '#678eb4', accent: '#c9d4e8' });
+
+    const state = getHomeState();
+    if (!state.lightsOn) fillPixelV2(camera.x, camera.y, canvas.width, canvas.height, 'rgba(15, 10, 18, 0.20)');
+    if (state.windowOpen) fillPixelV2(1 * TILE, 2 * TILE, 28 * TILE, 1 * TILE, 'rgba(150, 230, 255, 0.06)');
+  };
+})();
+
+/* ==================================================
+   Patch: exterior da casa do jogador em formato de mansao
+   maior, com entrada mais facil e menos objetos visuais
+   ================================================== */
+(function mansionSpawnExteriorPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_MANSION_SPAWN_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_MANSION_SPAWN_PATCH = true;
+
+  const heroHouse = Array.isArray(villageObjects)
+    ? villageObjects.find((obj) => obj && obj.type === 'playerHouse')
+    : null;
+  if (!heroHouse) return;
+
+  heroHouse.title = 'Mansao do Heroi';
+  heroHouse.isSpawnHouse = true;
+  heroHouse.mansionExterior = true;
+  heroHouse.x = 23 * TILE;
+  heroHouse.y = 32 * TILE;
+  heroHouse.width = TILE * 7;
+  heroHouse.height = TILE * 4;
+
+  for (let i = villageObjects.length - 1; i >= 0; i--) {
+    const obj = villageObjects[i];
+    if (!obj || obj === heroHouse) continue;
+    const nearHouse = obj.x >= heroHouse.x - TILE * 2 && obj.x <= heroHouse.x + heroHouse.width + TILE * 2 &&
+      obj.y >= heroHouse.y - TILE * 2 && obj.y <= heroHouse.y + heroHouse.height + TILE * 3;
+    const removableType = ['sign', 'flower', 'collectible'].includes(obj.type);
+    if (obj.spawnUpgradeTag || obj.spawnEpicTag || (nearHouse && removableType)) {
+      villageObjects.splice(i, 1);
+    }
+  }
+
+  const mansionExtras = [
+    outdoorDecor(24, 36, 'stonePath', false),
+    outdoorDecor(25, 36, 'stonePath', false),
+    outdoorDecor(26, 36, 'stonePath', false),
+    outdoorDecor(27, 36, 'stonePath', false),
+    outdoorDecor(24, 37, 'stonePath', false),
+    outdoorDecor(25, 37, 'stonePath', false),
+    outdoorDecor(26, 37, 'stonePath', false),
+    outdoorDecor(27, 37, 'stonePath', false),
+    outdoorDecor(24, 38, 'stonePath', false),
+    outdoorDecor(25, 38, 'stonePath', false),
+    outdoorDecor(26, 38, 'stonePath', false),
+    outdoorDecor(27, 38, 'stonePath', false),
+    outdoorDecor(22, 35, 'lampPost', true),
+    outdoorDecor(29, 35, 'lampPost', true),
+    outdoorDecor(30, 36, 'mailbox', true),
+    sign(28, 39, 'Mansao do Heroi: esta e a casa principal e o ponto de spawn do jogador.')
+  ];
+  for (const obj of mansionExtras) {
+    obj.mansionSpawnTag = true;
+    villageObjects.push(obj);
+  }
+
+  if (currentScene === 'village') {
+    objects = villageObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  const drawPlayerHouseBeforeMansion = drawPlayerHouse;
+  drawPlayerHouse = function drawPlayerHouseMansion(obj) {
+    if (!obj || !obj.mansionExterior) {
+      return drawPlayerHouseBeforeMansion(obj);
+    }
+
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+    const mid = x + w / 2;
+    const glow = 0.75 + Math.sin(performance.now() / 400) * 0.08;
+
+    drawSoftShadow(x + 10, y + h - 6, w - 20, 14, 0.30);
+
+    // fundacao e paredes
+    pixelRect(x + 8, y + 56, w - 16, h - 56, '#5e6676');
+    pixelRect(x + 12, y + 60, w - 24, h - 70, '#e2d6bf');
+    pixelRect(x + 16, y + h - 22, w - 32, 12, '#a7896a');
+
+    // telhado principal largo
+    pixelRect(x - 8, y + 22, w + 16, 18, '#273052');
+    pixelRect(x - 2, y + 28, w + 4, 24, '#3f8fe5');
+    fillPixelV2(x + 10, y + 32, w - 20, 4, 'rgba(255,255,255,0.18)');
+
+    // topo superior central
+    pixelRect(mid - 54, y + 6, 108, 22, '#273052');
+    pixelRect(mid - 48, y + 10, 96, 18, '#4ea4ff');
+
+    // janelas grandes
+    pixelRect(x + 18, y + 66, 26, 28, '#56b7f4');
+    pixelRect(x + 56, y + 66, 26, 28, '#56b7f4');
+    pixelRect(x + w - 82, y + 66, 26, 28, '#56b7f4');
+    pixelRect(x + w - 44, y + 66, 26, 28, '#56b7f4');
+    pixelRect(mid - 13, y + 24, 26, 22, '#56b7f4');
+
+    ctx.fillStyle = '#e6fbff';
+    ctx.fillRect(x + 28, y + 72, 6, 6);
+    ctx.fillRect(x + 66, y + 72, 6, 6);
+    ctx.fillRect(x + w - 72, y + 72, 6, 6);
+    ctx.fillRect(x + w - 34, y + 72, 6, 6);
+    ctx.fillRect(mid - 4, y + 30, 6, 6);
+
+    ctx.fillStyle = '#273052';
+    for (const wx of [x + 30, x + 68, x + w - 70, x + w - 32]) {
+      ctx.fillRect(wx, y + 66, 3, 28);
+      ctx.fillRect(wx - 10, y + 78, 26, 3);
+    }
+    ctx.fillRect(mid - 1, y + 24, 3, 22);
+    ctx.fillRect(mid - 13, y + 34, 26, 3);
+
+    // entrada principal ampla
+    pixelRect(mid - 24, y + h - 54, 48, 44, '#8f5a3f');
+    pixelRect(mid - 19, y + h - 49, 38, 34, '#a96d49');
+    ctx.fillStyle = '#ffd18b';
+    ctx.fillRect(mid + 10, y + h - 32, 4, 4);
+
+    // escadaria larga para facilitar entrada
+    pixelRect(mid - 44, y + h - 12, 88, 8, '#8b8f9c');
+    pixelRect(mid - 34, y + h - 4, 68, 8, '#c8b18d');
+    pixelRect(mid - 22, y + h + 4, 44, 6, '#e5d1ad');
+
+    // colunas frontais
+    pixelRect(mid - 54, y + 62, 10, h - 72, '#c8b18d');
+    pixelRect(mid + 44, y + 62, 10, h - 72, '#c8b18d');
+    pixelRect(mid - 58, y + 58, 18, 8, '#8b8f9c');
+    pixelRect(mid + 40, y + 58, 18, 8, '#8b8f9c');
+
+    // placa simples de spawn no topo
+    fillPixelV2(mid - 36, y + 48, 72, 12, 'rgba(39,48,82,0.92)');
+    outlinePixelV2(mid - 36, y + 48, 72, 12, '#55e8ff');
+    fillPixelV2(mid - 24, y + 52, 48, 4, '#fff264');
+
+    // luzes suaves
+    fillPixelV2(mid - 68, y + h - 48, 18, 18, `rgba(255, 242, 100, ${0.16 * glow})`);
+    fillPixelV2(mid + 50, y + h - 48, 18, 18, `rgba(255, 242, 100, ${0.16 * glow})`);
+    outlinePixelV2(mid - 63, y + h - 42, 8, 10, '#fff264');
+    outlinePixelV2(mid + 55, y + h - 42, 8, 10, '#fff264');
+  };
+
+  const handleMapTransitionsBeforeMansion = handleMapTransitions;
+  handleMapTransitions = function handleMapTransitionsMansion() {
+    if (currentScene === 'village' && heroHouse) {
+      const playerCenter = {
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        width: 1,
+        height: 1
+      };
+      const easyDoor = {
+        x: heroHouse.x + heroHouse.width / 2 - 60,
+        y: heroHouse.y + heroHouse.height - 14,
+        width: 120,
+        height: 56
+      };
+      if (rectsOverlap(playerCenter, easyDoor)) {
+        enterHome();
+        return;
+      }
+    }
+    return handleMapTransitionsBeforeMansion();
+  };
+})();
+
+/* ==================================================
+   Patch seguro: acoes visiveis em casa sem travar o jogo
+   - nao usa homeActionMessage interno
+   - intercepta moveis antes dos wrappers antigos
+   - usa tempo por performance.now, sem trocar o loop principal
+   ================================================== */
+(function safeHomeActionsNoFreezePatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_SAFE_HOME_ACTIONS_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_SAFE_HOME_ACTIONS_PATCH = true;
+
+  const SAFE_WIFE_NAMES = {
+    selene: 'Selene', nyra: 'Nyra', lilith: 'Lilith', yumi: 'Yumi', mika: 'Mika', violet: 'Violet', aurora: 'Aurora'
+  };
+
+  function nowMs() {
+    return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+  }
+
+  function safeHomeState() {
+    if (!questBook.safeHomeActions || typeof questBook.safeHomeActions !== 'object') {
+      questBook.safeHomeActions = { chestOpened: false, outfit: 0, lightsOn: true, windowOpen: false, cooldowns: {} };
+    }
+    if (!questBook.safeHomeActions.cooldowns || typeof questBook.safeHomeActions.cooldowns !== 'object') {
+      questBook.safeHomeActions.cooldowns = {};
+    }
+    return questBook.safeHomeActions;
+  }
+
+  function getActiveWifeNameSafe() {
+    const id = questBook.wives?.activeId || 'selene';
+    return SAFE_WIFE_NAMES[id] || 'Selene';
+  }
+
+  function getActiveWifeIdSafe() {
+    return questBook.wives?.activeId || 'selene';
+  }
+
+  function addWifeAffectionSafe(amount) {
+    const id = getActiveWifeIdSafe();
+    if (!questBook.wives || typeof questBook.wives !== 'object') questBook.wives = { activeId: id, wives: {} };
+    if (!questBook.wives.wives || typeof questBook.wives.wives !== 'object') questBook.wives.wives = {};
+    if (!questBook.wives.wives[id]) questBook.wives.wives[id] = { married: true, affection: 1, talks: 0, giftLevel: 0 };
+    const current = Number(questBook.wives.wives[id].affection || 1);
+    questBook.wives.wives[id].affection = Math.max(1, Math.min(100, current + amount));
+  }
+
+  function healFullSafe() {
+    player.health = player.maxHealth || player.health;
+    player.mana = player.maxMana || player.mana;
+    if (player.maxOxygen !== undefined) player.oxygen = player.maxOxygen;
+    if (typeof updateHud === 'function') updateHud();
+  }
+
+  function healSmallSafe(hp, mana) {
+    if (hp) player.health = Math.min(player.maxHealth || player.health, (player.health || 0) + hp);
+    if (mana) player.mana = Math.min(player.maxMana || player.mana, (player.mana || 0) + mana);
+    if (typeof updateHud === 'function') updateHud();
+  }
+
+  function cooldownReadySafe(key, ms) {
+    const state = safeHomeState();
+    const t = Date.now();
+    const last = Number(state.cooldowns[key] || 0);
+    if (t - last < ms) return false;
+    state.cooldowns[key] = t;
+    return true;
+  }
+
+  function startSafeActionVisual(action, obj) {
+    const duration = {
+      sleep: 2800, sleepWife: 3200, study: 2200, read: 1900, sink: 1800, cook: 1900,
+      eat: 1600, sit: 1400, wardrobe: 1300, vanity: 1500, dresser: 1400, cabinet: 1200,
+      homeChest: 1500, plant: 1300, lamp: 900, window: 900, painting: 1000, look: 900
+    }[action] || 1400;
+    player.safeHomeActionVisual = {
+      action,
+      startAt: nowMs(),
+      endAt: nowMs() + duration,
+      duration,
+      x: obj?.x ?? player.x,
+      y: obj?.y ?? player.y,
+      w: obj?.width ?? TILE,
+      h: obj?.height ?? TILE,
+      wife: getActiveWifeNameSafe()
+    };
+  }
+
+  function safeHomeActionMessage(obj) {
+    const action = obj?.homeAction || obj?.kind || 'look';
+    const state = safeHomeState();
+    const wife = getActiveWifeNameSafe();
+    startSafeActionVisual(action, obj);
+
+    if (action === 'sleep') {
+      healFullSafe();
+      if (typeof playSound === 'function') playSound('heal');
+      return 'Voce se deitou na cama principal e descansou ate recuperar as forcas. Vida, mana e oxigenio restaurados.';
+    }
+
+    if (action === 'sleepWife') {
+      healFullSafe();
+      addWifeAffectionSafe(3);
+      if (typeof playSound === 'function') playSound('heal');
+      if (typeof spawnFloatingText === 'function') spawnFloatingText(`♥ ${wife}`, player.x + 8, player.y - 22, '#ff7ab5');
+      return `Voce descansou ao lado de ${wife}. O vinculo entre voces ficou mais forte. Vida e mana recuperadas. Afinidade +3.`;
+    }
+
+    if (action === 'sink') {
+      return 'Voce lavou as maos, limpou o rosto e tirou a poeira da aventura. A agua fria trouxe uma sensacao de descanso.';
+    }
+
+    if (action === 'study') {
+      if (cooldownReadySafe('study', 30000)) {
+        if (typeof awardXp === 'function') awardXp(35, 'Estudo em casa');
+        return 'Voce estudou na mesa, escreveu anotacoes e treinou a mente. Ganhou 35 XP.';
+      }
+      return 'Voce revisou suas anotacoes. Melhor esperar um pouco antes de ganhar XP estudando de novo.';
+    }
+
+    if (action === 'read') {
+      if (cooldownReadySafe('read', 30000)) {
+        if (typeof awardXp === 'function') awardXp(25, 'Leitura em casa');
+        return 'Voce leu um livro antigo da estante e aprendeu mais sobre o mundo. Ganhou 25 XP.';
+      }
+      return 'Voce folheou alguns livros. A estante ainda guarda muitas historias para outro momento.';
+    }
+
+    if (action === 'cook') {
+      healSmallSafe(1, 2);
+      if (cooldownReadySafe('cook', 25000)) {
+        inventory.pocoes = Number(inventory.pocoes || 0) + 1;
+        if (typeof renderInventory === 'function') renderInventory();
+        if (typeof updateHud === 'function') updateHud();
+        return 'Voce cozinhou uma refeicao quente, recuperou energia e guardou 1 porcao como suprimento.';
+      }
+      return 'Voce mexeu nas panelas e recuperou um pouco de energia. Ainda ha comida pronta na cozinha.';
+    }
+
+    if (action === 'eat') {
+      healSmallSafe(2, 2);
+      if (typeof playSound === 'function') playSound('heal');
+      return 'Voce comeu uma refeicao simples na mesa. Vida +2 e mana +2.';
+    }
+
+    if (action === 'sit') {
+      healSmallSafe(0, 1);
+      return 'Voce se sentou por um instante, respirou fundo e recuperou 1 de mana.';
+    }
+
+    if (action === 'homeChest') {
+      if (!state.chestOpened) {
+        state.chestOpened = true;
+        inventory.moedas = Number(inventory.moedas || 0) + 20;
+        inventory.flechas = Number(inventory.flechas || 0) + 12;
+        inventory.pocoes = Number(inventory.pocoes || 0) + 1;
+        if (typeof renderInventory === 'function') renderInventory();
+        if (typeof updateHud === 'function') updateHud();
+        if (typeof playSound === 'function') playSound('chest');
+        return 'Voce abriu o bau da casa e encontrou 20 moedas, 12 flechas e 1 suprimento.';
+      }
+      return 'Voce verificou o bau da casa. Tudo continua bem guardado.';
+    }
+
+    if (action === 'wardrobe') {
+      state.outfit = (Number(state.outfit || 0) + 1) % 4;
+      if (typeof showHudToast === 'function') showHudToast(`Roupa ${state.outfit + 1} equipada`);
+      return `Voce abriu o guarda-roupa e trocou o visual. Roupa atual: conjunto ${state.outfit + 1}.`;
+    }
+
+    if (action === 'lamp') {
+      state.lightsOn = !state.lightsOn;
+      return state.lightsOn ? 'Voce acendeu as luminarias. A casa ficou mais quente e acolhedora.' : 'Voce reduziu a luz. A casa ficou calma e silenciosa.';
+    }
+
+    if (action === 'window') {
+      state.windowOpen = !state.windowOpen;
+      return state.windowOpen ? 'Voce abriu a janela e deixou o ar fresco entrar.' : 'Voce fechou a janela e deixou o ambiente mais quieto.';
+    }
+
+    if (action === 'plant') {
+      healSmallSafe(0, 1);
+      return 'Voce regou a planta. O canto da casa ficou mais vivo e voce recuperou 1 de mana.';
+    }
+
+    if (action === 'vanity') {
+      addWifeAffectionSafe(1);
+      return `Voce preparou um pequeno presente para ${wife} na penteadeira. Afinidade +1.`;
+    }
+
+    if (action === 'dresser') return 'Voce organizou roupas, cartas e lembrancas na comoda. Tudo ficou arrumado.';
+    if (action === 'cabinet') return 'Voce abriu o movel, conferiu os suprimentos e guardou tudo no lugar certo.';
+    if (action === 'painting') return 'Voce observou o quadro por alguns instantes e aproveitou a calma da casa.';
+    if (action === 'look') return obj?.message || 'Voce observou o movel com atencao.';
+
+    return obj?.message || 'Voce interagiu com o movel.';
+  }
+
+  const previousGetQuestMessageSafeActions = getQuestMessage;
+  getQuestMessage = function getQuestMessageSafeHomeActions(obj) {
+    if (obj && obj.type === 'furniture' && obj.homeInteractive) {
+      try { return safeHomeActionMessage(obj); }
+      catch (error) { return 'Voce tentou usar o movel, mas ele nao respondeu. O jogo continuou funcionando.'; }
+    }
+    return previousGetQuestMessageSafeActions(obj);
+  };
+
+  const previousUpdateInteractionHintSafeActions = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintSafeHomeActions() {
+    previousUpdateInteractionHintSafeActions();
+    try {
+      const target = findInteraction();
+      if (!target || target.type !== 'furniture' || !target.homeInteractive || dialogOpen || shopOpen) return;
+      const labels = {
+        sleep: 'Dormir', sleepWife: 'Dormir', cook: 'Cozinhar', eat: 'Comer', study: 'Estudar', read: 'Ler',
+        homeChest: 'Abrir', wardrobe: 'Trocar', lamp: 'Luz', window: 'Janela', plant: 'Regar', sit: 'Sentar',
+        vanity: 'Presente', sink: 'Lavar', dresser: 'Arrumar', cabinet: 'Abrir', painting: 'Olhar', look: 'Olhar'
+      };
+      const label = labels[target.homeAction] || 'Usar';
+      interactionHint.textContent = `Pressione E para ${label.toLowerCase()}`;
+      if (touchContextLabel) touchContextLabel.textContent = label;
+    } catch (error) {}
+  };
+
+  function getSafeVisualAction() {
+    const act = player?.safeHomeActionVisual;
+    if (!act || currentScene !== 'home' || nowMs() > Number(act.endAt || 0)) {
+      if (player?.safeHomeActionVisual && nowMs() > Number(player.safeHomeActionVisual.endAt || 0)) player.safeHomeActionVisual = null;
+      return null;
+    }
+    return act;
+  }
+
+  function miniPlayerStand(px, py, facing = 'down') {
+    drawSoftShadow(px + 4, py + 24, 18, 5, 0.22);
+    outlinePixelV2(px + 6, py + 10, 14, 13, '#2d3d83');
+    fillPixelV2(px + 9, py + 12, 8, 3, '#55e8ff');
+    fillPixelV2(px + 10, py + 17, 7, 5, '#3f8fe5');
+    outlinePixelV2(px + 8, py + 3, 12, 9, '#f4bd8f');
+    fillPixelV2(px + 7, py, 14, 4, '#273052');
+    fillPixelV2(px + 7, py + 1, 10, 4, '#5ad6e7');
+    fillPixelV2(px + 6, py + 12, 3, 7, '#f4bd8f');
+    fillPixelV2(px + 19, py + 12, 3, 7, '#f4bd8f');
+    fillPixelV2(px + 9, py + 23, 4, 5, '#20263e');
+    fillPixelV2(px + 15, py + 23, 4, 5, '#20263e');
+    if (facing === 'up') fillPixelV2(px + 11, py + 5, 6, 2, '#20263e');
+    else if (facing === 'left') fillPixelV2(px + 10, py + 6, 2, 2, '#20263e');
+    else if (facing === 'right') fillPixelV2(px + 16, py + 6, 2, 2, '#20263e');
+    else { fillPixelV2(px + 11, py + 6, 2, 2, '#20263e'); fillPixelV2(px + 15, py + 6, 2, 2, '#20263e'); }
+  }
+
+  function miniPlayerSit(px, py) {
+    miniPlayerStand(px, py, 'down');
+    fillPixelV2(px + 9, py + 23, 12, 3, '#20263e');
+    fillPixelV2(px + 15, py + 25, 7, 3, '#20263e');
+  }
+
+  function miniPlayerLie(px, py) {
+    drawSoftShadow(px + 4, py + 19, 24, 5, 0.18);
+    outlinePixelV2(px + 2, py + 10, 20, 10, '#2d3d83');
+    fillPixelV2(px + 4, py + 12, 14, 6, '#3f8fe5');
+    outlinePixelV2(px + 19, py + 10, 9, 8, '#f4bd8f');
+    fillPixelV2(px + 18, py + 8, 10, 4, '#273052');
+    fillPixelV2(px + 18, py + 9, 7, 4, '#5ad6e7');
+    fillPixelV2(px + 2, py + 18, 22, 4, '#b26576');
+  }
+
+  function tinyWifeLie(px, py) {
+    fillPixelV2(px + 2, py + 18, 22, 4, '#8f5aa8');
+    fillPixelV2(px + 4, py + 12, 14, 6, '#aa73d0');
+    outlinePixelV2(px + 18, py + 10, 8, 8, '#f1c2b7');
+    fillPixelV2(px + 18, py + 8, 8, 4, '#7b3b9a');
+  }
+
+  function sparkle(cx, cy, color) {
+    fillPixelV2(cx - 1, cy - 4, 2, 8, color);
+    fillPixelV2(cx - 4, cy - 1, 8, 2, color);
+  }
+
+  function getSafeHomeActionAnchor(act) {
+    const fallback = { x: player.x, y: player.y, direction: player.direction || 'down' };
+    if (!act) return fallback;
+    const action = act.action;
+    if (action === 'sleep' || action === 'sleepWife') {
+      return { x: act.x + 8, y: act.y + 7, direction: 'right' };
+    }
+    if (action === 'study' || action === 'read') {
+      return { x: act.x + 8, y: act.y + 22, direction: 'up' };
+    }
+    if (action === 'sink') {
+      return { x: act.x + 5, y: act.y + 10, direction: 'up' };
+    }
+    if (action === 'cook') {
+      return { x: act.x + 4, y: act.y + 10, direction: 'up' };
+    }
+    if (action === 'eat') {
+      return { x: act.x + 4, y: act.y + 18, direction: 'right' };
+    }
+    if (action === 'sit') {
+      return { x: act.x + 4, y: act.y + 18, direction: 'down' };
+    }
+    if (['wardrobe','dresser','cabinet','vanity'].includes(action)) {
+      return { x: act.x - 2, y: act.y + 12, direction: 'up' };
+    }
+    if (action === 'homeChest') {
+      return { x: act.x - 2, y: act.y + 12, direction: 'right' };
+    }
+    if (action === 'plant') {
+      return { x: act.x - 2, y: act.y + 12, direction: 'up' };
+    }
+    return { x: act.x - 4, y: act.y + 12, direction: 'up' };
+  }
+
+  function drawSafeHomeActionOverlay(act) {
+    const pulse = 0.75 + Math.sin(nowMs() / 140) * 0.25;
+    const anchor = getSafeHomeActionAnchor(act);
+    const px = anchor.x;
+    const py = anchor.y;
+    if (act.action === 'sleep' || act.action === 'sleepWife') {
+      fillPixelV2(px + 2, py + 19, 25, 8, 'rgba(178,101,118,0.75)');
+      fillPixelV2(px + 19, py + 10, 10, 6, 'rgba(246,236,220,0.65)');
+      fillPixelV2(px + 30, py - 2, 4, 4, `rgba(255,255,255,${0.65 * pulse})`);
+      fillPixelV2(px + 35, py - 10, 5, 5, `rgba(255,255,255,${0.50 * pulse})`);
+      if (act.action === 'sleepWife') {
+        fillPixelV2(px + 15, py + 3, 3, 3, '#ff6ab5');
+        fillPixelV2(px + 27, py + 20, 18, 7, 'rgba(143,90,168,0.70)');
+      }
+      return;
+    }
+    if (act.action === 'sink') {
+      fillPixelV2(act.x + 16, act.y + 4, 6, 5, '#93d9ff');
+      fillPixelV2(act.x + 17, act.y + 9, 4, 8, `rgba(120,220,255,${0.45 + 0.15 * pulse})`);
+      fillPixelV2(act.x + 11, act.y + 17, 3, 3, '#dff8ff');
+      return;
+    }
+    if (act.action === 'study' || act.action === 'read') {
+      fillPixelV2(act.x + 30, act.y + 30, 12, 8, '#efe1b8');
+      fillPixelV2(act.x + 35, act.y + 30, 2, 8, '#6d4631');
+      if (act.action === 'study') fillPixelV2(act.x + 41, act.y + 26, 2, 8, '#ffffff');
+      else sparkle(act.x + 41, act.y + 24, '#fff2a5');
+      return;
+    }
+    if (act.action === 'cook') {
+      fillPixelV2(act.x + 34, act.y + 8, 10, 6, '#4e4e57');
+      fillPixelV2(act.x + 36, act.y + 5, 6, 3, '#ffb95d');
+      fillPixelV2(act.x + 39, act.y + 1, 3, 4, `rgba(255,255,255,${0.45 * pulse})`);
+      return;
+    }
+    if (act.action === 'eat' || act.action === 'sit') {
+      if (act.action === 'eat') fillPixelV2(act.x + 31, act.y + 27, 7, 3, '#d99b67');
+      return;
+    }
+    if (['wardrobe','dresser','cabinet','vanity','homeChest'].includes(act.action)) {
+      sparkle(act.x + act.w / 2, act.y + 8, '#ffe58b');
+      return;
+    }
+    if (act.action === 'plant') {
+      fillPixelV2(act.x + 16, act.y + 3, 3, 5, '#7bd7ff');
+      return;
+    }
+  }
+
+  const previousDrawPlayerSafeHomeActions = drawPlayer;
+  drawPlayer = function drawPlayerSafeHomeActions() {
+    const act = getSafeVisualAction();
+    if (!act) return previousDrawPlayerSafeHomeActions();
+
+    const original = {
+      x: player.x,
+      y: player.y,
+      direction: player.direction,
+      moving: player.moving,
+      frame: player.frame
+    };
+
+    try {
+      const anchor = getSafeHomeActionAnchor(act);
+      player.x = anchor.x;
+      player.y = anchor.y;
+      player.direction = anchor.direction || player.direction;
+      player.moving = false;
+      player.frame = 0;
+      previousDrawPlayerSafeHomeActions();
+      drawSafeHomeActionOverlay(act);
+      return;
+    } finally {
+      player.x = original.x;
+      player.y = original.y;
+      player.direction = original.direction;
+      player.moving = original.moving;
+      player.frame = original.frame;
+    }
+  };
+})();
+
+/* Final safety guard: never allow older action patches to crash if they search for homeActionMessage globally. */
+if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'function') {
+  window.homeActionMessage = function safeFallbackHomeActionMessage(obj) {
+    return (obj && obj.message) || 'Voce interagiu com o movel.';
+  };
+}
+
+
+/* ==================================================
+   Patch: equipar/desequipar arma + musica medieval divertida com suspense
+   Mantem as acoes visiveis da casa do patch anterior.
+   ================================================== */
+(function weaponUnequipAndSuspenseMusicPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_WEAPON_UNEQUIP_SUSPENSE_MUSIC_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_WEAPON_UNEQUIP_SUSPENSE_MUSIC_PATCH = true;
+
+  weapons.unarmed = {
+    name: "Mãos vazias",
+    damage: 0,
+    range: 0,
+    cooldown: 0.35,
+    kind: "none",
+    arc: Math.PI * 0.3,
+    damageType: "none",
+    description: "Nenhuma arma equipada."
+  };
+
+  function ensureWeaponUnequipState() {
+    if (!Array.isArray(player.unlockedWeapons) || !player.unlockedWeapons.length) player.unlockedWeapons = ["sword"];
+    player.unlockedWeapons = [...new Set(player.unlockedWeapons)].filter((key) => weapons[key] || key === "unarmed");
+    if (!player.unlockedWeapons.includes("unarmed")) player.unlockedWeapons.push("unarmed");
+
+    if (!player.equippedWeaponKey) {
+      const safeKey = player.unlockedWeapons.find((key) => key !== "unarmed" && weapons[key]) || "sword";
+      player.equippedWeaponKey = safeKey;
+    }
+
+    if (player.equippedWeaponKey !== "unarmed" && (!weapons[player.equippedWeaponKey] || !player.unlockedWeapons.includes(player.equippedWeaponKey))) {
+      player.equippedWeaponKey = player.unlockedWeapons.find((key) => key !== "unarmed" && weapons[key]) || "sword";
+    }
+
+    currentWeaponIndex = Math.max(0, player.unlockedWeapons.indexOf(player.equippedWeaponKey));
+    return player.equippedWeaponKey;
+  }
+
+  const getCurrentWeaponKeyBeforeUnequipPatch = getCurrentWeaponKey;
+  getCurrentWeaponKey = function getCurrentWeaponKeyWithUnequip() {
+    try {
+      return ensureWeaponUnequipState();
+    } catch (error) {
+      try { return getCurrentWeaponKeyBeforeUnequipPatch(); } catch (fallbackError) { return "sword"; }
+    }
+  };
+
+  getCurrentWeapon = function getCurrentWeaponWithUnequip() {
+    const key = getCurrentWeaponKey();
+    return weapons[key] || weapons.sword;
+  };
+
+  const equipWeaponBeforeUnequipPatch = equipWeapon;
+  equipWeapon = function equipWeaponWithUnequip(weaponKey) {
+    ensureWeaponUnequipState();
+    if (weaponKey === "unarmed") return unequipWeapon();
+    if (!weaponKey || !weapons[weaponKey] || !player.unlockedWeapons.includes(weaponKey)) {
+      showHudToast("Essa arma ainda nao esta no inventario.");
+      playSound("invalid");
+      return false;
+    }
+
+    player.equippedWeaponKey = weaponKey;
+    currentWeaponIndex = player.unlockedWeapons.indexOf(weaponKey);
+    weaponCooldownTimer = 0;
+    attackWindupTimer = 0;
+    attackRecoveryTimer = 0;
+    attackTimer = 0;
+    currentMeleeAttack = null;
+
+    spawnFloatingText(`Arma equipada: ${weapons[weaponKey].name}`, player.x + 10, player.y - 18, "#fff264");
+    showHudToast(`Arma equipada: ${weapons[weaponKey].name}`);
+    playSound("equipItem");
+    updateHud();
+    return true;
+  };
+
+  function unequipWeapon() {
+    ensureWeaponUnequipState();
+    player.equippedWeaponKey = "unarmed";
+    currentWeaponIndex = player.unlockedWeapons.indexOf("unarmed");
+    weaponCooldownTimer = 0;
+    attackWindupTimer = 0;
+    attackRecoveryTimer = 0;
+    attackTimer = 0;
+    currentMeleeAttack = null;
+
+    spawnFloatingText("Arma desequipada", player.x + 10, player.y - 18, "#fff264");
+    showHudToast("Você guardou a arma. Mãos vazias.");
+    playSound("equipItem");
+    updateHud();
+    return true;
+  }
+
+  if (typeof window !== "undefined") window.unequipWeapon = unequipWeapon;
+
+  const triggerPrimaryAttackBeforeUnequipPatch = triggerPrimaryAttack;
+  triggerPrimaryAttack = function triggerPrimaryAttackWithUnequip() {
+    if (getCurrentWeaponKey() === "unarmed") {
+      if (weaponCooldownTimer <= 0 && !dialogOpen && !inventoryOpen && !shopOpen && !pauseOpen) {
+        weaponCooldownTimer = 0.25;
+        spawnFloatingText("Sem arma equipada", player.x + 4, player.y - 16, "#fff264");
+        showHudToast("Equipe uma arma pelo inventario.");
+        playSound("invalid");
+      }
+      return;
+    }
+    return triggerPrimaryAttackBeforeUnequipPatch();
+  };
+
+  const drawEquippedWeaponBeforeUnequipPatch = typeof drawEquippedWeapon === "function" ? drawEquippedWeapon : null;
+  if (drawEquippedWeaponBeforeUnequipPatch) {
+    drawEquippedWeapon = function drawEquippedWeaponWithUnequip() {
+      if (getCurrentWeaponKey() === "unarmed") return;
+      return drawEquippedWeaponBeforeUnequipPatch();
+    };
+  }
+
+  const getInventoryItemsBeforeUnequipPatch = getInventoryItems;
+  getInventoryItems = function getInventoryItemsWithoutUnarmedSlot() {
+    const items = getInventoryItemsBeforeUnequipPatch();
+    return items.filter((item) => item?.id !== "weapon-unarmed" && item?.weaponKey !== "unarmed");
+  };
+
+  const getInventoryActionHtmlBeforeUnequipPatch = getInventoryActionHtml;
+  getInventoryActionHtml = function getInventoryActionHtmlWeaponUnequip(item) {
+    if (item?.action === "equipWeapon" && item.weaponKey) {
+      const isEquipped = item.weaponKey === getCurrentWeaponKey();
+      const safeWeaponKey = String(item.weaponKey).replace(/"/g, "&quot;");
+      if (isEquipped) {
+        return `<button type="button" data-inventory-action="unequipWeapon" data-weapon-key="${safeWeaponKey}">Desequipar arma</button>`;
+      }
+      return `<button type="button" data-inventory-action="equipWeapon" data-weapon-key="${safeWeaponKey}">Equipar arma</button>`;
+    }
+    return getInventoryActionHtmlBeforeUnequipPatch(item);
+  };
+
+  const handleInventoryActionBeforeUnequipPatch = handleInventoryAction;
+  handleInventoryAction = function handleInventoryActionWeaponUnequip(actionButton) {
+    const action = actionButton?.dataset?.inventoryAction;
+    if (action === "unequipWeapon") {
+      unequipWeapon();
+      renderInventory();
+      return;
+    }
+    if (action === "equipWeapon") {
+      equipWeapon(actionButton.dataset.weaponKey);
+      renderInventory();
+      return;
+    }
+    return handleInventoryActionBeforeUnequipPatch(actionButton);
+  };
+
+  const updateHudBeforeUnequipPatch = updateHud;
+  updateHud = function updateHudWeaponUnequip() {
+    ensureWeaponUnequipState();
+    updateHudBeforeUnequipPatch();
+    if (weaponHud) {
+      const key = getCurrentWeaponKey();
+      if (key === "unarmed") {
+        weaponHud.textContent = "Arma equipada: Nenhuma";
+      } else {
+        const current = getCurrentWeapon();
+        const arrowKeys = new Set(["bow", "frostBow", "starBow"]);
+        weaponHud.textContent = `Arma equipada: ${current.name}${arrowKeys.has(key) ? ` (${inventory.flechas})` : ""}`;
+      }
+    }
+  };
+
+  const renderEquipmentSlotsBeforeUnequipPatch = renderEquipmentSlots;
+  renderEquipmentSlots = function renderEquipmentSlotsWeaponUnequip() {
+    ensureWeaponUnequipState();
+    return renderEquipmentSlotsBeforeUnequipPatch();
+  };
+
+  const saveGameBeforeUnequipPatch = saveGame;
+  saveGame = function saveGameWeaponUnequip() {
+    ensureWeaponUnequipState();
+    const unequipped = player.equippedWeaponKey === "unarmed";
+    if (unequipped && !player.unlockedWeapons.includes("unarmed")) player.unlockedWeapons.push("unarmed");
+
+    const ok = saveGameBeforeUnequipPatch();
+
+    // O save antigo normalizava a arma para uma espada. Corrige o JSON salvo sem quebrar saves antigos.
+    try {
+      const raw = typeof readSaveRaw === "function" ? readSaveRaw() : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        parsed.player = parsed.player || {};
+        parsed.player.equippedWeaponKey = player.equippedWeaponKey;
+        parsed.player.unlockedWeapons = [...new Set([...(parsed.player.unlockedWeapons || []), ...(player.unlockedWeapons || [])])];
+        parsed.futureState = parsed.futureState || {};
+        parsed.futureState.player = parsed.futureState.player || {};
+        parsed.futureState.player.equippedWeaponKey = player.equippedWeaponKey;
+        parsed.futureState.currentWeaponKey = player.equippedWeaponKey;
+        if (typeof writeSaveRaw === "function") writeSaveRaw(JSON.stringify(parsed));
+      }
+    } catch (error) {
+      // Save extra opcional.
+    }
+    return ok;
+  };
+
+  const loadGameBeforeUnequipPatch = loadGame;
+  loadGame = function loadGameWeaponUnequip() {
+    const ok = loadGameBeforeUnequipPatch();
+    try {
+      const raw = typeof readSaveRaw === "function" ? readSaveRaw() : null;
+      const parsed = raw ? JSON.parse(raw) : null;
+      const savedKey = parsed?.futureState?.player?.equippedWeaponKey || parsed?.futureState?.currentWeaponKey || parsed?.player?.equippedWeaponKey;
+      if (savedKey === "unarmed" || weapons[savedKey]) {
+        if (savedKey === "unarmed" && !player.unlockedWeapons.includes("unarmed")) player.unlockedWeapons.push("unarmed");
+        player.equippedWeaponKey = savedKey;
+      }
+    } catch (error) {
+      // Sem problema se for save antigo.
+    }
+    ensureWeaponUnequipState();
+    updateHud();
+    return ok;
+  };
+
+  cycleWeapon = function cycleWeaponStillInventoryOnlyAfterUnequip() {
+    ensureWeaponUnequipState();
+    inventoryTab = "armas";
+    selectedInventoryItemId = getCurrentWeaponKey() === "unarmed" ? "" : `weapon-${getCurrentWeaponKey()}`;
+    showHudToast("Troque ou desequipe armas pelo inventario.");
+    if (typeof toggleInventory === "function") toggleInventory(true);
+    if (typeof renderInventory === "function") renderInventory();
+    playSound("inventoryOpen");
+  };
+
+  // Musica medieval mais divertida com suspense, leve e sintetizada no navegador.
+  function stopCurrentBackgroundMusicSmoothly() {
+    if (musicTimer) {
+      clearInterval(musicTimer);
+      musicTimer = null;
+    }
+    if (musicGain && audioContext) {
+      try {
+        musicGain.gain.cancelScheduledValues(audioContext.currentTime);
+        musicGain.gain.setValueAtTime(Math.max(0.0001, musicGain.gain.value || 0.0001), audioContext.currentTime);
+        musicGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.25);
+        const oldGain = musicGain;
+        setTimeout(() => { try { oldGain.disconnect(); } catch (error) {} }, 320);
+      } catch (error) {}
+      musicGain = null;
+    }
+  }
+
+  function playBardTone(freq, offset, duration, volume, type = "triangle", destination = musicGain) {
+    if (!audioContext || !destination) return;
+    const now = audioContext.currentTime + offset;
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    osc.connect(gain);
+    gain.connect(destination);
+    osc.start(now);
+    osc.stop(now + duration + 0.04);
+  }
+
+  function playMedievalSuspensePerc(offset = 0, volume = 0.020) {
+    if (!audioContext || !musicGain) return;
+    const now = audioContext.currentTime + offset;
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(92, now);
+    osc.frequency.exponentialRampToValueAtTime(48, now + 0.08);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(volume, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    osc.connect(gain);
+    gain.connect(musicGain);
+    osc.start(now);
+    osc.stop(now + 0.14);
+  }
+
+  startMusic = function startMusicMedievalFunSuspense() {
+    ensureAudio();
+    if (musicTimer || !audioContext) return;
+    try {
+      if (audioContext.state === "suspended") audioContext.resume();
+    } catch (error) {}
+
+    musicGain = audioContext.createGain();
+    musicGain.gain.value = isMobile ? 0.028 : 0.038;
+    musicGain.connect(audioContext.destination);
+
+    let step = 0;
+    const melody = [294, 349, 370, 440, 392, 349, 330, 392, 440, 466, 440, 392, 349, 330, 294, 262];
+    const bass = [147, 147, 196, 196, 174, 174, 220, 196];
+    const sparkle = [587, 698, 740, 880, 784, 698, 659, 784];
+
+    const playBar = () => {
+      if (!audioContext || audioContext.state !== "running" || !musicGain) return;
+      const note = melody[step % melody.length];
+      const bassNote = bass[Math.floor(step / 2) % bass.length];
+
+      // Flauta/alaúde principal: leve, saltitante, mas em tom menor.
+      playBardTone(note, 0, 0.30, 0.055, "triangle");
+      if (step % 2 === 0) playBardTone(note * 1.5, 0.045, 0.18, 0.022, "sine");
+      if (step % 4 === 1) playBardTone(sparkle[step % sparkle.length], 0.08, 0.12, 0.014, "triangle");
+
+      // Bordao grave medieval, dando suspense.
+      if (step % 2 === 0) playBardTone(bassNote, 0, 0.58, 0.030, "sine");
+      if (step % 8 === 6) playBardTone(bassNote * 0.75, 0.03, 0.44, 0.018, "sawtooth");
+
+      // Batida discreta de taverna/masmorra.
+      if (step % 4 === 0 || step % 4 === 3) playMedievalSuspensePerc(0.02, isMobile ? 0.012 : 0.018);
+
+      step += 1;
+    };
+
+    playBar();
+    musicTimer = setInterval(playBar, 360);
+  };
+
+  // Se a musica antiga ja estava tocando, troca suavemente para a nova.
+  if (gameStarted && audioContext) {
+    stopCurrentBackgroundMusicSmoothly();
+    startMusic();
+  }
+
+  ensureWeaponUnequipState();
+  updateHud();
+})();
