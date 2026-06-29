@@ -19740,3 +19740,176 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     return drawBeforeNoBlinkFinal();
   };
 })();
+
+
+/* ==================================================
+   Patch extra: objetos pequenos estaveis no mobile
+   - Corrige piscadas em decoracoes pequenas (luzes, quadros,
+     janelas, plantas pequenas, armarios pequenos e postes).
+   - Mantem o resto do jogo igual.
+   ================================================== */
+(function mobileStableSmallDecorPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_MOBILE_STABLE_SMALL_DECOR_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_MOBILE_STABLE_SMALL_DECOR_PATCH = true;
+
+  function isCoarseMobileDecor() {
+    try {
+      if (typeof isTouchLikeDevice === 'function') return isTouchLikeDevice();
+      if (typeof isMobile !== 'undefined') return Boolean(isMobile);
+    } catch (error) {}
+    return Boolean(navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)').matches);
+  }
+
+  const stableFurnitureKinds = new Set([
+    'lamp', 'wallLampWarm', 'wallLampWarmLife',
+    'window', 'windowLife',
+    'painting', 'paintingWide', 'paintingWarm', 'paintingWarmLife',
+    'vase', 'tallPlant', 'pottedPlantTall', 'pottedPlantTallLife',
+    'nightstand', 'sideCabinetLife', 'dresserCabinetLife', 'homeChestLife',
+    'noticeBoard', 'mailbox'
+  ]);
+
+  const stableOutdoorKinds = new Set(['lampPost', 'mailbox', 'noticeBoard', 'flowerBed']);
+
+  function snap(n) {
+    return Math.round(Number(n) || 0);
+  }
+
+  function stableRect(x, y, w, h, color) {
+    fillPixelV2(snap(x), snap(y), snap(w), snap(h), color);
+  }
+
+  function stableOutline(x, y, w, h, fill, outline) {
+    outlinePixelV2(snap(x), snap(y), snap(w), snap(h), fill, outline);
+  }
+
+  function drawStableLampLife(obj) {
+    const x = snap(obj.x), y = snap(obj.y);
+    stableRect(x + 8, y + 2, 16, 18, 'rgba(255, 214, 120, 0.18)');
+    stableOutline(x + 12, y + 8, 8, 12, '#6f4a33');
+    stableRect(x + 13, y + 9, 6, 7, '#ffcc6d');
+    stableRect(x + 14, y + 6, 4, 4, '#fff3c8');
+  }
+
+  function drawStableWindowLife(obj) {
+    const x = snap(obj.x), y = snap(obj.y);
+    const state = typeof getHomeState === 'function' ? getHomeState() : { windowOpen: false };
+    stableOutline(x + 4, y + 5, 40, 24, '#9fe6ff', '#5c3d2c');
+    stableRect(x + 8, y + 9, 32, 16, state.windowOpen ? '#9fe6ff' : '#73b8e8');
+    stableRect(x + 22, y + 7, 3, 20, '#5c3d2c');
+    stableRect(x + 7, y + 16, 34, 3, '#5c3d2c');
+    if (state.windowOpen) stableRect(x + 40, y + 10, 5, 15, 'rgba(180,240,255,0.30)');
+  }
+
+  function drawStablePaintingWarm(obj) {
+    const x = snap(obj.x), y = snap(obj.y), w = snap(obj.width), h = snap(obj.height);
+    stableOutline(x + 2, y + 4, w - 4, h - 8, '#d9c7aa', '#6d5038');
+    stableRect(x + 10, y + 12, Math.max(12, w - 46), Math.max(4, h - 22), '#7ea7c8');
+    stableRect(x + Math.max(16, Math.floor(w / 2)), y + 14, Math.max(8, w - 58), 6, '#8c6545');
+    stableRect(x + Math.max(24, w - 28), y + 10, Math.max(10, w - 54), 8, '#73966d');
+  }
+
+  function drawStablePaintingWide(obj) {
+    const x = snap(obj.x), y = snap(obj.y), w = snap(obj.width), h = snap(obj.height);
+    stableOutline(x + 2, y + 4, w - 4, h - 8, '#d7cbb8', '#6c4b38');
+    stableRect(x + 8, y + 10, w - 16, h - 16, '#cbb89c');
+    stableRect(x + 12, y + 14, Math.max(10, w - 34), 6, '#88a7c0');
+    stableRect(x + Math.max(12, w - 26), y + 16, 8, 6, '#6f8f5a');
+    stableRect(x + 18, y + 18, 10, 5, '#8a6847');
+  }
+
+  function drawStablePlant(obj) {
+    const x = snap(obj.x), y = snap(obj.y), h = snap(obj.height);
+    stableOutline(x + 8, y + h - 14, 16, 12, '#a8634a', '#7e4c3a');
+    stableRect(x + 15, y + 8, 4, h - 24, '#41744c');
+    stableRect(x + 8, y + 6, 12, 10, '#71b77f');
+    stableRect(x + 16, y + 2, 12, 10, '#8ad08a');
+    stableRect(x + 6, y + 16, 12, 10, '#5e9868');
+  }
+
+  function drawStableNightstand(obj) {
+    const x = snap(obj.x), y = snap(obj.y);
+    stableOutline(x + 4, y + 8, 24, 22, '#d99b67', '#8f5a3f');
+    stableRect(x + 10, y + 12, 12, 5, '#d99b67');
+    stableRect(x + 14, y + 21, 4, 4, '#fff264');
+  }
+
+  function drawStableSmallCabinet(obj) {
+    const x = snap(obj.x), y = snap(obj.y), w = snap(obj.width), h = snap(obj.height);
+    stableOutline(x + 2, y + 10, w - 4, h - 12, '#946245', '#6a4834');
+    stableRect(x + 8, y + 14, w - 16, h - 22, '#946245');
+    stableRect(x + 8, y + 24, w - 16, 3, '#6d4631');
+    stableRect(x + Math.floor(w / 2) - 3, y + 18, 6, 4, '#e2bf69');
+  }
+
+  function drawStableHomeChest(obj) {
+    const x = snap(obj.x), y = snap(obj.y), w = snap(obj.width), h = snap(obj.height);
+    stableOutline(x + 4, y + 10, w - 8, h - 12, '#90603f', '#553826');
+    stableRect(x + 8, y + 14, w - 16, h - 20, '#90603f');
+    stableRect(x + 8, y + 8, w - 16, 8, '#45506e');
+    stableRect(x + Math.floor(w / 2) - 4, y + 16, 8, 6, '#e5c36b');
+  }
+
+  function drawStableLampPost(obj) {
+    const x = snap(obj.x), y = snap(obj.y);
+    stableOutline(x + 13, y + 8, 7, 27, '#5c413c');
+    stableRect(x + 2, y, 30, 24, 'rgba(255, 242, 100, 0.22)');
+    stableOutline(x + 7, y + 3, 18, 17, '#ffe66e', '#fff264');
+    stableRect(x + 12, y + 6, 2, 12, '#253043');
+    stableRect(x + 18, y + 6, 2, 12, '#253043');
+  }
+
+  function drawStableMailbox(obj) {
+    const x = snap(obj.x), y = snap(obj.y);
+    stableOutline(x + 13, y + 12, 6, 19, '#8f5a3f');
+    stableOutline(x + 6, y + 6, 22, 13, '#3f8fe5');
+    stableRect(x + 21, y + 10, 5, 4, '#fff264');
+  }
+
+  function drawStableFlowerBed(obj) {
+    const x = snap(obj.x), y = snap(obj.y), w = snap(obj.width || 30);
+    stableOutline(x + 1, y + 17, w, 12, '#7d4d38');
+    for (let i = 0; i < 5; i++) {
+      stableRect(x + 5 + i * 5, y + 12 - (i % 2), 4, 4, i % 2 ? '#fff264' : '#ff7ab5');
+      stableRect(x + 6 + i * 5, y + 16, 2, 6, '#26794d');
+    }
+  }
+
+  const drawFurnitureBeforeStableSmallDecor = drawFurniture;
+  drawFurniture = function drawFurnitureStableSmallDecor(obj) {
+    if (!isCoarseMobileDecor() || !obj || !stableFurnitureKinds.has(obj.kind)) {
+      return drawFurnitureBeforeStableSmallDecor(obj);
+    }
+
+    if (obj.kind === 'lamp' || obj.kind === 'wallLampWarm' || obj.kind === 'wallLampWarmLife') return drawStableLampLife(obj);
+    if (obj.kind === 'window' || obj.kind === 'windowLife') return drawStableWindowLife(obj);
+    if (obj.kind === 'painting' || obj.kind === 'paintingWarm' || obj.kind === 'paintingWarmLife') return drawStablePaintingWarm(obj);
+    if (obj.kind === 'paintingWide') return drawStablePaintingWide(obj);
+    if (obj.kind === 'vase' || obj.kind === 'tallPlant' || obj.kind === 'pottedPlantTall' || obj.kind === 'pottedPlantTallLife') return drawStablePlant(obj);
+    if (obj.kind === 'nightstand') return drawStableNightstand(obj);
+    if (obj.kind === 'sideCabinetLife' || obj.kind === 'dresserCabinetLife') return drawStableSmallCabinet(obj);
+    if (obj.kind === 'homeChestLife') return drawStableHomeChest(obj);
+    if (obj.kind === 'noticeBoard') return drawStableSmallCabinet({ ...obj, width: obj.width, height: obj.height });
+    if (obj.kind === 'mailbox') return drawStableMailbox(obj);
+
+    return drawFurnitureBeforeStableSmallDecor(obj);
+  };
+
+  const drawOutdoorDecorBeforeStableSmallDecor = drawOutdoorDecor;
+  drawOutdoorDecor = function drawOutdoorDecorStableSmallDecor(obj) {
+    if (!isCoarseMobileDecor() || !obj || !stableOutdoorKinds.has(obj.kind)) {
+      return drawOutdoorDecorBeforeStableSmallDecor(obj);
+    }
+    if (obj.kind === 'lampPost') return drawStableLampPost(obj);
+    if (obj.kind === 'mailbox') return drawStableMailbox(obj);
+    if (obj.kind === 'flowerBed') return drawStableFlowerBed(obj);
+    if (obj.kind === 'noticeBoard') return drawStableSmallCabinet({ ...obj, width: obj.width, height: obj.height });
+    return drawOutdoorDecorBeforeStableSmallDecor(obj);
+  };
+
+  const drawMiniMapBeforeStableSmallDecor = drawMiniMap;
+  drawMiniMap = function drawMiniMapStableSmallDecor() {
+    if (miniCtx) miniCtx.imageSmoothingEnabled = false;
+    return drawMiniMapBeforeStableSmallDecor();
+  };
+})();
