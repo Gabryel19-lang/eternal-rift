@@ -19606,3 +19606,137 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     return drawBeforeAntiFlicker();
   };
 })();
+
+/* ==================================================
+   Patch final: anti-pisca-pisca FORTE no mobile
+   - Nao muda HUD, inventario, armas, musica nem acoes da casa.
+   - Evita o canvas trocar de tamanho toda hora no navegador mobile.
+   - Usa margem maior de desenho para objetos nao aparecerem/desaparecerem na borda.
+   ================================================== */
+(function mobileNoBlinkFinalPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_MOBILE_NO_BLINK_FINAL_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_MOBILE_NO_BLINK_FINAL_PATCH = true;
+
+  function isMobileLikeFinal() {
+    try {
+      if (typeof isTouchLikeDevice === 'function') return isTouchLikeDevice();
+      if (typeof isMobile !== 'undefined') return Boolean(isMobile);
+    } catch (error) {}
+    return Boolean(navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)').matches);
+  }
+
+  const stableCanvas = {
+    cssWidth: 0,
+    cssHeight: 0,
+    targetWidth: 0,
+    targetHeight: 0,
+    orientation: '',
+    ready: false,
+    needsRefresh: true
+  };
+
+  function orientationKeyFinal() {
+    return (window.innerWidth || 0) >= (window.innerHeight || 0) ? 'landscape' : 'portrait';
+  }
+
+  function requestStableCanvasRefreshFinal() {
+    stableCanvas.needsRefresh = true;
+  }
+
+  window.addEventListener('orientationchange', () => setTimeout(requestStableCanvasRefreshFinal, 180), { passive: true });
+  window.addEventListener('resize', () => {
+    const current = orientationKeyFinal();
+    if (current !== stableCanvas.orientation) requestStableCanvasRefreshFinal();
+  }, { passive: true });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      const current = orientationKeyFinal();
+      if (current !== stableCanvas.orientation) requestStableCanvasRefreshFinal();
+    }, { passive: true });
+  }
+
+  function readStableCssSizeFinal() {
+    const rect = canvas.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const rawWidth = Math.max(320, Math.round((vv && vv.width) || rect.width || window.innerWidth || 960));
+    const rawHeight = Math.max(240, Math.round((vv && vv.height) || rect.height || window.innerHeight || 640));
+    const currentOrientation = orientationKeyFinal();
+
+    const first = !stableCanvas.ready;
+    const orientationChanged = currentOrientation !== stableCanvas.orientation;
+    const hugeWidthChange = Math.abs(rawWidth - stableCanvas.cssWidth) > 110;
+    const hugeHeightChange = Math.abs(rawHeight - stableCanvas.cssHeight) > 150;
+
+    if (first || stableCanvas.needsRefresh || orientationChanged || hugeWidthChange || hugeHeightChange) {
+      stableCanvas.cssWidth = rawWidth;
+      stableCanvas.cssHeight = rawHeight;
+      stableCanvas.orientation = currentOrientation;
+      stableCanvas.ready = true;
+      stableCanvas.needsRefresh = false;
+    }
+
+    return stableCanvas;
+  }
+
+  const ensureCanvasSizeBeforeNoBlinkFinal = ensureCanvasSize;
+  ensureCanvasSize = function ensureCanvasSizeNoBlinkFinal() {
+    if (!isMobileLikeFinal()) {
+      return ensureCanvasSizeBeforeNoBlinkFinal();
+    }
+
+    const stable = readStableCssSizeFinal();
+    const requestedZoom = Number(urlParams.get('zoom'));
+    const hasManualZoom = Number.isFinite(requestedZoom) && requestedZoom >= 0.65 && requestedZoom <= 1.15;
+    const zoom = hasManualZoom ? requestedZoom : (stable.orientation === 'landscape' ? 0.74 : 0.84);
+    const targetWidth = Math.round(stable.cssWidth / zoom);
+    const targetHeight = Math.round(stable.cssHeight / zoom);
+
+    if (!stable.targetWidth || !stable.targetHeight) {
+      stable.targetWidth = targetWidth;
+      stable.targetHeight = targetHeight;
+    }
+
+    // No mobile, pequenas mudancas de barra do navegador nao podem redimensionar o canvas.
+    // Isso evita objetos piscando quando a viewport oscila 1 a 40 px.
+    const orientationChanged = stable.orientation !== orientationKeyFinal();
+    const bigTargetChange = Math.abs(targetWidth - stable.targetWidth) > 120 || Math.abs(targetHeight - stable.targetHeight) > 160;
+    if (orientationChanged || bigTargetChange || canvas.width <= 0 || canvas.height <= 0) {
+      stable.targetWidth = targetWidth;
+      stable.targetHeight = targetHeight;
+    }
+
+    if (canvas.width !== stable.targetWidth || canvas.height !== stable.targetHeight) {
+      canvas.width = stable.targetWidth;
+      canvas.height = stable.targetHeight;
+    }
+
+    if (miniMapCanvas && miniMapCanvas.width <= 0) miniMapCanvas.width = 140;
+    if (miniMapCanvas && miniMapCanvas.height <= 0) miniMapCanvas.height = 94;
+  };
+
+  const isOnCameraBeforeNoBlinkFinal = isOnCamera;
+  isOnCamera = function isOnCameraNoBlinkFinal(obj, margin = 64) {
+    if (isMobileLikeFinal()) margin = Math.max(Number(margin) || 0, 320);
+    return isOnCameraBeforeNoBlinkFinal(obj, margin);
+  };
+
+  const updateBeforeNoBlinkFinal = update;
+  update = function updateNoBlinkFinal(delta) {
+    updateBeforeNoBlinkFinal(delta);
+    if (isMobileLikeFinal()) {
+      camera.x = Math.round(camera.x || 0);
+      camera.y = Math.round(camera.y || 0);
+    }
+  };
+
+  const drawBeforeNoBlinkFinal = draw;
+  draw = function drawNoBlinkFinal() {
+    if (isMobileLikeFinal()) {
+      camera.x = Math.round(camera.x || 0);
+      camera.y = Math.round(camera.y || 0);
+      ctx.imageSmoothingEnabled = false;
+    }
+    return drawBeforeNoBlinkFinal();
+  };
+})();
