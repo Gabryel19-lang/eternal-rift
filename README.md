@@ -1,14 +1,12 @@
-Eternal Rift - correção de objetos pequenos piscando no mobile
+Eternal Rift - Mobile True No Flicker
 
-O que foi ajustado:
-- Corrigido o piscar/tremor de objetos pequenos no mobile.
-- Objetos pequenos decorativos agora ficam mais estáveis no celular.
-- Mantidas as outras mudanças anteriores do jogo.
+Correção definitiva para objetos pequenos piscando no celular.
 
-Objetos tratados:
-- luminárias e postes
-- quadros
-- janelas
-- plantas decorativas
-- armários pequenos / baús pequenos
-- caixa de correio e canteiros
+Mudanças:
+- no mobile, o canvas não usa mais zoom fracionado por padrão;
+- objetos pequenos são desenhados maiores e estáticos;
+- sinais, quadros, lâmpadas, janelas, plantas, baús pequenos e postes foram estabilizados;
+- restante do jogo mantido.
+
+Teste no GitHub Pages com:
+?play=1&lite=1&v=true-no-flicker1

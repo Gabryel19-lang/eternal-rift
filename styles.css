@@ -3271,3 +3271,12 @@ canvas#gameCanvas {
     display: none !important;
   }
 }
+
+/* Mobile anti-pisca-pisca: mantém pixels estáveis no canvas */
+#gameCanvas,
+#miniMapCanvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}

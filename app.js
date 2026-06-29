@@ -19913,3 +19913,365 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     return drawMiniMapBeforeStableSmallDecor();
   };
 })();
+
+/* ==================================================
+   Patch definitivo: pequenos objetos sem piscar no mobile
+   Corrige especificamente objetos tipo luminaria, quadro,
+   janela, plantinha, bau pequeno, armario pequeno e decoracao.
+   Nao altera HUD, inventario, armas, musica ou sistemas do jogo.
+   ================================================== */
+(function mobileSmallObjectsHardFixPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_MOBILE_SMALL_OBJECTS_HARD_FIX_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_MOBILE_SMALL_OBJECTS_HARD_FIX_PATCH = true;
+
+  function mobileHardFixOn() {
+    try {
+      if (typeof isTouchLikeDevice === 'function') return isTouchLikeDevice();
+      if (typeof isMobile !== 'undefined') return Boolean(isMobile);
+    } catch (error) {}
+    return Boolean(navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)').matches);
+  }
+
+  function s(value) {
+    return Math.round(Number(value) || 0);
+  }
+
+  function r(x, y, w, h, color) {
+    fillPixelV2(s(x), s(y), Math.max(1, s(w)), Math.max(1, s(h)), color);
+  }
+
+  function box(x, y, w, h, fill, outline = '#273052') {
+    outlinePixelV2(s(x), s(y), Math.max(4, s(w)), Math.max(4, s(h)), fill, outline);
+  }
+
+  function objKind(obj) {
+    return String((obj && (obj.kind || obj.type || obj.role || obj.item)) || '').toLowerCase();
+  }
+
+  function isSmallDecorObject(obj) {
+    if (!obj) return false;
+    if (obj.type === 'enemy' || obj.type === 'npc' || obj.type === 'player') return false;
+    if (obj.type === 'collectible' || obj.type === 'loot' || obj.type === 'powerUp') return false;
+    if (obj.type === 'chest' || obj.type === 'rareChest' || obj.type === 'elementalBossChest' || obj.type === 'celestialChest') return false;
+    if (obj.type === 'portal' || obj.type === 'dimensionPortal' || obj.type === 'cave') return false;
+
+    const k = objKind(obj);
+    const small = Number(obj.width || 0) <= 100 && Number(obj.height || 0) <= 100;
+    const words = [
+      'lamp', 'lumin', 'window', 'janela', 'paint', 'painting', 'frame', 'quadro',
+      'plant', 'vase', 'flower', 'flor', 'cabinet', 'dresser', 'nightstand', 'side',
+      'mailbox', 'notice', 'banner', 'stool', 'chair', 'chestlife', 'homechest',
+      'blueflame', 'glowflower', 'bookshelf', 'shelf', 'crystalbrazier', 'brazier'
+    ];
+
+    if (obj.type === 'furniture' && small) return words.some((word) => k.includes(word));
+    if (obj.type === 'outdoorDecor' && small) return words.some((word) => k.includes(word));
+    if ((obj.type === 'plant' || obj.type === 'flower' || obj.type === 'sign') && small) return true;
+    if ((obj.type === 'celestialFeature' || obj.type === 'biomeFeature') && small) return words.some((word) => k.includes(word));
+    return false;
+  }
+
+  function drawStaticLamp(x, y) {
+    r(x + 8, y + 2, 16, 18, 'rgba(255, 224, 130, 0.18)');
+    box(x + 12, y + 8, 8, 12, '#6f4a33');
+    r(x + 13, y + 9, 6, 7, '#ffcc6d');
+    r(x + 14, y + 6, 4, 4, '#fff3c8');
+  }
+
+  function drawStaticLampPost(x, y) {
+    box(x + 13, y + 8, 7, 27, '#5c413c');
+    r(x + 2, y, 30, 24, 'rgba(255, 242, 100, 0.20)');
+    box(x + 7, y + 3, 18, 17, '#ffe66e', '#fff264');
+    r(x + 12, y + 6, 2, 12, '#273052');
+    r(x + 18, y + 6, 2, 12, '#273052');
+  }
+
+  function drawStaticWindow(x, y, w, h) {
+    const ww = Math.min(Math.max(28, w - 8), 48);
+    const hh = Math.min(Math.max(20, h - 8), 30);
+    box(x + 4, y + 5, ww, hh, '#73b8e8', '#5c3d2c');
+    r(x + 8, y + 9, ww - 8, hh - 8, '#8fd8ff');
+    r(x + 4 + Math.floor(ww / 2), y + 7, 3, hh, '#5c3d2c');
+    r(x + 7, y + 5 + Math.floor(hh / 2), ww - 2, 3, '#5c3d2c');
+  }
+
+  function drawStaticPainting(x, y, w, h) {
+    box(x + 2, y + 4, Math.max(22, w - 4), Math.max(18, h - 8), '#d9c7aa', '#6d5038');
+    r(x + 8, y + 10, Math.max(10, w - 18), 5, '#7ea7c8');
+    r(x + 10, y + 17, Math.max(8, Math.floor(w / 3)), 5, '#8c6545');
+    r(x + Math.max(16, w - 24), y + 14, 12, 7, '#73966d');
+  }
+
+  function drawStaticPlant(x, y, w, h) {
+    const ph = Math.max(22, h);
+    box(x + 8, y + ph - 14, 16, 12, '#a8634a', '#7e4c3a');
+    r(x + 15, y + 8, 4, ph - 24, '#41744c');
+    r(x + 8, y + 6, 12, 10, '#71b77f');
+    r(x + 16, y + 2, 12, 10, '#8ad08a');
+    r(x + 6, y + 16, 12, 10, '#5e9868');
+  }
+
+  function drawStaticCabinet(x, y, w, h) {
+    box(x + 2, y + 8, w - 4, h - 10, '#946245', '#6a4834');
+    r(x + 8, y + 13, w - 16, Math.max(6, h - 20), '#946245');
+    r(x + 8, y + 23, w - 16, 3, '#6d4631');
+    r(x + Math.floor(w / 2) - 3, y + 17, 6, 4, '#e2bf69');
+  }
+
+  function drawStaticHomeChest(x, y, w, h) {
+    box(x + 4, y + 10, w - 8, h - 12, '#90603f', '#553826');
+    r(x + 8, y + 14, w - 16, h - 20, '#90603f');
+    r(x + 8, y + 8, w - 16, 8, '#45506e');
+    r(x + Math.floor(w / 2) - 4, y + 16, 8, 6, '#e5c36b');
+  }
+
+  function drawStaticFlower(x, y, w) {
+    box(x + 1, y + 17, Math.max(22, w), 12, '#7d4d38');
+    for (let i = 0; i < 5; i++) {
+      r(x + 5 + i * 5, y + 12 - (i % 2), 4, 4, i % 2 ? '#fff264' : '#ff7ab5');
+      r(x + 6 + i * 5, y + 16, 2, 6, '#26794d');
+    }
+  }
+
+  function drawStaticMailbox(x, y) {
+    box(x + 13, y + 12, 6, 19, '#8f5a3f');
+    box(x + 6, y + 6, 22, 13, '#3f8fe5');
+    r(x + 21, y + 10, 5, 4, '#fff264');
+  }
+
+  function drawStaticSmallDecor(obj) {
+    const x = s(obj.x);
+    const y = s(obj.y);
+    const w = Math.max(8, s(obj.width || TILE));
+    const h = Math.max(8, s(obj.height || TILE));
+    const k = objKind(obj);
+
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+
+    if (k.includes('lamppost')) drawStaticLampPost(x, y);
+    else if (k.includes('lamp') || k.includes('lumin') || k.includes('brazier')) drawStaticLamp(x, y);
+    else if (k.includes('window') || k.includes('janela')) drawStaticWindow(x, y, w, h);
+    else if (k.includes('painting') || k.includes('paint') || k.includes('frame') || k.includes('quadro')) drawStaticPainting(x, y, w, h);
+    else if (k.includes('plant') || k.includes('vase') || k.includes('flower') || k.includes('flor') || k.includes('glowflower')) {
+      if (obj.type === 'outdoorDecor' || k.includes('flowerbed')) drawStaticFlower(x, y, w);
+      else drawStaticPlant(x, y, w, h);
+    }
+    else if (k.includes('mailbox')) drawStaticMailbox(x, y);
+    else if (k.includes('chestlife') || k.includes('homechest')) drawStaticHomeChest(x, y, w, h);
+    else if (k.includes('cabinet') || k.includes('dresser') || k.includes('nightstand') || k.includes('side') || k.includes('shelf') || k.includes('bookshelf') || k.includes('notice')) drawStaticCabinet(x, y, w, h);
+    else if (k.includes('stool') || k.includes('chair')) {
+      box(x + 7, y + 8, w - 14, 14, '#b88158', '#734d38');
+      r(x + 12, y + 20, 3, 7, '#734d38');
+      r(x + w - 15, y + 20, 3, 7, '#734d38');
+    }
+    else if (obj.type === 'sign') {
+      r(x + 7, y + 10, 5, 18, '#7d4d38');
+      box(x, y, Math.max(20, w), 14, '#c6945a', '#5a3b2b');
+    }
+    else box(x, y, w, h, '#9b7355', '#273052');
+
+    ctx.restore();
+  }
+
+  const drawObjectBeforeSmallObjectsHardFix = drawObject;
+  drawObject = function drawObjectSmallObjectsHardFix(obj) {
+    if (mobileHardFixOn() && isSmallDecorObject(obj)) {
+      drawStaticSmallDecor(obj);
+      return;
+    }
+    return drawObjectBeforeSmallObjectsHardFix(obj);
+  };
+
+  // Segurança extra: no mobile, qualquer chamada direta para furniture/outdoor decor
+  // desses objetos tambem cai no desenho estatico.
+  const drawFurnitureBeforeSmallObjectsHardFix = drawFurniture;
+  drawFurniture = function drawFurnitureSmallObjectsHardFix(obj) {
+    if (mobileHardFixOn() && isSmallDecorObject(obj)) {
+      drawStaticSmallDecor(obj);
+      return;
+    }
+    return drawFurnitureBeforeSmallObjectsHardFix(obj);
+  };
+
+  const drawOutdoorDecorBeforeSmallObjectsHardFix = drawOutdoorDecor;
+  drawOutdoorDecor = function drawOutdoorDecorSmallObjectsHardFix(obj) {
+    if (mobileHardFixOn() && isSmallDecorObject(obj)) {
+      drawStaticSmallDecor(obj);
+      return;
+    }
+    return drawOutdoorDecorBeforeSmallObjectsHardFix(obj);
+  };
+})();
+
+/* ==================================================
+   Patch definitivo: sem piscar no mobile
+   Causa corrigida: objetos muito pequenos estavam sendo reduzidos
+   por zoom fracionado do canvas no celular.
+   ================================================== */
+(function mobileTrueNoFlickerPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_MOBILE_TRUE_NO_FLICKER_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_MOBILE_TRUE_NO_FLICKER_PATCH = true;
+
+  function isMobileTrueNoFlicker() {
+    try {
+      if (typeof isTouchLikeDevice === 'function') return isTouchLikeDevice();
+      if (typeof isMobile !== 'undefined') return Boolean(isMobile);
+    } catch (error) {}
+    return Boolean(navigator.maxTouchPoints > 0 || window.matchMedia?.('(pointer: coarse)').matches);
+  }
+
+  function mRound(value) {
+    return Math.round(Number(value) || 0);
+  }
+
+  function mRect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(mRound(x), mRound(y), Math.max(1, mRound(w)), Math.max(1, mRound(h)));
+  }
+
+  function mBox(x, y, w, h, fill, outline = '#273052') {
+    mRect(x, y, w, h, outline);
+    if (w > 4 && h > 4) mRect(x + 2, y + 2, w - 4, h - 4, fill);
+  }
+
+  // No mobile, evita zoom fracionado no canvas. Esse era o maior motivo do pisca-pisca.
+  const ensureCanvasSizeBeforeTrueNoFlicker = ensureCanvasSize;
+  ensureCanvasSize = function ensureCanvasSizeTrueNoFlicker() {
+    if (!isMobileTrueNoFlicker()) return ensureCanvasSizeBeforeTrueNoFlicker();
+
+    const rect = canvas.getBoundingClientRect();
+    const cssWidth = Math.max(320, Math.round(rect.width || window.innerWidth || 960));
+    const cssHeight = Math.max(240, Math.round(rect.height || window.innerHeight || 640));
+    const requestedZoom = Number(urlParams.get('zoom'));
+    const hasManualZoom = Number.isFinite(requestedZoom) && requestedZoom >= 0.65 && requestedZoom <= 1.15;
+    const zoom = hasManualZoom ? requestedZoom : 1;
+    const targetWidth = Math.round(cssWidth / zoom);
+    const targetHeight = Math.round(cssHeight / zoom);
+
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+    }
+    if (miniMapCanvas && miniMapCanvas.width <= 0) miniMapCanvas.width = 140;
+    if (miniMapCanvas && miniMapCanvas.height <= 0) miniMapCanvas.height = 94;
+  };
+
+  const drawSignBeforeTrueNoFlicker = drawSign;
+  drawSign = function drawSignTrueNoFlicker(obj) {
+    if (!isMobileTrueNoFlicker()) return drawSignBeforeTrueNoFlicker(obj);
+    const x = mRound(obj.x);
+    const y = mRound(obj.y);
+    // Desenho maior e 100% estático para não piscar ao andar.
+    mBox(x + 5, y + 9, 8, 20, '#8f5a3f', '#273052');
+    mBox(x - 2, y - 1, 23, 17, '#efbd75', '#273052');
+    mRect(x + 3, y + 5, 13, 3, '#8a5b4b');
+    mRect(x + 5, y + 10, 9, 2, '#b87955');
+  };
+
+  function drawMobileStaticLamp(obj) {
+    const x = mRound(obj.x), y = mRound(obj.y);
+    mBox(x + 11, y + 7, 12, 16, '#ffd36f', '#6f4a33');
+    mRect(x + 14, y + 3, 6, 5, '#fff3c8');
+    mRect(x + 7, y + 5, 20, 20, 'rgba(255, 214, 120, 0.16)');
+  }
+
+  function drawMobileStaticWindow(obj) {
+    const x = mRound(obj.x), y = mRound(obj.y);
+    mBox(x + 4, y + 5, 42, 26, '#73b8e8', '#5c3d2c');
+    mRect(x + 22, y + 6, 4, 24, '#5c3d2c');
+    mRect(x + 6, y + 17, 38, 4, '#5c3d2c');
+    mRect(x + 10, y + 9, 9, 5, '#e6fbff');
+  }
+
+  function drawMobileStaticPainting(obj) {
+    const x = mRound(obj.x), y = mRound(obj.y), w = mRound(obj.width), h = mRound(obj.height);
+    mBox(x + 2, y + 4, w - 4, h - 8, '#d9c7aa', '#6d5038');
+    mRect(x + 8, y + 10, Math.max(18, w - 26), Math.max(5, h - 18), '#7ea7c8');
+    mRect(x + 12, y + Math.max(14, h - 14), Math.max(14, Math.floor(w / 3)), 5, '#8c6545');
+    mRect(x + w - 24, y + 12, 12, 8, '#73966d');
+  }
+
+  function drawMobileStaticPlant(obj) {
+    const x = mRound(obj.x), y = mRound(obj.y), h = mRound(obj.height || 32);
+    mBox(x + 7, y + h - 15, 18, 13, '#a8634a', '#7e4c3a');
+    mRect(x + 15, y + 8, 5, Math.max(8, h - 24), '#41744c');
+    mRect(x + 6, y + 9, 14, 10, '#71b77f');
+    mRect(x + 16, y + 3, 14, 11, '#8ad08a');
+    mRect(x + 5, y + 18, 14, 9, '#5e9868');
+  }
+
+  function drawMobileStaticSmallBox(obj) {
+    const x = mRound(obj.x), y = mRound(obj.y), w = mRound(obj.width), h = mRound(obj.height);
+    mBox(x + 2, y + 8, w - 4, h - 10, '#946245', '#553826');
+    mRect(x + 8, y + 13, Math.max(8, w - 16), Math.max(5, h - 21), '#a86d4a');
+    mRect(x + Math.floor(w / 2) - 3, y + 17, 7, 5, '#e2bf69');
+  }
+
+  function drawMobileStaticNotice(obj) {
+    const x = mRound(obj.x), y = mRound(obj.y), w = mRound(obj.width), h = mRound(obj.height);
+    mBox(x + 3, y + 5, w - 6, h - 10, '#8f5a3f', '#273052');
+    mRect(x + 10, y + 12, w - 20, 7, '#fff3d6');
+    mRect(x + 12, y + 24, w - 24, 6, '#f5ce79');
+  }
+
+  const drawFurnitureBeforeTrueNoFlicker = drawFurniture;
+  drawFurniture = function drawFurnitureTrueNoFlicker(obj) {
+    if (!isMobileTrueNoFlicker() || !obj) return drawFurnitureBeforeTrueNoFlicker(obj);
+    const kind = obj.kind;
+    if (kind === 'lamp' || kind === 'wallLampWarm' || kind === 'wallLampWarmLife') return drawMobileStaticLamp(obj);
+    if (kind === 'window' || kind === 'windowLife') return drawMobileStaticWindow(obj);
+    if (kind === 'painting' || kind === 'paintingWide' || kind === 'paintingWarm' || kind === 'paintingWarmLife') return drawMobileStaticPainting(obj);
+    if (kind === 'vase' || kind === 'tallPlant' || kind === 'pottedPlantTall' || kind === 'pottedPlantTallLife' || kind === 'glowFlower') return drawMobileStaticPlant(obj);
+    if (kind === 'nightstand' || kind === 'sideCabinetLife' || kind === 'dresserCabinetLife' || kind === 'homeChestLife') return drawMobileStaticSmallBox(obj);
+    if (kind === 'noticeBoard') return drawMobileStaticNotice(obj);
+    return drawFurnitureBeforeTrueNoFlicker(obj);
+  };
+
+  const drawOutdoorDecorBeforeTrueNoFlicker = drawOutdoorDecor;
+  drawOutdoorDecor = function drawOutdoorDecorTrueNoFlicker(obj) {
+    if (!isMobileTrueNoFlicker() || !obj) return drawOutdoorDecorBeforeTrueNoFlicker(obj);
+    const x = mRound(obj.x), y = mRound(obj.y);
+    if (obj.kind === 'lampPost') {
+      mBox(x + 13, y + 8, 8, 28, '#5c413c', '#273052');
+      mRect(x + 4, y + 1, 28, 24, 'rgba(255, 242, 100, 0.14)');
+      mBox(x + 7, y + 3, 18, 17, '#ffe66e', '#273052');
+      return;
+    }
+    if (obj.kind === 'mailbox') {
+      mBox(x + 13, y + 12, 7, 20, '#8f5a3f', '#273052');
+      mBox(x + 6, y + 6, 23, 14, '#3f8fe5', '#273052');
+      mRect(x + 21, y + 10, 6, 5, '#fff264');
+      return;
+    }
+    if (obj.kind === 'flowerBed') {
+      mBox(x + 1, y + 17, Math.max(30, obj.width || 30), 12, '#7d4d38', '#273052');
+      for (let i = 0; i < 5; i++) {
+        mRect(x + 5 + i * 5, y + 11, 5, 5, i % 2 ? '#fff264' : '#ff7ab5');
+        mRect(x + 7 + i * 5, y + 16, 2, 7, '#26794d');
+      }
+      return;
+    }
+    return drawOutdoorDecorBeforeTrueNoFlicker(obj);
+  };
+
+  // Alguns objetos celestiais pequenos nao passam por drawFurniture.
+  const drawCelestialFeatureBeforeTrueNoFlicker = typeof drawCelestialFeature === 'function' ? drawCelestialFeature : null;
+  if (drawCelestialFeatureBeforeTrueNoFlicker) {
+    drawCelestialFeature = function drawCelestialFeatureTrueNoFlicker(obj) {
+      if (isMobileTrueNoFlicker() && obj?.kind === 'glowFlower') return drawMobileStaticPlant(obj);
+      return drawCelestialFeatureBeforeTrueNoFlicker(obj);
+    };
+  }
+
+  const drawBeforeTrueNoFlicker = draw;
+  draw = function drawTrueNoFlicker() {
+    if (isMobileTrueNoFlicker()) {
+      camera.x = Math.round(camera.x || 0);
+      camera.y = Math.round(camera.y || 0);
+      ctx.imageSmoothingEnabled = false;
+    }
+    return drawBeforeTrueNoFlicker();
+  };
+})();
