@@ -34102,3 +34102,109 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     else forceInventoryOpenVisualState();
   }, 500);
 })();
+
+
+/* ==================================================
+   ETERNAL RIFT: trava final do botão fechar inventário
+   - intercepta touch/pointer/click antes de qualquer outro listener
+   - não deixa nenhum patch reabrir o painel após fechar
+   ================================================== */
+(function eternalRiftInventoryHardCloseFinalPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_INVENTORY_HARD_CLOSE_FINAL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_INVENTORY_HARD_CLOSE_FINAL_PATCH = true;
+
+  function getInventoryPanelSafe() {
+    return inventoryPanel || document.getElementById("inventoryPanel");
+  }
+
+  function markInventoryAsOpen(panel) {
+    if (!panel) return;
+    panel.classList.remove("force-closed-inventory");
+    panel.removeAttribute("data-force-closed");
+    panel.style.removeProperty("display");
+    panel.style.removeProperty("visibility");
+    panel.style.removeProperty("opacity");
+    panel.style.removeProperty("pointer-events");
+    panel.removeAttribute("aria-hidden");
+  }
+
+  function hardCloseInventoryPanel(event) {
+    if (event) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      event.stopImmediatePropagation?.();
+    }
+
+    const panel = getInventoryPanelSafe();
+    inventoryOpen = false;
+
+    if (panel) {
+      panel.classList.add("hidden", "force-closed-inventory");
+      panel.setAttribute("data-force-closed", "true");
+      panel.setAttribute("aria-hidden", "true");
+      panel.style.setProperty("display", "none", "important");
+      panel.style.setProperty("visibility", "hidden", "important");
+      panel.style.setProperty("opacity", "0", "important");
+      panel.style.setProperty("pointer-events", "none", "important");
+    }
+
+    document.body?.classList.remove("real-mobile-inventory-active");
+    keys?.clear?.();
+    if (typeof resetJoystick === "function") resetJoystick();
+    return false;
+  }
+
+  window.forceCloseInventoryPanel = hardCloseInventoryPanel;
+
+  function closeButtonHandler(event) {
+    const target = event.target;
+    if (!target?.closest) return;
+    const closeButton = target.closest("#closeInventoryButton, .inventory-close-button");
+    const panel = getInventoryPanelSafe();
+    if (!closeButton || !panel || !panel.contains(closeButton)) return;
+    hardCloseInventoryPanel(event);
+  }
+
+  ["touchstart", "pointerdown", "mousedown", "click"].forEach((type) => {
+    document.addEventListener(type, closeButtonHandler, true);
+  });
+
+  const toggleInventoryBeforeHardCloseFinal = toggleInventory;
+  toggleInventory = function toggleInventoryHardCloseFinal(force) {
+    const nextOpen = typeof force === "boolean" ? force : !inventoryOpen;
+
+    if (!nextOpen) {
+      try { playSound?.("inventoryClose"); } catch (error) {}
+      return hardCloseInventoryPanel();
+    }
+
+    const panel = getInventoryPanelSafe();
+    markInventoryAsOpen(panel);
+    const result = toggleInventoryBeforeHardCloseFinal(force);
+    if (inventoryOpen) markInventoryAsOpen(panel);
+    return result;
+  };
+
+  const renderInventoryBeforeHardCloseFinal = renderInventory;
+  renderInventory = function renderInventoryHardCloseFinal() {
+    const result = renderInventoryBeforeHardCloseFinal();
+    const panel = getInventoryPanelSafe();
+    if (!inventoryOpen && panel) hardCloseInventoryPanel();
+    return result;
+  };
+
+  document.addEventListener("keydown", (event) => {
+    if (!inventoryOpen) return;
+    if (event.key === "Escape" || event.key === "Esc" || event.key === "i" || event.key === "I") {
+      hardCloseInventoryPanel(event);
+    }
+  }, true);
+
+  setInterval(() => {
+    const panel = getInventoryPanelSafe();
+    if (!panel) return;
+    if (!inventoryOpen || panel.dataset.forceClosed === "true") {
+      hardCloseInventoryPanel();
+    }
+  }, 250);
+})();
