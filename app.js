@@ -33925,3 +33925,122 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     if (shouldUseCompactInventoryMobile()) setMobileInventoryView("items");
   }, 100);
 })();
+
+
+/* ==================================================
+   ETERNAL RIFT: correção REAL do inventário no celular
+   - detecta celular por touch/orientação, não só largura
+   - transforma o inventário em 3 telas: Itens, Equipados, Detalhes
+   - força tamanho menor em retrato e paisagem
+   ================================================== */
+(function eternalRiftMobileInventoryRealFixPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MOBILE_INVENTORY_REAL_FIX_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MOBILE_INVENTORY_REAL_FIX_PATCH = true;
+
+  function isRealPhoneLayout() {
+    const coarse = window.matchMedia?.("(pointer: coarse)")?.matches;
+    const narrow = Math.min(window.innerWidth || 0, window.innerHeight || 0) <= 620;
+    const shortLandscape = window.innerHeight <= 540 && window.innerWidth > window.innerHeight;
+    return Boolean(coarse || narrow || shortLandscape || document.body?.classList.contains("is-mobile"));
+  }
+
+  function ensureMobileSwitcherExists() {
+    if (!inventoryPanel) return null;
+    let switcher = document.getElementById("mobileInventorySwitcher");
+    if (switcher) return switcher;
+
+    switcher = document.createElement("div");
+    switcher.id = "mobileInventorySwitcher";
+    switcher.className = "mobile-inventory-switcher";
+    switcher.innerHTML = `
+      <button type="button" class="is-active" data-mobile-inventory-view="items">Itens</button>
+      <button type="button" data-mobile-inventory-view="equipment">Equipados</button>
+      <button type="button" data-mobile-inventory-view="details">Detalhes</button>
+    `;
+
+    const layout = inventoryPanel.querySelector(".inventory-layout");
+    inventoryPanel.insertBefore(switcher, layout || null);
+    return switcher;
+  }
+
+  function applyRealMobileInventoryClass() {
+    if (!inventoryPanel) return;
+    const useMobile = isRealPhoneLayout();
+    inventoryPanel.classList.toggle("real-mobile-inventory", useMobile);
+    document.body?.classList.toggle("real-mobile-inventory-active", useMobile && inventoryOpen);
+    if (useMobile && !inventoryPanel.classList.contains("mobile-view-items") && !inventoryPanel.classList.contains("mobile-view-equipment") && !inventoryPanel.classList.contains("mobile-view-details")) {
+      setMobileInventoryView("items");
+    }
+  }
+
+  function setMobileInventoryView(view) {
+    if (!inventoryPanel) return;
+    ensureMobileSwitcherExists();
+    const safeView = ["items", "equipment", "details"].includes(view) ? view : "items";
+    inventoryPanel.classList.remove("mobile-view-items", "mobile-view-equipment", "mobile-view-details");
+    inventoryPanel.classList.add(`mobile-view-${safeView}`);
+
+    document.querySelectorAll("#mobileInventorySwitcher [data-mobile-inventory-view]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.mobileInventoryView === safeView);
+    });
+  }
+
+  document.addEventListener("click", (event) => {
+    const switchButton = event.target.closest?.("#mobileInventorySwitcher [data-mobile-inventory-view]");
+    if (switchButton) {
+      setMobileInventoryView(switchButton.dataset.mobileInventoryView || "items");
+      playSound?.("selectItem");
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    const itemSlot = event.target.closest?.(".real-mobile-inventory #inventoryGrid [data-item-id]");
+    if (itemSlot) {
+      setTimeout(() => setMobileInventoryView("details"), 30);
+    }
+
+    const tabButton = event.target.closest?.(".real-mobile-inventory #inventoryTabs [data-inventory-tab]");
+    if (tabButton) {
+      setTimeout(() => setMobileInventoryView("items"), 30);
+    }
+  }, true);
+
+  const toggleInventoryBeforeRealMobileFix = toggleInventory;
+  toggleInventory = function toggleInventoryRealMobileFix(force) {
+    const result = toggleInventoryBeforeRealMobileFix(force);
+    ensureMobileSwitcherExists();
+    applyRealMobileInventoryClass();
+    if (inventoryOpen && isRealPhoneLayout()) {
+      setMobileInventoryView("items");
+      setTimeout(() => {
+        applyRealMobileInventoryClass();
+        setMobileInventoryView("items");
+      }, 40);
+    }
+    return result;
+  };
+
+  const renderInventoryBeforeRealMobileFix = renderInventory;
+  renderInventory = function renderInventoryRealMobileFix() {
+    const result = renderInventoryBeforeRealMobileFix();
+    ensureMobileSwitcherExists();
+    applyRealMobileInventoryClass();
+    return result;
+  };
+
+  const resizeHandler = () => {
+    applyRealMobileInventoryClass();
+    if (inventoryOpen && isRealPhoneLayout()) {
+      setMobileInventoryView(inventoryPanel?.classList.contains("mobile-view-details") ? "details" : "items");
+    }
+  };
+
+  window.addEventListener("resize", resizeHandler);
+  window.addEventListener("orientationchange", () => setTimeout(resizeHandler, 180));
+
+  setTimeout(() => {
+    ensureMobileSwitcherExists();
+    applyRealMobileInventoryClass();
+  }, 250);
+})();
