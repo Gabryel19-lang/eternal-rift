@@ -33848,3 +33848,80 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     applyStarterForgeArmorStats();
   }, 500);
 })();
+
+
+/* ==================================================
+   ETERNAL RIFT: inventário mobile compacto e navegável
+   ================================================== */
+(function eternalRiftMobileInventoryCompactPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MOBILE_INVENTORY_COMPACT_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MOBILE_INVENTORY_COMPACT_PATCH = true;
+
+  const mobileInventorySwitcher = document.getElementById("mobileInventorySwitcher");
+  const mobileInventoryButtons = mobileInventorySwitcher ? Array.from(mobileInventorySwitcher.querySelectorAll("[data-mobile-inventory-view]")) : [];
+
+  function setMobileInventoryView(view) {
+    if (!inventoryPanel) return;
+    const safeView = ["items", "equipment", "details"].includes(view) ? view : "items";
+    inventoryPanel.classList.remove("mobile-view-items", "mobile-view-equipment", "mobile-view-details");
+    inventoryPanel.classList.add(`mobile-view-${safeView}`);
+    mobileInventoryButtons.forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.mobileInventoryView === safeView);
+    });
+  }
+
+  function shouldUseCompactInventoryMobile() {
+    return Boolean(document.body?.classList.contains("is-mobile"));
+  }
+
+  mobileInventorySwitcher?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-mobile-inventory-view]");
+    if (!button) return;
+    playSound?.("selectItem");
+    setMobileInventoryView(button.dataset.mobileInventoryView || "items");
+  });
+
+  if (inventoryGrid) {
+    inventoryGrid.addEventListener("click", (event) => {
+      if (!shouldUseCompactInventoryMobile()) return;
+      const slot = event.target.closest("[data-item-id]");
+      if (!slot) return;
+      setTimeout(() => setMobileInventoryView("details"), 0);
+    });
+  }
+
+  if (inventoryTabs) {
+    inventoryTabs.addEventListener("click", (event) => {
+      if (!shouldUseCompactInventoryMobile()) return;
+      const button = event.target.closest("[data-inventory-tab]");
+      if (!button) return;
+      setTimeout(() => setMobileInventoryView("items"), 0);
+    });
+  }
+
+  const toggleInventoryBeforeMobileCompact = toggleInventory;
+  toggleInventory = function toggleInventoryMobileCompact(force) {
+    const result = toggleInventoryBeforeMobileCompact(force);
+    if (inventoryOpen && shouldUseCompactInventoryMobile()) {
+      setMobileInventoryView("items");
+    }
+    return result;
+  };
+
+  const updateDeviceModeBeforeMobileCompact = updateDeviceMode;
+  if (typeof updateDeviceModeBeforeMobileCompact === "function") {
+    updateDeviceMode = function updateDeviceModeMobileCompact() {
+      const result = updateDeviceModeBeforeMobileCompact();
+      if (!shouldUseCompactInventoryMobile() && inventoryPanel) {
+        inventoryPanel.classList.remove("mobile-view-items", "mobile-view-equipment", "mobile-view-details");
+      } else if (inventoryPanel && !inventoryPanel.classList.contains("mobile-view-items") && !inventoryPanel.classList.contains("mobile-view-equipment") && !inventoryPanel.classList.contains("mobile-view-details")) {
+        setMobileInventoryView("items");
+      }
+      return result;
+    };
+  }
+
+  setTimeout(() => {
+    if (shouldUseCompactInventoryMobile()) setMobileInventoryView("items");
+  }, 100);
+})();

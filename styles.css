@@ -5068,3 +5068,253 @@ body.is-mobile .gear-summary-card strong {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+
+/* ===== Fix forte do inventário no CELULAR: menor e navegável ===== */
+.mobile-inventory-switcher {
+  display: none;
+}
+
+@media (max-width: 880px) {
+  body.is-mobile .adventurer-bag {
+    left: 50% !important;
+    right: auto !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(96vw, 620px) !important;
+    max-width: 96vw !important;
+    max-height: min(78dvh, 680px) !important;
+    padding: 7px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    border-radius: 10px !important;
+    z-index: 25 !important;
+  }
+
+  body.is-mobile .inventory-header,
+  body.is-mobile .inventory-tabs,
+  body.is-mobile .mobile-inventory-switcher {
+    flex: 0 0 auto;
+  }
+
+  body.is-mobile .inventory-header {
+    padding: 6px 8px !important;
+    gap: 8px !important;
+  }
+
+  body.is-mobile .inventory-header > div {
+    min-width: 0;
+  }
+
+  body.is-mobile .adventurer-bag h2 {
+    font-size: 0.98rem !important;
+  }
+
+  body.is-mobile .panel-eyebrow {
+    font-size: 0.48rem !important;
+  }
+
+  body.is-mobile .adventurer-bag .inventory-close-button {
+    min-width: 68px !important;
+    min-height: 32px !important;
+    padding: 5px 7px !important;
+    font-size: 0.68rem !important;
+    flex-shrink: 0;
+  }
+
+  body.is-mobile .inventory-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    margin: 6px 0 !important;
+  }
+
+  body.is-mobile .inventory-tabs button {
+    min-width: 0 !important;
+    min-height: 30px !important;
+    padding: 4px 3px !important;
+    font-size: 0.58rem !important;
+  }
+
+  body.is-mobile .mobile-inventory-switcher {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0 0 7px;
+  }
+
+  body.is-mobile .mobile-inventory-switcher button {
+    border: 2px solid #3a2630;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #f6dda1, #dda354);
+    color: #3a2630;
+    font-weight: 900;
+    min-height: 31px;
+    padding: 4px 5px;
+    font-size: 0.62rem;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.18);
+  }
+
+  body.is-mobile .mobile-inventory-switcher button.is-active {
+    background: linear-gradient(180deg, #7aeaff, #55cfff);
+    color: #1a1f3d;
+  }
+
+  body.is-mobile .inventory-layout {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    display: block !important;
+    overflow: hidden !important;
+  }
+
+  body.is-mobile .inventory-grid-wrap,
+  body.is-mobile .inventory-side,
+  body.is-mobile .inventory-side .equipment-box,
+  body.is-mobile .inventory-side .item-details {
+    display: none;
+  }
+
+  body.is-mobile .adventurer-bag.mobile-view-items .inventory-grid-wrap {
+    display: block !important;
+    height: 100% !important;
+    max-height: none !important;
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 8px !important;
+  }
+
+  body.is-mobile .adventurer-bag.mobile-view-equipment .inventory-side,
+  body.is-mobile .adventurer-bag.mobile-view-details .inventory-side {
+    display: block !important;
+    height: 100% !important;
+    max-height: none !important;
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  body.is-mobile .adventurer-bag.mobile-view-equipment .inventory-side .equipment-box {
+    display: block !important;
+  }
+
+  body.is-mobile .adventurer-bag.mobile-view-details .inventory-side .item-details {
+    display: grid !important;
+  }
+
+  body.is-mobile .inventory-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+
+  body.is-mobile .inventory-slot {
+    min-height: 50px !important;
+    border-width: 2px !important;
+  }
+
+  body.is-mobile .item-icon {
+    font-size: 1.05rem !important;
+  }
+
+  body.is-mobile .item-qty {
+    right: 2px !important;
+    bottom: 2px !important;
+    min-width: 16px !important;
+    font-size: 0.57rem !important;
+  }
+
+  body.is-mobile .inventory-empty {
+    margin-top: 8px !important;
+    font-size: 0.68rem !important;
+  }
+
+  body.is-mobile .inventory-side section {
+    padding: 9px !important;
+  }
+
+  body.is-mobile .inventory-side section h3 {
+    font-size: 0.98rem !important;
+    margin-bottom: 7px !important;
+  }
+
+  body.is-mobile .equipment-slots {
+    grid-template-columns: 1fr !important;
+    gap: 7px !important;
+    margin-top: 6px !important;
+  }
+
+  body.is-mobile .equipment-slot {
+    grid-template-columns: 72px minmax(0, 1fr) !important;
+    gap: 7px !important;
+    padding: 7px 8px !important;
+  }
+
+  body.is-mobile .equipment-slot span {
+    font-size: 0.58rem !important;
+  }
+
+  body.is-mobile .equipment-slot strong {
+    font-size: 0.74rem !important;
+    line-height: 1.2 !important;
+  }
+
+  body.is-mobile .item-details {
+    gap: 6px !important;
+    align-content: start !important;
+  }
+
+  body.is-mobile #itemDetailName {
+    font-size: 0.98rem !important;
+    line-height: 1.15 !important;
+  }
+
+  body.is-mobile #itemDetailMeta,
+  body.is-mobile #itemDetailDescription,
+  body.is-mobile #itemDetailEffect {
+    font-size: 0.72rem !important;
+    line-height: 1.28 !important;
+  }
+
+  body.is-mobile .item-detail-actions {
+    display: grid !important;
+    gap: 6px !important;
+    margin-top: 3px !important;
+    padding-top: 6px !important;
+  }
+
+  body.is-mobile .item-detail-actions button {
+    width: 100% !important;
+    min-height: 34px !important;
+    padding: 6px 8px !important;
+    font-size: 0.72rem !important;
+  }
+}
+
+@media (max-width: 880px) and (orientation: portrait) {
+  body.is-mobile .adventurer-bag {
+    width: calc(100vw - 10px) !important;
+    max-height: min(74dvh, 760px) !important;
+  }
+
+  body.is-mobile .inventory-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 880px) and (orientation: landscape) {
+  body.is-mobile .adventurer-bag {
+    width: min(92vw, 880px) !important;
+    max-height: min(68dvh, 520px) !important;
+  }
+
+  body.is-mobile .inventory-tabs {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+
+  body.is-mobile .inventory-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  }
+
+  body.is-mobile .equipment-slots {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
