@@ -3271,3 +3271,1800 @@ canvas#gameCanvas {
     display: none !important;
   }
 }
+
+
+/* ==================================================
+   Patch de legibilidade do inventario
+   Deixa os nomes e textos muito mais visiveis
+   ================================================== */
+#adventurerBagTextPatchPlaceholder {}
+
+#itemDetailName {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 2px solid #3a2630;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(255,245,215,0.98), rgba(248,217,148,0.96));
+  color: #1d1b33 !important;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.55), 0 1px 0 rgba(0,0,0,0.10);
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22);
+  line-height: 1.2;
+  font-size: 1.08rem;
+  font-weight: 900;
+}
+
+#itemDetailName > span:last-child {
+  color: #1b2445 !important;
+  font-weight: 900;
+  font-size: 1.02rem;
+  letter-spacing: 0.01em;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.6), 0 0 6px rgba(85,232,255,0.18);
+}
+
+#itemDetailMeta,
+#itemDetailDescription,
+#itemDetailEffect,
+.item-details p,
+.equipment-slot strong,
+.equipment-slot span,
+.inventory-empty {
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.42);
+}
+
+#itemDetailMeta {
+  color: #15203f !important;
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+#itemDetailDescription {
+  color: #3c241b !important;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+#itemDetailEffect {
+  color: #5c240e !important;
+  font-size: 0.93rem;
+  line-height: 1.42;
+  font-weight: 900;
+  padding: 6px 8px;
+  border-left: 4px solid #fff264;
+  background: rgba(255, 242, 100, 0.18);
+  border-radius: 4px;
+}
+
+.equipment-slot {
+  background: linear-gradient(180deg, rgba(255,251,236,0.92), rgba(245,220,172,0.82));
+}
+
+.equipment-slot span {
+  color: #5f2f1f !important;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.equipment-slot strong {
+  color: #1b1f3d !important;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.inventory-tabs button,
+.item-detail-actions button,
+.adventurer-bag .inventory-close-button {
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.45);
+}
+
+.inventory-tabs button {
+  font-size: 0.86rem;
+}
+
+.inventory-slot.is-equipped::after {
+  color: #ffffff;
+  background: rgba(39,48,82,0.86);
+  padding: 1px 4px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.25);
+  text-shadow: none;
+}
+
+.item-qty {
+  box-shadow: 0 1px 0 rgba(0,0,0,0.25);
+}
+
+@media (max-width: 880px) {
+  #itemDetailName {
+    font-size: 1rem;
+    padding: 7px 8px;
+  }
+
+  #itemDetailName > span:last-child {
+    font-size: 0.96rem;
+  }
+
+  #itemDetailMeta,
+  #itemDetailDescription,
+  #itemDetailEffect {
+    font-size: 0.9rem;
+  }
+
+  .equipment-slot strong {
+    font-size: 0.84rem;
+  }
+}
+
+
+/* ==================================================
+   Patch visual lendario do inventario
+   Mantem a rolagem e deixa a interface muito mais bonita
+   ================================================== */
+.adventurer-bag {
+  background:
+    radial-gradient(circle at top, rgba(255, 232, 162, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(108, 58, 33, 0.98), rgba(54, 31, 26, 0.99)),
+    #4d2e25;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 3px #1a1f3d,
+    0 0 0 8px #f5ce79,
+    0 18px 34px rgba(0,0,0,0.44),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.adventurer-bag::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgba(255, 242, 100, 0.18);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.inventory-header {
+  background:
+    linear-gradient(180deg, #ffebb8, #d89d58 58%, #c98646);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.4),
+    0 4px 0 rgba(0,0,0,0.18);
+}
+
+.inventory-tabs button {
+  background: linear-gradient(180deg, #f5d090, #d89b59);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.34), 0 3px 0 rgba(0,0,0,0.18);
+}
+
+.inventory-tabs button:hover,
+.item-detail-actions button:hover,
+.adventurer-bag .inventory-close-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.inventory-tabs button.is-active {
+  background: linear-gradient(180deg, #7df1ff, #58c7ff);
+  color: #162348;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.42),
+    0 0 0 2px rgba(85,232,255,0.26),
+    0 4px 0 rgba(0,0,0,0.18);
+}
+
+.inventory-grid-wrap,
+.inventory-side section {
+  background:
+    linear-gradient(180deg, rgba(255, 241, 205, 0.98), rgba(228, 176, 100, 0.98));
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), 0 5px 0 rgba(0,0,0,0.12);
+}
+
+.inventory-grid-wrap {
+  max-height: min(54vh, 620px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 10px;
+}
+
+.inventory-grid {
+  gap: 9px;
+}
+
+.inventory-slot {
+  border-radius: 9px;
+  background:
+    linear-gradient(180deg, #6d4740, #32211d);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    0 3px 0 rgba(0,0,0,0.22);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.inventory-slot:not(.is-empty):hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+}
+
+.inventory-slot.is-selected {
+  box-shadow:
+    0 0 0 3px #fff264,
+    0 0 18px rgba(255, 242, 100, 0.34),
+    0 6px 0 rgba(0,0,0,0.28),
+    inset 0 0 0 2px rgba(255,255,255,0.18);
+}
+
+.inventory-slot[data-rarity="comum"] { border-color: #927568; }
+.inventory-slot[data-rarity="incomum"] { border-color: #58d981; box-shadow: 0 0 0 1px rgba(88,217,129,0.22), inset 0 1px 0 rgba(255,255,255,0.16), 0 3px 0 rgba(0,0,0,0.22); }
+.inventory-slot[data-rarity="raro"] { border-color: #55e8ff; box-shadow: 0 0 0 1px rgba(85,232,255,0.25), inset 0 1px 0 rgba(255,255,255,0.16), 0 3px 0 rgba(0,0,0,0.22); }
+.inventory-slot[data-rarity="epico"] { border-color: #b96cff; box-shadow: 0 0 0 1px rgba(185,108,255,0.25), inset 0 1px 0 rgba(255,255,255,0.16), 0 3px 0 rgba(0,0,0,0.22); }
+.inventory-slot[data-rarity="lendario"] { border-color: #fff264; background: linear-gradient(180deg, #7b5b22, #382414); box-shadow: 0 0 0 1px rgba(255,242,100,0.26), 0 0 12px rgba(255,242,100,0.18), inset 0 1px 0 rgba(255,255,255,0.14), 0 3px 0 rgba(0,0,0,0.22); }
+.inventory-slot[data-rarity="mitico"] { border-color: #ff6ccf; background: linear-gradient(180deg, #6a366c, #2d1930); box-shadow: 0 0 0 1px rgba(255,108,207,0.26), 0 0 12px rgba(255,108,207,0.18), inset 0 1px 0 rgba(255,255,255,0.14), 0 3px 0 rgba(0,0,0,0.22); }
+.inventory-slot[data-rarity="divino"] { border-color: #fff7c3; background: linear-gradient(180deg, #8db7ff, #2d426f); box-shadow: 0 0 0 1px rgba(255,247,195,0.25), 0 0 14px rgba(187,218,255,0.20), inset 0 1px 0 rgba(255,255,255,0.2), 0 3px 0 rgba(0,0,0,0.22); }
+.inventory-slot[data-rarity="corrompida"] { border-color: #89ff45; background: linear-gradient(180deg, #3f5f24, #1f2712); box-shadow: 0 0 0 1px rgba(137,255,69,0.22), 0 0 12px rgba(137,255,69,0.16), inset 0 1px 0 rgba(255,255,255,0.14), 0 3px 0 rgba(0,0,0,0.22); }
+.inventory-slot[data-rarity="secreto"] { border-color: #0f0e1d; background: linear-gradient(180deg, #47436e, #17132a); box-shadow: 0 0 0 1px rgba(180,166,255,0.18), 0 0 12px rgba(93,74,185,0.20), inset 0 1px 0 rgba(255,255,255,0.14), 0 3px 0 rgba(0,0,0,0.22); }
+.inventory-slot[data-rarity="real"] { border-color: #ffb24a; background: linear-gradient(180deg, #b26f29, #472916); box-shadow: 0 0 0 1px rgba(255,178,74,0.24), 0 0 12px rgba(255,178,74,0.16), inset 0 1px 0 rgba(255,255,255,0.14), 0 3px 0 rgba(0,0,0,0.22); }
+
+.item-icon {
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+}
+
+.item-detail-icon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(39, 48, 82, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+}
+
+.item-detail-name-text {
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
+.rarity-name-comum { color: #513528 !important; }
+.rarity-name-incomum { color: #1f8a4b !important; text-shadow: 0 0 8px rgba(88,217,129,0.16), 1px 1px 0 rgba(255,255,255,0.45); }
+.rarity-name-raro { color: #0d6793 !important; text-shadow: 0 0 8px rgba(85,232,255,0.18), 1px 1px 0 rgba(255,255,255,0.45); }
+.rarity-name-epico { color: #7d2dcc !important; text-shadow: 0 0 9px rgba(185,108,255,0.18), 1px 1px 0 rgba(255,255,255,0.35); }
+.rarity-name-lendario { color: #8a5b00 !important; text-shadow: 0 0 10px rgba(255,242,100,0.24), 1px 1px 0 rgba(255,255,255,0.5); }
+.rarity-name-mitico { color: #a7338f !important; text-shadow: 0 0 10px rgba(255,108,207,0.22), 1px 1px 0 rgba(255,255,255,0.35); }
+.rarity-name-divino { color: #2a4f9b !important; text-shadow: 0 0 10px rgba(189,242,255,0.24), 1px 1px 0 rgba(255,255,255,0.5); }
+.rarity-name-corrompida { color: #3e7f10 !important; text-shadow: 0 0 10px rgba(137,255,69,0.2), 1px 1px 0 rgba(255,255,255,0.35); }
+.rarity-name-secreto { color: #46308f !important; text-shadow: 0 0 10px rgba(146,122,255,0.2), 1px 1px 0 rgba(255,255,255,0.3); }
+.rarity-name-real { color: #945112 !important; text-shadow: 0 0 10px rgba(255,178,74,0.2), 1px 1px 0 rgba(255,255,255,0.42); }
+
+#itemDetailName {
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 2px 0 rgba(0,0,0,0.12);
+}
+
+#itemDetailMeta,
+#itemDetailDescription,
+#itemDetailEffect {
+  background: rgba(255,255,255,0.18);
+  border-radius: 7px;
+  padding: 7px 9px;
+}
+
+#itemDetailMeta {
+  border-left: 4px solid #273052;
+}
+
+#itemDetailEffect {
+  border-left: 4px solid #fff264;
+}
+
+.equipment-slot {
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+}
+
+.inventory-side section h3 {
+  margin-bottom: 6px;
+}
+
+
+/* ==================================================
+   Icones mais bonitos + brilho lendario + janela de bosses e drops
+   ================================================== */
+.inventory-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.boss-drops-open-button {
+  min-width: 128px;
+  background: linear-gradient(180deg, #7fefff, #58c6ff) !important;
+  color: #172347 !important;
+}
+
+.inventory-icon-wrap {
+  position: relative;
+  width: 30px;
+  height: 30px;
+}
+
+.inventory-icon-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 999px;
+  opacity: .14;
+  pointer-events: none;
+}
+
+.icon-rarity-lendario::after {
+  background: radial-gradient(circle, rgba(255,242,100,.72), transparent 70%);
+  animation: legendaryGlowPulse 1.5s ease-in-out infinite;
+}
+
+.icon-rarity-mitico::after {
+  background: radial-gradient(circle, rgba(255,108,207,.72), transparent 70%);
+  animation: mythicGlowPulse 1.4s ease-in-out infinite;
+}
+
+.icon-rarity-divino::after {
+  background: radial-gradient(circle, rgba(205,236,255,.9), transparent 72%);
+  animation: divineGlowPulse 1.3s ease-in-out infinite;
+}
+
+.inventory-slot[data-rarity="lendario"],
+.inventory-slot[data-rarity="mitico"],
+.inventory-slot[data-rarity="divino"] {
+  overflow: visible;
+}
+
+.inventory-slot[data-rarity="lendario"] {
+  animation: legendarySlotGlow 1.7s ease-in-out infinite;
+}
+
+.inventory-slot[data-rarity="mitico"] {
+  animation: mythicSlotGlow 1.55s ease-in-out infinite;
+}
+
+.inventory-slot[data-rarity="divino"] {
+  animation: divineSlotGlow 1.4s ease-in-out infinite;
+}
+
+.rarity-name-lendario {
+  animation: legendaryTextGlow 1.6s ease-in-out infinite;
+}
+
+.rarity-name-mitico {
+  animation: mythicTextGlow 1.45s ease-in-out infinite;
+}
+
+.rarity-name-divino {
+  animation: divineTextGlow 1.25s ease-in-out infinite;
+}
+
+@keyframes legendaryGlowPulse {
+  0%, 100% { transform: scale(.92); opacity: .18; }
+  50% { transform: scale(1.1); opacity: .34; }
+}
+@keyframes mythicGlowPulse {
+  0%, 100% { transform: scale(.92); opacity: .20; }
+  50% { transform: scale(1.12); opacity: .36; }
+}
+@keyframes divineGlowPulse {
+  0%, 100% { transform: scale(.9); opacity: .22; }
+  50% { transform: scale(1.14); opacity: .42; }
+}
+@keyframes legendarySlotGlow {
+  0%,100% { box-shadow: 0 0 0 1px rgba(255,242,100,.26), 0 0 10px rgba(255,242,100,.18), inset 0 1px 0 rgba(255,255,255,.14), 0 3px 0 rgba(0,0,0,.22); }
+  50% { box-shadow: 0 0 0 1px rgba(255,242,100,.38), 0 0 18px rgba(255,242,100,.34), inset 0 1px 0 rgba(255,255,255,.18), 0 3px 0 rgba(0,0,0,.22); }
+}
+@keyframes mythicSlotGlow {
+  0%,100% { box-shadow: 0 0 0 1px rgba(255,108,207,.26), 0 0 10px rgba(255,108,207,.18), inset 0 1px 0 rgba(255,255,255,.14), 0 3px 0 rgba(0,0,0,.22); }
+  50% { box-shadow: 0 0 0 1px rgba(255,108,207,.42), 0 0 20px rgba(255,108,207,.34), inset 0 1px 0 rgba(255,255,255,.18), 0 3px 0 rgba(0,0,0,.22); }
+}
+@keyframes divineSlotGlow {
+  0%,100% { box-shadow: 0 0 0 1px rgba(255,247,195,.28), 0 0 12px rgba(189,218,255,.20), inset 0 1px 0 rgba(255,255,255,.20), 0 3px 0 rgba(0,0,0,.22); }
+  50% { box-shadow: 0 0 0 1px rgba(255,247,195,.42), 0 0 22px rgba(189,218,255,.36), inset 0 1px 0 rgba(255,255,255,.24), 0 3px 0 rgba(0,0,0,.22); }
+}
+@keyframes legendaryTextGlow {
+  0%,100% { text-shadow: 0 0 10px rgba(255,242,100,0.24), 1px 1px 0 rgba(255,255,255,0.5); }
+  50% { text-shadow: 0 0 18px rgba(255,242,100,0.44), 1px 1px 0 rgba(255,255,255,0.56); }
+}
+@keyframes mythicTextGlow {
+  0%,100% { text-shadow: 0 0 10px rgba(255,108,207,0.22), 1px 1px 0 rgba(255,255,255,0.35); }
+  50% { text-shadow: 0 0 18px rgba(255,108,207,0.42), 1px 1px 0 rgba(255,255,255,0.42); }
+}
+@keyframes divineTextGlow {
+  0%,100% { text-shadow: 0 0 10px rgba(189,242,255,0.24), 1px 1px 0 rgba(255,255,255,0.5); }
+  50% { text-shadow: 0 0 18px rgba(189,242,255,0.46), 1px 1px 0 rgba(255,255,255,0.58); }
+}
+
+.boss-drops-panel {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(1040px, calc(100vw - 28px));
+  max-height: calc(100dvh - 26px);
+  overflow: hidden;
+  z-index: 35;
+  padding: 12px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at top, rgba(125, 241, 255, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(28, 34, 70, 0.98), rgba(23, 28, 56, 0.99)),
+    #1b2447;
+  box-shadow:
+    0 0 0 3px #1a1f3d,
+    0 0 0 8px #7fefff,
+    0 18px 40px rgba(0,0,0,.44);
+  color: #f5f7ff;
+}
+
+.boss-drops-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 3px solid #36457a;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #2f4278, #22325f);
+}
+
+.boss-drops-header h2,
+.boss-drops-panel h3,
+.boss-drops-panel h4 {
+  margin: 0;
+  color: #fff4c7;
+}
+
+.boss-drops-layout {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.boss-drops-layout > section {
+  min-height: 0;
+  border: 3px solid #36457a;
+  border-radius: 10px;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(61, 77, 129, 0.74), rgba(31, 43, 82, 0.84));
+}
+
+.boss-card-list {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100dvh - 230px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.boss-guide-card {
+  border: 2px solid rgba(127, 239, 255, 0.22);
+  border-radius: 10px;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(18, 28, 58, 0.92), rgba(15, 21, 43, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 5px 0 rgba(0,0,0,0.16);
+}
+
+.boss-guide-card h4 {
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+
+.boss-guide-card ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #ecf3ff;
+}
+
+.boss-guide-card li + li {
+  margin-top: 3px;
+}
+
+.boss-guide-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.boss-guide-biome,
+.boss-guide-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: .74rem;
+  font-weight: 900;
+}
+
+.boss-guide-biome {
+  background: rgba(127, 239, 255, 0.15);
+  color: #9decff;
+  border: 1px solid rgba(127, 239, 255, 0.22);
+}
+
+.boss-guide-status.is-alive {
+  background: rgba(92, 217, 129, .16);
+  color: #91ffa7;
+  border: 1px solid rgba(92, 217, 129, .34);
+}
+.boss-guide-status.is-defeated {
+  background: rgba(255, 242, 100, .16);
+  color: #fff3ad;
+  border: 1px solid rgba(255, 242, 100, .34);
+}
+.boss-guide-status.is-unknown {
+  background: rgba(195, 204, 230, .14);
+  color: #dbe6ff;
+  border: 1px solid rgba(195, 204, 230, .26);
+}
+
+.boss-guide-card.is-alive {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 16px rgba(92, 217, 129, .08), 0 5px 0 rgba(0,0,0,.16);
+}
+
+.boss-guide-card.is-defeated {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 16px rgba(255, 242, 100, .08), 0 5px 0 rgba(0,0,0,.16);
+}
+
+.boss-guide-location {
+  color: #b8d4ff;
+  margin: 0;
+}
+
+.chest-guide-card {
+  border-color: rgba(255, 210, 94, 0.28);
+}
+
+.boss-drops-legend {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  padding-top: 10px;
+  color: #edf4ff;
+}
+
+.boss-drops-legend p {
+  margin: 6px 0 0;
+}
+
+@media (max-width: 900px) {
+  .boss-drops-panel {
+    width: min(720px, calc(100vw - 12px));
+    max-height: calc(100dvh - 12px);
+    padding: 8px;
+  }
+  .boss-drops-layout {
+    grid-template-columns: 1fr;
+  }
+  .boss-card-list {
+    max-height: 32dvh;
+  }
+  .inventory-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+
+/* ===== Eternal Rift original armor inventory panel ===== */
+.gear-wardrobe-panel {
+  border: 2px solid rgba(233, 246, 255, 0.16);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 14px;
+  background:
+    radial-gradient(circle at top, rgba(138, 211, 255, 0.12), transparent 44%),
+    linear-gradient(180deg, rgba(10, 24, 46, 0.92), rgba(15, 38, 67, 0.92));
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+.gear-wardrobe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gear-wardrobe-eyebrow {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #9ed4ff;
+}
+
+.gear-wardrobe-header h3 {
+  margin: 2px 0 0;
+  color: #f8fbff;
+  font-size: 1.08rem;
+}
+
+.gear-wardrobe-header p {
+  margin: 4px 0 0;
+  color: rgba(219, 237, 255, 0.82);
+  font-size: 0.74rem;
+  text-align: right;
+}
+
+.gear-wardrobe-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.95fr);
+  gap: 12px;
+}
+
+.gear-wardrobe-stage {
+  position: relative;
+  min-height: 252px;
+  border-radius: 18px;
+  padding: 12px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(255, 244, 160, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(29, 54, 86, 0.86), rgba(20, 38, 63, 0.88));
+  border: 1px solid rgba(255,255,255,0.09);
+  overflow: hidden;
+}
+
+.gear-wardrobe-stage::before,
+.gear-wardrobe-stage::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(174, 220, 255, 0.10);
+  pointer-events: none;
+}
+
+.gear-wardrobe-stage::after {
+  inset: 40px 32px;
+  border-style: dashed;
+  border-color: rgba(174, 220, 255, 0.08);
+}
+
+.gear-slot-card {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 148px;
+  min-height: 58px;
+  padding: 10px;
+  border-radius: 16px;
+  border: 2px solid rgba(255,255,255,0.09);
+  background: linear-gradient(180deg, rgba(39, 68, 107, 0.94), rgba(26, 48, 78, 0.96));
+  box-shadow: 0 12px 18px rgba(0,0,0,0.24), inset 0 0 0 1px rgba(255,255,255,0.04);
+  color: #f3f8ff;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.gear-slot-card:hover {
+  transform: translateY(-1px) scale(1.01);
+  border-color: rgba(255,255,255,0.22);
+  box-shadow: 0 14px 22px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.05) inset;
+}
+
+.gear-slot-card.is-empty {
+  opacity: 0.88;
+  filter: saturate(0.9);
+}
+
+.gear-slot-card.is-filled {
+  box-shadow: 0 16px 24px rgba(0,0,0,0.34), 0 0 24px rgba(112, 184, 255, 0.09);
+}
+
+.gear-slot-icon {
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(255,255,255,0.08);
+  font-size: 1.05rem;
+}
+
+.gear-slot-texts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gear-slot-label {
+  font-size: 0.69rem;
+  letter-spacing: 0.04em;
+  color: #9fd4ff;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.gear-slot-value {
+  font-size: 0.78rem;
+  line-height: 1.16;
+  color: #ffffff;
+  white-space: normal;
+}
+
+.gear-slot-charm { top: 14px; left: 18px; }
+.gear-slot-accessory { top: 88px; left: 18px; }
+.gear-slot-armor { top: 50px; right: 18px; }
+.gear-slot-boots { bottom: 16px; left: 50%; transform: translateX(-50%); width: 168px; justify-content: center; }
+.gear-slot-boots:hover { transform: translateX(-50%) translateY(-1px) scale(1.01); }
+
+.gear-mannequin {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  transform: translate(-50%, -50%);
+  width: 116px;
+  height: 166px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gear-mannequin-halo {
+  position: absolute;
+  inset: 22px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(140, 210, 255, 0.23), rgba(140, 210, 255, 0.06) 54%, transparent 70%);
+  filter: blur(0.4px);
+}
+
+.gear-mannequin-head,
+.gear-mannequin-body,
+.gear-mannequin-arms,
+.gear-mannequin-legs {
+  position: absolute;
+  background: linear-gradient(180deg, rgba(225, 239, 255, 0.95), rgba(162, 190, 230, 0.78));
+  border: 2px solid rgba(34, 53, 84, 0.78);
+  box-shadow: 0 0 18px rgba(176, 224, 255, 0.18);
+}
+
+.gear-mannequin-head {
+  width: 32px;
+  height: 32px;
+  border-radius: 14px;
+  top: 10px;
+}
+
+.gear-mannequin-body {
+  width: 52px;
+  height: 64px;
+  border-radius: 20px 20px 16px 16px;
+  top: 48px;
+}
+
+.gear-mannequin-arms {
+  width: 80px;
+  height: 18px;
+  border-radius: 999px;
+  top: 65px;
+}
+
+.gear-mannequin-legs {
+  width: 42px;
+  height: 58px;
+  border-radius: 16px;
+  top: 104px;
+}
+
+.gear-wardrobe-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.gear-summary-card {
+  border-radius: 16px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(35, 59, 89, 0.94), rgba(24, 42, 67, 0.96));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.gear-summary-card span {
+  display: block;
+  font-size: 0.7rem;
+  color: #9fd4ff;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  font-weight: 800;
+}
+
+.gear-summary-card strong {
+  color: #fff7c2;
+  font-size: 1rem;
+}
+
+.armor-action-note {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(79, 119, 170, 0.18);
+  border: 1px solid rgba(157, 214, 255, 0.18);
+  color: #d9ecff;
+  font-size: 0.76rem;
+}
+
+.inventory-tabs [data-inventory-tab="armaduras"] {
+  background: linear-gradient(180deg, rgba(73, 119, 180, 0.62), rgba(41, 71, 112, 0.75));
+}
+
+.inventory-tabs [data-inventory-tab="armaduras"].is-active {
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset, 0 10px 18px rgba(0,0,0,0.18), 0 0 16px rgba(132, 197, 255, 0.22);
+}
+
+@media (max-width: 980px) {
+  .gear-wardrobe-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .gear-wardrobe-stage {
+    min-height: 310px;
+  }
+
+  .gear-slot-card {
+    width: 132px;
+    min-height: 54px;
+    padding: 8px;
+  }
+
+  .gear-slot-charm { top: 10px; left: 10px; }
+  .gear-slot-accessory { top: 76px; left: 10px; }
+  .gear-slot-armor { top: 44px; right: 10px; }
+  .gear-slot-boots { width: 152px; }
+}
+
+
+/* ===== Ajuste de visibilidade do painel de armaduras ===== */
+.gear-wardrobe-panel {
+  padding: 14px;
+  background:
+    radial-gradient(circle at top, rgba(138, 211, 255, 0.12), transparent 44%),
+    linear-gradient(180deg, rgba(18, 40, 69, 0.96), rgba(12, 28, 48, 0.98));
+}
+
+.gear-wardrobe-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.gear-wardrobe-header p {
+  text-align: left;
+  margin-top: 0;
+  color: rgba(219, 237, 255, 0.9);
+}
+
+.gear-wardrobe-layout {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.gear-wardrobe-stage {
+  min-height: 338px;
+  padding: 10px;
+}
+
+.gear-slot-card {
+  width: 132px;
+  min-height: 54px;
+  padding: 8px 9px;
+  gap: 8px;
+}
+
+.gear-slot-icon {
+  flex: 0 0 28px;
+  height: 28px;
+  font-size: 0.95rem;
+}
+
+.gear-slot-label {
+  font-size: 0.62rem;
+}
+
+.gear-slot-value {
+  font-size: 0.72rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.gear-slot-charm { top: 10px; left: 10px; }
+.gear-slot-accessory { top: 76px; left: 10px; }
+.gear-slot-armor { top: 10px; right: 10px; }
+.gear-slot-boots { bottom: 12px; left: 50%; transform: translateX(-50%); width: 152px; }
+.gear-slot-boots:hover { transform: translateX(-50%) translateY(-1px) scale(1.01); }
+
+.gear-mannequin {
+  top: 55%;
+  width: 108px;
+  height: 154px;
+}
+
+.gear-mannequin-head { width: 28px; height: 28px; top: 8px; }
+.gear-mannequin-body { width: 46px; height: 58px; top: 42px; }
+.gear-mannequin-arms { width: 72px; height: 16px; top: 57px; }
+.gear-mannequin-legs { width: 38px; height: 54px; top: 96px; }
+
+.gear-wardrobe-summary {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gear-summary-card {
+  padding: 10px;
+}
+
+.gear-summary-card span {
+  font-size: 0.62rem;
+  line-height: 1.15;
+}
+
+.gear-summary-card strong {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 560px) {
+  .gear-wardrobe-panel {
+    padding: 12px;
+  }
+
+  .gear-wardrobe-header h3 {
+    font-size: 0.98rem;
+  }
+
+  .gear-wardrobe-eyebrow {
+    font-size: 0.62rem;
+  }
+
+  .gear-wardrobe-stage {
+    min-height: 360px;
+  }
+
+  .gear-slot-card {
+    width: 118px;
+    min-height: 52px;
+    padding: 7px 8px;
+  }
+
+  .gear-slot-charm { top: 8px; left: 8px; }
+  .gear-slot-accessory { top: 70px; left: 8px; }
+  .gear-slot-armor { top: 8px; right: 8px; }
+  .gear-slot-boots { width: 142px; bottom: 10px; }
+
+  .gear-mannequin {
+    top: 54%;
+    width: 98px;
+    height: 144px;
+  }
+
+  .gear-mannequin-head { width: 26px; height: 26px; }
+  .gear-mannequin-body { width: 42px; height: 54px; top: 40px; }
+  .gear-mannequin-arms { width: 66px; top: 54px; }
+  .gear-mannequin-legs { width: 36px; height: 50px; top: 90px; }
+
+  .gear-wardrobe-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ===== Ajuste responsivo PC + Mobile do painel de armaduras ===== */
+.gear-wardrobe-panel {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.gear-wardrobe-header {
+  flex-wrap: wrap;
+}
+
+.gear-wardrobe-header > * {
+  min-width: 0;
+}
+
+.gear-wardrobe-header h3,
+.gear-wardrobe-header p,
+.gear-wardrobe-eyebrow {
+  overflow-wrap: anywhere;
+}
+
+.gear-wardrobe-summary {
+  align-items: stretch;
+}
+
+.gear-summary-card {
+  min-width: 0;
+}
+
+.gear-summary-card strong,
+.gear-summary-card span,
+.gear-slot-value,
+.gear-slot-label {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (min-width: 901px) {
+  .gear-wardrobe-layout {
+    grid-template-columns: minmax(0, 1.04fr) minmax(250px, 0.96fr);
+    align-items: start;
+  }
+
+  .gear-wardrobe-stage {
+    min-height: 330px;
+  }
+
+  .gear-slot-card {
+    width: 132px;
+  }
+
+  .gear-slot-boots {
+    width: 156px;
+  }
+
+  .gear-wardrobe-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .gear-wardrobe-panel {
+    padding: 13px;
+  }
+
+  .gear-wardrobe-layout {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .gear-wardrobe-stage {
+    min-height: 340px;
+  }
+
+  .gear-slot-card {
+    width: 128px;
+    min-height: 54px;
+    padding: 8px;
+  }
+
+  .gear-slot-boots {
+    width: 150px;
+  }
+
+  .gear-wardrobe-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .gear-wardrobe-panel {
+    padding: 10px;
+    border-radius: 16px;
+  }
+
+  .gear-wardrobe-header {
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+
+  .gear-wardrobe-eyebrow {
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+  }
+
+  .gear-wardrobe-header h3 {
+    font-size: 0.92rem;
+    line-height: 1.15;
+  }
+
+  .gear-wardrobe-header p {
+    font-size: 0.68rem;
+    line-height: 1.15;
+  }
+
+  .gear-wardrobe-layout {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .gear-wardrobe-stage {
+    min-height: 334px;
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .gear-wardrobe-stage::before {
+    inset: 12px;
+  }
+
+  .gear-wardrobe-stage::after {
+    inset: 28px 20px;
+  }
+
+  .gear-slot-card {
+    width: 110px;
+    min-height: 50px;
+    padding: 7px;
+    gap: 6px;
+    border-radius: 12px;
+  }
+
+  .gear-slot-icon {
+    flex: 0 0 24px;
+    height: 24px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+  }
+
+  .gear-slot-label {
+    font-size: 0.56rem;
+    line-height: 1.05;
+  }
+
+  .gear-slot-value {
+    font-size: 0.66rem;
+    line-height: 1.06;
+  }
+
+  .gear-slot-charm { top: 8px; left: 8px; }
+  .gear-slot-accessory { top: 68px; left: 8px; }
+  .gear-slot-armor { top: 8px; right: 8px; }
+  .gear-slot-boots { bottom: 8px; left: 50%; width: 134px; }
+  .gear-slot-boots:hover { transform: translateX(-50%) translateY(-1px) scale(1.01); }
+
+  .gear-mannequin {
+    top: 54%;
+    width: 86px;
+    height: 130px;
+  }
+
+  .gear-mannequin-halo {
+    inset: 18px;
+  }
+
+  .gear-mannequin-head { width: 22px; height: 22px; top: 8px; border-radius: 10px; }
+  .gear-mannequin-body { width: 36px; height: 46px; top: 34px; border-radius: 14px 14px 12px 12px; }
+  .gear-mannequin-arms { width: 58px; height: 12px; top: 46px; }
+  .gear-mannequin-legs { width: 28px; height: 42px; top: 74px; border-radius: 12px; }
+
+  .gear-wardrobe-summary {
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+
+  .gear-summary-card {
+    padding: 9px;
+    border-radius: 12px;
+  }
+
+  .gear-summary-card span {
+    font-size: 0.56rem;
+    margin-bottom: 4px;
+    line-height: 1.1;
+  }
+
+  .gear-summary-card strong {
+    font-size: 0.82rem;
+    line-height: 1.1;
+  }
+}
+
+@media (max-width: 380px) {
+  .gear-wardrobe-panel {
+    padding: 8px;
+  }
+
+  .gear-wardrobe-stage {
+    min-height: 320px;
+    padding: 6px;
+  }
+
+  .gear-slot-card {
+    width: 102px;
+    min-height: 46px;
+    padding: 6px;
+  }
+
+  .gear-slot-label { font-size: 0.52rem; }
+  .gear-slot-value { font-size: 0.62rem; }
+  .gear-slot-boots { width: 126px; }
+
+  .gear-wardrobe-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ===== Correção forte do layout de armaduras: PC menor + mobile ===== */
+@media (max-width: 1180px) {
+  .inventory-layout {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .inventory-grid-wrap {
+    max-height: 40dvh;
+  }
+
+  .inventory-side {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .gear-wardrobe-panel {
+    padding: 12px;
+  }
+
+  .gear-wardrobe-layout {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .gear-wardrobe-stage {
+    min-height: 292px;
+    padding: 10px;
+  }
+
+  .gear-slot-card {
+    width: 124px;
+    min-height: 50px;
+    padding: 7px 8px;
+  }
+
+  .gear-slot-icon {
+    flex: 0 0 24px;
+    height: 24px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+  }
+
+  .gear-slot-label {
+    font-size: 0.56rem;
+  }
+
+  .gear-slot-value {
+    font-size: 0.65rem;
+    line-height: 1.06;
+  }
+
+  .gear-slot-charm { top: 8px; left: 8px; }
+  .gear-slot-accessory { top: 64px; left: 8px; }
+  .gear-slot-armor { top: 8px; right: 8px; }
+  .gear-slot-boots { bottom: 8px; width: 136px; }
+  .gear-slot-boots:hover { transform: translateX(-50%) translateY(-1px) scale(1.01); }
+
+  .gear-mannequin {
+    top: 52%;
+    width: 82px;
+    height: 122px;
+  }
+
+  .gear-mannequin-head { width: 22px; height: 22px; top: 6px; }
+  .gear-mannequin-body { width: 34px; height: 42px; top: 34px; }
+  .gear-mannequin-arms { width: 54px; height: 12px; top: 46px; }
+  .gear-mannequin-legs { width: 26px; height: 38px; top: 70px; }
+
+  .gear-wardrobe-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .gear-summary-card {
+    padding: 8px 9px;
+    min-height: 54px;
+  }
+
+  .gear-summary-card span {
+    font-size: 0.56rem;
+    line-height: 1.08;
+    margin-bottom: 4px;
+  }
+
+  .gear-summary-card strong {
+    font-size: 0.82rem;
+    line-height: 1.08;
+  }
+}
+
+body.is-mobile .inventory-layout {
+  grid-template-columns: 1fr !important;
+}
+
+body.is-mobile .inventory-side {
+  grid-template-columns: 1fr !important;
+}
+
+body.is-mobile .gear-wardrobe-panel {
+  padding: 10px;
+}
+
+body.is-mobile .gear-wardrobe-layout {
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+}
+
+body.is-mobile .gear-wardrobe-stage {
+  min-height: 268px;
+  padding: 8px;
+}
+
+body.is-mobile .gear-slot-card {
+  width: 108px;
+  min-height: 46px;
+  padding: 6px 7px;
+  gap: 6px;
+  border-radius: 11px;
+}
+
+body.is-mobile .gear-slot-icon {
+  flex: 0 0 22px;
+  height: 22px;
+  font-size: 0.76rem;
+}
+
+body.is-mobile .gear-slot-label {
+  font-size: 0.52rem;
+}
+
+body.is-mobile .gear-slot-value {
+  font-size: 0.60rem;
+  line-height: 1.02;
+}
+
+body.is-mobile .gear-slot-charm { top: 6px; left: 6px; }
+body.is-mobile .gear-slot-accessory { top: 58px; left: 6px; }
+body.is-mobile .gear-slot-armor { top: 6px; right: 6px; }
+body.is-mobile .gear-slot-boots { bottom: 6px; width: 124px; }
+body.is-mobile .gear-slot-boots:hover { transform: translateX(-50%) translateY(-1px) scale(1.01); }
+
+body.is-mobile .gear-mannequin {
+  top: 50%;
+  width: 72px;
+  height: 108px;
+}
+
+body.is-mobile .gear-mannequin-halo { inset: 14px; }
+body.is-mobile .gear-mannequin-head { width: 18px; height: 18px; top: 6px; border-radius: 8px; }
+body.is-mobile .gear-mannequin-body { width: 30px; height: 36px; top: 28px; border-radius: 12px 12px 10px 10px; }
+body.is-mobile .gear-mannequin-arms { width: 46px; height: 10px; top: 38px; }
+body.is-mobile .gear-mannequin-legs { width: 22px; height: 32px; top: 58px; border-radius: 10px; }
+
+body.is-mobile .gear-wardrobe-summary {
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+body.is-mobile .gear-summary-card {
+  padding: 7px 8px;
+  min-height: 48px;
+  border-radius: 10px;
+}
+
+body.is-mobile .gear-summary-card span {
+  font-size: 0.52rem;
+  margin-bottom: 3px;
+}
+
+body.is-mobile .gear-summary-card strong {
+  font-size: 0.76rem;
+}
+
+@media (max-width: 460px) {
+  .gear-wardrobe-summary,
+  body.is-mobile .gear-wardrobe-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .gear-wardrobe-stage,
+  body.is-mobile .gear-wardrobe-stage {
+    min-height: 252px;
+  }
+}
+
+
+/* ==================================================
+   Painel separado de equipamentos para mobile
+   Corrige o painel espremido na lateral
+   ================================================== */
+.open-mobile-gear-button {
+  display: none;
+  width: 100%;
+  min-height: 42px;
+  margin: 7px 0 9px;
+  border: 3px solid #1a1f3d;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #7fefff, #3ab6ff);
+  color: #152043;
+  font-weight: 900;
+  font-size: 0.86rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 0 rgba(0,0,0,0.24);
+}
+
+.mobile-gear-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background: rgba(8, 12, 24, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.mobile-gear-panel.hidden {
+  display: none !important;
+}
+
+.mobile-gear-card {
+  width: min(460px, calc(100vw - 18px));
+  max-height: calc(100dvh - 18px);
+  overflow: auto;
+  border: 4px solid #1a1f3d;
+  border-radius: 16px;
+  padding: 12px;
+  background:
+    radial-gradient(circle at top, rgba(127, 239, 255, 0.16), transparent 34%),
+    linear-gradient(180deg, #1e355c, #13233e);
+  box-shadow: 0 18px 44px rgba(0,0,0,0.52), inset 0 0 0 1px rgba(255,255,255,0.08);
+  color: #f5f9ff;
+}
+
+.mobile-gear-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(255, 235, 184, 0.16), rgba(125, 239, 255, 0.08));
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.mobile-gear-kicker {
+  display: block;
+  color: #9feaff;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 900;
+}
+
+.mobile-gear-header h2 {
+  margin: 2px 0 0;
+  color: #fff7c2;
+  font-size: 1.18rem;
+}
+
+.mobile-gear-header button {
+  min-width: 78px;
+  min-height: 36px;
+  border: 3px solid #1a1f3d;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff264, #e2a84d);
+  color: #1a1f3d;
+  font-weight: 900;
+}
+
+.mobile-gear-hero {
+  position: relative;
+  height: 148px;
+  margin: 10px 0;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at center, rgba(127, 239, 255, 0.18), transparent 46%),
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.12));
+  border: 1px solid rgba(255,255,255,0.10);
+  overflow: hidden;
+}
+
+.mobile-gear-hero-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 124px;
+  height: 124px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(127,239,255,0.24), transparent 68%);
+}
+
+.mobile-gear-hero-head,
+.mobile-gear-hero-body,
+.mobile-gear-hero-arms,
+.mobile-gear-hero-legs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #e8f5ff, #9fc2f0);
+  border: 2px solid rgba(26,31,61,0.78);
+  box-shadow: 0 0 18px rgba(127,239,255,0.14);
+}
+
+.mobile-gear-hero-head {
+  top: 18px;
+  width: 28px;
+  height: 28px;
+  border-radius: 12px;
+}
+
+.mobile-gear-hero-body {
+  top: 52px;
+  width: 48px;
+  height: 52px;
+  border-radius: 18px 18px 14px 14px;
+}
+
+.mobile-gear-hero-arms {
+  top: 65px;
+  width: 78px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.mobile-gear-hero-legs {
+  top: 99px;
+  width: 36px;
+  height: 40px;
+  border-radius: 14px;
+}
+
+.mobile-gear-slots {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.mobile-gear-slot {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(43, 70, 111, 0.96), rgba(27, 48, 78, 0.96));
+  border: 2px solid rgba(255,255,255,0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 0 rgba(0,0,0,0.16);
+}
+
+.mobile-gear-slot[data-rarity="raro"] { border-color: #55e8ff; }
+.mobile-gear-slot[data-rarity="epico"] { border-color: #b96cff; }
+.mobile-gear-slot[data-rarity="lendario"] { border-color: #fff264; box-shadow: 0 0 16px rgba(255,242,100,0.18), 0 6px 0 rgba(0,0,0,0.16); }
+.mobile-gear-slot[data-rarity="mitico"] { border-color: #ff6ccf; box-shadow: 0 0 16px rgba(255,108,207,0.18), 0 6px 0 rgba(0,0,0,0.16); }
+.mobile-gear-slot[data-rarity="divino"] { border-color: #d9f5ff; box-shadow: 0 0 16px rgba(217,245,255,0.20), 0 6px 0 rgba(0,0,0,0.16); }
+
+.mobile-gear-slot-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.10);
+  font-size: 1.18rem;
+}
+
+.mobile-gear-slot-text {
+  min-width: 0;
+}
+
+.mobile-gear-slot-text span {
+  display: block;
+  color: #9feaff;
+  font-size: 0.66rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.mobile-gear-slot-text strong {
+  display: block;
+  margin-top: 2px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.mobile-gear-slot-text small {
+  display: block;
+  margin-top: 3px;
+  color: #d9ecff;
+  font-size: 0.72rem;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.mobile-gear-section-title {
+  margin: 12px 0 7px;
+  color: #fff7c2;
+  font-weight: 900;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mobile-gear-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-gear-stats article {
+  padding: 9px;
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(0,0,0,0.08));
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+.mobile-gear-stats span {
+  display: block;
+  color: #9feaff;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.mobile-gear-stats strong {
+  display: block;
+  margin-top: 4px;
+  color: #fff7c2;
+  font-size: 0.92rem;
+}
+
+.mobile-gear-tip {
+  margin: 10px 0 0;
+  color: #d9ecff;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 1180px) {
+  #gearWardrobePanel {
+    display: none !important;
+  }
+
+  .open-mobile-gear-button {
+    display: block;
+  }
+
+  .inventory-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .inventory-side {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-gear-card {
+    padding: 10px;
+  }
+
+  .mobile-gear-header h2 {
+    font-size: 1.02rem;
+  }
+
+  .mobile-gear-header button {
+    min-width: 70px;
+    font-size: 0.76rem;
+  }
+
+  .mobile-gear-hero {
+    height: 124px;
+  }
+
+  .mobile-gear-hero-head { top: 14px; width: 24px; height: 24px; }
+  .mobile-gear-hero-body { top: 43px; width: 40px; height: 43px; }
+  .mobile-gear-hero-arms { top: 54px; width: 64px; height: 12px; }
+  .mobile-gear-hero-legs { top: 82px; width: 30px; height: 34px; }
+
+  .mobile-gear-slot {
+    grid-template-columns: 36px minmax(0, 1fr);
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .mobile-gear-slot-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+  }
+
+  .mobile-gear-slot-text strong {
+    font-size: 0.82rem;
+  }
+
+  .mobile-gear-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+}
+
+
+/* ==================================================
+   Janela separada de equipamentos para PC e Mobile
+   ================================================== */
+#gearWardrobePanel {
+  display: none !important;
+}
+
+.open-mobile-gear-button,
+.universal-gear-button {
+  display: block !important;
+  width: 100%;
+  min-height: 44px;
+  margin: 8px 0 10px;
+  border: 3px solid #1a1f3d;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #96f0ff, #4bc5ff);
+  color: #162144;
+  font-weight: 900;
+  font-size: 0.88rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.42), 0 4px 0 rgba(0,0,0,0.22);
+}
+
+.open-mobile-gear-button:hover,
+.universal-gear-button:hover {
+  filter: brightness(1.03);
+}
+
+.mobile-gear-card {
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+}
+
+.mobile-gear-slots {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mobile-gear-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mobile-gear-tip {
+  margin-top: 12px;
+}
+
+@media (max-width: 760px) {
+  .mobile-gear-card {
+    width: min(460px, calc(100vw - 18px));
+  }
+
+  .mobile-gear-slots {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-gear-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .open-mobile-gear-button,
+  .universal-gear-button {
+    min-height: 40px;
+    font-size: 0.8rem;
+    margin: 7px 0 8px;
+  }
+
+  .mobile-gear-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}

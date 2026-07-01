@@ -10883,7 +10883,9 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_MEGA_BIOME_EXPANSION_P
   setActiveScene = function setActiveSceneBiomePatch(scene) {
     setActiveSceneBeforeBiomePatch(scene);
     if (currentScene === "village") {
-      colliders = objects.filter((obj) => obj.solid);
+      // Mantem a Dimensao Acida livre para andar. Os elementos sao visuais/interativos,
+      // sem bloquear o jogador como paredes invisiveis.
+      colliders = [];
       interactables = objects.filter((obj) => obj.message);
       syncBiomeObjectState();
     }
@@ -10965,29 +10967,140 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_MEGA_BIOME_EXPANSION_P
     ctx.lineTo(x + 28, y + 18);
     ctx.stroke();
   }
+  function swampVisualHash(tileX, tileY, salt = 0) {
+    const raw = Math.sin(tileX * 71.17 + tileY * 131.91 + salt * 17.73) * 10000;
+    return raw - Math.floor(raw);
+  }
+
   function drawSwampTile(x, y, tileX, tileY) {
-    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#49684d" : "#415f46";
+    const t = performance.now() / 1000;
+    const h = swampVisualHash(tileX, tileY, 1);
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#405f45" : "#39583f";
     ctx.fillRect(x, y, TILE, TILE);
-    ctx.fillStyle = "rgba(140, 165, 92, 0.28)";
-    ctx.fillRect(x + 6, y + 20, 5, 5);
-    ctx.fillRect(x + 18, y + 14, 4, 4);
+
+    ctx.fillStyle = h > 0.48 ? "#4f7651" : "#35513b";
+    ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+    ctx.fillStyle = "rgba(105, 150, 82, 0.35)";
+    ctx.fillRect(x + 4, y + 5, 8, 3);
+    ctx.fillRect(x + 18, y + 17, 7, 3);
+    ctx.fillRect(x + 10, y + 24, 5, 3);
+
+    ctx.fillStyle = "rgba(120, 255, 104, 0.12)";
+    if (swampVisualHash(tileX, tileY, 2) > 0.42) ctx.fillRect(x + 7, y + 18, 5, 5);
+    if (swampVisualHash(tileX, tileY, 3) > 0.56) ctx.fillRect(x + 22, y + 8, 4, 4);
+
+    const firefly = swampVisualHash(tileX, tileY, 4);
+    if (firefly > 0.72) {
+      const glow = 0.12 + Math.sin(t * 2.3 + tileX + tileY) * 0.05;
+      ctx.fillStyle = `rgba(176,255,104,${glow})`;
+      ctx.fillRect(x + 13, y + 11, 6, 6);
+      ctx.fillStyle = "rgba(224,255,154,0.55)";
+      ctx.fillRect(x + 15, y + 13, 2, 2);
+    }
   }
+
   function drawMudTile(x, y, tileX, tileY) {
-    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#705a44" : "#614d3b";
+    const t = performance.now() / 1000;
+    const wave = Math.sin(t * 1.8 + tileX * 0.45 + tileY * 0.35);
+    const h = swampVisualHash(tileX, tileY, 5);
+
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#6c533d" : "#5e4938";
     ctx.fillRect(x, y, TILE, TILE);
-    ctx.fillStyle = "rgba(39, 48, 82, 0.2)";
-    ctx.fillRect(x + 6, y + 18, 16, 6);
+    ctx.fillStyle = h > 0.5 ? "#7b6047" : "#654d3a";
+    ctx.fillRect(x + 1, y + 2, TILE - 2, TILE - 4);
+
+    // Poças escuras de lama molhada.
+    ctx.fillStyle = "rgba(34, 39, 48, 0.28)";
+    ctx.fillRect(x + 5, y + 17 + wave, 17, 6);
+    ctx.fillRect(x + 15, y + 8 - wave, 10, 4);
+    ctx.fillStyle = "rgba(27, 31, 38, 0.24)";
+    ctx.fillRect(x + 7, y + 19 + wave, 13, 2);
+    ctx.fillRect(x + 17, y + 9 - wave, 6, 2);
+
+    // Reflexo gosmento.
+    ctx.fillStyle = "rgba(180, 145, 94, 0.26)";
+    ctx.fillRect(x + 4, y + 5, 10, 2);
+    ctx.fillRect(x + 18, y + 25, 7, 2);
+    ctx.fillStyle = "rgba(236, 206, 144, 0.17)";
+    ctx.fillRect(x + 7, y + 6, 5, 1);
+
+    // Pegadas e bolhas.
+    ctx.fillStyle = "rgba(29, 36, 32, 0.22)";
+    if (swampVisualHash(tileX, tileY, 6) > 0.36) {
+      ctx.fillRect(x + 7, y + 10, 4, 3);
+      ctx.fillRect(x + 12, y + 13, 4, 3);
+    }
+    if (swampVisualHash(tileX, tileY, 7) > 0.60) {
+      ctx.strokeStyle = "rgba(205, 170, 112, 0.30)";
+      ctx.beginPath();
+      ctx.arc(x + 24, y + 14, 3 + Math.sin(t * 2 + tileX) * 0.8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Musgo nas bordas.
+    ctx.fillStyle = "rgba(92, 143, 70, 0.26)";
+    ctx.fillRect(x + 1, y + 1, 5, 3);
+    ctx.fillRect(x + TILE - 7, y + TILE - 5, 5, 3);
   }
+
   function drawToxicWaterTile(x, y, tileX, tileY) {
-    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#417d5d" : "#376d52";
+    const t = performance.now() / 1000;
+    const pulse = 0.18 + Math.sin(t * 2.8 + tileX * 0.7 + tileY * 0.4) * 0.06;
+    const waveA = Math.sin(t * 2.2 + tileX * 0.55 + tileY * 0.32) * 1.4;
+    const waveB = Math.cos(t * 1.7 + tileX * 0.37 + tileY * 0.61) * 1.2;
+
+    const base = ctx.createLinearGradient(x, y, x + TILE, y + TILE);
+    base.addColorStop(0, "#193c30");
+    base.addColorStop(0.45, "#2f7450");
+    base.addColorStop(1, "#133428");
+    ctx.fillStyle = base;
     ctx.fillRect(x, y, TILE, TILE);
-    ctx.fillStyle = "rgba(154, 255, 114, 0.25)";
-    ctx.fillRect(x + 4, y + 6, 10, 6);
-    ctx.fillRect(x + 18, y + 16, 8, 5);
-    ctx.strokeStyle = "rgba(195, 255, 131, 0.32)";
+
+    // Brilho venenoso espalhado.
+    ctx.fillStyle = `rgba(154,255,114,${pulse})`;
+    ctx.fillRect(x + 2, y + 3 + waveA, 12, 5);
+    ctx.fillRect(x + 17, y + 15 + waveB, 10, 5);
+    ctx.fillStyle = "rgba(220,255,130,0.24)";
+    ctx.fillRect(x + 5, y + 5 + waveA, 7, 2);
+    ctx.fillRect(x + 19, y + 17 + waveB, 6, 2);
+
+    // Correntes internas.
+    ctx.strokeStyle = "rgba(194,255,128,0.38)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(x + 12, y + 22, 5, 0, Math.PI * 2);
+    ctx.moveTo(x + 2, y + 12 + waveA);
+    ctx.lineTo(x + 10, y + 10 + waveB);
+    ctx.lineTo(x + 18, y + 13 - waveA);
+    ctx.lineTo(x + 30, y + 11 + waveB);
     ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y + 23 - waveB);
+    ctx.lineTo(x + 13, y + 21 + waveA);
+    ctx.lineTo(x + 23, y + 24 - waveA);
+    ctx.stroke();
+
+    // Bolhas tóxicas.
+    const b1 = 3 + Math.sin(t * 2.6 + tileX) * 0.9;
+    const b2 = 2 + Math.cos(t * 2.0 + tileY) * 0.7;
+    ctx.strokeStyle = "rgba(225,255,170,0.48)";
+    ctx.beginPath();
+    ctx.arc(x + 11, y + 22, b1, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + 23, y + 8, b2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Gás saindo da água.
+    if (swampVisualHash(tileX, tileY, 8) > 0.54) {
+      ctx.fillStyle = "rgba(192,255,124,0.16)";
+      ctx.fillRect(x + 8, y + 2 + Math.sin(t * 1.5 + tileX) * 2, 3, 10);
+      ctx.fillRect(x + 11, y + Math.cos(t * 1.2 + tileY) * 2, 2, 8);
+    }
+
+    // Borda viscosa escura para dar profundidade.
+    ctx.fillStyle = "rgba(8, 22, 18, 0.18)";
+    ctx.fillRect(x, y + TILE - 3, TILE, 3);
+    ctx.fillRect(x, y, 2, TILE);
   }
 
   drawMap = function drawMapBiomePatch() {
@@ -19514,4 +19627,14224 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     updateDeviceModeBeforeMobilePro();
     updateMobileGameplayClasses();
   };
+})();
+
+
+/* ==================================================
+   Patch: trilha sonora MP3 importada
+   Musica: ETERNAL RIFT - Peaceful Realms of Adventure
+   ================================================== */
+(function importedBackgroundMusicPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_IMPORTED_BACKGROUND_MUSIC_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_IMPORTED_BACKGROUND_MUSIC_PATCH = true;
+
+  const musicElement = document.getElementById("backgroundMusic");
+  const musicToggleButton = document.getElementById("musicToggleButton");
+  const MUSIC_ENABLED_KEY = "eternal-rift-imported-music-enabled-v1";
+  const TRACK_LABEL = "Peaceful Realms of Adventure";
+  let musicEnabled = true;
+
+  try {
+    musicEnabled = localStorage.getItem(MUSIC_ENABLED_KEY) !== "off";
+  } catch (error) {
+    musicEnabled = true;
+  }
+
+  function stopGeneratedBackgroundMusic() {
+    if (musicTimer) {
+      clearInterval(musicTimer);
+      musicTimer = null;
+    }
+
+    if (musicGain && audioContext) {
+      try {
+        musicGain.gain.cancelScheduledValues(audioContext.currentTime);
+        musicGain.gain.setValueAtTime(Math.max(0.0001, musicGain.gain.value || 0.0001), audioContext.currentTime);
+        musicGain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.20);
+        const oldGain = musicGain;
+        setTimeout(() => {
+          try { oldGain.disconnect(); } catch (error) {}
+        }, 260);
+      } catch (error) {}
+      musicGain = null;
+    }
+  }
+
+  function updateMusicButton() {
+    if (!musicToggleButton) return;
+    musicToggleButton.textContent = musicEnabled ? "Musica: Ligada" : "Musica: Desligada";
+    musicToggleButton.title = musicEnabled
+      ? `Tocando: ${TRACK_LABEL}`
+      : "Clique para ligar a musica";
+  }
+
+  function configureMusicElement() {
+    if (!musicElement) return;
+    musicElement.loop = true;
+    musicElement.preload = "auto";
+    musicElement.volume = isMobile ? 0.42 : 0.50;
+  }
+
+  function playImportedMusic() {
+    configureMusicElement();
+    if (!musicElement || !musicEnabled) return;
+
+    const playPromise = musicElement.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        if (typeof showHudToast === "function") {
+          showHudToast("Clique em Novo Jogo/Continuar para iniciar a musica.");
+        }
+      });
+    }
+  }
+
+  function pauseImportedMusic() {
+    if (!musicElement) return;
+    try { musicElement.pause(); } catch (error) {}
+  }
+
+  startMusic = function startMusicImportedMp3() {
+    ensureAudio();
+    stopGeneratedBackgroundMusic();
+    updateMusicButton();
+    if (musicEnabled) playImportedMusic();
+  };
+
+  if (musicToggleButton) {
+    musicToggleButton.addEventListener("click", () => {
+      musicEnabled = !musicEnabled;
+      try {
+        localStorage.setItem(MUSIC_ENABLED_KEY, musicEnabled ? "on" : "off");
+      } catch (error) {}
+
+      updateMusicButton();
+      if (musicEnabled) {
+        playImportedMusic();
+        if (typeof showHudToast === "function") showHudToast(`Musica ligada: ${TRACK_LABEL}`);
+      } else {
+        pauseImportedMusic();
+        if (typeof showHudToast === "function") showHudToast("Musica desligada.");
+      }
+    });
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (!musicElement) return;
+    if (document.hidden) {
+      pauseImportedMusic();
+    } else if (gameStarted && musicEnabled) {
+      playImportedMusic();
+    }
+  });
+
+  window.addEventListener("pagehide", pauseImportedMusic);
+
+  configureMusicElement();
+  updateMusicButton();
+
+  if (gameStarted && musicEnabled) {
+    stopGeneratedBackgroundMusic();
+    playImportedMusic();
+  }
+})();
+
+/* ==================================================
+   Patch: Mina Cristalina interativa
+   - deixa o exterior da caverna mais bonito
+   - permite entrar com E, botao de acao ou clique/toque na entrada
+   - adiciona interior grande usando cave-map.png como base visual
+   ================================================== */
+(function crystalMineCavePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_CRYSTAL_MINE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_CRYSTAL_MINE_PATCH = true;
+
+  const CAVE_COLS = 116;
+  const CAVE_ROWS = 48;
+  const CAVE_WIDTH = CAVE_COLS * TILE;
+  const CAVE_HEIGHT = CAVE_ROWS * TILE;
+  const CAVE_TILE = { FLOOR: ".", WALL: "#", WATER: "~", RAIL: "=" };
+  const CAVE_IMAGE_SRC = "cave-map.png";
+  const caveBackgroundImage = typeof Image !== "undefined" ? new Image() : null;
+  if (caveBackgroundImage) caveBackgroundImage.src = CAVE_IMAGE_SRC;
+
+  const caveParticles = Array.from({ length: 96 }, (_, index) => ({
+    x: ((index * 173) % CAVE_WIDTH),
+    y: ((index * 97) % CAVE_HEIGHT),
+    size: 1 + (index % 3),
+    phase: index * 0.61,
+    speed: 0.28 + (index % 5) * 0.08
+  }));
+  let caveExitGraceTimer = 0;
+
+  const caveInteriorMap = createCrystalMineMap();
+
+  function createCrystalMineMap() {
+    const map = Array.from({ length: CAVE_ROWS }, () => Array(CAVE_COLS).fill(CAVE_TILE.WALL));
+
+    const rooms = [
+      [12, 36, 11, 7], [26, 31, 14, 8], [43, 34, 13, 7], [60, 30, 15, 8],
+      [78, 34, 14, 7], [99, 31, 13, 8], [17, 17, 12, 7], [37, 15, 14, 8],
+      [57, 17, 14, 7], [77, 15, 13, 7], [98, 17, 12, 7], [53, 7, 15, 5]
+    ];
+
+    for (const [cx, cy, rx, ry] of rooms) carveEllipse(map, cx, cy, rx, ry, CAVE_TILE.FLOOR);
+
+    carveCorridor(map, 12, 36, 26, 31, 4);
+    carveCorridor(map, 26, 31, 43, 34, 4);
+    carveCorridor(map, 43, 34, 60, 30, 4);
+    carveCorridor(map, 60, 30, 78, 34, 4);
+    carveCorridor(map, 78, 34, 99, 31, 4);
+    carveCorridor(map, 17, 17, 37, 15, 4);
+    carveCorridor(map, 37, 15, 57, 17, 4);
+    carveCorridor(map, 57, 17, 77, 15, 4);
+    carveCorridor(map, 77, 15, 98, 17, 4);
+    carveCorridor(map, 26, 31, 17, 17, 4);
+    carveCorridor(map, 43, 34, 37, 15, 4);
+    carveCorridor(map, 60, 30, 57, 17, 4);
+    carveCorridor(map, 78, 34, 77, 15, 4);
+    carveCorridor(map, 57, 17, 53, 7, 3);
+
+    carveEllipse(map, 21, 40, 3, 2, CAVE_TILE.WATER);
+    carveEllipse(map, 10, 40, 11, 7, CAVE_TILE.FLOOR);
+    carveEllipse(map, 16, 39, 6, 4, CAVE_TILE.FLOOR);
+    carveEllipse(map, 31, 36, 5, 3, CAVE_TILE.WATER);
+    carveEllipse(map, 70, 36, 6, 3, CAVE_TILE.WATER);
+    carveEllipse(map, 93, 22, 7, 4, CAVE_TILE.WATER);
+    carveEllipse(map, 49, 22, 5, 3, CAVE_TILE.WATER);
+
+    carveCorridor(map, 11, 40, 20, 37, 5);
+    drawRailLine(map, 10, 39, 34, 33);
+    drawRailLine(map, 34, 33, 60, 31);
+    drawRailLine(map, 60, 31, 89, 33);
+    drawRailLine(map, 20, 17, 46, 16);
+    drawRailLine(map, 46, 16, 77, 16);
+    drawRailLine(map, 77, 16, 104, 18);
+
+    for (let y = 0; y < CAVE_ROWS; y++) {
+      map[y][0] = CAVE_TILE.WALL;
+      map[y][CAVE_COLS - 1] = CAVE_TILE.WALL;
+    }
+    // Entrada corrigida: salao inicial amplo e caminho largo para o jogador nao ficar preso.
+    carveRect(map, 4, 34, 19, 11, CAVE_TILE.FLOOR);
+    carveEllipse(map, 13, 39, 9, 5, CAVE_TILE.FLOOR);
+    carveCorridor(map, 13, 39, 26, 31, 6);
+    drawRailLine(map, 6, 39, 34, 33);
+
+    for (let x = 0; x < CAVE_COLS; x++) {
+      map[0][x] = CAVE_TILE.WALL;
+      map[CAVE_ROWS - 1][x] = CAVE_TILE.WALL;
+    }
+
+    return map;
+  }
+
+  function carveRect(map, startX, startY, width, height, tile) {
+    for (let y = startY; y < startY + height; y++) {
+      for (let x = startX; x < startX + width; x++) {
+        if (x <= 0 || y <= 0 || x >= CAVE_COLS - 1 || y >= CAVE_ROWS - 1) continue;
+        map[y][x] = tile;
+      }
+    }
+  }
+
+  function carveEllipse(map, centerX, centerY, radiusX, radiusY, tile) {
+    for (let y = Math.floor(centerY - radiusY); y <= Math.ceil(centerY + radiusY); y++) {
+      for (let x = Math.floor(centerX - radiusX); x <= Math.ceil(centerX + radiusX); x++) {
+        if (x <= 0 || y <= 0 || x >= CAVE_COLS - 1 || y >= CAVE_ROWS - 1) continue;
+        const dx = (x - centerX) / radiusX;
+        const dy = (y - centerY) / radiusY;
+        if (dx * dx + dy * dy <= 1) map[y][x] = tile;
+      }
+    }
+  }
+
+  function carveCorridor(map, x1, y1, x2, y2, halfWidth) {
+    const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 2;
+    for (let i = 0; i <= steps; i++) {
+      const t = steps === 0 ? 0 : i / steps;
+      const x = Math.round(x1 + (x2 - x1) * t);
+      const y = Math.round(y1 + (y2 - y1) * t);
+      for (let yy = y - halfWidth; yy <= y + halfWidth; yy++) {
+        for (let xx = x - halfWidth; xx <= x + halfWidth; xx++) {
+          if (xx <= 0 || yy <= 0 || xx >= CAVE_COLS - 1 || yy >= CAVE_ROWS - 1) continue;
+          map[yy][xx] = CAVE_TILE.FLOOR;
+        }
+      }
+    }
+  }
+
+  function drawRailLine(map, x1, y1, x2, y2) {
+    const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 2;
+    for (let i = 0; i <= steps; i++) {
+      const t = steps === 0 ? 0 : i / steps;
+      const x = Math.round(x1 + (x2 - x1) * t);
+      const y = Math.round(y1 + (y2 - y1) * t);
+      if (x <= 0 || y <= 0 || x >= CAVE_COLS - 1 || y >= CAVE_ROWS - 1) continue;
+      if (map[y][x] === CAVE_TILE.FLOOR) map[y][x] = CAVE_TILE.RAIL;
+    }
+  }
+
+  function caveExit(tileX, tileY) {
+    return {
+      type: "caveExit",
+      x: tileX * TILE,
+      y: tileY * TILE - 8,
+      width: TILE * 2,
+      // Altura menor para a entrada ser desenhada atras do jogador na ordenacao por Y.
+      // O desenho continua grande, mas nao cobre o personagem nem da sensacao de travar.
+      height: 24,
+      solid: false,
+      message: "Saida da Mina Cristalina: pressione E para voltar para a vila."
+    };
+  }
+
+  function caveChest(tileX, tileY) {
+    return {
+      type: "caveChest",
+      x: tileX * TILE,
+      y: tileY * TILE + 8,
+      width: TILE * 2,
+      height: TILE,
+      solid: true,
+      message: "Bau antigo: marcas azuis brilham na fechadura."
+    };
+  }
+
+  function caveFeature(tileX, tileY, kind, options = {}) {
+    return {
+      type: "caveFeature",
+      kind,
+      x: tileX * TILE + (options.offsetX || 0),
+      y: tileY * TILE + (options.offsetY || 0),
+      width: options.width || TILE,
+      height: options.height || TILE,
+      solid: Boolean(options.solid),
+      message: options.message || "",
+      role: options.role || ""
+    };
+  }
+
+  function caveExteriorFeature(tileX, tileY, kind, options = {}) {
+    return {
+      type: "caveExteriorFeature",
+      kind,
+      x: tileX * TILE + (options.offsetX || 0),
+      y: tileY * TILE + (options.offsetY || 0),
+      width: options.width || TILE,
+      height: options.height || TILE,
+      solid: Boolean(options.solid),
+      message: options.message || "",
+      role: options.role || ""
+    };
+  }
+
+  const caveObjects = [
+    caveExit(5, 39),
+    caveFeature(4, 38, "exitTorch", { width: 18, height: 30, offsetX: -6, offsetY: -4, message: "Tocha da entrada: a chama mostra o caminho de volta." }),
+    caveFeature(10, 38, "exitTorch", { width: 18, height: 30, offsetX: 8, offsetY: -4, message: "Tocha da entrada: a chama mostra o caminho de volta." }),
+    caveFeature(18, 37, "blueCrystal", { width: 26, height: 38, solid: true, message: "Cristal azul: ele pulsa como um coracao subterraneo." }),
+    caveFeature(22, 34, "barrels", { width: 42, height: 28, solid: true, message: "Barris de minerador: parecem antigos, mas ainda inteiros." }),
+    caveFeature(29, 32, "mineCart", { width: 48, height: 30, solid: true, message: "Carrinho de mina: as rodas estao presas nos trilhos." }),
+    caveFeature(38, 16, "purpleCrystal", { width: 30, height: 42, solid: true, message: "Cristal roxo: pequenos pontos de luz flutuam ao redor." }),
+    caveFeature(50, 22, "waterSign", { width: 18, height: 26, solid: true, message: "Placa molhada: lago subterraneo, nao mergulhe sem preparo." }),
+    caveFeature(56, 8, "ancientDoor", { width: 86, height: 58, solid: true, message: "Portao antigo: talvez uma futura dungeon possa abrir aqui." }),
+    caveFeature(64, 30, "railSwitch", { width: 30, height: 24, message: "Alavanca dos trilhos: enferrujada, mas ainda faz um clac baixo." }),
+    caveFeature(72, 37, "greenCrystal", { width: 28, height: 38, solid: true, message: "Cristal verde: sua luz parece curar o silencio da caverna." }),
+    caveChest(84, 34),
+    caveFeature(92, 22, "glowPond", { width: 72, height: 44, message: "Lago brilhante: reflexos azuis tremem na pedra escura." }),
+    caveFeature(103, 18, "hangingBridge", { width: 90, height: 20, solid: false, message: "Ponte de madeira: rangendo baixinho sobre a rocha." }),
+    caveFeature(98, 33, "torchCluster", { width: 38, height: 36, message: "Duas tochas antigas lutam contra a escuridao." }),
+    caveFeature(18, 18, "mushrooms", { width: 36, height: 24, message: "Cogumelos azuis: bonitos, estranhos e provavelmente nada comestiveis." }),
+    caveFeature(45, 35, "stalagmites", { width: 46, height: 44, solid: true }),
+    caveFeature(76, 16, "stalagmites", { width: 48, height: 48, solid: true }),
+    caveFeature(108, 32, "treasureSign", { width: 18, height: 26, solid: true, message: "Placa velha: quem segue os trilhos encontra recompensas." })
+  ];
+
+  function ensureCaveQuestState() {
+    if (!questBook.discoveredAreas || typeof questBook.discoveredAreas !== "object") questBook.discoveredAreas = {};
+    if (!questBook.caveTreasures || typeof questBook.caveTreasures !== "object") {
+      questBook.caveTreasures = { ancientChestOpened: false };
+    }
+    if (typeof questBook.caveTreasures.ancientChestOpened !== "boolean") questBook.caveTreasures.ancientChestOpened = false;
+  }
+
+  ensureCaveQuestState();
+
+  const mainCaveEntrance = villageObjects.find((obj) => obj.type === "cave");
+  if (mainCaveEntrance) {
+    mainCaveEntrance.role = "mainCrystalMine";
+    mainCaveEntrance.message = "Entrada da Mina Cristalina: pressione E ou clique na boca da caverna para entrar.";
+  }
+
+  const extraExterior = [
+    caveExteriorFeature(9, 9, "torch", { width: 18, height: 30, message: "Tocha de mineiro: a entrada esta ativa." }),
+    caveExteriorFeature(13, 9, "torch", { width: 18, height: 30, message: "Tocha de mineiro: a chama se mexe mesmo sem vento." }),
+    caveExteriorFeature(8, 12, "blueCrystal", { width: 22, height: 30, solid: true }),
+    caveExteriorFeature(13, 12, "purpleCrystal", { width: 24, height: 34, solid: true }),
+    caveExteriorFeature(11, 12, "mineSign", { width: 26, height: 28, solid: true, message: "Placa: Mina Cristalina. Clique na entrada ou pressione E para entrar." }),
+    caveExteriorFeature(10, 13, "stonePath", { width: 96, height: 24 })
+  ];
+
+  const existingExteriorPatch = villageObjects.some((obj) => obj.type === "caveExteriorFeature" && obj.role === "crystalMinePatchMarker");
+  if (!existingExteriorPatch) {
+    villageObjects.push({ ...caveExteriorFeature(0, 0, "marker"), role: "crystalMinePatchMarker", width: 1, height: 1 });
+    villageObjects.push(...extraExterior);
+  }
+
+  if (currentScene === "village") {
+    objects = villageObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  const getSceneWidthBeforeCave = getSceneWidth;
+  getSceneWidth = function getSceneWidthCavePatch() {
+    if (currentScene === "caveInterior") return CAVE_WIDTH;
+    return getSceneWidthBeforeCave();
+  };
+
+  const getSceneHeightBeforeCave = getSceneHeight;
+  getSceneHeight = function getSceneHeightCavePatch() {
+    if (currentScene === "caveInterior") return CAVE_HEIGHT;
+    return getSceneHeightBeforeCave();
+  };
+
+  const getSceneNameBeforeCave = getSceneName;
+  getSceneName = function getSceneNameCavePatch() {
+    if (currentScene === "caveInterior") return "Mina Cristalina";
+    return getSceneNameBeforeCave();
+  };
+
+  const getAreaNameBeforeCave = getAreaName;
+  getAreaName = function getAreaNameCavePatch() {
+    if (currentScene === "caveInterior") return "Mina Cristalina";
+    return getAreaNameBeforeCave();
+  };
+
+  const normalizeRuntimeStateBeforeCave = normalizeRuntimeState;
+  normalizeRuntimeState = function normalizeRuntimeStateCavePatch() {
+    normalizeRuntimeStateBeforeCave();
+    ensureCaveQuestState();
+  };
+
+  const setActiveSceneBeforeCave = setActiveScene;
+  setActiveScene = function setActiveSceneCavePatch(scene) {
+    if (scene === "caveInterior") {
+      currentScene = "caveInterior";
+      objects = caveObjects;
+      normalizeRuntimeState();
+      // Evita paredes invisiveis dentro da caverna: a imagem de fundo nao
+      // deve gerar colisao. So mantemos bloqueio em itens pontuais e visiveis.
+      colliders = objects.filter((obj) => obj.type === "caveChest" || (obj.type === "caveFeature" && obj.kind === "ancientDoor"));
+      interactables = objects.filter((obj) => obj.message);
+      closeDialog();
+      closeShop();
+      keys.clear();
+      projectiles.length = 0;
+      enemyProjectiles.length = 0;
+      hazardZones.length = 0;
+      currentAutoAimTarget = null;
+      mobileLockedTarget = null;
+      return;
+    }
+    setActiveSceneBeforeCave(scene);
+  };
+
+  function caveTileAt(tileX, tileY) {
+    if (tileX < 0 || tileY < 0 || tileX >= CAVE_COLS || tileY >= CAVE_ROWS) return CAVE_TILE.WALL;
+    return caveInteriorMap[tileY][tileX];
+  }
+
+  const hitsWaterBeforeCave = hitsWater;
+  hitsWater = function hitsWaterCavePatch(rect) {
+    if (currentScene !== "caveInterior") return hitsWaterBeforeCave(rect);
+    // A Mina Cristalina usa uma imagem grande como mapa visual.
+    // Antes, a colisao vinha de um mapa invisivel desenhado por codigo,
+    // entao o jogador batia em paredes que nao apareciam na imagem.
+    // Agora o interior da caverna fica livre para andar, e apenas objetos
+    // realmente visiveis/selecionados podem bloquear o jogador.
+    return false;
+  };
+
+  function enterCrystalMine() {
+    ensureCaveQuestState();
+    lastVillagePosition = { x: player.x, y: player.y };
+    const firstVisit = !questBook.discoveredAreas.caveInterior;
+    questBook.discoveredAreas.caveInterior = true;
+    setActiveScene("caveInterior");
+    caveExitGraceTimer = 1.0;
+    player.x = 14 * TILE + 8;
+    player.y = 39 * TILE + 6;
+    player.direction = "right";
+    playSound("portal");
+    vibrate([18, 26, 18]);
+    showHudToast("Voce entrou na Mina Cristalina");
+    showDialogMessage("Voce atravessou a boca da caverna. Trilhos antigos, cristais e agua brilhante ecoam na Mina Cristalina.");
+    if (firstVisit) awardXp(120, "Mina descoberta");
+    updateQuestProgress();
+  }
+
+  function exitCrystalMine() {
+    setActiveScene("village");
+    player.x = (lastVillagePosition?.x ?? (10 * TILE + 34));
+    player.y = (lastVillagePosition?.y ?? (12 * TILE + 8));
+    player.direction = "down";
+    playSound("portal");
+    vibrate([18, 26, 18]);
+    showHudToast("Voce saiu da Mina Cristalina");
+    showDialogMessage("O ar verde da vila volta aos poucos. A caverna ficou para tras, brilhando como um segredo guardado.");
+    updateQuestProgress();
+  }
+
+  const handleMapTransitionsBeforeCave = handleMapTransitions;
+  handleMapTransitions = function handleMapTransitionsCavePatch() {
+    if (currentScene === "caveInterior") {
+      if (caveExitGraceTimer > 0) return;
+      const playerCenter = {
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        width: 1,
+        height: 1
+      };
+      const exitZone = { x: 4 * TILE, y: 39 * TILE, width: 4 * TILE, height: 4 * TILE };
+      if (rectsOverlap(playerCenter, exitZone)) exitCrystalMine();
+      return;
+    }
+    handleMapTransitionsBeforeCave();
+  };
+
+  const updateBeforeCave = update;
+  update = function updateCavePatch(delta) {
+    if (currentScene !== "caveInterior") {
+      updateBeforeCave(delta);
+      return;
+    }
+
+    ensureCanvasSize();
+
+    if (!gameStarted) {
+      updateHud();
+      updateDebugPanel(delta);
+      updateHudToast(delta);
+      return;
+    }
+
+    if (gameOver) {
+      updateHud();
+      updateDebugPanel(delta);
+      updateHudToast(delta);
+      return;
+    }
+
+    updateTimedEffects(delta);
+    caveExitGraceTimer = Math.max(0, caveExitGraceTimer - delta);
+    player.levelGlowTimer = Math.max(0, Number(player.levelGlowTimer || 0) - delta);
+
+    if (hitstopTimer > 0) {
+      hitstopTimer = Math.max(0, hitstopTimer - delta);
+      updateAttack(delta);
+      updateFloatingTexts(delta);
+      updateVisualEffects(delta);
+      updateHud();
+      updateHudToast(delta);
+      return;
+    }
+
+    if (pauseOpen || inventoryOpen || shopOpen) {
+      updateHud();
+      updateInteractionHint();
+      updateDebugPanel(delta);
+      updateHudToast(delta);
+      return;
+    }
+
+    const movement = getMovementInput();
+    const inputX = movement.x;
+    const inputY = movement.y;
+    player.moving = inputX !== 0 || inputY !== 0;
+
+    applyPlayerKnockback(delta);
+    updateSwimming(delta);
+
+    if (player.moving && !dialogOpen && !inventoryOpen && !shopOpen && Math.abs(playerKnockbackX) + Math.abs(playerKnockbackY) < 8) {
+      const length = Math.hypot(inputX, inputY) || 1;
+      const strength = movement.strength;
+      const moveX = (inputX / length) * getPlayerSpeed() * strength * delta;
+      const moveY = (inputY / length) * getPlayerSpeed() * strength * delta;
+
+      if (Math.abs(inputX) > Math.abs(inputY)) player.direction = inputX > 0 ? "right" : "left";
+      else if (inputY !== 0) player.direction = inputY > 0 ? "down" : "up";
+
+      if (canMoveTo(player.x + moveX, player.y)) player.x += moveX;
+      if (canMoveTo(player.x, player.y + moveY)) player.y += moveY;
+      handleMapTransitions();
+
+      player.animTimer += delta;
+      if (player.animTimer > 0.14) {
+        player.frame = (player.frame + 1) % 4;
+        player.animTimer = 0;
+      }
+    } else {
+      player.frame = 0;
+      player.animTimer = 0;
+    }
+
+    updateProjectiles(delta);
+    updateEnemyProjectiles(delta);
+    updateHazards(delta);
+    updateAttack(delta);
+    updateFloatingTexts(delta);
+    updateVisualEffects(delta);
+
+    camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, CAVE_WIDTH - canvas.width);
+    camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, CAVE_HEIGHT - canvas.height);
+
+    playerPositionEl.textContent = getAreaName();
+    updateQuestProgress();
+    updateHud();
+    updateInteractionHint();
+    updateDebugPanel(delta);
+    updateHudToast(delta);
+    if (saveNoticeTimer > 0) saveNoticeTimer = Math.max(0, saveNoticeTimer - delta);
+  };
+
+  const drawMapBeforeCave = drawMap;
+  drawMap = function drawMapCavePatch() {
+    if (currentScene !== "caveInterior") {
+      drawMapBeforeCave();
+      return;
+    }
+    drawCrystalMineMap();
+  };
+
+  function drawCrystalMineMap() {
+    ctx.fillStyle = "#060914";
+    ctx.fillRect(0, 0, CAVE_WIDTH, CAVE_HEIGHT);
+
+    const imageReady = caveBackgroundImage && caveBackgroundImage.complete && caveBackgroundImage.naturalWidth > 0;
+    if (imageReady) {
+      const oldSmoothing = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(caveBackgroundImage, 0, 0, CAVE_WIDTH, CAVE_HEIGHT);
+      ctx.imageSmoothingEnabled = oldSmoothing;
+      drawCaveRailGlow();
+    } else {
+      drawProceduralCaveTiles();
+    }
+
+    drawCaveEntranceClearing();
+    drawCaveAmbientLight();
+  }
+
+  function drawCaveEntranceClearing() {
+    const startX = 4 * TILE;
+    const startY = 34 * TILE;
+    const cols = 19;
+    const rows = 11;
+
+    ctx.fillStyle = "rgba(35, 35, 44, 0.88)";
+    ctx.fillRect(startX, startY, cols * TILE, rows * TILE);
+
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const px = startX + x * TILE;
+        const py = startY + y * TILE;
+        const shade = caveHash(x + 20, y + 70, 9) > 0.5 ? "rgba(75, 78, 91, 0.32)" : "rgba(17, 20, 33, 0.22)";
+        ctx.fillStyle = shade;
+        ctx.fillRect(px + 4, py + 7, 20, 5);
+        if ((x + y) % 3 === 0) ctx.fillRect(px + 18, py + 20, 9, 4);
+      }
+    }
+
+    ctx.fillStyle = "rgba(85, 232, 255, 0.12)";
+    ctx.fillRect(startX + 2 * TILE, startY + 3 * TILE, 12 * TILE, 5 * TILE);
+    ctx.fillStyle = "rgba(255, 170, 64, 0.13)";
+    ctx.fillRect(startX + TILE, startY + 4 * TILE, 5 * TILE, 4 * TILE);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
+    ctx.fillRect(startX, startY + rows * TILE - 10, cols * TILE, 10);
+  }
+
+  function drawProceduralCaveTiles() {
+    const startCol = Math.floor(camera.x / TILE) - 1;
+    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const startRow = Math.floor(camera.y / TILE) - 1;
+    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+
+    for (let y = startRow; y <= endRow; y++) {
+      for (let x = startCol; x <= endCol; x++) {
+        if (x < 0 || y < 0 || x >= CAVE_COLS || y >= CAVE_ROWS) continue;
+        const tile = caveTileAt(x, y);
+        const px = x * TILE;
+        const py = y * TILE;
+        if (tile === CAVE_TILE.WALL) drawCaveWallTile(px, py, x, y);
+        else if (tile === CAVE_TILE.WATER) drawCaveWaterTile(px, py, x, y);
+        else if (tile === CAVE_TILE.RAIL) drawCaveRailTile(px, py, x, y);
+        else drawCaveFloorTile(px, py, x, y);
+      }
+    }
+  }
+
+  function caveHash(x, y, salt = 0) {
+    const raw = Math.sin(x * 72.13 + y * 137.91 + salt * 31.37) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function drawCaveFloorTile(x, y, tx, ty) {
+    const h = caveHash(tx, ty, 1);
+    ctx.fillStyle = h < 0.5 ? "#2b2b34" : "#24242d";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "rgba(196, 178, 150, 0.14)";
+    if (caveHash(tx, ty, 2) > 0.45) ctx.fillRect(x + 5, y + 9, 9, 3);
+    if (caveHash(tx, ty, 3) > 0.65) ctx.fillRect(x + 20, y + 20, 7, 3);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
+    ctx.fillRect(x, y + TILE - 3, TILE, 3);
+  }
+
+  function drawCaveWallTile(x, y, tx, ty) {
+    ctx.fillStyle = caveHash(tx, ty, 4) < 0.5 ? "#171923" : "#1f2029";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "#34313a";
+    ctx.fillRect(x + 4, y + 8, 12, 5);
+    ctx.fillRect(x + 18, y + 19, 10, 5);
+    ctx.fillStyle = "rgba(255, 225, 169, 0.08)";
+    if (caveHash(tx, ty, 5) > 0.72) ctx.fillRect(x + 10, y + 4, 9, 3);
+  }
+
+  function drawCaveWaterTile(x, y, tx, ty) {
+    const wave = Math.sin(performance.now() / 380 + tx * 0.6 + ty * 0.35) * 2;
+    ctx.fillStyle = tx % 2 ? "#10405c" : "#123b55";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "rgba(85, 232, 255, 0.55)";
+    ctx.fillRect(x + 4, y + 9 + wave, 12, 2);
+    ctx.fillRect(x + 18, y + 20 - wave, 9, 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.28)";
+    ctx.fillRect(x, y + 27, TILE, 5);
+  }
+
+  function drawCaveRailTile(x, y, tx, ty) {
+    drawCaveFloorTile(x, y, tx, ty);
+    ctx.fillStyle = "#4a2f24";
+    ctx.fillRect(x + 2, y + 12, TILE - 4, 3);
+    ctx.fillRect(x + 2, y + 20, TILE - 4, 3);
+    ctx.fillStyle = "#9b6a3d";
+    ctx.fillRect(x + 8, y + 10, 4, 16);
+    ctx.fillRect(x + 22, y + 10, 4, 16);
+  }
+
+  function drawCaveRailGlow() {
+    const t = performance.now() / 1000;
+    const glow = 0.10 + Math.sin(t * 2) * 0.03;
+    const lights = [[12, 37], [37, 16], [57, 17], [72, 37], [98, 33], [84, 34]];
+    for (const [tx, ty] of lights) {
+      const x = tx * TILE;
+      const y = ty * TILE;
+      if (x < camera.x - 120 || x > camera.x + canvas.width + 120 || y < camera.y - 120 || y > camera.y + canvas.height + 120) continue;
+      const grad = ctx.createRadialGradient(x + 16, y + 16, 4, x + 16, y + 16, 90);
+      grad.addColorStop(0, `rgba(85, 232, 255, ${glow + 0.10})`);
+      grad.addColorStop(0.52, `rgba(132, 79, 255, ${glow})`);
+      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(x - 86, y - 86, 204, 204);
+    }
+  }
+
+  function drawCaveAmbientLight() {
+    const t = performance.now() / 1000;
+    const step = isMobile ? 2 : 1;
+    for (let i = 0; i < caveParticles.length; i += step) {
+      const particle = caveParticles[i];
+      const px = particle.x + Math.sin(t * particle.speed + particle.phase) * 18;
+      const py = particle.y + Math.cos(t * particle.speed + particle.phase) * 12;
+      if (px < camera.x - 8 || px > camera.x + canvas.width + 8 || py < camera.y - 8 || py > camera.y + canvas.height + 8) continue;
+      ctx.fillStyle = particle.size === 1 ? "rgba(85, 232, 255, 0.34)" : "rgba(255, 242, 100, 0.26)";
+      ctx.fillRect(px, py, particle.size, particle.size);
+    }
+
+    const gradient = ctx.createRadialGradient(
+      player.x + player.width / 2,
+      player.y + player.height / 2,
+      140,
+      player.x + player.width / 2,
+      player.y + player.height / 2,
+      isMobile ? 540 : 720
+    );
+    gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+    gradient.addColorStop(0.72, "rgba(4, 6, 14, 0.22)");
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0.58)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+  }
+
+  const drawObjectBeforeCave = drawObject;
+  drawObject = function drawObjectCavePatch(obj) {
+    if (obj?.type === "caveExit") return drawCaveExit(obj);
+    if (obj?.type === "caveChest") return drawCaveChest(obj);
+    if (obj?.type === "caveFeature") return drawCaveFeature(obj);
+    if (obj?.type === "caveExteriorFeature") return drawCaveExteriorFeature(obj);
+    return drawObjectBeforeCave(obj);
+  };
+
+  const drawCaveBeforePatch = drawCave;
+  drawCave = function drawCaveExteriorPatch(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const t = performance.now() / 1000;
+    const flicker = 0.65 + Math.sin(t * 8) * 0.12 + Math.sin(t * 17) * 0.06;
+
+    ctx.fillStyle = "rgba(9, 11, 24, 0.36)";
+    ctx.fillRect(x - 12, y + obj.height - 4, obj.width + 24, 14);
+
+    ctx.fillStyle = "#1b2231";
+    ctx.fillRect(x - 10, y + 30, obj.width + 20, obj.height - 16);
+    ctx.fillStyle = "#2d3143";
+    ctx.fillRect(x - 2, y + 14, obj.width + 4, 30);
+    ctx.fillStyle = "#4d5268";
+    ctx.fillRect(x + 10, y + 6, obj.width - 20, 16);
+    ctx.fillStyle = "#7d8295";
+    ctx.fillRect(x + 18, y + 12, 11, 8);
+    ctx.fillRect(x + obj.width - 32, y + 16, 9, 7);
+    ctx.fillRect(x + 44, y + 5, 16, 5);
+
+    ctx.fillStyle = "#1a0f1f";
+    ctx.fillRect(x + 24, y + 34, obj.width - 48, 38);
+    ctx.fillStyle = "#050612";
+    ctx.fillRect(x + 31, y + 41, obj.width - 62, 31);
+
+    ctx.fillStyle = "#7a4b2e";
+    ctx.fillRect(x + 18, y + 30, 8, 42);
+    ctx.fillRect(x + obj.width - 26, y + 30, 8, 42);
+    ctx.fillRect(x + 16, y + 28, obj.width - 32, 8);
+    ctx.fillStyle = "#3b241c";
+    ctx.fillRect(x + 20, y + 33, 4, 37);
+    ctx.fillRect(x + obj.width - 24, y + 33, 4, 37);
+
+    drawCaveCrystalCluster(x - 5, y + 54, "#55e8ff", "#e9ffff");
+    drawCaveCrystalCluster(x + obj.width - 16, y + 52, "#9d67ff", "#fff3ff");
+    drawSmallTorch(x + 10, y + 38, flicker);
+    drawSmallTorch(x + obj.width - 18, y + 38, flicker * 0.9);
+
+    ctx.fillStyle = `rgba(85, 232, 255, ${0.10 * flicker})`;
+    ctx.fillRect(x + 25, y + 30, obj.width - 50, 42);
+
+    ctx.fillStyle = "rgba(255, 242, 100, 0.92)";
+    ctx.font = "700 10px 'Trebuchet MS', Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("MINA", x + obj.width / 2, y + 18);
+    ctx.textAlign = "left";
+  };
+
+  function drawSmallTorch(x, y, flicker) {
+    ctx.fillStyle = "#4b2d20";
+    ctx.fillRect(x + 5, y + 12, 5, 18);
+    ctx.fillStyle = `rgba(255, 170, 64, ${0.20 * flicker})`;
+    ctx.fillRect(x - 8, y - 8, 30, 30);
+    ctx.fillStyle = "#ff9f40";
+    ctx.fillRect(x + 2, y + 3, 11, 11);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 5, y, 5, 8);
+  }
+
+  function drawCaveCrystalCluster(x, y, color, light) {
+    ctx.fillStyle = "#101524";
+    ctx.fillRect(x - 2, y + 21, 34, 6);
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 3, y + 9, 8, 17);
+    ctx.fillRect(x + 14, y, 10, 26);
+    ctx.fillRect(x + 24, y + 12, 6, 14);
+    ctx.fillStyle = light;
+    ctx.fillRect(x + 17, y + 4, 3, 8);
+    ctx.fillRect(x + 6, y + 12, 2, 5);
+  }
+
+  function drawCaveExit(obj) {
+    const t = performance.now() / 1000;
+    const x = obj.x;
+    const y = obj.y;
+    ctx.fillStyle = "rgba(0,0,0,0.36)";
+    ctx.fillRect(x + 4, y + 46, obj.width - 8, 10);
+    ctx.fillStyle = "#1a1f3d";
+    ctx.fillRect(x + 8, y + 18, obj.width - 16, 38);
+    ctx.fillStyle = "#050612";
+    ctx.fillRect(x + 18, y + 28, obj.width - 36, 28);
+    ctx.fillStyle = `rgba(85, 232, 255, ${0.28 + Math.sin(t * 3) * 0.08})`;
+    ctx.fillRect(x + 20, y + 30, obj.width - 40, 24);
+    drawSmallTorch(x + 5, y + 14, 0.9);
+    drawSmallTorch(x + obj.width - 18, y + 14, 0.8);
+  }
+
+  function drawCaveChest(obj) {
+    const opened = Boolean(questBook.caveTreasures?.ancientChestOpened);
+    const x = obj.x;
+    const y = obj.y;
+    ctx.fillStyle = "rgba(0,0,0,0.34)";
+    ctx.fillRect(x + 4, y + 25, obj.width - 8, 8);
+    ctx.fillStyle = "#3a241c";
+    ctx.fillRect(x, y + 8, obj.width, 22);
+    ctx.fillStyle = opened ? "#5d5244" : "#9b6a3d";
+    ctx.fillRect(x + 4, y + 4, obj.width - 8, 18);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + obj.width / 2 - 4, y + 14, 8, 8);
+    if (!opened) {
+      ctx.fillStyle = "rgba(85, 232, 255, 0.32)";
+      ctx.fillRect(x - 6, y, obj.width + 12, 32);
+    }
+  }
+
+  function drawCaveFeature(obj) {
+    if (obj.kind === "blueCrystal") return drawCaveCrystalCluster(obj.x, obj.y, "#55e8ff", "#e9ffff");
+    if (obj.kind === "purpleCrystal") return drawCaveCrystalCluster(obj.x, obj.y, "#9d67ff", "#fff3ff");
+    if (obj.kind === "greenCrystal") return drawCaveCrystalCluster(obj.x, obj.y, "#5fffb1", "#e9ffff");
+    if (obj.kind === "exitTorch") return drawSmallTorch(obj.x, obj.y, 0.95);
+    if (obj.kind === "torchCluster") {
+      drawSmallTorch(obj.x, obj.y, 0.9);
+      drawSmallTorch(obj.x + 18, obj.y + 2, 0.82);
+      return;
+    }
+    if (obj.kind === "barrels") return drawCaveBarrels(obj);
+    if (obj.kind === "mineCart") return drawMineCart(obj);
+    if (obj.kind === "ancientDoor") return drawAncientDoor(obj);
+    if (obj.kind === "railSwitch") return drawRailSwitch(obj);
+    if (obj.kind === "glowPond") return drawGlowPond(obj);
+    if (obj.kind === "hangingBridge") return drawHangingBridge(obj);
+    if (obj.kind === "mushrooms") return drawGlowMushrooms(obj);
+    if (obj.kind === "stalagmites") return drawStalagmites(obj);
+    if (obj.kind === "waterSign" || obj.kind === "treasureSign") return drawCaveSign(obj);
+  }
+
+  function drawCaveExteriorFeature(obj) {
+    if (obj.kind === "marker") return;
+    if (obj.kind === "torch") return drawSmallTorch(obj.x, obj.y, 0.95);
+    if (obj.kind === "blueCrystal") return drawCaveCrystalCluster(obj.x, obj.y, "#55e8ff", "#e9ffff");
+    if (obj.kind === "purpleCrystal") return drawCaveCrystalCluster(obj.x, obj.y, "#9d67ff", "#fff3ff");
+    if (obj.kind === "mineSign") return drawCaveSign(obj);
+    if (obj.kind === "stonePath") {
+      ctx.fillStyle = "rgba(39, 48, 82, 0.24)";
+      ctx.fillRect(obj.x, obj.y + 8, obj.width, 12);
+      ctx.fillStyle = "#9ba1ad";
+      for (let i = 0; i < 5; i++) ctx.fillRect(obj.x + 8 + i * 18, obj.y + 10 + (i % 2) * 4, 12, 5);
+    }
+  }
+
+  function drawCaveBarrels(obj) {
+    for (let i = 0; i < 3; i++) {
+      const x = obj.x + i * 14;
+      ctx.fillStyle = "#2b1b16";
+      ctx.fillRect(x, obj.y + 9, 12, 17);
+      ctx.fillStyle = "#8b5736";
+      ctx.fillRect(x + 2, obj.y + 7, 8, 20);
+      ctx.fillStyle = "#c4935a";
+      ctx.fillRect(x + 2, obj.y + 12, 8, 2);
+      ctx.fillRect(x + 2, obj.y + 21, 8, 2);
+    }
+  }
+
+  function drawMineCart(obj) {
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(obj.x + 2, obj.y + 24, obj.width - 4, 8);
+    ctx.fillStyle = "#161b2a";
+    ctx.fillRect(obj.x + 4, obj.y + 8, obj.width - 8, 18);
+    ctx.fillStyle = "#4b5366";
+    ctx.fillRect(obj.x + 8, obj.y + 4, obj.width - 16, 16);
+    ctx.fillStyle = "#070915";
+    ctx.fillRect(obj.x + 9, obj.y + 24, 8, 8);
+    ctx.fillRect(obj.x + obj.width - 17, obj.y + 24, 8, 8);
+    ctx.fillStyle = "#9ba1ad";
+    ctx.fillRect(obj.x + 12, obj.y + 26, 4, 4);
+    ctx.fillRect(obj.x + obj.width - 14, obj.y + 26, 4, 4);
+  }
+
+  function drawAncientDoor(obj) {
+    ctx.fillStyle = "rgba(0,0,0,0.48)";
+    ctx.fillRect(obj.x - 6, obj.y + obj.height - 8, obj.width + 12, 12);
+    ctx.fillStyle = "#171923";
+    ctx.fillRect(obj.x, obj.y + 8, obj.width, obj.height - 8);
+    ctx.fillStyle = "#4b5366";
+    ctx.fillRect(obj.x + 8, obj.y, obj.width - 16, 16);
+    ctx.fillStyle = "#090b16";
+    ctx.fillRect(obj.x + 28, obj.y + 22, obj.width - 56, obj.height - 22);
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(obj.x + obj.width / 2 - 3, obj.y + 30, 6, 18);
+    ctx.fillStyle = "rgba(85, 232, 255, 0.16)";
+    ctx.fillRect(obj.x + 20, obj.y + 16, obj.width - 40, obj.height - 18);
+  }
+
+  function drawRailSwitch(obj) {
+    ctx.fillStyle = "#583721";
+    ctx.fillRect(obj.x + 4, obj.y + 18, 26, 5);
+    ctx.fillStyle = "#9b6a3d";
+    ctx.fillRect(obj.x + 16, obj.y + 4, 5, 20);
+    ctx.fillStyle = "#d24c63";
+    ctx.fillRect(obj.x + 13, obj.y, 11, 8);
+  }
+
+  function drawGlowPond(obj) {
+    const wave = Math.sin(performance.now() / 360) * 2;
+    ctx.fillStyle = "rgba(7, 12, 30, 0.72)";
+    ctx.fillRect(obj.x, obj.y + 8, obj.width, obj.height - 10);
+    ctx.fillStyle = "rgba(85, 232, 255, 0.42)";
+    ctx.fillRect(obj.x + 8, obj.y + 18 + wave, obj.width - 18, 3);
+    ctx.fillRect(obj.x + 18, obj.y + 29 - wave, obj.width - 34, 3);
+  }
+
+  function drawHangingBridge(obj) {
+    ctx.fillStyle = "#4b2d20";
+    ctx.fillRect(obj.x, obj.y + 8, obj.width, 6);
+    ctx.fillStyle = "#9b6a3d";
+    for (let x = obj.x + 4; x < obj.x + obj.width - 4; x += 14) ctx.fillRect(x, obj.y + 2, 8, 20);
+  }
+
+  function drawGlowMushrooms(obj) {
+    for (let i = 0; i < 4; i++) {
+      const x = obj.x + 4 + i * 8;
+      const y = obj.y + 10 + (i % 2) * 4;
+      ctx.fillStyle = "#23567a";
+      ctx.fillRect(x + 3, y + 8, 3, 10);
+      ctx.fillStyle = "#55e8ff";
+      ctx.fillRect(x, y + 4, 10, 6);
+      ctx.fillStyle = "rgba(85,232,255,0.28)";
+      ctx.fillRect(x - 4, y, 18, 16);
+    }
+  }
+
+  function drawStalagmites(obj) {
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    ctx.fillRect(obj.x, obj.y + obj.height - 8, obj.width, 8);
+    ctx.fillStyle = "#4b5366";
+    ctx.fillRect(obj.x + 4, obj.y + 18, 8, obj.height - 18);
+    ctx.fillRect(obj.x + 19, obj.y + 6, 10, obj.height - 6);
+    ctx.fillRect(obj.x + 34, obj.y + 22, 8, obj.height - 22);
+    ctx.fillStyle = "#9ba1ad";
+    ctx.fillRect(obj.x + 21, obj.y + 9, 5, 11);
+  }
+
+  function drawCaveSign(obj) {
+    ctx.fillStyle = "#4b2d20";
+    ctx.fillRect(obj.x + obj.width / 2 - 3, obj.y + 10, 6, 18);
+    ctx.fillStyle = "#9b6a3d";
+    ctx.fillRect(obj.x, obj.y, obj.width, 13);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(obj.x + 4, obj.y + 4, obj.width - 8, 3);
+  }
+
+  const drawMiniMapBeforeCave = drawMiniMap;
+  drawMiniMap = function drawMiniMapCavePatch() {
+    if (currentScene !== "caveInterior") {
+      drawMiniMapBeforeCave();
+      return;
+    }
+
+    miniCtx.clearRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+    miniCtx.fillStyle = "#070914";
+    miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+    const sx = miniMapCanvas.width / CAVE_WIDTH;
+    const sy = miniMapCanvas.height / CAVE_HEIGHT;
+
+    for (let y = 0; y < CAVE_ROWS; y++) {
+      for (let x = 0; x < CAVE_COLS; x++) {
+        const tile = caveTileAt(x, y);
+        if (tile === CAVE_TILE.FLOOR || tile === CAVE_TILE.RAIL) miniCtx.fillStyle = "#3b3a45";
+        else if (tile === CAVE_TILE.WATER) miniCtx.fillStyle = "#236d94";
+        else continue;
+        miniCtx.fillRect(x * TILE * sx, y * TILE * sy, Math.ceil(TILE * sx), Math.ceil(TILE * sy));
+      }
+    }
+
+    miniCtx.fillStyle = "#55e8ff";
+    for (const obj of caveObjects) {
+      if (obj.type === "caveFeature" && obj.kind.includes("Crystal")) miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 5, 5);
+    }
+    miniCtx.fillStyle = "#fff264";
+    for (const obj of caveObjects) {
+      if (obj.type === "caveExit" || obj.type === "caveChest") miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 6, 6);
+    }
+    miniCtx.fillStyle = "#d24c63";
+    miniCtx.fillRect(player.x * sx - 3, player.y * sy - 3, 7, 7);
+  };
+
+  function openCrystalMineChest() {
+    ensureCaveQuestState();
+    if (questBook.caveTreasures.ancientChestOpened) {
+      return "Bau antigo: ele ja foi aberto. So restou um brilho azul na madeira.";
+    }
+    questBook.caveTreasures.ancientChestOpened = true;
+    inventory.moedas += 35;
+    inventory.pocoes += 1;
+    inventory.flechas += 12;
+    inventory.manaOrbes += 1;
+    player.mana = player.maxMana;
+    awardXp(260, "Bau da Mina Cristalina");
+    playSound("chest");
+    updateHud();
+    renderInventory();
+    return "Bau antigo aberto! Voce recebeu 35 moedas, 1 pocao, 12 flechas, 1 orbe de mana e XP.";
+  }
+
+  const getQuestMessageBeforeCave = getQuestMessage;
+  getQuestMessage = function getQuestMessageCavePatch(obj) {
+    if (obj?.type === "cave") {
+      enterCrystalMine();
+      return "";
+    }
+    if (obj?.type === "caveExit") {
+      exitCrystalMine();
+      return "";
+    }
+    if (obj?.type === "caveChest") return openCrystalMineChest();
+    if (obj?.type === "caveFeature" || obj?.type === "caveExteriorFeature") {
+      if (obj.kind === "railSwitch") {
+        playSound("click");
+        spawnFloatingText("Clac!", obj.x, obj.y - 10, "#fff264");
+      }
+      return obj.message || "Voce observou os detalhes da caverna.";
+    }
+    return getQuestMessageBeforeCave(obj);
+  };
+
+  const updateInteractionHintBeforeCave = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintCavePatch() {
+    updateInteractionHintBeforeCave();
+    try {
+      const target = findInteraction();
+      if (!target || dialogOpen || shopOpen) return;
+      if (target.type === "cave") {
+        interactionHint.textContent = "Pressione E ou clique para entrar na caverna";
+        if (touchContextLabel) touchContextLabel.textContent = "Entrar";
+      } else if (target.type === "caveExit") {
+        interactionHint.textContent = "Pressione E para sair da caverna";
+        if (touchContextLabel) touchContextLabel.textContent = "Sair";
+      } else if (target.type === "caveChest") {
+        interactionHint.textContent = "Pressione E para abrir o bau antigo";
+        if (touchContextLabel) touchContextLabel.textContent = "Abrir";
+      } else if (target.type === "caveFeature" || target.type === "caveExteriorFeature") {
+        interactionHint.textContent = "Pressione E para observar";
+        if (touchContextLabel) touchContextLabel.textContent = "Olhar";
+      }
+    } catch (error) {}
+  };
+
+  const getCompactMissionTextBeforeCave = getCompactMissionText;
+  getCompactMissionText = function getCompactMissionTextCavePatch() {
+    if (currentScene === "caveInterior") {
+      return questBook.caveTreasures?.ancientChestOpened ? "Mina: bau aberto" : "Mina: explore o bau";
+    }
+    return getCompactMissionTextBeforeCave();
+  };
+
+  function getCanvasWorldPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (event.clientX - rect.left) * scaleX + camera.x,
+      y: (event.clientY - rect.top) * scaleY + camera.y
+    };
+  }
+
+  function isPlayerCloseToCave(caveObj) {
+    const px = player.x + player.width / 2;
+    const py = player.y + player.height / 2;
+    const cx = caveObj.x + caveObj.width / 2;
+    const cy = caveObj.y + caveObj.height / 2;
+    return Math.hypot(px - cx, py - cy) <= TILE * 5.5;
+  }
+
+  function tryEnterCaveFromPointer(event) {
+    if (!gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen || dialogOpen) return false;
+    if (currentScene !== "village") return false;
+    const caveObj = villageObjects.find((obj) => obj.type === "cave");
+    if (!caveObj) return false;
+    const point = getCanvasWorldPoint(event);
+    const clickRect = { x: point.x - 6, y: point.y - 6, width: 12, height: 12 };
+    if (!rectsOverlap(clickRect, caveObj)) return false;
+    if (!isPlayerCloseToCave(caveObj)) {
+      showHudToast("Chegue mais perto da entrada da caverna.");
+      return true;
+    }
+    enterCrystalMine();
+    return true;
+  }
+
+  canvas.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    if (!tryEnterCaveFromPointer(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse") return;
+    if (!tryEnterCaveFromPointer(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+})();
+
+/* ==================================================
+   Patch: Conteudo vivo da Mina Cristalina
+   - inimigos dentro da caverna
+   - minerios coletaveis
+   - missoes de NPCs ligadas aos recursos da mina
+   ================================================== */
+(function crystalMineAdvancedContentPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_CAVE_ADVANCED_CONTENT_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_CAVE_ADVANCED_CONTENT_PATCH = true;
+
+  const CAVE_SCENE = "caveInterior";
+  const CAVE_CONTENT_MARKER = "advancedCaveContentV1";
+  const CAVE_ENEMY_COUNT_GOAL = 5;
+
+  const ORE_DEFS = {
+    iron: {
+      name: "Ferro Sombrio",
+      invKey: "caveFerroSombrio",
+      icon: "Fe",
+      color: "#8a8da2",
+      core: "#e0e3ec",
+      rewardText: "Ferro Sombrio",
+      rarity: "incomum"
+    },
+    blue: {
+      name: "Cristal Azul",
+      invKey: "caveCristalAzul",
+      icon: "Az",
+      color: "#3f8fe5",
+      core: "#e9ffff",
+      rewardText: "Cristal Azul",
+      rarity: "raro"
+    },
+    amethyst: {
+      name: "Ametista Lunar",
+      invKey: "caveAmetistaLunar",
+      icon: "Am",
+      color: "#9d67ff",
+      core: "#fff3ff",
+      rewardText: "Ametista Lunar",
+      rarity: "epico"
+    },
+    gold: {
+      name: "Ouro Antigo",
+      invKey: "caveOuroAntigo",
+      icon: "Au",
+      color: "#f5ce79",
+      core: "#fff264",
+      rewardText: "Ouro Antigo",
+      rarity: "raro"
+    }
+  };
+
+  function ensureAdvancedCaveState() {
+    if (!questBook.caveAdvanced || typeof questBook.caveAdvanced !== "object") {
+      questBook.caveAdvanced = {};
+    }
+    const state = questBook.caveAdvanced;
+    if (!state.oresMined || typeof state.oresMined !== "object") state.oresMined = {};
+    if (!state.enemiesDefeated || typeof state.enemiesDefeated !== "object") state.enemiesDefeated = {};
+    if (!state.npcQuests || typeof state.npcQuests !== "object") state.npcQuests = {};
+    for (const key of ["miner", "scholar", "guard"]) {
+      if (!state.npcQuests[key] || typeof state.npcQuests[key] !== "object") {
+        state.npcQuests[key] = { status: "notStarted" };
+      }
+      if (!["notStarted", "active", "done"].includes(state.npcQuests[key].status)) {
+        state.npcQuests[key].status = "notStarted";
+      }
+    }
+    if (!Number.isFinite(state.caveEnemiesDefeated)) state.caveEnemiesDefeated = Object.keys(state.enemiesDefeated).length;
+    state.caveEnemiesDefeated = Math.max(state.caveEnemiesDefeated, Object.keys(state.enemiesDefeated).length);
+
+    for (const def of Object.values(ORE_DEFS)) {
+      if (!Number.isFinite(inventory[def.invKey])) inventory[def.invKey] = 0;
+    }
+  }
+
+  function caveOre(tileX, tileY, oreType) {
+    const def = ORE_DEFS[oreType] || ORE_DEFS.iron;
+    return {
+      type: "caveOre",
+      kind: oreType,
+      oreType,
+      x: tileX * TILE + 6,
+      y: tileY * TILE + 8,
+      width: 26,
+      height: 28,
+      solid: false,
+      depleted: false,
+      message: `Minerio de ${def.name}: pressione E para minerar.`
+    };
+  }
+
+  function makeCaveEnemy(tileX, tileY, kind, options = {}) {
+    const obj = options.boss ? boss(tileX, tileY, kind) : enemy(tileX, tileY, kind);
+    obj.caveEnemy = true;
+    obj.aggroRange = options.aggroRange || Math.max(obj.aggroRange || 210, 290);
+    obj.attackRange = options.attackRange || obj.attackRange;
+    obj.coinReward = options.coinReward || obj.coinReward;
+    obj.coinsReward = obj.coinReward;
+    obj.xpReward = options.xpReward || obj.xpReward;
+    obj.message = options.message || "";
+    return obj;
+  }
+
+  function makeAdvancedCaveObjects() {
+    return [
+      { type: "caveAdvancedMarker", role: CAVE_CONTENT_MARKER, x: 0, y: 0, width: 1, height: 1, solid: false },
+
+      npc(8, 36, "Roan", "Roan: Preciso de Ferro Sombrio para reforcar os trilhos da mina.", "caveMinerQuest"),
+      npc(48, 33, "Luma", "Luma: Os cristais daqui cantam baixinho. Preciso estudar alguns fragmentos.", "caveScholarQuest"),
+      npc(96, 30, "Teo", "Teo: A rota do fundo esta perigosa. Afaste os monstros da Mina Cristalina.", "caveGuardQuest"),
+
+      caveOre(20, 37, "blue"),
+      caveOre(32, 35, "iron"),
+      caveOre(42, 17, "amethyst"),
+      caveOre(55, 22, "iron"),
+      caveOre(63, 30, "gold"),
+      caveOre(72, 37, "blue"),
+      caveOre(80, 16, "amethyst"),
+      caveOre(100, 18, "iron"),
+      caveOre(108, 32, "gold"),
+
+      makeCaveEnemy(25, 31, "morcego", { coinReward: 5, xpReward: 45 }),
+      makeCaveEnemy(39, 34, "slimeAzul", { coinReward: 7, xpReward: 55 }),
+      makeCaveEnemy(50, 17, "aranha", { coinReward: 6, xpReward: 50 }),
+      makeCaveEnemy(61, 30, "golemPedra", { coinReward: 10, xpReward: 80 }),
+      makeCaveEnemy(77, 34, "fantasma", { coinReward: 9, xpReward: 75 }),
+      makeCaveEnemy(94, 31, "magoSombrio", { coinReward: 12, xpReward: 90, attackRange: 245 }),
+      makeCaveEnemy(102, 18, "morcego", { coinReward: 6, xpReward: 55 }),
+      makeCaveEnemy(106, 35, "miniGuardiao", { boss: true, coinReward: 24, xpReward: 260, aggroRange: 360, attackRange: 95 })
+    ];
+  }
+
+  function syncAdvancedCaveObjects() {
+    if (currentScene !== CAVE_SCENE || !Array.isArray(objects)) return;
+    ensureAdvancedCaveState();
+
+    if (!objects.some((obj) => obj?.type === "caveAdvancedMarker" && obj.role === CAVE_CONTENT_MARKER)) {
+      objects.push(...makeAdvancedCaveObjects());
+    }
+
+    for (const obj of objects) {
+      if (obj?.type === "caveOre") {
+        obj.depleted = Boolean(questBook.caveAdvanced.oresMined[getSaveObjectKey(obj)]);
+      }
+      if (obj?.type === "enemy" && obj.caveEnemy) {
+        const defeated = Boolean(questBook.caveAdvanced.enemiesDefeated[getSaveObjectKey(obj)]);
+        obj.alive = !defeated;
+        if (!obj.alive) obj.hp = 0;
+      }
+    }
+
+    interactables = objects.filter((obj) => obj.message || obj.type === "caveOre" || obj.type === "npc");
+  }
+
+  const setActiveSceneBeforeAdvancedCave = setActiveScene;
+  setActiveScene = function setActiveSceneAdvancedCavePatch(scene) {
+    setActiveSceneBeforeAdvancedCave(scene);
+    if (scene === CAVE_SCENE) syncAdvancedCaveObjects();
+  };
+
+  const normalizeRuntimeStateBeforeAdvancedCave = normalizeRuntimeState;
+  normalizeRuntimeState = function normalizeRuntimeStateAdvancedCavePatch() {
+    normalizeRuntimeStateBeforeAdvancedCave();
+    ensureAdvancedCaveState();
+    if (currentScene === CAVE_SCENE) syncAdvancedCaveObjects();
+  };
+
+  const resetProgressBeforeAdvancedCave = resetProgressForNewGame;
+  resetProgressForNewGame = function resetProgressAdvancedCavePatch(name) {
+    resetProgressBeforeAdvancedCave(name);
+    delete questBook.caveAdvanced;
+    for (const def of Object.values(ORE_DEFS)) inventory[def.invKey] = 0;
+    ensureAdvancedCaveState();
+  };
+
+  function giveCaveReward({ coins = 0, potions = 0, arrows = 0, manaOrbs = 0, rareKeys = 0, xp = 0, label = "Missao da Mina" }) {
+    inventory.moedas += coins;
+    inventory.pocoes += potions;
+    inventory.flechas += arrows;
+    inventory.manaOrbes += manaOrbs;
+    inventory.chavesRaras += rareKeys;
+    if (xp > 0) awardXp(xp, label);
+    player.mana = Math.min(player.maxMana, player.mana + manaOrbs + 2);
+    playSound("mission");
+    updateHud();
+    renderInventory();
+  }
+
+  function mineCaveOre(obj) {
+    ensureAdvancedCaveState();
+    const key = getSaveObjectKey(obj);
+    const def = ORE_DEFS[obj.oreType] || ORE_DEFS.iron;
+    if (questBook.caveAdvanced.oresMined[key] || obj.depleted) {
+      return `${def.name}: esta jazida ja foi minerada. Restou so poeira brilhante.`;
+    }
+
+    questBook.caveAdvanced.oresMined[key] = true;
+    obj.depleted = true;
+    const amount = obj.oreType === "gold" ? 1 : 1 + (Math.random() < 0.35 ? 1 : 0);
+    inventory[def.invKey] += amount;
+    if (obj.oreType === "gold") inventory.moedas += 6;
+    if (obj.oreType === "blue") inventory.fragmentos += 1;
+    spawnFloatingText(`+${amount} ${def.rewardText}`, obj.x, obj.y - 12, def.core);
+    playSound("crystal");
+    awardXp(obj.oreType === "gold" || obj.oreType === "amethyst" ? 55 : 35, "Minerio coletado");
+    updateHud();
+    renderInventory();
+
+    const extra = obj.oreType === "gold" ? " Tambem caiu 6 moedas antigas." : obj.oreType === "blue" ? " Um fragmento brilhante caiu junto." : "";
+    return `Voce minerou ${amount}x ${def.name}.${extra}`;
+  }
+
+  function handleMinerQuest() {
+    ensureAdvancedCaveState();
+    const questState = questBook.caveAdvanced.npcQuests.miner;
+    const hasIron = Number(inventory.caveFerroSombrio || 0);
+    if (questState.status === "notStarted") {
+      questState.status = "active";
+      return "Roan: Os trilhos vao desabar se eu nao reforcar a curva leste. Traga 4 Ferros Sombrios das rochas cinzas da mina.";
+    }
+    if (questState.status === "active") {
+      if (hasIron >= 4) {
+        inventory.caveFerroSombrio -= 4;
+        questState.status = "done";
+        giveCaveReward({ coins: 40, potions: 1, xp: 220, label: "Trilhos reforcados" });
+        return "Roan: Perfeito! Com esse ferro eu seguro os trilhos. Recompensa: 40 moedas, 1 pocao e XP.";
+      }
+      return `Roan: Ainda falta Ferro Sombrio. Progresso: ${hasIron}/4.`;
+    }
+    return "Roan: Os trilhos estao firmes agora. A mina respira melhor quando alguem cuida dela.";
+  }
+
+  function handleScholarQuest() {
+    ensureAdvancedCaveState();
+    const questState = questBook.caveAdvanced.npcQuests.scholar;
+    const blue = Number(inventory.caveCristalAzul || 0);
+    const amethyst = Number(inventory.caveAmetistaLunar || 0);
+    if (questState.status === "notStarted") {
+      questState.status = "active";
+      return "Luma: Para entender a luz da Mina Cristalina, preciso de 3 Cristais Azuis e 2 Ametistas Lunares.";
+    }
+    if (questState.status === "active") {
+      if (blue >= 3 && amethyst >= 2) {
+        inventory.caveCristalAzul -= 3;
+        inventory.caveAmetistaLunar -= 2;
+        questState.status = "done";
+        player.maxMana += 1;
+        player.mana = player.maxMana;
+        giveCaveReward({ manaOrbs: 2, xp: 300, label: "Pesquisa cristalina" });
+        return "Luma: Incrivel! Estes cristais cantam a mesma nota do portal. Recompensa: +1 mana maxima, 2 orbes de mana e XP.";
+      }
+      return `Luma: Ainda preciso de materiais. Cristais Azuis: ${blue}/3. Ametistas Lunares: ${amethyst}/2.`;
+    }
+    return "Luma: Minha pesquisa avancou. Os cristais da mina parecem pequenos mapas de estrelas enterradas.";
+  }
+
+  function handleGuardQuest() {
+    ensureAdvancedCaveState();
+    const questState = questBook.caveAdvanced.npcQuests.guard;
+    const defeated = Math.min(CAVE_ENEMY_COUNT_GOAL, Number(questBook.caveAdvanced.caveEnemiesDefeated || 0));
+    if (questState.status === "notStarted") {
+      questState.status = "active";
+      return `Teo: O fundo da mina esta cheio de criaturas. Derrote ${CAVE_ENEMY_COUNT_GOAL} inimigos da caverna para liberar a rota dos mineiros.`;
+    }
+    if (questState.status === "active") {
+      if (defeated >= CAVE_ENEMY_COUNT_GOAL) {
+        questState.status = "done";
+        giveCaveReward({ coins: 55, arrows: 25, rareKeys: 1, xp: 360, label: "Rota da mina segura" });
+        return "Teo: Agora os mineiros conseguem passar! Recompensa: 55 moedas, 25 flechas, 1 chave rara e XP.";
+      }
+      return `Teo: Ainda tem monstros rondando. Inimigos derrotados: ${defeated}/${CAVE_ENEMY_COUNT_GOAL}.`;
+    }
+    return "Teo: A rota esta segura por enquanto. Mas eu nao confiaria demais nos ecos dessa mina.";
+  }
+
+  const getQuestMessageBeforeAdvancedCave = getQuestMessage;
+  getQuestMessage = function getQuestMessageAdvancedCavePatch(obj) {
+    if (obj?.type === "caveOre") return mineCaveOre(obj);
+    if (obj?.role === "caveMinerQuest") return handleMinerQuest();
+    if (obj?.role === "caveScholarQuest") return handleScholarQuest();
+    if (obj?.role === "caveGuardQuest") return handleGuardQuest();
+    return getQuestMessageBeforeAdvancedCave(obj);
+  };
+
+  const defeatEnemyBeforeAdvancedCave = defeatEnemy;
+  defeatEnemy = function defeatEnemyAdvancedCavePatch(obj) {
+    const shouldCount = obj?.type === "enemy" && obj.caveEnemy && !obj.caveDefeatCounted && obj.alive;
+    defeatEnemyBeforeAdvancedCave(obj);
+    if (shouldCount) {
+      ensureAdvancedCaveState();
+      const key = getSaveObjectKey(obj);
+      if (!questBook.caveAdvanced.enemiesDefeated[key]) {
+        questBook.caveAdvanced.enemiesDefeated[key] = true;
+        questBook.caveAdvanced.caveEnemiesDefeated = Object.keys(questBook.caveAdvanced.enemiesDefeated).length;
+        obj.caveDefeatCounted = true;
+        if (questBook.caveAdvanced.npcQuests.guard?.status === "active") {
+          spawnFloatingText(`${Math.min(CAVE_ENEMY_COUNT_GOAL, questBook.caveAdvanced.caveEnemiesDefeated)}/${CAVE_ENEMY_COUNT_GOAL}`, obj.x, obj.y - 34, "#fff264");
+        }
+      }
+    }
+  };
+
+  function updateAdvancedCaveEnemies(delta) {
+    if (currentScene !== CAVE_SCENE || !Array.isArray(objects)) return;
+    ensureAdvancedCaveState();
+    damageCooldown = Math.max(0, damageCooldown - delta);
+    const playerRect = getPlayerRect();
+    const px = player.x + player.width / 2;
+    const py = player.y + player.height / 2;
+
+    for (const obj of objects) {
+      if (obj?.type !== "enemy" || !obj.caveEnemy || !obj.alive) continue;
+      normalizeEnemy(obj);
+      obj.invulnerableTimer = Math.max(0, Number(obj.invulnerableTimer || 0) - delta);
+      obj.attackCooldown = Math.max(0, Number(obj.attackCooldown || 0) - delta);
+      obj.attackTimer = Math.max(0, Number(obj.attackTimer || 0) - delta);
+
+      if (Math.abs(obj.knockbackX || 0) + Math.abs(obj.knockbackY || 0) > 1) {
+        const nextX = obj.x + obj.knockbackX * delta;
+        const nextY = obj.y + obj.knockbackY * delta;
+        if (canEntityMoveTo(obj, nextX, obj.y)) obj.x = nextX;
+        if (canEntityMoveTo(obj, obj.x, nextY)) obj.y = nextY;
+        obj.knockbackX *= 0.84;
+        obj.knockbackY *= 0.84;
+        continue;
+      }
+
+      obj.knockbackX = 0;
+      obj.knockbackY = 0;
+
+      const ex = obj.x + obj.width / 2;
+      const ey = obj.y + obj.height / 2;
+      const dist = Math.hypot(px - ex, py - ey);
+      const spawnDist = Math.hypot(obj.x - obj.spawnX, obj.y - obj.spawnY);
+      const isRanged = Boolean(obj.projectileType) || ["magoSombrio", "fantasma", "miniGuardiao"].includes(obj.kind);
+
+      if (obj.boss) obj.phase = obj.hp <= obj.maxHp * 0.5 ? 2 : 1;
+
+      if (dist < (obj.aggroRange || 300)) {
+        obj.state = "chase";
+        if (isRanged && dist < (obj.attackRange || 230) && obj.attackCooldown <= 0) {
+          if (obj.kind === "miniGuardiao") {
+            fireBossPattern(obj, px, py);
+          } else {
+            fireEnemyProjectile(obj, px, py);
+          }
+          obj.attackCooldown = (obj.attackDelay || 1.1) * (obj.phase === 2 ? 0.72 : 1);
+          obj.state = "attack";
+        }
+
+        if (!isRanged || dist > (obj.attackRange || 90) * 0.62) {
+          let dx = px - ex;
+          let dy = py - ey;
+          if (obj.kind === "morcego") {
+            dx += Math.sin(performance.now() / 230 + obj.spawnX) * 46;
+            dy += Math.cos(performance.now() / 260 + obj.spawnY) * 34;
+          }
+          moveEnemyToward(obj, dx, dy, delta, obj.boss && obj.phase === 2 ? 1.15 : 1);
+        } else if (isRanged && dist < (obj.attackRange || 230) * 0.45) {
+          moveEnemyToward(obj, ex - px, ey - py, delta, 0.72);
+        }
+      } else if (spawnDist > TILE * 2.4) {
+        obj.state = "return";
+        moveEnemyToward(obj, obj.spawnX - obj.x, obj.spawnY - obj.y, delta, 0.72);
+      } else {
+        obj.state = "idle";
+        updateEnemyWander(obj, delta);
+      }
+
+      if (obj.kind === "aranha" && obj.state === "chase" && Math.random() < delta * 0.38) {
+        spawnHazardZone("web", px, py, 30, 2.0, 1);
+      }
+      if ((obj.kind === "golemPedra" || obj.kind === "miniGuardiao") && obj.state === "chase" && Math.random() < delta * 0.14) {
+        spawnHazardZone("slime", ex, ey, 28, 1.5, 1);
+      }
+      if (obj.boss && dist < 120 && obj.attackTimer <= 0) {
+        enemyProjectiles.push({
+          type: "bossWave",
+          x: ex,
+          y: ey,
+          radius: 10,
+          maxRadius: obj.phase === 2 ? 118 : 88,
+          timer: 0.7,
+          damage: obj.damage || 2
+        });
+        obj.attackTimer = (obj.attackDelay || 1.4) + 0.7;
+        playSound("shockwave");
+      }
+      if (rectsOverlap(playerRect, obj) && damageCooldown <= 0) {
+        takeDamage(obj.damage || 1, ex, ey);
+        damageCooldown = Math.max(0.55, obj.attackDelay || 1);
+      }
+    }
+  }
+
+  const updateBeforeAdvancedCave = update;
+  update = function updateAdvancedCavePatch(delta) {
+    updateBeforeAdvancedCave(delta);
+    if (currentScene === CAVE_SCENE && gameStarted && !gameOver && !pauseOpen && !inventoryOpen && !shopOpen) {
+      syncAdvancedCaveObjects();
+      updateAdvancedCaveEnemies(delta);
+      updateQuestProgress();
+      updateInteractionHint();
+    }
+  };
+
+  const getNearestEnemyToPlayerBeforeAdvancedCave = getNearestEnemyToPlayer;
+  getNearestEnemyToPlayer = function getNearestEnemyToPlayerAdvancedCavePatch(maxDistance = 320) {
+    if (currentScene !== CAVE_SCENE) return getNearestEnemyToPlayerBeforeAdvancedCave(maxDistance);
+    let nearest = null;
+    let nearestDistance = maxDistance;
+    const cx = player.x + player.width / 2;
+    const cy = player.y + player.height / 2;
+    for (const obj of objects || []) {
+      if (obj?.type !== "enemy" || !obj.alive) continue;
+      const dist = Math.hypot(obj.x + obj.width / 2 - cx, obj.y + obj.height / 2 - cy);
+      if (dist <= nearestDistance) {
+        nearest = obj;
+        nearestDistance = dist;
+      }
+    }
+    return nearest;
+  };
+
+  const shockwaveBeforeAdvancedCave = shockwave;
+  shockwave = function shockwaveAdvancedCavePatch() {
+    const oldMana = player.mana;
+    const oldCooldown = player.spellCooldowns.shockwave;
+    const oldWaveCount = shockwaves.length;
+    shockwaveBeforeAdvancedCave();
+    if (currentScene !== CAVE_SCENE) return;
+    const didCast = player.mana < oldMana || player.spellCooldowns.shockwave > oldCooldown || shockwaves.length > oldWaveCount;
+    if (!didCast) return;
+    const cx = player.x + player.width / 2;
+    const cy = player.y + player.height / 2;
+    for (const obj of objects || []) {
+      if (obj?.type !== "enemy" || !obj.alive) continue;
+      const dist = Math.hypot(obj.x + obj.width / 2 - cx, obj.y + obj.height / 2 - cy);
+      if (dist <= 78) damageEnemy(obj, 1, cx, cy, 260, "magico");
+    }
+  };
+
+  const updateInteractionHintBeforeAdvancedCave = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintAdvancedCavePatch() {
+    updateInteractionHintBeforeAdvancedCave();
+    if (currentScene !== CAVE_SCENE) return;
+    try {
+      const target = findInteraction();
+      if (!target || dialogOpen || shopOpen) return;
+      if (target.type === "caveOre") {
+        interactionHint.textContent = target.depleted ? "Jazida esgotada" : "Pressione E para minerar";
+        if (touchContextLabel) touchContextLabel.textContent = "Minerar";
+      } else if (target.role === "caveMinerQuest" || target.role === "caveScholarQuest" || target.role === "caveGuardQuest") {
+        interactionHint.textContent = "Pressione E para falar sobre a missao";
+        if (touchContextLabel) touchContextLabel.textContent = "Missao";
+      }
+    } catch (error) {}
+  };
+
+  function getCaveQuestHudText() {
+    ensureAdvancedCaveState();
+    const q = questBook.caveAdvanced.npcQuests;
+    const parts = [];
+    if (q.miner.status === "active") parts.push(`Ferro ${Number(inventory.caveFerroSombrio || 0)}/4`);
+    if (q.scholar.status === "active") parts.push(`Cristais ${Number(inventory.caveCristalAzul || 0)}/3 | Ametistas ${Number(inventory.caveAmetistaLunar || 0)}/2`);
+    if (q.guard.status === "active") parts.push(`Inimigos ${Math.min(CAVE_ENEMY_COUNT_GOAL, Number(questBook.caveAdvanced.caveEnemiesDefeated || 0))}/${CAVE_ENEMY_COUNT_GOAL}`);
+    if (parts.length) return `Mina: ${parts.join(" | ")}`;
+    const doneCount = [q.miner.status, q.scholar.status, q.guard.status].filter((status) => status === "done").length;
+    if (doneCount >= 3) return "Mina: missoes completas";
+    return "Mina: fale com Roan, Luma ou Teo";
+  }
+
+  const getCompactMissionTextBeforeAdvancedCave = getCompactMissionText;
+  getCompactMissionText = function getCompactMissionTextAdvancedCavePatch() {
+    if (currentScene === CAVE_SCENE) return getCaveQuestHudText();
+    return getCompactMissionTextBeforeAdvancedCave();
+  };
+
+  const getInventoryItemsBeforeAdvancedCave = getInventoryItems;
+  getInventoryItems = function getInventoryItemsAdvancedCavePatch() {
+    ensureAdvancedCaveState();
+    const items = getInventoryItemsBeforeAdvancedCave();
+    const addItem = (item) => {
+      if (!item || Number(item.quantity || 0) <= 0) return;
+      items.push({ rarity: "comum", typeLabel: "Minerio", category: "materiais", action: "", effect: "", ...item });
+    };
+    addItem({
+      id: "cave-ferro-sombrio",
+      name: "Ferro Sombrio",
+      icon: "Fe",
+      quantity: Number(inventory.caveFerroSombrio || 0),
+      rarity: "incomum",
+      description: "Minerio escuro usado para reforcar trilhos e equipamentos.",
+      effect: "Roan precisa de 4 unidades para a missao dos trilhos."
+    });
+    addItem({
+      id: "cave-cristal-azul",
+      name: "Cristal Azul",
+      icon: "Az",
+      quantity: Number(inventory.caveCristalAzul || 0),
+      rarity: "raro",
+      description: "Cristal frio que pulsa dentro da Mina Cristalina.",
+      effect: "Luma precisa de 3 unidades para sua pesquisa."
+    });
+    addItem({
+      id: "cave-ametista-lunar",
+      name: "Ametista Lunar",
+      icon: "Am",
+      quantity: Number(inventory.caveAmetistaLunar || 0),
+      rarity: "epico",
+      description: "Minerio roxo que parece guardar luz de outro plano.",
+      effect: "Luma precisa de 2 unidades para concluir a pesquisa."
+    });
+    addItem({
+      id: "cave-ouro-antigo",
+      name: "Ouro Antigo",
+      icon: "Au",
+      quantity: Number(inventory.caveOuroAntigo || 0),
+      rarity: "raro",
+      description: "Pepitas esquecidas por mineradores antigos.",
+      effect: "Material valioso para futuras melhorias e trocas."
+    });
+    return items;
+  };
+
+  const drawObjectBeforeAdvancedCave = drawObject;
+  drawObject = function drawObjectAdvancedCavePatch(obj) {
+    if (obj?.type === "caveOre") return drawCaveOre(obj);
+    if (obj?.type === "caveAdvancedMarker") return;
+    return drawObjectBeforeAdvancedCave(obj);
+  };
+
+  function drawCaveOre(obj) {
+    const def = ORE_DEFS[obj.oreType] || ORE_DEFS.iron;
+    const x = obj.x;
+    const y = obj.y;
+    const depleted = Boolean(obj.depleted);
+    const pulse = 0.18 + Math.sin(performance.now() / 260 + x * 0.01) * 0.06;
+
+    ctx.fillStyle = "rgba(0,0,0,0.36)";
+    ctx.fillRect(x - 3, y + obj.height - 5, obj.width + 6, 8);
+    ctx.fillStyle = depleted ? "#30323d" : "#171923";
+    ctx.fillRect(x + 2, y + 11, 22, 15);
+    ctx.fillRect(x + 7, y + 5, 12, 21);
+
+    if (!depleted) {
+      ctx.fillStyle = `rgba(85, 232, 255, ${obj.oreType === "blue" ? pulse : 0.06})`;
+      ctx.fillRect(x - 8, y - 4, obj.width + 16, obj.height + 10);
+      ctx.fillStyle = def.color;
+      ctx.fillRect(x + 4, y + 11, 5, 15);
+      ctx.fillRect(x + 11, y + 2, 8, 24);
+      ctx.fillRect(x + 20, y + 13, 5, 13);
+      ctx.fillStyle = def.core;
+      ctx.fillRect(x + 13, y + 6, 3, 8);
+      ctx.fillRect(x + 5, y + 14, 2, 5);
+    } else {
+      ctx.fillStyle = "#595b66";
+      ctx.fillRect(x + 8, y + 18, 12, 4);
+      ctx.fillRect(x + 12, y + 10, 6, 4);
+    }
+  }
+
+  const drawMiniMapBeforeAdvancedCave = drawMiniMap;
+  drawMiniMap = function drawMiniMapAdvancedCavePatch() {
+    drawMiniMapBeforeAdvancedCave();
+    if (currentScene !== CAVE_SCENE || !Array.isArray(objects)) return;
+    const sx = miniMapCanvas.width / getSceneWidth();
+    const sy = miniMapCanvas.height / getSceneHeight();
+    for (const obj of objects) {
+      if (obj?.type === "enemy" && obj.alive) {
+        miniCtx.fillStyle = obj.boss ? "#ff4f62" : "#d24c63";
+        miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, obj.boss ? 6 : 4, obj.boss ? 6 : 4);
+      } else if (obj?.type === "caveOre" && !obj.depleted) {
+        miniCtx.fillStyle = ORE_DEFS[obj.oreType]?.core || "#e9ffff";
+        miniCtx.fillRect(obj.x * sx - 1, obj.y * sy - 1, 4, 4);
+      } else if (obj?.type === "npc" && String(obj.role || "").startsWith("cave")) {
+        miniCtx.fillStyle = "#fff264";
+        miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 5, 5);
+      }
+    }
+  };
+
+  ensureAdvancedCaveState();
+  if (currentScene === CAVE_SCENE) syncAdvancedCaveObjects();
+})();
+
+/* Mantem o save dentro da Mina Cristalina em vez de devolver o jogador para a vila. */
+(function crystalMineLoadScenePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_CAVE_LOAD_SCENE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_CAVE_LOAD_SCENE_PATCH = true;
+
+  const loadGameBeforeCaveSceneRestore = loadGame;
+  loadGame = function loadGameCaveSceneRestorePatch() {
+    let parsedSave = null;
+    try {
+      const raw = readSaveRaw();
+      parsedSave = raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      parsedSave = null;
+    }
+
+    const ok = loadGameBeforeCaveSceneRestore();
+    if (ok && parsedSave?.scene === "caveInterior") {
+      setActiveScene("caveInterior");
+      player.x = parsedSave.player?.x ?? (14 * TILE + 8);
+      player.y = parsedSave.player?.y ?? (39 * TILE + 6);
+      player.direction = parsedSave.player?.direction || "right";
+      playerPositionEl.textContent = getAreaName();
+      updateQuestProgress();
+      updateHud();
+      renderInventory();
+    }
+    return ok;
+  };
+})();
+
+/* ==================================================
+   Patch: Respawn de inimigos da Mina Cristalina
+   - inimigos derrotados voltam depois de 5 minutos
+   - o contador da missao do Teo continua contando abates totais
+   ================================================== */
+(function crystalMineEnemyRespawnPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_CAVE_ENEMY_RESPAWN_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_CAVE_ENEMY_RESPAWN_PATCH = true;
+
+  const CAVE_SCENE = "caveInterior";
+  const CAVE_RESPAWN_MS = 5 * 60 * 1000;
+
+  function ensureCaveRespawnState() {
+    if (!questBook.caveAdvanced || typeof questBook.caveAdvanced !== "object") questBook.caveAdvanced = {};
+    const state = questBook.caveAdvanced;
+    if (!state.enemiesDefeated || typeof state.enemiesDefeated !== "object") state.enemiesDefeated = {};
+    if (!state.enemyRespawnAt || typeof state.enemyRespawnAt !== "object") state.enemyRespawnAt = {};
+
+    const savedKills = Number(state.caveEnemiesDefeated || 0);
+    const totalKills = Number(state.caveEnemyTotalKills || 0);
+    const defeatedNow = Object.keys(state.enemiesDefeated).length;
+    state.caveEnemyTotalKills = Math.max(savedKills, totalKills, defeatedNow);
+    state.caveEnemiesDefeated = state.caveEnemyTotalKills;
+  }
+
+  function getCaveEnemyKey(obj) {
+    return typeof getSaveObjectKey === "function" ? getSaveObjectKey(obj) : `${obj.kind}:${obj.x}:${obj.y}`;
+  }
+
+  function restoreCaveEnemy(obj, key) {
+    if (!obj || obj.type !== "enemy") return;
+    if (typeof normalizeEnemy === "function") normalizeEnemy(obj);
+
+    obj.alive = true;
+    obj.hp = obj.maxHp || (typeof getEnemyStats === "function" ? getEnemyStats(obj.kind).hp : 3);
+    obj.x = Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+    obj.y = Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+    obj.state = "idle";
+    obj.phase = 1;
+    obj.attackCooldown = 0.8;
+    obj.attackTimer = 0;
+    obj.invulnerableTimer = 0.6;
+    obj.knockbackX = 0;
+    obj.knockbackY = 0;
+    obj.caveDefeatCounted = false;
+
+    if (typeof spawnFloatingText === "function") {
+      spawnFloatingText("Respawn", obj.x, obj.y - 24, "#55e8ff");
+    }
+  }
+
+  function updateCaveEnemyRespawns() {
+    if (currentScene !== CAVE_SCENE || !Array.isArray(objects)) return;
+    ensureCaveRespawnState();
+
+    const now = Date.now();
+    const state = questBook.caveAdvanced;
+
+    for (const obj of objects) {
+      if (obj?.type !== "enemy" || !obj.caveEnemy) continue;
+      const key = getCaveEnemyKey(obj);
+      const defeated = Boolean(state.enemiesDefeated[key]);
+      if (!defeated) {
+        obj.caveDefeatCounted = false;
+        continue;
+      }
+
+      if (!Number.isFinite(Number(state.enemyRespawnAt[key])) || Number(state.enemyRespawnAt[key]) <= 0) {
+        state.enemyRespawnAt[key] = now + CAVE_RESPAWN_MS;
+      }
+
+      if (now >= Number(state.enemyRespawnAt[key])) {
+        delete state.enemiesDefeated[key];
+        delete state.enemyRespawnAt[key];
+        restoreCaveEnemy(obj, key);
+      } else {
+        obj.alive = false;
+        obj.hp = 0;
+      }
+    }
+  }
+
+  const defeatEnemyBeforeCaveRespawn = defeatEnemy;
+  defeatEnemy = function defeatEnemyCaveRespawnPatch(obj) {
+    const shouldTrackRespawn = obj?.type === "enemy" && obj.caveEnemy && obj.alive;
+    const key = shouldTrackRespawn ? getCaveEnemyKey(obj) : "";
+
+    ensureCaveRespawnState();
+    const previousTotalKills = Number(questBook.caveAdvanced.caveEnemyTotalKills || questBook.caveAdvanced.caveEnemiesDefeated || 0);
+
+    defeatEnemyBeforeCaveRespawn(obj);
+
+    if (shouldTrackRespawn && obj && !obj.alive) {
+      ensureCaveRespawnState();
+      const state = questBook.caveAdvanced;
+      state.enemiesDefeated[key] = true;
+      state.enemyRespawnAt[key] = Date.now() + CAVE_RESPAWN_MS;
+      state.caveEnemyTotalKills = Math.max(previousTotalKills + 1, Number(state.caveEnemyTotalKills || 0));
+      state.caveEnemiesDefeated = state.caveEnemyTotalKills;
+
+      if (typeof spawnFloatingText === "function") {
+        spawnFloatingText("Volta em 5 min", obj.x, obj.y - 48, "#fff264");
+      }
+    }
+  };
+
+  const updateBeforeCaveRespawn = update;
+  update = function updateCaveRespawnPatch(delta) {
+    updateBeforeCaveRespawn(delta);
+    updateCaveEnemyRespawns();
+  };
+
+  const setActiveSceneBeforeCaveRespawn = setActiveScene;
+  setActiveScene = function setActiveSceneCaveRespawnPatch(scene) {
+    setActiveSceneBeforeCaveRespawn(scene);
+    updateCaveEnemyRespawns();
+  };
+
+  const normalizeRuntimeStateBeforeCaveRespawn = normalizeRuntimeState;
+  normalizeRuntimeState = function normalizeRuntimeStateCaveRespawnPatch() {
+    normalizeRuntimeStateBeforeCaveRespawn();
+    ensureCaveRespawnState();
+    updateCaveEnemyRespawns();
+  };
+
+  const resetProgressBeforeCaveRespawn = resetProgressForNewGame;
+  resetProgressForNewGame = function resetProgressCaveRespawnPatch(name) {
+    resetProgressBeforeCaveRespawn(name);
+    if (questBook.caveAdvanced) {
+      questBook.caveAdvanced.enemiesDefeated = {};
+      questBook.caveAdvanced.enemyRespawnAt = {};
+      questBook.caveAdvanced.caveEnemyTotalKills = 0;
+      questBook.caveAdvanced.caveEnemiesDefeated = 0;
+    }
+  };
+
+  ensureCaveRespawnState();
+  updateCaveEnemyRespawns();
+})();
+
+
+/* ==================================================
+   Patch: Dimensao Acida do Bioma Venenoso
+   - adiciona uma fenda acida no Pantano dos Sussurros
+   - clique/toque ou pressione E para entrar
+   - interior usa a imagem acid-dimension-map.png como base visual
+   ================================================== */
+(function acidDimensionPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ACID_DIMENSION_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ACID_DIMENSION_PATCH = true;
+
+  const ACID_SCENE = "acidDimension";
+  const ACID_COLS = 88;
+  const ACID_ROWS = 64;
+  const ACID_WIDTH = ACID_COLS * TILE;
+  const ACID_HEIGHT = ACID_ROWS * TILE;
+  const ACID_IMAGE_SRC = "acid-dimension-map.png";
+  const acidBackgroundImage = typeof Image !== "undefined" ? new Image() : null;
+  if (acidBackgroundImage) acidBackgroundImage.src = ACID_IMAGE_SRC;
+
+  const acidParticles = Array.from({ length: 120 }, (_, index) => ({
+    x: (index * 191) % ACID_WIDTH,
+    y: (index * 131) % ACID_HEIGHT,
+    size: 1 + (index % 3),
+    speed: 0.18 + (index % 5) * 0.07,
+    phase: index * 0.47,
+    alpha: 0.20 + (index % 4) * 0.08
+  }));
+
+  let acidExitGraceTimer = 0;
+
+  function ensureAcidState() {
+    if (!questBook.discoveredAreas || typeof questBook.discoveredAreas !== "object") questBook.discoveredAreas = {};
+    if (!questBook.acidDimension || typeof questBook.acidDimension !== "object") {
+      questBook.acidDimension = {
+        entered: false,
+        altarRead: false,
+        reactorSeen: false
+      };
+    }
+  }
+  ensureAcidState();
+
+  function acidExit(tileX, tileY) {
+    return {
+      type: "acidExit",
+      x: tileX * TILE,
+      y: tileY * TILE - 10,
+      width: TILE * 2,
+      height: TILE * 3,
+      solid: false,
+      message: "Fenda de retorno: pressione E para voltar ao Pantano dos Sussurros."
+    };
+  }
+
+  function acidFeature(tileX, tileY, kind, options = {}) {
+    return {
+      type: "acidFeature",
+      kind,
+      x: tileX * TILE + (options.offsetX || 0),
+      y: tileY * TILE + (options.offsetY || 0),
+      width: options.width || TILE,
+      height: options.height || TILE,
+      solid: Boolean(options.solid),
+      message: options.message || "",
+      role: options.role || ""
+    };
+  }
+
+  const acidObjects = [
+    acidExit(43, 57),
+    acidFeature(41, 56, "entryTorch", { width: 18, height: 30, offsetX: 2, offsetY: 2, message: "Chama acida: ela nao aquece, apenas sibila." }),
+    acidFeature(46, 56, "entryTorch", { width: 18, height: 30, offsetX: 8, offsetY: 2, message: "Chama acida: uma luz verde e inquieta marca a saída." }),
+    acidFeature(42, 31, "reactor", { width: 128, height: 122, solid: false, offsetX: -18, offsetY: -22, message: "Reator acido central: o núcleo tóxico pulsa no coração da dimensão.", role: "reactor" }),
+    acidFeature(26, 37, "acidPoolMarker", { width: 160, height: 140, offsetX: -40, offsetY: -20, message: "Lago ácido: bolhas verdes estouram sem parar." }),
+    acidFeature(57, 37, "acidPoolMarker", { width: 160, height: 140, offsetX: -40, offsetY: -20, message: "Lago ácido: a superfície brilha como veneno líquido." }),
+    acidFeature(43, 14, "altar", { width: 98, height: 78, solid: true, offsetX: -2, offsetY: -8, message: "Altar corrosivo: runas falam de uma fábrica antiga que bebeu o veneno do brejo.", role: "altar" }),
+    acidFeature(20, 18, "pipeCluster", { width: 86, height: 64, solid: true, message: "Tubulações antigas: um fluxo verde corre por dentro dos canos." }),
+    acidFeature(61, 18, "pipeCluster", { width: 86, height: 64, solid: true, message: "Tubulações antigas: válvulas e vapor tóxico ainda resistem ao tempo." }),
+    acidFeature(16, 47, "obelisk", { width: 42, height: 82, solid: true, message: "Obelisco de ácido: símbolos de contenção ainda emitem luz." }),
+    acidFeature(69, 47, "obelisk", { width: 42, height: 82, solid: true, message: "Obelisco de ácido: alguém tentou selar o veneno aqui." }),
+    acidFeature(8, 9, "wallGlyph", { width: 32, height: 44, message: "Glifo mural: a dimensão parece feita para armazenar toxinas." }),
+    acidFeature(78, 9, "wallGlyph", { width: 32, height: 44, message: "Glifo mural: linhas verdes tremem como um circuito vivo." }),
+    acidFeature(43, 28, "guideStone", { width: 34, height: 42, message: "Pedra da Fenda: siga pelo corredor central e não toque no brilho líquido." })
+  ];
+
+  const acidPortalMarker = villageObjects.some((obj) => obj.type === "biomeFeature" && obj.role === "acidDimensionPortal");
+  if (!acidPortalMarker) {
+    villageObjects.push(
+      biomeFeature(59, 73, "acidPortal", { width: 56, height: 72, offsetX: -12, offsetY: -24, message: "Fenda Ácida: pressione E ou clique para entrar na dimensão venenosa.", role: "acidDimensionPortal" }),
+      biomeFeature(58, 76, "acidPortalPedestal", { width: 72, height: 20, offsetX: -16, offsetY: 8, solid: true, message: "Pedestal da Fenda: pedras cobertas por limo tóxico sustentam o portal." }),
+      sign(57, 74, "Placa do Pantano: uma fenda ácida se abriu no brejo. Clique no portal ou pressione E para entrar."),
+      biomeFeature(56, 72, "poisonMushroom", { width: 18, height: 18, message: "Cogumelo venenoso: ele brilha mais forte perto do portal." }),
+      biomeFeature(63, 72, "gasPlant", { width: 20, height: 28, message: "Planta tóxica: o portal parece alimentar o gás verde." })
+    );
+  }
+
+  if (currentScene === "village") {
+    objects = villageObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  const normalizeRuntimeStateBeforeAcid = normalizeRuntimeState;
+  normalizeRuntimeState = function normalizeRuntimeStateAcidPatch() {
+    normalizeRuntimeStateBeforeAcid();
+    ensureAcidState();
+  };
+
+  const getSceneWidthBeforeAcid = getSceneWidth;
+  getSceneWidth = function getSceneWidthAcidPatch() {
+    if (currentScene === ACID_SCENE) return ACID_WIDTH;
+    return getSceneWidthBeforeAcid();
+  };
+
+  const getSceneHeightBeforeAcid = getSceneHeight;
+  getSceneHeight = function getSceneHeightAcidPatch() {
+    if (currentScene === ACID_SCENE) return ACID_HEIGHT;
+    return getSceneHeightBeforeAcid();
+  };
+
+  const getSceneNameBeforeAcid = getSceneName;
+  getSceneName = function getSceneNameAcidPatch() {
+    if (currentScene === ACID_SCENE) return "Dimensão Ácida";
+    return getSceneNameBeforeAcid();
+  };
+
+  const getAreaNameBeforeAcid = getAreaName;
+  getAreaName = function getAreaNameAcidPatch() {
+    if (currentScene === ACID_SCENE) return "Dimensão Ácida";
+    return getAreaNameBeforeAcid();
+  };
+
+  const setActiveSceneBeforeAcid = setActiveScene;
+  setActiveScene = function setActiveSceneAcidPatch(scene) {
+    if (scene === ACID_SCENE) {
+      currentScene = ACID_SCENE;
+      objects = acidObjects;
+      normalizeRuntimeState();
+      // Sem paredes invisiveis: a imagem define o cenario e os pontos servem mais como interacao do que bloqueio.
+      colliders = [];
+      interactables = objects.filter((obj) => obj.message);
+      closeDialog();
+      closeShop();
+      keys.clear();
+      projectiles.length = 0;
+      enemyProjectiles.length = 0;
+      hazardZones.length = 0;
+      currentAutoAimTarget = null;
+      mobileLockedTarget = null;
+      return;
+    }
+    setActiveSceneBeforeAcid(scene);
+  };
+
+  const hitsWaterBeforeAcid = hitsWater;
+  hitsWater = function hitsWaterAcidPatch(rect) {
+    if (currentScene === ACID_SCENE) return false;
+    return hitsWaterBeforeAcid(rect);
+  };
+
+  function enterAcidDimension() {
+    ensureAcidState();
+    lastVillagePosition = { x: player.x, y: player.y };
+    const firstVisit = !questBook.discoveredAreas.acidDimension;
+    questBook.discoveredAreas.acidDimension = true;
+    questBook.acidDimension.entered = true;
+    setActiveScene(ACID_SCENE);
+    acidExitGraceTimer = 1.0;
+    player.x = 44 * TILE + 6;
+    player.y = 58 * TILE + 2;
+    player.direction = "up";
+    playSound("portal");
+    vibrate([18, 28, 18]);
+    showHudToast("Você entrou na Dimensão Ácida");
+    // Nao abre dialogo ao entrar para nao travar o movimento do jogador.
+    if (firstVisit) awardXp(180, "Dimensão Ácida descoberta");
+    updateQuestProgress();
+  }
+
+  function exitAcidDimension() {
+    setActiveScene("village");
+    player.x = (lastVillagePosition?.x ?? (60 * TILE));
+    player.y = (lastVillagePosition?.y ?? (74 * TILE));
+    player.direction = "down";
+    playSound("portal");
+    vibrate([18, 28, 18]);
+    showHudToast("Você saiu da Dimensão Ácida");
+    updateQuestProgress();
+  }
+
+  const handleMapTransitionsBeforeAcid = handleMapTransitions;
+  handleMapTransitions = function handleMapTransitionsAcidPatch() {
+    if (currentScene === ACID_SCENE) {
+      if (acidExitGraceTimer > 0) return;
+      const playerCenter = {
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        width: 1,
+        height: 1
+      };
+      const exitZone = { x: 42 * TILE, y: 57 * TILE, width: 4 * TILE, height: 4 * TILE };
+      if (rectsOverlap(playerCenter, exitZone)) exitAcidDimension();
+      return;
+    }
+    handleMapTransitionsBeforeAcid();
+  };
+
+  const getQuestMessageBeforeAcid = getQuestMessage;
+  getQuestMessage = function getQuestMessageAcidPatch(target) {
+    ensureAcidState();
+    if (target?.type === "biomeFeature" && target.role === "acidDimensionPortal") {
+      enterAcidDimension();
+      return "";
+    }
+    if (target?.type === "acidExit") {
+      exitAcidDimension();
+      return "";
+    }
+    if (target?.type === "acidFeature" && target.role === "altar") {
+      questBook.acidDimension.altarRead = true;
+      awardXp(90, "Altar corrosivo");
+      return target.message + " Você sente a história do brejo ecoando no metal corroído.";
+    }
+    if (target?.type === "acidFeature" && target.role === "reactor") {
+      questBook.acidDimension.reactorSeen = true;
+      awardXp(70, "Reator observado");
+      return target.message + " O núcleo pulsa como se a dimensão inteira respirasse por ele.";
+    }
+    return getQuestMessageBeforeAcid(target);
+  };
+
+  const updateInteractionHintBeforeAcid = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintAcidPatch() {
+    updateInteractionHintBeforeAcid();
+    try {
+      const target = findInteraction();
+      if (!target || dialogOpen || shopOpen) return;
+      if (target.type === "biomeFeature" && target.role === "acidDimensionPortal") {
+        interactionHint.textContent = "Pressione E ou clique para entrar na Dimensão Ácida";
+        if (touchContextLabel) touchContextLabel.textContent = "Entrar";
+      } else if (target.type === "acidExit") {
+        interactionHint.textContent = "Pressione E para sair da dimensão";
+        if (touchContextLabel) touchContextLabel.textContent = "Sair";
+      } else if (target.type === "acidFeature") {
+        interactionHint.textContent = "Pressione E para observar";
+        if (touchContextLabel) touchContextLabel.textContent = "Olhar";
+      }
+    } catch (error) {}
+  };
+
+  const getCompactMissionTextBeforeAcid = getCompactMissionText;
+  getCompactMissionText = function getCompactMissionTextAcidPatch() {
+    if (currentScene === ACID_SCENE) {
+      if (questBook.acidDimension?.reactorSeen) return "Ácido: reator observado";
+      if (questBook.acidDimension?.altarRead) return "Ácido: siga até o reator";
+      return "Ácido: explore a dimensão";
+    }
+    return getCompactMissionTextBeforeAcid();
+  };
+
+  const drawBiomeFeatureBeforeAcid = drawBiomeFeature;
+  drawBiomeFeature = function drawBiomeFeatureAcidPatch(obj) {
+    if (obj.kind === "acidPortal") {
+      const x = obj.x;
+      const y = obj.y;
+      const pulse = 0.16 + Math.sin(performance.now() / 280) * 0.05;
+
+      drawSoftShadow(x + 4, y + obj.height - 10, obj.width - 8, 14, 0.34);
+      ctx.fillStyle = `rgba(136,255,63,${pulse})`;
+      ctx.beginPath();
+      ctx.ellipse(x + obj.width / 2, y + obj.height - 8, 30, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#1f2746";
+      ctx.fillRect(x + 8, y + 8, obj.width - 16, obj.height - 10);
+      ctx.fillStyle = "#2f375a";
+      ctx.fillRect(x + 12, y + 12, obj.width - 24, obj.height - 18);
+
+      ctx.fillStyle = "#83ff2f";
+      ctx.fillRect(x + 15, y + 14, obj.width - 30, obj.height - 24);
+      ctx.fillStyle = "rgba(211,255,138,0.55)";
+      ctx.fillRect(x + obj.width / 2 - 4, y + 12, 8, obj.height - 26);
+
+      ctx.fillStyle = "rgba(231,255,205,0.26)";
+      ctx.fillRect(x + 18, y + 18, 6, obj.height - 34);
+      ctx.fillRect(x + obj.width - 24, y + 20, 5, obj.height - 36);
+
+      ctx.fillStyle = "#273052";
+      ctx.fillRect(x + obj.width / 2 - 15, y + 4, 30, 6);
+      ctx.fillRect(x + obj.width / 2 - 12, y + obj.height - 6, 24, 4);
+
+      ctx.fillStyle = "#afff70";
+      for (let ry = 0; ry < 4; ry++) {
+        ctx.fillRect(x + 6, y + 18 + ry * 10, 4, 4);
+        ctx.fillRect(x + obj.width - 10, y + 18 + ry * 10, 4, 4);
+      }
+      return;
+    }
+    if (obj.kind === "acidPortalPedestal") {
+      const x = obj.x; const y = obj.y;
+      drawSoftShadow(x + 6, y + obj.height - 5, obj.width - 12, 10, 0.18);
+      ctx.fillStyle = "#3f4e41";
+      ctx.fillRect(x + 2, y + 5, obj.width - 4, obj.height - 7);
+      ctx.fillStyle = "#56685a";
+      ctx.fillRect(x + 6, y + 9, obj.width - 12, obj.height - 13);
+      ctx.fillStyle = "#91ff67";
+      ctx.fillRect(x + 12, y + 6, obj.width - 24, 3);
+      ctx.fillStyle = "#233023";
+      for (let i = 0; i < obj.width - 20; i += 14) {
+        ctx.fillRect(x + 10 + i, y + obj.height - 8, 8, 4);
+      }
+      return;
+    }
+    drawBiomeFeatureBeforeAcid(obj);
+  };
+
+  const drawObjectBeforeAcid = drawObject;
+  drawObject = function drawObjectAcidPatch(obj) {
+    if (obj.type === "acidExit") return drawAcidExit(obj);
+    if (obj.type === "acidFeature") return drawAcidFeature(obj);
+    return drawObjectBeforeAcid(obj);
+  };
+
+  function drawAcidExit(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const pulse = 0.18 + Math.sin(performance.now() / 320) * 0.05;
+
+    drawSoftShadow(x + 2, y + obj.height - 4, obj.width - 4, 12, 0.32);
+    ctx.fillStyle = `rgba(136,255,63,${pulse})`;
+    ctx.beginPath();
+    ctx.ellipse(x + obj.width / 2, y + obj.height - 8, 24, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#1f2746";
+    ctx.fillRect(x + 2, y + 3, obj.width - 4, obj.height - 8);
+    ctx.fillStyle = "#2e365c";
+    ctx.fillRect(x + 6, y + 7, obj.width - 12, obj.height - 16);
+
+    ctx.fillStyle = "#83ff2f";
+    ctx.fillRect(x + 9, y + 10, obj.width - 18, obj.height - 22);
+    ctx.fillStyle = "rgba(231,255,205,0.60)";
+    ctx.fillRect(x + obj.width / 2 - 3, y + 9, 6, obj.height - 24);
+
+    ctx.fillStyle = "#b6ff8b";
+    ctx.fillRect(x + 7, y + 10, 2, obj.height - 22);
+    ctx.fillRect(x + obj.width - 9, y + 10, 2, obj.height - 22);
+
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + obj.width / 2 - 12, y, 24, 5);
+    ctx.fillRect(x + obj.width / 2 - 10, y + obj.height - 6, 20, 4);
+  }
+
+  function drawAcidFeature(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    if (obj.kind === "entryTorch") {
+      ctx.fillStyle = "#415f46";
+      ctx.fillRect(x + 7, y + 8, 4, obj.height - 10);
+      ctx.fillStyle = "#88ff3f";
+      ctx.fillRect(x + 3, y + 1, 12, 10);
+      ctx.fillStyle = "rgba(154,255,114,0.18)";
+      ctx.fillRect(x - 6, y - 4, 24, 18);
+      return;
+    }
+    if (obj.kind === "reactor") {
+      const time = performance.now() / 1000;
+      const pulse = 0.18 + Math.sin(time * 3.2) * 0.06;
+      const cx = x + obj.width / 2;
+      const cy = y + obj.height / 2;
+
+      drawSoftShadow(x + 10, y + obj.height - 8, obj.width - 20, 18, 0.38);
+
+      // Aura do núcleo central, para parecer que ele alimenta a dimensão.
+      const aura = ctx.createRadialGradient(cx, cy, 10, cx, cy, obj.width * 0.62);
+      aura.addColorStop(0, `rgba(214,255,119,${pulse + 0.16})`);
+      aura.addColorStop(0.48, `rgba(93,255,0,${pulse})`);
+      aura.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = aura;
+      ctx.fillRect(x - 42, y - 38, obj.width + 84, obj.height + 80);
+
+      // Plataforma circular/industrial.
+      ctx.fillStyle = "#172039";
+      ctx.beginPath();
+      ctx.ellipse(cx, y + obj.height - 22, obj.width * 0.42, 18, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#33405f";
+      ctx.beginPath();
+      ctx.ellipse(cx, y + obj.height - 25, obj.width * 0.33, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#8aff42";
+      ctx.fillRect(cx - 34, y + obj.height - 30, 68, 4);
+
+      // Corpo principal do reator.
+      ctx.fillStyle = "#1f2948";
+      ctx.fillRect(cx - 42, y + 20, 84, obj.height - 48);
+      ctx.fillStyle = "#344263";
+      ctx.fillRect(cx - 34, y + 28, 68, obj.height - 64);
+      ctx.fillStyle = "#1b233a";
+      ctx.fillRect(cx - 50, y + 42, 14, obj.height - 76);
+      ctx.fillRect(cx + 36, y + 42, 14, obj.height - 76);
+
+      // Tampa e base com cara de máquina.
+      ctx.fillStyle = "#202846";
+      ctx.fillRect(cx - 34, y + 10, 68, 14);
+      ctx.fillRect(cx - 38, y + obj.height - 38, 76, 14);
+      ctx.fillStyle = "#53637d";
+      ctx.fillRect(cx - 24, y + 14, 48, 4);
+      ctx.fillRect(cx - 28, y + obj.height - 34, 56, 4);
+
+      // Tubos laterais conectados ao mapa.
+      ctx.fillStyle = "#25304e";
+      ctx.fillRect(x + 5, cy - 6, 34, 12);
+      ctx.fillRect(x + obj.width - 39, cy - 6, 34, 12);
+      ctx.fillStyle = "#607568";
+      ctx.fillRect(x + 8, cy - 3, 28, 5);
+      ctx.fillRect(x + obj.width - 36, cy - 3, 28, 5);
+      ctx.fillStyle = "#8aff42";
+      ctx.fillRect(x + 13, cy - 1, 18, 2);
+      ctx.fillRect(x + obj.width - 31, cy - 1, 18, 2);
+
+      // Câmara de ácido central.
+      const coreX = cx - 18;
+      const coreY = y + 24;
+      const coreW = 36;
+      const coreH = obj.height - 58;
+      const coreGradient = ctx.createLinearGradient(coreX, coreY, coreX + coreW, coreY + coreH);
+      coreGradient.addColorStop(0, "#55e91d");
+      coreGradient.addColorStop(0.42, "#b8ff5c");
+      coreGradient.addColorStop(1, "#69ff29");
+      ctx.fillStyle = coreGradient;
+      ctx.fillRect(coreX, coreY, coreW, coreH);
+
+      ctx.fillStyle = "rgba(241,255,205,0.78)";
+      ctx.fillRect(cx - 4, coreY - 4, 8, coreH + 8);
+      ctx.fillStyle = "rgba(236,255,201,0.34)";
+      ctx.fillRect(coreX + 6, coreY + 8, 5, coreH - 16);
+      ctx.fillRect(coreX + coreW - 11, coreY + 12, 4, coreH - 24);
+
+      // Bolhas/ondas dentro do ácido.
+      for (let i = 0; i < 7; i++) {
+        const yy = coreY + 7 + ((time * 30 + i * 13) % Math.max(1, coreH - 12));
+        ctx.fillStyle = i % 2 === 0 ? "rgba(235,255,180,0.34)" : "rgba(67,205,35,0.24)";
+        ctx.fillRect(coreX + 4, yy, coreW - 8, 3);
+      }
+
+      // Runas e parafusos energizados.
+      ctx.fillStyle = "#caff8a";
+      for (let i = 0; i < 5; i++) {
+        const ry = y + 34 + i * 14;
+        ctx.fillRect(cx - 31, ry, 5, 4);
+        ctx.fillRect(cx + 26, ry + 6, 5, 4);
+      }
+      ctx.fillStyle = `rgba(154,255,114,${pulse * 0.9})`;
+      ctx.fillRect(cx - 46, y + 18, 92, obj.height - 48);
+
+      // Partículas orbitando ao redor do reator.
+      for (let i = 0; i < 12; i++) {
+        const angle = time * 1.4 + i * 0.52;
+        const px = cx + Math.cos(angle) * (obj.width * 0.43);
+        const py = cy + Math.sin(angle) * (obj.height * 0.36);
+        ctx.fillStyle = i % 2 ? "rgba(214,255,142,0.72)" : "rgba(120,255,52,0.62)";
+        ctx.fillRect(px, py, 3 + (i % 2), 3 + (i % 2));
+      }
+      return;
+    }
+    if (obj.kind === "altar") {
+      const pulse = 0.18 + Math.sin(performance.now() / 300) * 0.06;
+      drawSoftShadow(x + 6, y + obj.height - 5, obj.width - 12, 14, 0.30);
+
+      ctx.fillStyle = `rgba(136,255,63,${pulse})`;
+      ctx.beginPath();
+      ctx.ellipse(x + obj.width / 2, y + obj.height - 18, obj.width / 2 - 8, 18, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#202846";
+      ctx.fillRect(x + 6, y + 28, obj.width - 12, obj.height - 28);
+      ctx.fillStyle = "#33405c";
+      ctx.fillRect(x + 12, y + 34, obj.width - 24, obj.height - 40);
+
+      ctx.fillStyle = "#1a2138";
+      ctx.fillRect(x + 4, y + 52, 14, obj.height - 58);
+      ctx.fillRect(x + obj.width - 18, y + 52, 14, obj.height - 58);
+      ctx.fillRect(x + obj.width / 2 - 30, y + 18, 60, 18);
+
+      ctx.fillStyle = "#5d7a55";
+      ctx.fillRect(x + 20, y + 42, obj.width - 40, obj.height - 54);
+      ctx.fillStyle = "#7fff2a";
+      ctx.fillRect(x + obj.width / 2 - 16, y + 18, 32, 22);
+      ctx.fillStyle = "#d9ff9c";
+      ctx.fillRect(x + obj.width / 2 - 4, y + 15, 8, 28);
+
+      ctx.fillStyle = "#91ff67";
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(x + 24 + i * 14, y + 48, 7, 4);
+        ctx.fillRect(x + 24 + i * 14, y + obj.height - 20, 7, 4);
+      }
+
+      ctx.fillStyle = "rgba(231,255,205,0.34)";
+      ctx.fillRect(x + 28, y + 58, obj.width - 56, 3);
+      ctx.fillRect(x + 34, y + 68, obj.width - 68, 3);
+      ctx.fillRect(x + obj.width / 2 - 3, y + 45, 6, obj.height - 58);
+
+      return;
+    }
+    if (obj.kind === "pipeCluster") {
+      ctx.fillStyle = "#273052";
+      for (let i = 0; i < 5; i++) {
+        ctx.fillRect(x + 8 + i * 14, y + 6, 10, obj.height - 14);
+      }
+      ctx.fillStyle = "rgba(154,255,114,0.18)";
+      ctx.fillRect(x + 4, y + 10, obj.width - 8, 10);
+      return;
+    }
+    if (obj.kind === "obelisk") {
+      const pulse = 0.15 + Math.sin(performance.now() / 260 + x * 0.01) * 0.05;
+      drawSoftShadow(x + 4, y + obj.height - 4, obj.width - 8, 12, 0.28);
+
+      ctx.fillStyle = `rgba(136,255,63,${pulse})`;
+      ctx.beginPath();
+      ctx.ellipse(x + obj.width / 2, y + obj.height - 8, 22, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#1f2746";
+      ctx.fillRect(x + 8, y + 16, obj.width - 16, obj.height - 20);
+      ctx.fillStyle = "#2f385b";
+      ctx.fillRect(x + 12, y + 22, obj.width - 24, obj.height - 32);
+
+      ctx.fillStyle = "#273052";
+      ctx.fillRect(x + obj.width / 2 - 7, y + 6, 14, 18);
+      ctx.fillRect(x + obj.width / 2 - 13, y + obj.height - 12, 26, 8);
+
+      ctx.fillStyle = "#82ff32";
+      ctx.fillRect(x + obj.width / 2 - 4, y + 22, 8, obj.height - 42);
+      ctx.fillStyle = "#d9ff9c";
+      ctx.fillRect(x + obj.width / 2 - 2, y + 25, 4, obj.height - 48);
+
+      ctx.fillStyle = "#9fff62";
+      for (let yy = y + 30; yy < y + obj.height - 24; yy += 14) {
+        ctx.fillRect(x + 14, yy, 5, 4);
+        ctx.fillRect(x + obj.width - 19, yy + 5, 5, 4);
+      }
+
+      ctx.fillStyle = `rgba(154,255,114,${pulse * 0.85})`;
+      ctx.fillRect(x + 4, y + 10, obj.width - 8, obj.height - 10);
+      return;
+    }
+    if (obj.kind === "acidPoolMarker") {
+      ctx.fillStyle = "rgba(136,255,63,0.16)";
+      ctx.beginPath();
+      ctx.ellipse(x + obj.width / 2, y + obj.height / 2, obj.width / 2 - 10, obj.height / 2 - 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
+    if (obj.kind === "wallGlyph") {
+      ctx.fillStyle = "rgba(136,255,63,0.18)";
+      ctx.fillRect(x + 8, y + 4, obj.width - 16, obj.height - 8);
+      ctx.fillStyle = "#88ff3f";
+      ctx.fillRect(x + obj.width / 2 - 6, y + 10, 12, obj.height - 20);
+      return;
+    }
+    if (obj.kind === "guideStone") {
+      ctx.fillStyle = "#5a6f53";
+      ctx.fillRect(x + 6, y + 8, obj.width - 12, obj.height - 12);
+      ctx.fillStyle = "#88ff3f";
+      ctx.fillRect(x + 12, y + 14, obj.width - 24, 6);
+      ctx.fillRect(x + 16, y + 24, obj.width - 32, 4);
+      return;
+    }
+    ctx.fillStyle = "#9ba1ad";
+    ctx.fillRect(x, y, obj.width, obj.height);
+  }
+
+  const drawMapBeforeAcid = drawMap;
+  drawMap = function drawMapAcidPatch() {
+    if (currentScene !== ACID_SCENE) {
+      drawMapBeforeAcid();
+      return;
+    }
+    drawAcidBackdrop();
+  };
+
+  function drawAcidBackdrop() {
+    ctx.fillStyle = "#0a1209";
+    ctx.fillRect(0, 0, ACID_WIDTH, ACID_HEIGHT);
+
+    if (acidBackgroundImage && acidBackgroundImage.complete && acidBackgroundImage.naturalWidth > 0) {
+      ctx.drawImage(acidBackgroundImage, 0, 0, ACID_WIDTH, ACID_HEIGHT);
+    } else {
+      drawAcidFallbackLayout();
+    }
+
+    ctx.fillStyle = "rgba(154,255,114,0.06)";
+    ctx.fillRect(0, 0, ACID_WIDTH, ACID_HEIGHT);
+    const time = performance.now() / 1000;
+    for (const particle of acidParticles) {
+      const px = particle.x;
+      const py = particle.y + Math.sin(time * particle.speed + particle.phase) * 12;
+      if (px < camera.x - 10 || py < camera.y - 10 || px > camera.x + canvas.width + 10 || py > camera.y + canvas.height + 10) continue;
+      ctx.fillStyle = `rgba(154,255,114,${particle.alpha})`;
+      ctx.fillRect(px, py, particle.size, particle.size);
+    }
+
+    drawAcidAnimatedGlowLayer(time);
+  }
+
+  function drawAcidAnimatedGlowLayer(time) {
+    const glowPoints = [
+      [43 * TILE + 16, 14 * TILE + 18, 160, 0.18],
+      [43 * TILE + 16, 32 * TILE + 16, 190, 0.20],
+      [28 * TILE, 31 * TILE, 210, 0.12],
+      [60 * TILE, 31 * TILE, 210, 0.12],
+      [44 * TILE, 57 * TILE, 150, 0.14]
+    ];
+
+    for (const [gx, gy, radius, alphaBase] of glowPoints) {
+      if (gx < camera.x - radius || gy < camera.y - radius || gx > camera.x + canvas.width + radius || gy > camera.y + canvas.height + radius) continue;
+      const alpha = alphaBase + Math.sin(time * 2.2 + gx * 0.01 + gy * 0.01) * 0.04;
+      const gradient = ctx.createRadialGradient(gx, gy, 8, gx, gy, radius);
+      gradient.addColorStop(0, `rgba(178,255,96,${alpha})`);
+      gradient.addColorStop(0.45, `rgba(94,255,0,${Math.max(0, alpha * 0.45)})`);
+      gradient.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(gx - radius, gy - radius, radius * 2, radius * 2);
+    }
+
+    ctx.fillStyle = "rgba(199,255,128,0.20)";
+    for (let i = 0; i < 20; i++) {
+      const bx = ((i * 149) % ACID_WIDTH) + Math.sin(time * 1.5 + i) * 8;
+      const by = ((i * 211) % ACID_HEIGHT) + Math.cos(time * 1.2 + i) * 14;
+      if (bx < camera.x - 12 || by < camera.y - 12 || bx > camera.x + canvas.width + 12 || by > camera.y + canvas.height + 12) continue;
+      const size = 3 + (i % 4);
+      ctx.fillRect(bx, by, size, size);
+    }
+  }
+
+  function drawAcidFallbackLayout() {
+    // Fundo alternativo, inspirado na imagem verde da dimensao, caso o PNG nao carregue.
+    for (let y = 0; y < ACID_HEIGHT; y += TILE) {
+      for (let x = 0; x < ACID_WIDTH; x += TILE) {
+        const variant = ((x / TILE) + (y / TILE)) % 2;
+        ctx.fillStyle = variant ? "#162116" : "#1a2619";
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.fillStyle = "rgba(100, 170, 90, 0.08)";
+        ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+      }
+    }
+
+    ctx.fillStyle = "#253425";
+    ctx.fillRect(12 * TILE, 4 * TILE, 64 * TILE, 8 * TILE);
+    ctx.fillRect(40 * TILE, 8 * TILE, 8 * TILE, 48 * TILE);
+    ctx.fillRect(20 * TILE, 28 * TILE, 48 * TILE, 8 * TILE);
+
+    drawAcidPoolFallback(24 * TILE, 26 * TILE, 12 * TILE, 10 * TILE);
+    drawAcidPoolFallback(52 * TILE, 26 * TILE, 12 * TILE, 10 * TILE);
+    drawAcidPoolFallback(38 * TILE, 51 * TILE, 12 * TILE, 9 * TILE);
+
+    drawAcidGlowColumn(18 * TILE, 8 * TILE, 4 * TILE, 8 * TILE);
+    drawAcidGlowColumn(66 * TILE, 8 * TILE, 4 * TILE, 8 * TILE);
+    drawAcidGlowColumn(14 * TILE, 42 * TILE, 4 * TILE, 10 * TILE);
+    drawAcidGlowColumn(70 * TILE, 42 * TILE, 4 * TILE, 10 * TILE);
+
+    ctx.fillStyle = "#324432";
+    for (let y = 8 * TILE; y < 56 * TILE; y += 5 * TILE) {
+      ctx.fillRect(8 * TILE, y, 2 * TILE, TILE);
+      ctx.fillRect(78 * TILE, y, 2 * TILE, TILE);
+    }
+
+    ctx.fillStyle = "rgba(154,255,114,0.18)";
+    for (let y = 10 * TILE; y < 54 * TILE; y += 4 * TILE) {
+      ctx.fillRect(43 * TILE + 12, y, 8, TILE + 8);
+    }
+  }
+
+  function drawAcidPoolFallback(x, y, width, height) {
+    ctx.fillStyle = "rgba(125, 255, 40, 0.70)";
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = "rgba(211, 255, 138, 0.32)";
+    for (let oy = 8; oy < height - 8; oy += 18) {
+      for (let ox = 8; ox < width - 8; ox += 18) {
+        ctx.fillRect(x + ox, y + oy, 6, 6);
+      }
+    }
+  }
+
+  function drawAcidGlowColumn(x, y, width, height) {
+    ctx.fillStyle = "#233023";
+    ctx.fillRect(x, y, width, height);
+    ctx.fillStyle = "#88ff3f";
+    ctx.fillRect(x + width / 2 - 4, y + 6, 8, height - 12);
+  }
+
+  const drawMiniMapBeforeAcid = drawMiniMap;
+  drawMiniMap = function drawMiniMapAcidPatch() {
+    if (currentScene !== ACID_SCENE) {
+      drawMiniMapBeforeAcid();
+      return;
+    }
+    miniCtx.clearRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+    miniCtx.fillStyle = "rgba(12, 18, 12, 0.95)";
+    miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+    const sx = miniMapCanvas.width / ACID_WIDTH;
+    const sy = miniMapCanvas.height / ACID_HEIGHT;
+    miniCtx.fillStyle = "#2e4625";
+    miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+    miniCtx.fillStyle = "#88ff3f";
+    miniCtx.fillRect(43 * TILE * sx - 2, 57 * TILE * sy - 2, 6, 6);
+    miniCtx.fillRect(43 * TILE * sx - 2, 32 * TILE * sy - 2, 6, 6);
+    miniCtx.fillStyle = "#d24c63";
+    miniCtx.fillRect(player.x * sx - 3, player.y * sy - 3, 7, 7);
+  };
+
+  const updateBeforeAcid = update;
+  update = function updateAcidPatch(delta) {
+    if (currentScene !== ACID_SCENE) {
+      updateBeforeAcid(delta);
+      return;
+    }
+
+    ensureCanvasSize();
+
+    if (!gameStarted) {
+      updateHud();
+      updateDebugPanel(delta);
+      updateHudToast(delta);
+      return;
+    }
+
+    if (gameOver) {
+      updateHud();
+      updateDebugPanel(delta);
+      updateHudToast(delta);
+      return;
+    }
+
+    updateTimedEffects(delta);
+    acidExitGraceTimer = Math.max(0, acidExitGraceTimer - delta);
+    player.levelGlowTimer = Math.max(0, Number(player.levelGlowTimer || 0) - delta);
+
+    if (hitstopTimer > 0) {
+      hitstopTimer = Math.max(0, hitstopTimer - delta);
+      updateAttack(delta);
+      updateFloatingTexts(delta);
+      updateVisualEffects(delta);
+      updateHud();
+      updateHudToast(delta);
+      return;
+    }
+
+    if (pauseOpen || inventoryOpen || shopOpen) {
+      updateHud();
+      updateInteractionHint();
+      updateDebugPanel(delta);
+      updateHudToast(delta);
+      return;
+    }
+
+    const movement = getMovementInput();
+    const inputX = movement.x;
+    const inputY = movement.y;
+    player.moving = inputX !== 0 || inputY !== 0;
+
+    applyPlayerKnockback(delta);
+    updateSwimming(delta);
+
+    if (player.moving && !dialogOpen && !inventoryOpen && !shopOpen && Math.abs(playerKnockbackX) + Math.abs(playerKnockbackY) < 8) {
+      const length = Math.hypot(inputX, inputY) || 1;
+      const strength = movement.strength;
+      const moveX = (inputX / length) * getPlayerSpeed() * strength * delta;
+      const moveY = (inputY / length) * getPlayerSpeed() * strength * delta;
+
+      if (Math.abs(inputX) > Math.abs(inputY)) player.direction = inputX > 0 ? "right" : "left";
+      else if (inputY !== 0) player.direction = inputY > 0 ? "down" : "up";
+
+      if (canMoveTo(player.x + moveX, player.y)) player.x += moveX;
+      if (canMoveTo(player.x, player.y + moveY)) player.y += moveY;
+      handleMapTransitions();
+
+      player.animTimer += delta;
+      if (player.animTimer > 0.14) {
+        player.frame = (player.frame + 1) % 4;
+        player.animTimer = 0;
+      }
+    } else {
+      player.frame = 0;
+      player.animTimer = 0;
+    }
+
+    updateProjectiles(delta);
+    updateEnemyProjectiles(delta);
+    updateHazards(delta);
+    updateAttack(delta);
+    updateFloatingTexts(delta);
+    updateVisualEffects(delta);
+
+    camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, Math.max(0, ACID_WIDTH - canvas.width));
+    camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, Math.max(0, ACID_HEIGHT - canvas.height));
+
+    playerPositionEl.textContent = getAreaName();
+    updateQuestProgress();
+    updateInteractionHint();
+    updateHud();
+    updateDebugPanel(delta);
+    updateHudToast(delta);
+    if (saveNoticeTimer > 0) saveNoticeTimer = Math.max(0, saveNoticeTimer - delta);
+  };
+
+  function getCanvasWorldPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (event.clientX - rect.left) * scaleX + camera.x,
+      y: (event.clientY - rect.top) * scaleY + camera.y
+    };
+  }
+
+  function isPlayerCloseToAcidPortal(portalObj) {
+    const px = player.x + player.width / 2;
+    const py = player.y + player.height / 2;
+    const cx = portalObj.x + portalObj.width / 2;
+    const cy = portalObj.y + portalObj.height / 2;
+    return Math.hypot(px - cx, py - cy) <= TILE * 5.5;
+  }
+
+  function tryEnterAcidDimensionFromPointer(event) {
+    if (!gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen || dialogOpen) return false;
+    if (currentScene !== "village") return false;
+    const portalObj = villageObjects.find((obj) => obj.type === "biomeFeature" && obj.role === "acidDimensionPortal");
+    if (!portalObj) return false;
+    const point = getCanvasWorldPoint(event);
+    const clickRect = { x: point.x - 8, y: point.y - 8, width: 16, height: 16 };
+    if (!rectsOverlap(clickRect, portalObj)) return false;
+    if (!isPlayerCloseToAcidPortal(portalObj)) {
+      showHudToast("Chegue mais perto da Fenda Ácida.");
+      return true;
+    }
+    enterAcidDimension();
+    return true;
+  }
+
+  canvas.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    if (!tryEnterAcidDimensionFromPointer(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse") return;
+    if (!tryEnterAcidDimensionFromPointer(event)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+})();
+
+/* Mantém o save dentro da Dimensão Ácida em vez de devolver o jogador para a vila. */
+(function acidDimensionLoadScenePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ACID_DIMENSION_LOAD_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ACID_DIMENSION_LOAD_PATCH = true;
+
+  const loadGameBeforeAcidSceneRestore = loadGame;
+  loadGame = function loadGameAcidSceneRestorePatch() {
+    let parsedSave = null;
+    try {
+      const raw = readSaveRaw();
+      parsedSave = raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      parsedSave = null;
+    }
+
+    const ok = loadGameBeforeAcidSceneRestore();
+    if (ok && parsedSave?.scene === "acidDimension") {
+      setActiveScene("acidDimension");
+      player.x = parsedSave.player?.x ?? (44 * TILE + 6);
+      player.y = parsedSave.player?.y ?? (58 * TILE + 2);
+      player.direction = parsedSave.player?.direction || "up";
+      playerPositionEl.textContent = getAreaName();
+      updateQuestProgress();
+      updateHud();
+      renderInventory();
+    }
+    return ok;
+  };
+})();
+
+
+/* ==================================================
+   Patch final: Portal Ácido mais bonito por fora
+   - desenha por cima do fallback cinza
+   - melhora a fenda externa e o pedestal no pântano
+   ================================================== */
+(function acidPortalBeautyFinalPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ACID_PORTAL_BEAUTY_FINAL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ACID_PORTAL_BEAUTY_FINAL_PATCH = true;
+
+  function tuneAcidPortalObjects() {
+    try {
+      const portal = villageObjects.find((obj) => obj.type === "biomeFeature" && obj.role === "acidDimensionPortal");
+      if (portal && !portal.visualBeautyV2) {
+        const centerX = portal.x + portal.width / 2;
+        portal.width = 92;
+        portal.height = 126;
+        portal.x = centerX - portal.width / 2;
+        portal.y -= 34;
+        portal.solid = false;
+        portal.visualBeautyV2 = true;
+        portal.message = "Fenda Ácida: pressione E ou clique no portal verde para entrar na dimensão venenosa.";
+      }
+
+      const pedestal = villageObjects.find((obj) => obj.type === "biomeFeature" && obj.kind === "acidPortalPedestal");
+      if (pedestal && !pedestal.visualBeautyV2) {
+        const centerX = pedestal.x + pedestal.width / 2;
+        pedestal.width = 112;
+        pedestal.height = 34;
+        pedestal.x = centerX - pedestal.width / 2;
+        pedestal.y += 4;
+        pedestal.solid = false;
+        pedestal.visualBeautyV2 = true;
+      }
+    } catch (error) {}
+  }
+
+  tuneAcidPortalObjects();
+
+  const setActiveSceneBeforeAcidPortalBeauty = setActiveScene;
+  setActiveScene = function setActiveSceneAcidPortalBeautyPatch(scene) {
+    setActiveSceneBeforeAcidPortalBeauty(scene);
+    if (currentScene === "village") tuneAcidPortalObjects();
+  };
+
+  const drawObjectBeforeAcidPortalBeauty = drawObject;
+  drawObject = function drawObjectAcidPortalBeautyPatch(obj) {
+    if (obj?.type === "biomeFeature" && obj.role === "acidDimensionPortal") return drawBeautifulOuterAcidPortal(obj);
+    if (obj?.type === "biomeFeature" && obj.kind === "acidPortalPedestal") return drawBeautifulAcidPedestal(obj);
+    return drawObjectBeforeAcidPortalBeauty(obj);
+  };
+
+  function drawBeautifulOuterAcidPortal(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+    const time = performance.now() / 1000;
+    const pulse = 0.18 + Math.sin(time * 3.2) * 0.05;
+
+    drawSoftShadow(x + 8, y + h - 16, w - 16, 18, 0.36);
+
+    const aura = ctx.createRadialGradient(x + w / 2, y + h / 2, 10, x + w / 2, y + h / 2, w * 0.88);
+    aura.addColorStop(0, `rgba(191,255,116,${pulse + 0.10})`);
+    aura.addColorStop(0.45, `rgba(104,255,30,${pulse})`);
+    aura.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = aura;
+    ctx.fillRect(x - 38, y - 28, w + 76, h + 62);
+
+    // Placas de pedra antigas atrás do portal.
+    ctx.fillStyle = "#2a3457";
+    ctx.fillRect(x + 13, y + 21, 14, h - 32);
+    ctx.fillRect(x + w - 27, y + 21, 14, h - 32);
+    ctx.fillRect(x + 23, y + 10, w - 46, 14);
+    ctx.fillRect(x + 23, y + h - 18, w - 46, 12);
+
+    ctx.fillStyle = "#46556e";
+    ctx.fillRect(x + 17, y + 25, 6, h - 42);
+    ctx.fillRect(x + w - 23, y + 25, 6, h - 42);
+    ctx.fillRect(x + 30, y + 14, w - 60, 5);
+
+    // Energia líquida no centro.
+    const innerX = x + 29;
+    const innerY = y + 23;
+    const innerW = w - 58;
+    const innerH = h - 43;
+    ctx.fillStyle = "#69ff29";
+    ctx.fillRect(innerX, innerY, innerW, innerH);
+
+    ctx.fillStyle = "#aaff64";
+    ctx.fillRect(innerX + innerW / 2 - 5, innerY - 3, 10, innerH + 6);
+    ctx.fillStyle = "rgba(235,255,203,0.44)";
+    ctx.fillRect(innerX + 7, innerY + 10, 5, innerH - 20);
+    ctx.fillRect(innerX + innerW - 12, innerY + 15, 4, innerH - 28);
+
+    // Ondas internas.
+    for (let i = 0; i < 5; i++) {
+      const yy = innerY + 10 + ((time * 28 + i * 19) % Math.max(1, innerH - 16));
+      ctx.fillStyle = i % 2 === 0 ? "rgba(225,255,170,0.24)" : "rgba(67,205,35,0.22)";
+      ctx.fillRect(innerX + 3, yy, innerW - 6, 3);
+    }
+
+    // Moldura escura da fenda.
+    ctx.fillStyle = "#1a213d";
+    ctx.fillRect(x + 8, y + 38, 10, h - 58);
+    ctx.fillRect(x + w - 18, y + 38, 10, h - 58);
+    ctx.fillRect(x + 24, y + 5, w - 48, 10);
+    ctx.fillRect(x + 24, y + h - 13, w - 48, 8);
+
+    // Cristais laterais.
+    drawOuterPortalCrystal(x + 2, y + 48, false);
+    drawOuterPortalCrystal(x + w - 16, y + 45, true);
+    drawOuterPortalCrystal(x + 9, y + h - 34, false);
+    drawOuterPortalCrystal(x + w - 23, y + h - 38, true);
+
+    // Runas verdes na moldura.
+    ctx.fillStyle = "#c7ff82";
+    for (let i = 0; i < 6; i++) {
+      const ry = y + 30 + i * 13;
+      ctx.fillRect(x + 12, ry, 4, 4);
+      ctx.fillRect(x + w - 16, ry + 6, 4, 4);
+    }
+
+    // Partículas orbitando.
+    for (let i = 0; i < 10; i++) {
+      const angle = time * 1.4 + i * 0.63;
+      const px = x + w / 2 + Math.cos(angle) * (w * 0.52 + Math.sin(time + i) * 5);
+      const py = y + h / 2 + Math.sin(angle) * (h * 0.40);
+      ctx.fillStyle = i % 2 ? "rgba(199,255,128,0.75)" : "rgba(130,255,50,0.65)";
+      ctx.fillRect(px, py, 3 + (i % 2), 3 + (i % 2));
+    }
+  }
+
+  function drawOuterPortalCrystal(x, y, flip) {
+    ctx.fillStyle = "#25304e";
+    ctx.fillRect(x + (flip ? 3 : 0), y + 8, 12, 20);
+    ctx.fillStyle = "#7fff2a";
+    ctx.fillRect(x + 4, y + 2, 7, 27);
+    ctx.fillStyle = "#d9ff9c";
+    ctx.fillRect(x + 6, y + 5, 3, 18);
+  }
+
+  function drawBeautifulAcidPedestal(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+
+    drawSoftShadow(x + 8, y + h - 4, w - 16, 10, 0.24);
+
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 4, y + 8, w - 8, h - 10);
+    ctx.fillStyle = "#415448";
+    ctx.fillRect(x + 10, y + 12, w - 20, h - 18);
+
+    ctx.fillStyle = "#617364";
+    ctx.fillRect(x + 16, y + 15, w - 32, 5);
+    ctx.fillStyle = "#8cff4a";
+    ctx.fillRect(x + 22, y + 10, w - 44, 3);
+
+    ctx.fillStyle = "#1b2338";
+    for (let i = 0; i < 6; i++) {
+      ctx.fillRect(x + 14 + i * 16, y + h - 10, 8, 4);
+    }
+
+    ctx.fillStyle = "rgba(154,255,114,0.22)";
+    ctx.fillRect(x + 8, y + 4, w - 16, 4);
+  }
+})();
+
+
+/* ==================================================
+   Patch final: Portal Ácido por dentro mais bonito
+   - melhora a saída/portal interno da Dimensão Ácida
+   - deixa com altar, moldura, runas, brilho e partículas
+   ================================================== */
+(function acidInsidePortalBeautyPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ACID_INSIDE_PORTAL_BEAUTY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ACID_INSIDE_PORTAL_BEAUTY_PATCH = true;
+
+  const drawObjectBeforeAcidInsidePortalBeauty = drawObject;
+  drawObject = function drawObjectAcidInsidePortalBeautyPatch(obj) {
+    if (obj?.type === "acidExit") return drawBeautifulInsideAcidPortal(obj);
+    return drawObjectBeforeAcidInsidePortalBeauty(obj);
+  };
+
+  function drawBeautifulInsideAcidPortal(obj) {
+    const baseX = obj.x - 18;
+    const baseY = obj.y - 26;
+    const w = obj.width + 36;
+    const h = obj.height + 56;
+    const time = performance.now() / 1000;
+    const pulse = 0.20 + Math.sin(time * 3.0) * 0.06;
+
+    drawSoftShadow(baseX + 8, baseY + h - 16, w - 16, 18, 0.36);
+
+    // Aura grande para misturar com o mapa verde.
+    const aura = ctx.createRadialGradient(
+      baseX + w / 2,
+      baseY + h / 2,
+      12,
+      baseX + w / 2,
+      baseY + h / 2,
+      w * 0.95
+    );
+    aura.addColorStop(0, `rgba(210,255,126,${pulse + 0.10})`);
+    aura.addColorStop(0.44, `rgba(94,255,0,${pulse})`);
+    aura.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = aura;
+    ctx.fillRect(baseX - 45, baseY - 36, w + 90, h + 82);
+
+    // Plataforma/altar no chão.
+    ctx.fillStyle = "#1a2138";
+    ctx.fillRect(baseX + 8, baseY + h - 22, w - 16, 14);
+    ctx.fillStyle = "#35465a";
+    ctx.fillRect(baseX + 16, baseY + h - 18, w - 32, 7);
+    ctx.fillStyle = "#89ff43";
+    ctx.fillRect(baseX + 24, baseY + h - 22, w - 48, 3);
+
+    // Colunas laterais.
+    ctx.fillStyle = "#1f2746";
+    ctx.fillRect(baseX + 9, baseY + 28, 16, h - 52);
+    ctx.fillRect(baseX + w - 25, baseY + 28, 16, h - 52);
+    ctx.fillStyle = "#3b4667";
+    ctx.fillRect(baseX + 13, baseY + 34, 6, h - 66);
+    ctx.fillRect(baseX + w - 19, baseY + 34, 6, h - 66);
+
+    // Topo e base da moldura.
+    ctx.fillStyle = "#202846";
+    ctx.fillRect(baseX + 22, baseY + 11, w - 44, 15);
+    ctx.fillRect(baseX + 23, baseY + h - 32, w - 46, 11);
+    ctx.fillStyle = "#46556e";
+    ctx.fillRect(baseX + 29, baseY + 15, w - 58, 5);
+
+    // Energia verde central.
+    const innerX = baseX + 31;
+    const innerY = baseY + 25;
+    const innerW = w - 62;
+    const innerH = h - 58;
+
+    const energy = ctx.createLinearGradient(innerX, innerY, innerX + innerW, innerY + innerH);
+    energy.addColorStop(0, "#69ff25");
+    energy.addColorStop(0.52, "#a6ff55");
+    energy.addColorStop(1, "#57e826");
+    ctx.fillStyle = energy;
+    ctx.fillRect(innerX, innerY, innerW, innerH);
+
+    ctx.fillStyle = "rgba(236,255,201,0.62)";
+    ctx.fillRect(innerX + innerW / 2 - 4, innerY - 3, 8, innerH + 6);
+    ctx.fillStyle = "rgba(236,255,201,0.30)";
+    ctx.fillRect(innerX + 7, innerY + 12, 5, innerH - 24);
+    ctx.fillRect(innerX + innerW - 12, innerY + 18, 4, innerH - 34);
+
+    // Linhas de energia descendo.
+    for (let i = 0; i < 6; i++) {
+      const yy = innerY + 8 + ((time * 32 + i * 17) % Math.max(1, innerH - 14));
+      ctx.fillStyle = i % 2 === 0 ? "rgba(231,255,190,0.28)" : "rgba(43,200,28,0.22)";
+      ctx.fillRect(innerX + 4, yy, innerW - 8, 3);
+    }
+
+    // Runas nas laterais.
+    ctx.fillStyle = "#c7ff82";
+    for (let i = 0; i < 7; i++) {
+      const ry = baseY + 38 + i * 13;
+      ctx.fillRect(baseX + 14, ry, 4, 4);
+      ctx.fillRect(baseX + w - 18, ry + 6, 4, 4);
+    }
+
+    // Cristais do portal.
+    drawInsidePortalCrystal(baseX + 1, baseY + 46, false);
+    drawInsidePortalCrystal(baseX + w - 17, baseY + 44, true);
+    drawInsidePortalCrystal(baseX + 10, baseY + h - 50, false);
+    drawInsidePortalCrystal(baseX + w - 27, baseY + h - 54, true);
+
+    // Partículas orbitando, para o portal não parecer só um retângulo.
+    for (let i = 0; i < 14; i++) {
+      const angle = time * 1.55 + i * 0.55;
+      const px = baseX + w / 2 + Math.cos(angle) * (w * 0.54 + Math.sin(time + i) * 5);
+      const py = baseY + h / 2 + Math.sin(angle) * (h * 0.42);
+      ctx.fillStyle = i % 2 ? "rgba(215,255,150,0.78)" : "rgba(130,255,50,0.68)";
+      ctx.fillRect(px, py, 3 + (i % 3), 3 + (i % 3));
+    }
+
+    // Brilho no chão, fazendo parecer que o portal está encaixado no mapa.
+    ctx.fillStyle = "rgba(154,255,114,0.18)";
+    ctx.beginPath();
+    ctx.ellipse(baseX + w / 2, baseY + h - 8, w * 0.48, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawInsidePortalCrystal(x, y, flip) {
+    ctx.fillStyle = "#25304e";
+    ctx.fillRect(x + (flip ? 3 : 0), y + 8, 12, 21);
+    ctx.fillStyle = "#7fff2a";
+    ctx.fillRect(x + 4, y + 2, 7, 28);
+    ctx.fillStyle = "#d9ff9c";
+    ctx.fillRect(x + 6, y + 5, 3, 19);
+  }
+})();
+
+
+/* ==================================================
+   Patch: Conteúdo vivo da Dimensão Ácida
+   - inimigos ácidos
+   - minérios raros
+   - NPCs com missões dentro da dimensão
+   ================================================== */
+(function acidDimensionContentPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ACID_CONTENT_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ACID_CONTENT_PATCH = true;
+
+  const ACID_SCENE = "acidDimension";
+  const ACID_CONTENT_MARKER = "acidContentV1";
+  const ACID_KILL_GOAL = 8;
+
+  const ACID_ORE_DEFS = {
+    necrita: {
+      name: "Necrita Verde",
+      invKey: "acidNecritaVerde",
+      icon: "Nv",
+      color: "#4f6f52",
+      core: "#9cff55",
+      rarity: "raro",
+      amount: 1,
+      description: "Minério verde escuro que nasceu perto do veneno dimensional."
+    },
+    caustic: {
+      name: "Cristal Cáustico",
+      invKey: "acidCristalCaustico",
+      icon: "Cc",
+      color: "#72ff32",
+      core: "#e5ff9a",
+      rarity: "epico",
+      amount: 1,
+      description: "Cristal vivo que borbulha energia ácida."
+    },
+    corrosiveGold: {
+      name: "Ouro Corrosivo",
+      invKey: "acidOuroCorrosivo",
+      icon: "Oc",
+      color: "#d6c55a",
+      core: "#f7ff84",
+      rarity: "lendario",
+      amount: 1,
+      description: "Ouro raro corroído por toxinas antigas."
+    }
+  };
+
+  function ensureAcidContentState() {
+    if (!questBook.acidContent || typeof questBook.acidContent !== "object") {
+      questBook.acidContent = {};
+    }
+    const state = questBook.acidContent;
+    if (!state.oresMined || typeof state.oresMined !== "object") state.oresMined = {};
+    if (!state.enemiesDefeated || typeof state.enemiesDefeated !== "object") state.enemiesDefeated = {};
+    if (!state.npcQuests || typeof state.npcQuests !== "object") state.npcQuests = {};
+    if (!state.npcQuests.miner) state.npcQuests.miner = { status: "notStarted" };
+    if (!state.npcQuests.alchemist) state.npcQuests.alchemist = { status: "notStarted" };
+    if (!state.npcQuests.guard) state.npcQuests.guard = { status: "notStarted" };
+    state.enemyKills = Number(state.enemyKills || 0);
+
+    for (const def of Object.values(ACID_ORE_DEFS)) {
+      inventory[def.invKey] = Number(inventory[def.invKey] || 0);
+    }
+    if (!Array.isArray(inventory.acidRelics)) inventory.acidRelics = [];
+  }
+
+  function grantAcidRelic(name) {
+    ensureAcidContentState();
+    if (!inventory.acidRelics.includes(name)) inventory.acidRelics.push(name);
+    if (!Array.isArray(inventory.itensBoss)) inventory.itensBoss = [];
+    if (!inventory.itensBoss.includes(name)) inventory.itensBoss.push(name);
+  }
+
+  function acidOre(tileX, tileY, oreKey) {
+    const def = ACID_ORE_DEFS[oreKey] || ACID_ORE_DEFS.necrita;
+    return {
+      type: "acidOre",
+      oreKey,
+      x: tileX * TILE + 4,
+      y: tileY * TILE + 4,
+      width: 30,
+      height: 34,
+      solid: false,
+      depleted: false,
+      message: `Jazida de ${def.name}: pressione E para minerar.`
+    };
+  }
+
+  function makeAcidEnemy(tileX, tileY, kind, id) {
+    const obj = enemy(tileX, tileY, kind);
+    obj.acidEnemyId = id;
+    obj.coinReward = Math.max(obj.coinReward || 0, 10);
+    obj.coinsReward = obj.coinReward;
+    obj.xpReward = Math.max(obj.xpReward || 0, 10);
+    obj.dropTable = { coin: 1, potion: 0.16, powerUp: 0.25, loot: 0.35 };
+    obj.resistances = { ...(obj.resistances || {}), veneno: 0.45 };
+    return obj;
+  }
+
+  const acidContentObjects = [
+    npc(38, 53, "Nira", "Nira: Preciso de minérios raros da Dimensão Ácida para reforçar o equipamento.", "acidMinerQuest"),
+    npc(50, 53, "Vekra", "Vekra: Quero estudar o altar, o reator e o ouro corrosivo desta dimensão.", "acidAlchemistQuest"),
+    npc(44, 44, "Dorian", "Dorian: As criaturas ácidas estão se multiplicando. Preciso de ajuda na patrulha.", "acidGuardQuest"),
+
+    acidOre(31, 29, "necrita"),
+    acidOre(35, 37, "necrita"),
+    acidOre(55, 29, "necrita"),
+    acidOre(60, 38, "necrita"),
+    acidOre(25, 46, "caustic"),
+    acidOre(63, 46, "caustic"),
+    acidOre(18, 24, "caustic"),
+    acidOre(70, 24, "caustic"),
+    acidOre(41, 21, "corrosiveGold"),
+    acidOre(48, 21, "corrosiveGold"),
+    acidOre(44, 39, "corrosiveGold"),
+
+    makeAcidEnemy(28, 31, "slimeToxico", "slime-east-1"),
+    makeAcidEnemy(59, 31, "slimeToxico", "slime-west-1"),
+    makeAcidEnemy(35, 25, "mosquitoVenenoso", "mosquito-1"),
+    makeAcidEnemy(53, 25, "mosquitoVenenoso", "mosquito-2"),
+    makeAcidEnemy(24, 45, "serpenteAquatica", "serpent-1"),
+    makeAcidEnemy(64, 45, "serpenteAquatica", "serpent-2"),
+    makeAcidEnemy(33, 48, "bruxaPantano", "witch-1"),
+    makeAcidEnemy(56, 48, "bruxaPantano", "witch-2"),
+    makeAcidEnemy(44, 24, "golemPedra", "golem-acid-1")
+  ];
+
+  function ensureAcidSceneContent() {
+    ensureAcidContentState();
+    if (currentScene !== ACID_SCENE || !Array.isArray(objects)) return;
+
+    if (!objects.some((obj) => obj.type === "acidContentMarker" && obj.role === ACID_CONTENT_MARKER)) {
+      objects.push({ type: "acidContentMarker", role: ACID_CONTENT_MARKER, x: 0, y: 0, width: 1, height: 1, solid: false });
+      objects.push(...acidContentObjects);
+    }
+
+    for (const obj of acidContentObjects) {
+      if (obj.type === "acidOre") {
+        obj.depleted = Boolean(questBook.acidContent.oresMined[getAcidOreId(obj)]);
+      }
+      if (obj.type === "enemy" && obj.acidEnemyId) {
+        const defeated = Boolean(questBook.acidContent.enemiesDefeated[obj.acidEnemyId]);
+        obj.alive = !defeated;
+        if (!defeated && (!Number.isFinite(obj.hp) || obj.hp <= 0)) {
+          normalizeEnemy(obj);
+          obj.hp = obj.maxHp;
+          obj.x = obj.spawnX;
+          obj.y = obj.spawnY;
+        }
+      }
+    }
+
+    // A Dimensão Ácida fica livre de paredes invisíveis.
+    colliders = [];
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  const setActiveSceneBeforeAcidContent = setActiveScene;
+  setActiveScene = function setActiveSceneAcidContentPatch(scene) {
+    setActiveSceneBeforeAcidContent(scene);
+    if (currentScene === ACID_SCENE) ensureAcidSceneContent();
+  };
+
+  const normalizeRuntimeStateBeforeAcidContent = normalizeRuntimeState;
+  normalizeRuntimeState = function normalizeRuntimeStateAcidContentPatch() {
+    normalizeRuntimeStateBeforeAcidContent();
+    ensureAcidContentState();
+  };
+
+  const resetProgressBeforeAcidContent = resetProgressForNewGame;
+  resetProgressForNewGame = function resetProgressForNewGameAcidContentPatch(name) {
+    resetProgressBeforeAcidContent(name);
+    questBook.acidContent = {
+      oresMined: {},
+      enemiesDefeated: {},
+      enemyKills: 0,
+      npcQuests: {
+        miner: { status: "notStarted" },
+        alchemist: { status: "notStarted" },
+        guard: { status: "notStarted" }
+      }
+    };
+    for (const def of Object.values(ACID_ORE_DEFS)) inventory[def.invKey] = 0;
+    inventory.acidRelics = [];
+    for (const obj of acidContentObjects) {
+      if (obj.type === "acidOre") obj.depleted = false;
+      if (obj.type === "enemy") {
+        normalizeEnemy(obj);
+        obj.alive = true;
+        obj.hp = obj.maxHp;
+        obj.x = obj.spawnX;
+        obj.y = obj.spawnY;
+      }
+    }
+  };
+
+  function getAcidOreId(obj) {
+    return `${obj.oreKey}:${Math.round(obj.x)}:${Math.round(obj.y)}`;
+  }
+
+  function mineAcidOre(obj) {
+    ensureAcidContentState();
+    const def = ACID_ORE_DEFS[obj.oreKey] || ACID_ORE_DEFS.necrita;
+    const oreId = getAcidOreId(obj);
+    if (obj.depleted || questBook.acidContent.oresMined[oreId]) {
+      return `${def.name}: esta jazida já foi minerada. O brilho ácido ficou fraco.`;
+    }
+
+    obj.depleted = true;
+    questBook.acidContent.oresMined[oreId] = true;
+    inventory[def.invKey] = Number(inventory[def.invKey] || 0) + def.amount;
+    inventory.fragmentos = Number(inventory.fragmentos || 0) + (obj.oreKey === "corrosiveGold" ? 2 : 1);
+
+    spawnFloatingText(`+${def.amount} ${def.name}`, obj.x, obj.y - 14, def.core);
+    awardXp(obj.oreKey === "corrosiveGold" ? 120 : 80, `Minerio acido: ${def.name}`);
+    playSound("coin");
+    updateHud();
+    renderInventory();
+
+    return `Você minerou ${def.amount}x ${def.name}. O minério foi guardado no inventário.`;
+  }
+
+  function handleAcidMinerQuest() {
+    ensureAcidContentState();
+    const quest = questBook.acidContent.npcQuests.miner;
+    const necrita = Number(inventory.acidNecritaVerde || 0);
+    const caustic = Number(inventory.acidCristalCaustico || 0);
+
+    if (quest.status === "notStarted") {
+      quest.status = "active";
+      return "Nira: Para reforçar meus filtros, traga 4 Necritas Verdes e 2 Cristais Cáusticos. Eles ficam brilhando nas paredes da dimensão.";
+    }
+
+    if (quest.status === "active") {
+      if (necrita >= 4 && caustic >= 2) {
+        inventory.acidNecritaVerde -= 4;
+        inventory.acidCristalCaustico -= 2;
+        inventory.moedas += 70;
+        inventory.chavesRaras += 1;
+        grantAcidRelic("Filtro de Necrita");
+        quest.status = "done";
+        awardXp(650, "Missão da Nira");
+        renderInventory();
+        updateHud();
+        return "Nira: Perfeito! Os filtros vão aguentar o vapor ácido. Recompensa: 70 moedas, 1 chave rara e Filtro de Necrita.";
+      }
+      return `Nira: Ainda falta material. Necrita Verde ${necrita}/4 | Cristal Cáustico ${caustic}/2.`;
+    }
+
+    return "Nira: Com esse filtro, dá até para respirar melhor perto do reator.";
+  }
+
+  function handleAcidAlchemistQuest() {
+    ensureAcidContentState();
+    const quest = questBook.acidContent.npcQuests.alchemist;
+    const gold = Number(inventory.acidOuroCorrosivo || 0);
+    const altarOk = Boolean(questBook.acidDimension?.altarRead);
+    const reactorOk = Boolean(questBook.acidDimension?.reactorSeen);
+
+    if (quest.status === "notStarted") {
+      quest.status = "active";
+      return "Vekra: Quero entender a alma desta dimensão. Observe o altar corrosivo, examine o reator e traga 2 Ouros Corrosivos.";
+    }
+
+    if (quest.status === "active") {
+      if (altarOk && reactorOk && gold >= 2) {
+        inventory.acidOuroCorrosivo -= 2;
+        inventory.moedas += 90;
+        player.maxMana += 1;
+        player.mana = player.maxMana;
+        grantAcidRelic("Núcleo Cáustico Estável");
+        quest.status = "done";
+        awardXp(800, "Pesquisa da Vekra");
+        renderInventory();
+        updateHud();
+        return "Vekra: Magnífico! A dimensão pulsa como uma máquina viva. Recompensa: 90 moedas, +1 mana máxima e Núcleo Cáustico Estável.";
+      }
+
+      const parts = [
+        `Altar ${altarOk ? "ok" : "?"}`,
+        `Reator ${reactorOk ? "ok" : "?"}`,
+        `Ouro Corrosivo ${gold}/2`
+      ];
+      return `Vekra: A pesquisa ainda não está completa. ${parts.join(" | ")}.`;
+    }
+
+    return "Vekra: O núcleo ácido está mais estável. Por enquanto.";
+  }
+
+  function handleAcidGuardQuest() {
+    ensureAcidContentState();
+    const quest = questBook.acidContent.npcQuests.guard;
+    const kills = Number(questBook.acidContent.enemyKills || 0);
+
+    if (quest.status === "notStarted") {
+      quest.status = "active";
+      return `Dorian: Preciso limpar a rota central. Derrote ${ACID_KILL_GOAL} inimigos ácidos e volte aqui.`;
+    }
+
+    if (quest.status === "active") {
+      if (kills >= ACID_KILL_GOAL) {
+        quest.status = "done";
+        inventory.moedas += 85;
+        inventory.pocoes += 2;
+        inventory.flechas += 30;
+        grantAcidRelic("Insígnia do Patrulheiro Ácido");
+        awardXp(750, "Patrulha ácida");
+        renderInventory();
+        updateHud();
+        return "Dorian: A rota está segura de novo. Recompensa: 85 moedas, 2 poções, 30 flechas e Insígnia do Patrulheiro Ácido.";
+      }
+      return `Dorian: Continue lutando. Inimigos derrotados: ${kills}/${ACID_KILL_GOAL}.`;
+    }
+
+    return "Dorian: A patrulha voltou a respirar. Belo trabalho.";
+  }
+
+  const getQuestMessageBeforeAcidContent = getQuestMessage;
+  getQuestMessage = function getQuestMessageAcidContentPatch(target) {
+    ensureAcidContentState();
+
+    if (target?.type === "acidOre") return mineAcidOre(target);
+    if (target?.type === "npc" && target.role === "acidMinerQuest") return handleAcidMinerQuest();
+    if (target?.type === "npc" && target.role === "acidAlchemistQuest") return handleAcidAlchemistQuest();
+    if (target?.type === "npc" && target.role === "acidGuardQuest") return handleAcidGuardQuest();
+
+    return getQuestMessageBeforeAcidContent(target);
+  };
+
+  const updateInteractionHintBeforeAcidContent = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintAcidContentPatch() {
+    updateInteractionHintBeforeAcidContent();
+    try {
+      const target = findInteraction();
+      if (!target || dialogOpen || shopOpen) return;
+      if (target.type === "acidOre") {
+        interactionHint.textContent = target.depleted ? "Jazida esgotada" : "Pressione E para minerar minério raro";
+        if (touchContextLabel) touchContextLabel.textContent = target.depleted ? "Esgotado" : "Minerar";
+      }
+      if (target.type === "npc" && ["acidMinerQuest", "acidAlchemistQuest", "acidGuardQuest"].includes(target.role)) {
+        interactionHint.textContent = "Pressione E para falar sobre missão ácida";
+        if (touchContextLabel) touchContextLabel.textContent = "Missão";
+      }
+    } catch (error) {}
+  };
+
+  const drawObjectBeforeAcidContent = drawObject;
+  drawObject = function drawObjectAcidContentPatch(obj) {
+    if (obj?.type === "acidOre") return drawAcidOre(obj);
+    return drawObjectBeforeAcidContent(obj);
+  };
+
+  function drawAcidOre(obj) {
+    const def = ACID_ORE_DEFS[obj.oreKey] || ACID_ORE_DEFS.necrita;
+    const x = obj.x;
+    const y = obj.y;
+    const pulse = obj.depleted ? 0 : 0.16 + Math.sin(performance.now() / 280 + x * 0.01) * 0.05;
+
+    drawSoftShadow(x + 2, y + obj.height - 4, obj.width - 4, 8, 0.20);
+    ctx.fillStyle = obj.depleted ? "#39413d" : def.color;
+    ctx.fillRect(x + 5, y + 12, obj.width - 10, obj.height - 14);
+    ctx.fillStyle = obj.depleted ? "#5a655e" : "#24324a";
+    ctx.fillRect(x + 2, y + 18, 5, obj.height - 20);
+    ctx.fillRect(x + obj.width - 7, y + 18, 5, obj.height - 20);
+
+    ctx.fillStyle = obj.depleted ? "#718074" : def.core;
+    ctx.fillRect(x + obj.width / 2 - 5, y + 5, 10, obj.height - 16);
+
+    if (!obj.depleted) {
+      ctx.fillStyle = `rgba(154,255,114,${pulse})`;
+      ctx.fillRect(x - 4, y + 2, obj.width + 8, obj.height + 2);
+      ctx.fillStyle = "rgba(231,255,205,0.45)";
+      ctx.fillRect(x + obj.width / 2 - 2, y + 8, 4, obj.height - 24);
+    }
+  }
+
+  const defeatEnemyBeforeAcidContent = defeatEnemy;
+  defeatEnemy = function defeatEnemyAcidContentPatch(obj) {
+    const wasAcidEnemy = currentScene === ACID_SCENE && obj?.type === "enemy" && Boolean(obj.acidEnemyId);
+    const acidId = obj?.acidEnemyId || "";
+    defeatEnemyBeforeAcidContent(obj);
+
+    if (wasAcidEnemy) {
+      ensureAcidContentState();
+      if (!questBook.acidContent.enemiesDefeated[acidId]) {
+        questBook.acidContent.enemiesDefeated[acidId] = true;
+        questBook.acidContent.enemyKills = Number(questBook.acidContent.enemyKills || 0) + 1;
+        if (Math.random() < 0.45) {
+          inventory.acidCristalCaustico = Number(inventory.acidCristalCaustico || 0) + 1;
+          spawnFloatingText("+Cristal Cáustico", obj.x, obj.y - 32, "#d9ff9c");
+        }
+      }
+      updateQuestProgress();
+      renderInventory();
+      updateHud();
+    }
+  };
+
+  function acidEnemyWouldCrowd(obj, nextX, nextY) {
+    const centerX = nextX + obj.width / 2;
+    const centerY = nextY + obj.height / 2;
+    return objects.some((other) => {
+      if (other === obj || other.type !== "enemy" || !other.alive) return false;
+      const otherCenterX = other.x + other.width / 2;
+      const otherCenterY = other.y + other.height / 2;
+      const minDistance = (Math.max(obj.width, obj.height) + Math.max(other.width, other.height)) * 0.34;
+      return Math.hypot(centerX - otherCenterX, centerY - otherCenterY) < minDistance;
+    });
+  }
+
+  function moveAcidEnemyToward(obj, dx, dy, delta, speedMultiplier = 1) {
+    const length = Math.hypot(dx, dy) || 1;
+    const nextX = obj.x + (dx / length) * obj.speed * speedMultiplier * delta;
+    const nextY = obj.y + (dy / length) * obj.speed * speedMultiplier * delta;
+
+    if (Math.abs(dx) > Math.abs(dy)) obj.direction = dx > 0 ? "right" : "left";
+    else obj.direction = dy > 0 ? "down" : "up";
+
+    if (canEntityMoveTo(obj, nextX, obj.y) && !acidEnemyWouldCrowd(obj, nextX, obj.y)) obj.x = nextX;
+    if (canEntityMoveTo(obj, obj.x, nextY) && !acidEnemyWouldCrowd(obj, obj.x, nextY)) obj.y = nextY;
+  }
+
+  function updateAcidEnemyWander(obj, delta) {
+    obj.moveTimer -= delta;
+    if (obj.moveTimer <= 0) {
+      const directions = ["up", "down", "left", "right", "idle"];
+      obj.direction = directions[Math.floor(Math.random() * directions.length)];
+      obj.moveTimer = 0.8 + Math.random() * 1.7;
+    }
+
+    if (obj.direction === "idle") return;
+    const step = directionVector(obj.direction);
+    const nextX = obj.x + step.x * obj.speed * 0.45 * delta;
+    const nextY = obj.y + step.y * obj.speed * 0.45 * delta;
+    const nearSpawn = Math.hypot(nextX - obj.spawnX, nextY - obj.spawnY) < TILE * 2.4;
+    if (nearSpawn && canEntityMoveTo(obj, nextX, nextY) && !acidEnemyWouldCrowd(obj, nextX, nextY)) {
+      obj.x = nextX;
+      obj.y = nextY;
+    }
+  }
+
+  function updateAcidEnemies(delta) {
+    if (currentScene !== ACID_SCENE || dialogOpen || pauseOpen || inventoryOpen || shopOpen || gameOver || !gameStarted) return;
+    ensureAcidSceneContent();
+
+    damageCooldown = Math.max(0, damageCooldown - delta);
+    const playerRect = getPlayerRect();
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    for (const obj of objects) {
+      if (obj.type !== "enemy" || !obj.alive || !obj.acidEnemyId) continue;
+      normalizeEnemy(obj);
+
+      obj.invulnerableTimer = Math.max(0, obj.invulnerableTimer - delta);
+      obj.attackCooldown = Math.max(0, obj.attackCooldown - delta);
+      obj.attackTimer = Math.max(0, obj.attackTimer - delta);
+
+      if (Math.abs(obj.knockbackX) + Math.abs(obj.knockbackY) > 1) {
+        const nextX = obj.x + obj.knockbackX * delta;
+        const nextY = obj.y + obj.knockbackY * delta;
+        if (canEntityMoveTo(obj, nextX, obj.y)) obj.x = nextX;
+        if (canEntityMoveTo(obj, obj.x, nextY)) obj.y = nextY;
+        obj.knockbackX *= 0.84;
+        obj.knockbackY *= 0.84;
+        continue;
+      }
+
+      obj.knockbackX = 0;
+      obj.knockbackY = 0;
+
+      const enemyCenterX = obj.x + obj.width / 2;
+      const enemyCenterY = obj.y + obj.height / 2;
+      const distanceToPlayer = Math.hypot(playerCenterX - enemyCenterX, playerCenterY - enemyCenterY);
+      const distanceToSpawn = Math.hypot(obj.x - obj.spawnX, obj.y - obj.spawnY);
+      const isRanged = Boolean(obj.projectileType);
+
+      if (isRanged && distanceToPlayer < obj.attackRange && obj.attackCooldown <= 0) {
+        fireEnemyProjectile(obj, playerCenterX, playerCenterY);
+        obj.attackCooldown = obj.attackDelay;
+        obj.state = "attack";
+      }
+
+      if (distanceToPlayer < obj.aggroRange) {
+        obj.state = "chase";
+        const shouldKeepDistance = isRanged && distanceToPlayer < obj.attackRange * 0.52;
+        if (shouldKeepDistance) {
+          moveAcidEnemyToward(obj, enemyCenterX - playerCenterX, enemyCenterY - playerCenterY, delta, 0.78);
+        } else {
+          const wobbleX = Math.sin(performance.now() / 330 + obj.spawnX) * 18;
+          const wobbleY = Math.cos(performance.now() / 360 + obj.spawnY) * 14;
+          moveAcidEnemyToward(obj, playerCenterX - enemyCenterX + wobbleX, playerCenterY - enemyCenterY + wobbleY, delta, 1);
+        }
+      } else if (distanceToSpawn > TILE * 2.2) {
+        obj.state = "return";
+        moveAcidEnemyToward(obj, obj.spawnX - obj.x, obj.spawnY - obj.y, delta, 0.74);
+      } else {
+        obj.state = "idle";
+        updateAcidEnemyWander(obj, delta);
+      }
+
+      if (Math.random() < delta * 0.18 && distanceToPlayer < 210) {
+        spawnHazardZone("slime", enemyCenterX, enemyCenterY, 24, 1.8, 1);
+      }
+
+      if (rectsOverlap(playerRect, obj) && damageCooldown <= 0) {
+        takeDamage(obj.damage, enemyCenterX, enemyCenterY);
+        damageCooldown = obj.attackDelay;
+      }
+    }
+  }
+
+  const updateBeforeAcidContent = update;
+  update = function updateAcidContentPatch(delta) {
+    updateBeforeAcidContent(delta);
+    if (currentScene === ACID_SCENE) {
+      updateAcidEnemies(delta);
+    }
+  };
+
+  const resolveBasicAttackBeforeAcidContent = resolveBasicAttack;
+  resolveBasicAttack = function resolveBasicAttackAcidContentPatch() {
+    if (currentScene !== ACID_SCENE || !currentMeleeAttack) {
+      resolveBasicAttackBeforeAcidContent();
+      return;
+    }
+
+    ensureAcidSceneContent();
+    let hit = false;
+    for (const obj of objects) {
+      if (obj.type !== "enemy" || !obj.alive || !obj.acidEnemyId || !enemyInMeleeArc(obj, currentMeleeAttack)) continue;
+      const damage = getBasicAttackDamage(currentMeleeAttack.weaponKey);
+      const weapon = weapons[currentMeleeAttack.weaponKey] || weapons.sword;
+      if (damageEnemy(obj, damage, player.x + player.width / 2, player.y + player.height / 2, 190, weapon.damageType)) hit = true;
+    }
+    if (hit) playSound("hitEnemy");
+  };
+
+  const updateProjectilesBeforeAcidContent = updateProjectiles;
+  updateProjectiles = function updateProjectilesAcidContentPatch(delta) {
+    updateProjectilesBeforeAcidContent(delta);
+    if (currentScene !== ACID_SCENE) return;
+    ensureAcidSceneContent();
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const obj = projectiles[i];
+      const target = objects.find((enemyObj) => (
+        enemyObj.type === "enemy" &&
+        enemyObj.alive &&
+        enemyObj.acidEnemyId &&
+        rectsOverlap(obj, enemyObj)
+      ));
+
+      if (target) {
+        const targetKey = getSaveObjectKey(target);
+        if (!obj.hitKeys?.has(targetKey)) {
+          damageEnemy(target, obj.damage, obj.x, obj.y, 210, obj.damageType);
+          obj.hitKeys?.add(targetKey);
+          if (obj.pierce > 0) obj.pierce -= 1;
+          else projectiles.splice(i, 1);
+        }
+      }
+    }
+  };
+
+  const shockwaveBeforeAcidContent = shockwave;
+  shockwave = function shockwaveAcidContentPatch() {
+    if (currentScene !== ACID_SCENE) {
+      shockwaveBeforeAcidContent();
+      return;
+    }
+
+    if (!canUsePower("shockwave", spellCosts.shockwave)) return;
+    ensureAcidSceneContent();
+
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const radius = 78;
+    shockwaves.push({ x: centerX, y: centerY, radius, timer: 0.32, maxTimer: 0.32 });
+
+    for (const obj of objects) {
+      if (obj.type !== "enemy" || !obj.alive || !obj.acidEnemyId) continue;
+      const enemyCenterX = obj.x + obj.width / 2;
+      const enemyCenterY = obj.y + obj.height / 2;
+      const distance = Math.hypot(enemyCenterX - centerX, enemyCenterY - centerY);
+      if (distance <= radius) damageEnemy(obj, 1, centerX, centerY, 260, "magico");
+    }
+
+    player.spellCooldowns.shockwave = 2.6;
+    playSound("shockwave");
+    vibrate([22, 30, 22]);
+  };
+
+  const getCompactMissionTextBeforeAcidContent = getCompactMissionText;
+  getCompactMissionText = function getCompactMissionTextAcidContentPatch() {
+    if (currentScene === ACID_SCENE) {
+      ensureAcidContentState();
+      const quests = questBook.acidContent.npcQuests;
+      if (quests.miner.status !== "done") {
+        return `Ácido: Nira ${Number(inventory.acidNecritaVerde || 0)}/4 necrita`;
+      }
+      if (quests.alchemist.status !== "done") {
+        return `Ácido: Vekra ouro ${Number(inventory.acidOuroCorrosivo || 0)}/2`;
+      }
+      if (quests.guard.status !== "done") {
+        return `Ácido: inimigos ${Number(questBook.acidContent.enemyKills || 0)}/${ACID_KILL_GOAL}`;
+      }
+      return "Ácido: missões concluídas";
+    }
+    return getCompactMissionTextBeforeAcidContent();
+  };
+
+  const getInventoryItemsBeforeAcidContent = getInventoryItems;
+  getInventoryItems = function getInventoryItemsAcidContentPatch() {
+    ensureAcidContentState();
+    const items = getInventoryItemsBeforeAcidContent();
+    const addAcidItem = (item) => {
+      if (!item || Number(item.quantity || 0) <= 0) return;
+      items.push({ category: "materiais", typeLabel: "Minerio ácido", effect: "", action: "", ...item });
+    };
+
+    for (const def of Object.values(ACID_ORE_DEFS)) {
+      addAcidItem({
+        id: `acid-${def.invKey}`,
+        name: def.name,
+        icon: def.icon,
+        quantity: Number(inventory[def.invKey] || 0),
+        rarity: def.rarity,
+        description: def.description,
+        effect: "Usado nas missões da Dimensão Ácida."
+      });
+    }
+
+    for (const relic of inventory.acidRelics || []) {
+      items.push({
+        id: `acid-relic-${String(relic).replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+        name: relic,
+        icon: "Á",
+        quantity: 1,
+        category: "raros",
+        typeLabel: "Relíquia ácida",
+        rarity: "epico",
+        description: "Recompensa obtida nas missões da Dimensão Ácida.",
+        effect: "Marca de progresso avançado no bioma venenoso.",
+        locked: true
+      });
+    }
+
+    return items;
+  };
+
+  if (currentScene === ACID_SCENE) ensureAcidSceneContent();
+})();
+
+
+/* ==================================================
+   Patch final: inimigos ácidos mais bonitos
+   - melhora visual de slime, mosquito, serpente, bruxa e golem ácido
+   ================================================== */
+(function acidEnemyBeautyPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ACID_ENEMY_BEAUTY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ACID_ENEMY_BEAUTY_PATCH = true;
+
+  const drawEnemyBeforeAcidBeauty = drawEnemy;
+  drawEnemy = function drawEnemyAcidBeautyPatch(obj) {
+    drawEnemyBeforeAcidBeauty(obj);
+    if (!obj || obj.type !== "enemy") return;
+
+    const isAcidEnemy = ["slimeToxico", "mosquitoVenenoso", "serpenteAquatica", "bruxaPantano"].includes(obj.kind) || (obj.kind === "golemPedra" && obj.acidEnemyId);
+    if (!isAcidEnemy) return;
+
+    const x = obj.x;
+    const y = obj.y;
+    const t = performance.now() / 1000;
+    const pulse = 0.14 + Math.sin(t * 3 + x * 0.03) * 0.04;
+
+    if (obj.kind === "slimeToxico") {
+      drawSoftShadow(x + 3, y + obj.height - 4, obj.width - 6, 7, 0.18);
+      ctx.fillStyle = `rgba(154,255,114,${pulse})`;
+      ctx.fillRect(x + 1, y + 1, obj.width - 2, obj.height - 2);
+      ctx.fillStyle = "#2f8a42";
+      ctx.fillRect(x + 2, y + 5, obj.width - 4, obj.height - 7);
+      ctx.fillStyle = "#6dff54";
+      ctx.fillRect(x + 4, y + 4, obj.width - 8, obj.height - 9);
+      ctx.fillStyle = "#cfff9f";
+      ctx.fillRect(x + obj.width / 2 - 2, y + 6, 4, obj.height - 11);
+      ctx.fillStyle = "#17472a";
+      ctx.fillRect(x + 6, y + 10, 4, 3);
+      ctx.fillRect(x + obj.width - 10, y + 10, 4, 3);
+      ctx.fillStyle = "#e7ffd7";
+      ctx.fillRect(x + 7, y + 10, 1, 1);
+      ctx.fillRect(x + obj.width - 9, y + 10, 1, 1);
+      ctx.fillStyle = "#244d35";
+      ctx.fillRect(x + obj.width / 2 - 4, y + obj.height - 7, 8, 2);
+      ctx.fillStyle = "rgba(231,255,205,0.34)";
+      ctx.fillRect(x + 5, y + 6, 3, 4);
+      ctx.fillRect(x + obj.width - 8, y + 8, 2, 3);
+      for (let i = 0; i < 3; i++) {
+        const bx = x + 4 + i * 6 + Math.sin(t * 2.4 + i) * 1.5;
+        const by = y + 2 + (i % 2) * 2 + Math.cos(t * 3 + i) * 1.2;
+        ctx.fillStyle = "rgba(202,255,144,0.55)";
+        ctx.fillRect(bx, by, 2, 2);
+      }
+      return;
+    }
+
+    if (obj.kind === "mosquitoVenenoso") {
+      const bob = Math.sin(t * 8 + x * 0.04) * 1.5;
+      ctx.fillStyle = "rgba(146,255,132,0.24)";
+      ctx.fillRect(x + 1, y + 4 + bob, 7, 5);
+      ctx.fillRect(x + obj.width - 8, y + 4 - bob, 7, 5);
+      ctx.fillStyle = "rgba(214,255,198,0.24)";
+      ctx.fillRect(x + 2, y + 5 + bob, 5, 3);
+      ctx.fillRect(x + obj.width - 7, y + 5 - bob, 5, 3);
+      ctx.fillStyle = "#294235";
+      ctx.fillRect(x + obj.width / 2 - 2, y + 4, 4, obj.height - 7);
+      ctx.fillStyle = "#76ff58";
+      ctx.fillRect(x + obj.width / 2 - 3, y + 6, 6, 8);
+      ctx.fillStyle = "#dfffb8";
+      ctx.fillRect(x + obj.width / 2 - 1, y + 7, 2, 5);
+      ctx.fillStyle = "#183728";
+      ctx.fillRect(x + obj.width / 2 - 5, y + 6, 2, 2);
+      ctx.fillRect(x + obj.width / 2 + 3, y + 6, 2, 2);
+      ctx.fillStyle = "#2f8a42";
+      ctx.fillRect(x + obj.width / 2 - 1, y + obj.height - 4, 2, 5);
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = "#233145";
+        ctx.fillRect(x + 3 + i * 4, y + obj.height - 4, 1, 4);
+        ctx.fillRect(x + obj.width - 4 - i * 4, y + obj.height - 4, 1, 4);
+      }
+      return;
+    }
+
+    if (obj.kind === "serpenteAquatica") {
+      drawSoftShadow(x + 4, y + obj.height - 3, obj.width - 8, 6, 0.15);
+      ctx.fillStyle = `rgba(154,255,114,${pulse})`;
+      ctx.fillRect(x + 1, y + 5, obj.width - 2, obj.height - 8);
+      ctx.fillStyle = "#214f35";
+      ctx.fillRect(x + 2, y + 6, obj.width - 4, obj.height - 10);
+      ctx.fillStyle = "#59d94a";
+      for (let i = 0; i < obj.width - 10; i += 6) {
+        const yy = y + 7 + Math.sin(t * 6 + i * 0.4) * 1.5;
+        ctx.fillRect(x + 4 + i, yy, 6, obj.height - 12);
+      }
+      ctx.fillStyle = "#cfff9f";
+      ctx.fillRect(x + obj.width - 11, y + 7, 6, obj.height - 12);
+      ctx.fillStyle = "#173224";
+      ctx.fillRect(x + obj.width - 9, y + 8, 2, 2);
+      ctx.fillRect(x + obj.width - 6, y + 8, 2, 2);
+      ctx.fillStyle = "#ff8aa1";
+      ctx.fillRect(x + obj.width - 3, y + obj.height / 2, 4, 1);
+      ctx.fillStyle = "#8affb4";
+      ctx.fillRect(x + 3, y + 4, 3, 3);
+      ctx.fillRect(x + obj.width - 6, y + obj.height - 5, 3, 3);
+      return;
+    }
+
+    if (obj.kind === "bruxaPantano") {
+      drawSoftShadow(x + 4, y + obj.height - 4, obj.width - 8, 8, 0.16);
+      ctx.fillStyle = "#21314a";
+      ctx.fillRect(x + 6, y + 4, obj.width - 12, 5);
+      ctx.fillRect(x + 9, y + 2, obj.width - 18, 3);
+      ctx.fillStyle = "#33486d";
+      ctx.fillRect(x + 8, y + 7, obj.width - 16, 4);
+      ctx.fillStyle = "#2c3550";
+      ctx.fillRect(x + 6, y + 10, obj.width - 12, obj.height - 9);
+      ctx.fillStyle = "#4d2d63";
+      ctx.fillRect(x + 8, y + 12, obj.width - 16, obj.height - 13);
+      ctx.fillStyle = "#7eff52";
+      ctx.fillRect(x + obj.width / 2 - 2, y + 14, 4, obj.height - 18);
+      ctx.fillStyle = "#eadbb8";
+      ctx.fillRect(x + obj.width / 2 - 4, y + 8, 8, 6);
+      ctx.fillStyle = "#17293f";
+      ctx.fillRect(x + obj.width / 2 - 3, y + 10, 2, 2);
+      ctx.fillRect(x + obj.width / 2 + 1, y + 10, 2, 2);
+      ctx.fillStyle = "#273052";
+      ctx.fillRect(x + 2, y + 12, 2, obj.height - 6);
+      ctx.fillStyle = "#99ff6c";
+      ctx.fillRect(x + 2, y + 14, 2, 8);
+      ctx.fillStyle = "rgba(154,255,114,0.42)";
+      ctx.fillRect(x, y + 12, 6, 12);
+      return;
+    }
+
+    if (obj.kind === "golemPedra" && obj.acidEnemyId) {
+      drawSoftShadow(x + 4, y + obj.height - 4, obj.width - 8, 8, 0.18);
+      ctx.fillStyle = "#31463d";
+      ctx.fillRect(x + 3, y + 4, obj.width - 6, obj.height - 6);
+      ctx.fillStyle = "#51685f";
+      ctx.fillRect(x + 6, y + 7, obj.width - 12, obj.height - 12);
+      ctx.fillStyle = "#81ff47";
+      ctx.fillRect(x + obj.width / 2 - 3, y + 6, 6, obj.height - 12);
+      ctx.fillStyle = "#d9ff9c";
+      ctx.fillRect(x + obj.width / 2 - 1, y + 8, 2, obj.height - 18);
+      ctx.fillStyle = "#1f2e28";
+      ctx.fillRect(x + 8, y + 12, 4, 3);
+      ctx.fillRect(x + obj.width - 12, y + 12, 4, 3);
+      ctx.fillStyle = "#a9ff78";
+      ctx.fillRect(x + 7, y + 3, 4, 3);
+      ctx.fillRect(x + obj.width - 11, y + 5, 4, 3);
+      return;
+    }
+  };
+})();
+
+
+/* ==================================================
+   Patch final: poderes muito mais bonitos
+   - melhora cura, bola de fogo, raio azul e onda de choque
+   ================================================== */
+(function beautifulPowerEffectsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BEAUTIFUL_POWERS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BEAUTIFUL_POWERS_PATCH = true;
+
+  function drawFancyTrail(obj, outerColor, innerColor, length, width) {
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.fillStyle = outerColor;
+    ctx.fillRect(-length, -width / 2 - 1, length, width + 2);
+    ctx.fillStyle = innerColor;
+    ctx.fillRect(-length + 4, -width / 2, length - 6, width);
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = i % 2 === 0 ? innerColor : outerColor;
+      ctx.fillRect(-length + 5 + i * 6, -1, 3, 2);
+    }
+    ctx.restore();
+  }
+
+  function drawBeautifulFireball(obj) {
+    const t = performance.now() / 1000;
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const pulse = 0.22 + Math.sin(t * 10) * 0.05;
+
+    drawFancyTrail(obj, "rgba(255,97,70,0.28)", "rgba(255,211,98,0.38)", 28, 6);
+    ctx.fillStyle = `rgba(255,105,72,${pulse})`;
+    ctx.fillRect(cx - 15, cy - 15, 30, 30);
+    ctx.fillStyle = "rgba(255,186,77,0.26)";
+    ctx.fillRect(cx - 11, cy - 11, 22, 22);
+
+    ctx.fillStyle = "#5c2032";
+    ctx.fillRect(cx - 8, cy - 8, 16, 16);
+    ctx.fillStyle = "#ff5d47";
+    ctx.fillRect(cx - 6, cy - 6, 12, 12);
+    ctx.fillStyle = "#ffb84c";
+    ctx.fillRect(cx - 4, cy - 4, 8, 8);
+    ctx.fillStyle = "#fff5a6";
+    ctx.fillRect(cx - 2, cy - 2, 4, 4);
+
+    ctx.fillStyle = "#ff7b59";
+    ctx.fillRect(cx - 1, cy - 10, 2, 4);
+    ctx.fillRect(cx - 10, cy - 1, 4, 2);
+    ctx.fillRect(cx + 6, cy - 1, 4, 2);
+    ctx.fillRect(cx - 1, cy + 6, 2, 4);
+
+    for (let i = 0; i < 4; i++) {
+      const sparkAngle = t * 8 + i * 1.4;
+      const sx = cx + Math.cos(sparkAngle) * 10;
+      const sy = cy + Math.sin(sparkAngle) * 10;
+      ctx.fillStyle = i % 2 === 0 ? "rgba(255,232,132,0.85)" : "rgba(255,120,78,0.78)";
+      ctx.fillRect(sx, sy, 2 + (i % 2), 2 + (i % 2));
+    }
+  }
+
+  function drawBeautifulBlueRay(obj) {
+    const t = performance.now() / 1000;
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    const pulse = 0.20 + Math.sin(t * 12) * 0.06;
+
+    drawFancyTrail(obj, "rgba(78,225,255,0.28)", "rgba(214,255,255,0.38)", 36, 7);
+    ctx.fillStyle = `rgba(85,232,255,${pulse})`;
+    ctx.fillRect(cx - 16, cy - 16, 32, 32);
+    ctx.fillStyle = "rgba(205,255,255,0.24)";
+    ctx.fillRect(cx - 11, cy - 11, 22, 22);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(-9, -7, 18, 14);
+    ctx.fillStyle = "#4fe5ff";
+    ctx.fillRect(-7, -5, 14, 10);
+    ctx.fillStyle = "#e9ffff";
+    ctx.fillRect(-2, -5, 4, 10);
+    ctx.fillStyle = "#9ef8ff";
+    ctx.fillRect(-12, -2, 6, 4);
+    ctx.fillRect(6, -2, 6, 4);
+    ctx.restore();
+
+    for (let i = 0; i < 5; i++) {
+      const sparkAngle = angle + Math.sin(t * 10 + i) * 0.8;
+      const dist = 8 + i * 2;
+      const sx = cx + Math.cos(sparkAngle) * dist;
+      const sy = cy + Math.sin(sparkAngle) * dist;
+      ctx.fillStyle = i % 2 === 0 ? "rgba(233,255,255,0.88)" : "rgba(85,232,255,0.78)";
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+  }
+
+  const drawProjectilesBeforeBeautifulPowers = drawProjectiles;
+  drawProjectiles = function drawProjectilesBeautifulPowersPatch() {
+    try {
+      const playerShots = Array.isArray(projectiles) ? projectiles : [];
+      for (const obj of playerShots) {
+        if (!obj) continue;
+        if (obj.type === "arrow") drawArrowProjectile(obj);
+        else if (obj.type === "fireball") drawBeautifulFireball(obj);
+        else if (obj.type === "blueRay") drawBeautifulBlueRay(obj);
+        else drawMagicProjectile(obj);
+      }
+
+      const enemyShots = Array.isArray(enemyProjectiles) ? enemyProjectiles : [];
+      for (const obj of enemyShots) {
+        if (!obj) continue;
+        if (obj.type === "bossWave") {
+          const pulse = 0.55 + Math.sin(performance.now() / 150) * 0.15;
+          ctx.strokeStyle = `rgba(255, 79, 98, ${pulse})`;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+          ctx.stroke();
+          continue;
+        }
+        if (obj.type === "arrow") drawArrowProjectile(obj);
+        else drawMagicProjectile(obj);
+      }
+    } catch (error) {
+      drawWeaponPatchError("Erro projeteis: " + (error?.message || error));
+    }
+  };
+
+  drawShockwaves = function drawShockwavesBeautifulPatch() {
+    const t = performance.now() / 1000;
+    for (const obj of shockwaves) {
+      const progress = 1 - obj.timer / obj.maxTimer;
+      const radius = obj.radius * progress;
+      const alpha = 1 - progress;
+
+      ctx.strokeStyle = `rgba(85,232,255,${alpha * 0.95})`;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(233,255,255,${alpha * 0.85})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, Math.max(8, radius - 10), 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = `rgba(85,232,255,${alpha * 0.18})`;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, Math.max(4, radius - 5), 0, Math.PI * 2);
+      ctx.fill();
+
+      for (let i = 0; i < 10; i++) {
+        const angle = i * (Math.PI * 2 / 10) + t * 1.2;
+        const spikeX = obj.x + Math.cos(angle) * radius;
+        const spikeY = obj.y + Math.sin(angle) * radius;
+        ctx.fillStyle = i % 2 === 0 ? `rgba(233,255,255,${alpha * 0.95})` : `rgba(85,232,255,${alpha * 0.85})`;
+        ctx.fillRect(spikeX - 2, spikeY - 2, 4, 4);
+      }
+    }
+  };
+
+  drawHealBursts = function drawHealBurstsBeautifulPatch() {
+    const t = performance.now() / 1000;
+    for (const obj of healBursts) {
+      const progress = 1 - obj.timer / obj.maxTimer;
+      const alpha = 1 - progress;
+      const radius = 18 + progress * 28;
+
+      ctx.fillStyle = `rgba(123,219,115,${alpha * 0.14})`;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(123,219,115,${alpha * 0.95})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(233,255,255,${alpha * 0.88})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, Math.max(8, radius - 8), 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = `rgba(213,255,168,${alpha * 0.95})`;
+      ctx.fillRect(obj.x - 3, obj.y - 12, 6, 24);
+      ctx.fillRect(obj.x - 12, obj.y - 3, 24, 6);
+
+      for (let i = 0; i < 8; i++) {
+        const angle = i * (Math.PI * 2 / 8) + t * 0.9;
+        const px = obj.x + Math.cos(angle) * (radius - 4);
+        const py = obj.y + Math.sin(angle) * (radius - 4);
+        ctx.fillStyle = i % 2 === 0 ? `rgba(123,219,115,${alpha * 0.85})` : `rgba(233,255,255,${alpha * 0.85})`;
+        ctx.fillRect(px - 2, py - 2, 4, 4);
+      }
+
+      for (let i = 0; i < 4; i++) {
+        const angle = i * (Math.PI / 2) + t * 0.6;
+        const rx = obj.x + Math.cos(angle) * (radius * 0.55);
+        const ry = obj.y + Math.sin(angle) * (radius * 0.55);
+        ctx.fillStyle = `rgba(181,255,120,${alpha * 0.48})`;
+        ctx.fillRect(rx - 4, ry - 4, 8, 8);
+      }
+    }
+  };
+})();
+
+
+/* ==================================================
+   Patch final: inimigos da vila principal muito mais bonitos
+   - melhora o visual dos inimigos principais da vila
+   ================================================== */
+(function beautifulVillageEnemiesPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_VILLAGE_ENEMY_BEAUTY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_VILLAGE_ENEMY_BEAUTY_PATCH = true;
+
+  function isVillageMainEnemyKind(kind) {
+    return [
+      "slime", "slimeVerde", "slimeVermelho", "slimeAzul",
+      "morcego", "mago", "goblin", "arqueiroGoblin", "aranha",
+      "golem", "guardiao", "peixeHostil", "fantasma", "magoSombrio",
+      "golemPedra", "miniDragao"
+    ].includes(kind);
+  }
+
+  function drawShadow(obj, alpha = 0.18) {
+    drawSoftShadow(obj.x + 3, obj.y + obj.height - 4, Math.max(8, obj.width - 6), 8, alpha);
+  }
+
+  const drawEnemyBeforeVillageBeauty = drawEnemy;
+  drawEnemy = function drawEnemyVillageBeautyPatch(obj) {
+    drawEnemyBeforeVillageBeauty(obj);
+    if (!obj || obj.type !== "enemy") return;
+    if (!isVillageMainEnemyKind(obj.kind)) return;
+    if (obj.acidEnemyId) return;
+
+    switch (obj.kind) {
+      case "slime":
+        drawPrettySlime(obj, "#62d8f9", "#b7f4ff", "#17475d", "#2d87a6");
+        return;
+      case "slimeVerde":
+        drawPrettySlime(obj, "#78dd65", "#d2ff9f", "#204d25", "#2f7c3b");
+        return;
+      case "slimeVermelho":
+        drawPrettySlime(obj, "#ff7676", "#ffc6a6", "#5a1f2d", "#a73f4f");
+        return;
+      case "slimeAzul":
+        drawPrettySlime(obj, "#6688ff", "#c8d9ff", "#23325d", "#405cbe");
+        return;
+      case "morcego":
+        drawPrettyBat(obj, "#3a3267", "#7562c1", "#dfe6ff");
+        return;
+      case "mago":
+        drawPrettyMage(obj, "#3e78ff", "#8ec9ff", "#ece0c4", "#2a3b7c", "#55e8ff");
+        return;
+      case "magoSombrio":
+        drawPrettyMage(obj, "#5f2d7d", "#b67cff", "#d9d0ef", "#24133f", "#d39cff");
+        return;
+      case "goblin":
+        drawPrettyGoblin(obj, false);
+        return;
+      case "arqueiroGoblin":
+        drawPrettyGoblin(obj, true);
+        return;
+      case "aranha":
+        drawPrettySpider(obj);
+        return;
+      case "golem":
+        drawPrettyGolem(obj, "#767f8e", "#c8d4df", "#5bd7ff");
+        return;
+      case "guardiao":
+        drawPrettyGuardian(obj);
+        return;
+      case "peixeHostil":
+        drawPrettyFish(obj);
+        return;
+      case "fantasma":
+        drawPrettyGhost(obj);
+        return;
+      case "golemPedra":
+        drawPrettyStoneGolem(obj);
+        return;
+      case "miniDragao":
+        drawPrettyMiniDragon(obj);
+        return;
+    }
+  };
+
+  function drawPrettySlime(obj, body, highlight, eye, mouth) {
+    const x = obj.x, y = obj.y;
+    const t = performance.now() / 1000;
+    const pulse = 0.14 + Math.sin(t * 3 + x * 0.05) * 0.04;
+    drawShadow(obj, 0.18);
+    ctx.fillStyle = `rgba(255,255,255,${pulse})`;
+    ctx.fillRect(x + 1, y + 1, obj.width - 2, obj.height - 3);
+    ctx.fillStyle = body;
+    ctx.fillRect(x + 2, y + 4, obj.width - 4, obj.height - 6);
+    ctx.fillStyle = highlight;
+    ctx.fillRect(x + 4, y + 4, obj.width - 8, obj.height - 10);
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillRect(x + 5, y + 5, 4, 4);
+    ctx.fillRect(x + obj.width - 9, y + 7, 3, 3);
+    ctx.fillStyle = eye;
+    ctx.fillRect(x + 6, y + 10, 3, 3);
+    ctx.fillRect(x + obj.width - 9, y + 10, 3, 3);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x + 7, y + 10, 1, 1);
+    ctx.fillRect(x + obj.width - 8, y + 10, 1, 1);
+    ctx.fillStyle = mouth;
+    ctx.fillRect(x + obj.width / 2 - 3, y + obj.height - 7, 6, 2);
+    for (let i = 0; i < 3; i++) {
+      const bx = x + 4 + i * 5 + Math.sin(t * 2 + i) * 1.5;
+      const by = y + 3 + (i % 2) * 2 + Math.cos(t * 3 + i) * 1.2;
+      ctx.fillStyle = "rgba(255,255,255,0.34)";
+      ctx.fillRect(bx, by, 2, 2);
+    }
+  }
+
+  function drawPrettyBat(obj, body, wing, eye) {
+    const x = obj.x, y = obj.y;
+    const flap = Math.sin(performance.now() / 90 + x * 0.05) * 2;
+    ctx.fillStyle = "rgba(117,98,193,0.18)";
+    ctx.fillRect(x + 1, y + 6 + flap, 8, 4);
+    ctx.fillRect(x + obj.width - 9, y + 6 - flap, 8, 4);
+    ctx.fillStyle = wing;
+    ctx.fillRect(x + 2, y + 5 + flap, 6, 5);
+    ctx.fillRect(x + obj.width - 8, y + 5 - flap, 6, 5);
+    ctx.fillStyle = body;
+    ctx.fillRect(x + obj.width / 2 - 4, y + 5, 8, obj.height - 7);
+    ctx.fillStyle = "#1f1736";
+    ctx.fillRect(x + obj.width / 2 - 5, y + 3, 3, 3);
+    ctx.fillRect(x + obj.width / 2 + 2, y + 3, 3, 3);
+    ctx.fillStyle = eye;
+    ctx.fillRect(x + obj.width / 2 - 3, y + 7, 2, 2);
+    ctx.fillRect(x + obj.width / 2 + 1, y + 7, 2, 2);
+    ctx.fillStyle = "#c66a7e";
+    ctx.fillRect(x + obj.width / 2 - 1, y + obj.height - 4, 2, 3);
+  }
+
+  function drawPrettyMage(obj, robe, glow, skin, hat, staffGlow) {
+    const x = obj.x, y = obj.y;
+    drawShadow(obj, 0.16);
+    ctx.fillStyle = hat;
+    ctx.fillRect(x + 5, y + 3, obj.width - 10, 5);
+    ctx.fillRect(x + 8, y + 1, obj.width - 16, 3);
+    ctx.fillStyle = skin;
+    ctx.fillRect(x + obj.width / 2 - 4, y + 8, 8, 6);
+    ctx.fillStyle = robe;
+    ctx.fillRect(x + 5, y + 14, obj.width - 10, obj.height - 16);
+    ctx.fillStyle = glow;
+    ctx.fillRect(x + obj.width / 2 - 2, y + 15, 4, obj.height - 18);
+    ctx.fillStyle = "#1b2440";
+    ctx.fillRect(x + obj.width / 2 - 3, y + 10, 2, 2);
+    ctx.fillRect(x + obj.width / 2 + 1, y + 10, 2, 2);
+    ctx.fillStyle = "#2a3b58";
+    ctx.fillRect(x + 2, y + 13, 2, obj.height - 8);
+    ctx.fillStyle = staffGlow;
+    ctx.fillRect(x + 2, y + 15, 2, 8);
+    ctx.fillStyle = "rgba(255,255,255,0.24)";
+    ctx.fillRect(x + 7, y + 16, 3, 8);
+  }
+
+  function drawPrettyGoblin(obj, archer) {
+    const x = obj.x, y = obj.y;
+    drawShadow(obj, 0.16);
+    ctx.fillStyle = "#7bd65b";
+    ctx.fillRect(x + obj.width / 2 - 5, y + 6, 10, 8);
+    ctx.fillStyle = "#d7ff9a";
+    ctx.fillRect(x + obj.width / 2 - 3, y + 7, 6, 4);
+    ctx.fillStyle = "#204325";
+    ctx.fillRect(x + obj.width / 2 - 4, y + 9, 2, 2);
+    ctx.fillRect(x + obj.width / 2 + 2, y + 9, 2, 2);
+    ctx.fillStyle = archer ? "#805d38" : "#4a6487";
+    ctx.fillRect(x + 5, y + 15, obj.width - 10, obj.height - 16);
+    ctx.fillStyle = "#9bc377";
+    ctx.fillRect(x + 7, y + 17, obj.width - 14, obj.height - 22);
+    if (archer) {
+      ctx.fillStyle = "#6e4b2e";
+      ctx.fillRect(x + obj.width - 5, y + 11, 2, obj.height - 8);
+      ctx.fillStyle = "#d7c3a1";
+      ctx.fillRect(x + obj.width - 8, y + 14, 6, 1);
+      ctx.fillRect(x + obj.width - 8, y + obj.height - 6, 6, 1);
+    } else {
+      ctx.fillStyle = "#9fd0ff";
+      ctx.fillRect(x + 4, y + 17, 3, 8);
+    }
+  }
+
+  function drawPrettySpider(obj) {
+    const x = obj.x, y = obj.y;
+    drawShadow(obj, 0.14);
+    ctx.fillStyle = "#273052";
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(x + 3 + i * 4, y + obj.height - 8, 1, 6);
+      ctx.fillRect(x + obj.width - 4 - i * 4, y + obj.height - 8, 1, 6);
+    }
+    ctx.fillStyle = "#2d2f45";
+    ctx.fillRect(x + obj.width / 2 - 6, y + 8, 12, 8);
+    ctx.fillStyle = "#5c3364";
+    ctx.fillRect(x + obj.width / 2 - 8, y + 13, 16, obj.height - 16);
+    ctx.fillStyle = "#ff7ca1";
+    ctx.fillRect(x + obj.width / 2 - 5, y + 16, 3, 2);
+    ctx.fillRect(x + obj.width / 2 + 2, y + 16, 3, 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x + obj.width / 2 - 4, y + 16, 1, 1);
+    ctx.fillRect(x + obj.width / 2 + 3, y + 16, 1, 1);
+  }
+
+  function drawPrettyGolem(obj, stone, highlight, core) {
+    const x = obj.x, y = obj.y;
+    drawShadow(obj, 0.18);
+    ctx.fillStyle = stone;
+    ctx.fillRect(x + 4, y + 6, obj.width - 8, obj.height - 8);
+    ctx.fillStyle = highlight;
+    ctx.fillRect(x + 7, y + 8, obj.width - 14, obj.height - 14);
+    ctx.fillStyle = core;
+    ctx.fillRect(x + obj.width / 2 - 3, y + 9, 6, obj.height - 18);
+    ctx.fillStyle = "#203040";
+    ctx.fillRect(x + 8, y + 12, 3, 3);
+    ctx.fillRect(x + obj.width - 11, y + 12, 3, 3);
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.fillRect(x + 9, y + 8, 4, 3);
+    ctx.fillRect(x + obj.width - 13, y + 10, 3, 2);
+  }
+
+  function drawPrettyGuardian(obj) {
+    const x = obj.x, y = obj.y;
+    drawShadow(obj, 0.18);
+    ctx.fillStyle = "#354969";
+    ctx.fillRect(x + 4, y + 4, obj.width - 8, obj.height - 6);
+    ctx.fillStyle = "#84ffa8";
+    ctx.fillRect(x + obj.width / 2 - 4, y + 5, 8, 6);
+    ctx.fillStyle = "#e9ffff";
+    ctx.fillRect(x + obj.width / 2 - 2, y + 6, 4, 4);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 8, y + 14, obj.width - 16, obj.height - 18);
+    ctx.fillStyle = "#4f6f91";
+    ctx.fillRect(x + 10, y + 16, obj.width - 20, obj.height - 24);
+    ctx.fillStyle = "#8fd9ff";
+    ctx.fillRect(x + 5, y + 12, 4, obj.height - 16);
+    ctx.fillRect(x + obj.width - 9, y + 12, 4, obj.height - 16);
+  }
+
+  function drawPrettyFish(obj) {
+    const x = obj.x, y = obj.y;
+    ctx.fillStyle = "rgba(133,222,255,0.16)";
+    ctx.fillRect(x + 1, y + 3, obj.width - 2, obj.height - 4);
+    ctx.fillStyle = "#4da8d8";
+    ctx.fillRect(x + 4, y + 6, obj.width - 8, obj.height - 10);
+    ctx.fillStyle = "#9ce7ff";
+    ctx.fillRect(x + 6, y + 8, obj.width - 12, obj.height - 14);
+    ctx.fillStyle = "#1f5670";
+    ctx.fillRect(x + obj.width - 9, y + 9, 2, 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x + obj.width - 8, y + 9, 1, 1);
+    ctx.fillStyle = "#2b7aa1";
+    ctx.fillRect(x + 2, y + obj.height / 2 - 3, 4, 6);
+    ctx.fillRect(x + obj.width / 2 - 2, y + 4, 4, 4);
+  }
+
+  function drawPrettyGhost(obj) {
+    const x = obj.x, y = obj.y + Math.sin(performance.now() / 220 + x * 0.05) * 1.5;
+    ctx.fillStyle = "rgba(186,219,255,0.18)";
+    ctx.fillRect(x + 1, y + 1, obj.width - 2, obj.height - 2);
+    ctx.fillStyle = "#d8e7ff";
+    ctx.fillRect(x + 4, y + 5, obj.width - 8, obj.height - 10);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x + 6, y + 6, obj.width - 12, obj.height - 16);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 8, y + 11, 2, 2);
+    ctx.fillRect(x + obj.width - 10, y + 11, 2, 2);
+    ctx.fillStyle = "#a9c5ff";
+    ctx.fillRect(x + 6, y + obj.height - 10, 3, 5);
+    ctx.fillRect(x + obj.width / 2 - 2, y + obj.height - 8, 4, 3);
+    ctx.fillRect(x + obj.width - 9, y + obj.height - 10, 3, 5);
+  }
+
+  function drawPrettyStoneGolem(obj) {
+    const x = obj.x, y = obj.y;
+    drawShadow(obj, 0.18);
+    ctx.fillStyle = "#5f665f";
+    ctx.fillRect(x + 4, y + 5, obj.width - 8, obj.height - 6);
+    ctx.fillStyle = "#9aa39b";
+    ctx.fillRect(x + 7, y + 8, obj.width - 14, obj.height - 14);
+    ctx.fillStyle = "#5bd7ff";
+    ctx.fillRect(x + obj.width / 2 - 2, y + 10, 4, obj.height - 18);
+    ctx.fillStyle = "#23332a";
+    ctx.fillRect(x + 8, y + 12, 3, 3);
+    ctx.fillRect(x + obj.width - 11, y + 12, 3, 3);
+    ctx.fillStyle = "#d9ff9c";
+    ctx.fillRect(x + 9, y + 9, 3, 2);
+  }
+
+  function drawPrettyMiniDragon(obj) {
+    const x = obj.x, y = obj.y;
+    drawShadow(obj, 0.18);
+    ctx.fillStyle = "#6046b8";
+    ctx.fillRect(x + 5, y + 8, obj.width - 10, obj.height - 10);
+    ctx.fillStyle = "#9f7aff";
+    ctx.fillRect(x + 8, y + 10, obj.width - 16, obj.height - 16);
+    ctx.fillStyle = "#d6c8ff";
+    ctx.fillRect(x + obj.width / 2 - 4, y + 10, 8, 6);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + obj.width / 2 - 5, y + 5, 3, 4);
+    ctx.fillRect(x + obj.width / 2 + 2, y + 5, 3, 4);
+    ctx.fillStyle = "#59d94a";
+    ctx.fillRect(x + 4, y + 14, 4, 8);
+    ctx.fillRect(x + obj.width - 8, y + 14, 4, 8);
+    ctx.fillStyle = "#ffb84c";
+    ctx.fillRect(x + obj.width - 3, y + obj.height / 2 - 1, 4, 2);
+    ctx.fillStyle = "#b9f968";
+    ctx.fillRect(x + obj.width / 2 - 2, y + obj.height - 8, 4, 4);
+  }
+})();
+
+
+/* ==================================================
+   PATCH LENDÁRIO: poderes e inimigos MUITO mais bonitos
+   - efeitos maiores, aura, partículas, runas, brilho e sprites mais trabalhados
+   - feito 100% no Canvas/código, sem imagens externas
+   ================================================== */
+(function legendaryBeautyPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_LEGENDARY_BEAUTY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_LEGENDARY_BEAUTY_PATCH = true;
+
+  function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+  }
+
+  function pxRect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function radialGlow(x, y, radius, innerColor, outerColor) {
+    const grad = ctx.createRadialGradient(x, y, 2, x, y, radius);
+    grad.addColorStop(0, innerColor);
+    grad.addColorStop(0.58, outerColor);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+
+  function drawPremiumHealthBar(obj) {
+    if (!obj.maxHp || obj.hp >= obj.maxHp) return;
+    const ratio = clamp01(obj.hp / obj.maxHp);
+    const x = obj.x + obj.width / 2 - 15;
+    const y = obj.y - 12;
+    pxRect(x - 1, y - 1, 32, 6, "rgba(10,14,28,0.95)");
+    pxRect(x, y, 30, 4, "rgba(90,42,58,0.9)");
+    pxRect(x, y, 30 * ratio, 4, ratio > 0.55 ? "#9dff5d" : ratio > 0.25 ? "#fff264" : "#ff4f62");
+    pxRect(x + 1, y, Math.max(1, 30 * ratio - 2), 1, "rgba(255,255,255,0.35)");
+  }
+
+  function orbitSparks(cx, cy, radiusX, radiusY, count, colorA, colorB) {
+    const t = performance.now() / 1000;
+    for (let i = 0; i < count; i++) {
+      const a = t * 1.6 + i * (Math.PI * 2 / count);
+      const x = cx + Math.cos(a) * radiusX;
+      const y = cy + Math.sin(a) * radiusY;
+      pxRect(x, y, 2 + (i % 2), 2 + (i % 2), i % 2 ? colorA : colorB);
+    }
+  }
+
+  function enemyAura(obj, color) {
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    radialGlow(cx, cy, Math.max(34, obj.width + 24), color, "rgba(0,0,0,0)");
+    drawSoftShadow(obj.x + 2, obj.y + obj.height - 4, Math.max(12, obj.width - 4), 9, 0.30);
+  }
+
+  function drawLegendarySlime(obj, p) {
+    const x = obj.x, y = obj.y;
+    const t = performance.now() / 1000;
+    const wobble = Math.sin(t * 5 + x * 0.05) * 1.2;
+    enemyAura(obj, p.glow);
+    pxRect(x + 1, y + 7 + wobble, obj.width - 2, obj.height - 8, p.dark);
+    pxRect(x + 3, y + 4 + wobble, obj.width - 6, obj.height - 7, p.main);
+    pxRect(x + 5, y + 5 + wobble, obj.width - 10, obj.height - 12, p.light);
+    pxRect(x + obj.width / 2 - 4, y + 5 + wobble, 8, obj.height - 14, p.core);
+    pxRect(x + 6, y + 11 + wobble, 4, 4, p.eye);
+    pxRect(x + obj.width - 10, y + 11 + wobble, 4, 4, p.eye);
+    pxRect(x + 7, y + 11 + wobble, 1, 1, "#ffffff");
+    pxRect(x + obj.width - 9, y + 11 + wobble, 1, 1, "#ffffff");
+    pxRect(x + obj.width / 2 - 4, y + obj.height - 7 + wobble, 8, 2, p.mouth);
+    pxRect(x + 5, y + 6 + wobble, 4, 4, "rgba(255,255,255,0.38)");
+    for (let i = 0; i < 5; i++) {
+      const bx = x + 3 + i * 5 + Math.sin(t * 2.5 + i + x * 0.03) * 2;
+      const by = y + 1 + Math.cos(t * 3.1 + i) * 2;
+      pxRect(bx, by, 2, 2, p.spark);
+    }
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendaryBat(obj) {
+    const x = obj.x, y = obj.y;
+    const t = performance.now() / 1000;
+    const flap = Math.sin(t * 12 + x * 0.04) * 3;
+    enemyAura(obj, "rgba(155,95,199,0.24)");
+    pxRect(x - 3, y + 7 + flap, 12, 5, "rgba(155,95,199,0.35)");
+    pxRect(x + obj.width - 9, y + 7 - flap, 12, 5, "rgba(155,95,199,0.35)");
+    pxRect(x + 1, y + 5 + flap, 9, 7, "#7c65d6");
+    pxRect(x + obj.width - 10, y + 5 - flap, 9, 7, "#7c65d6");
+    pxRect(x + obj.width / 2 - 5, y + 4, 10, obj.height - 6, "#2d274f");
+    pxRect(x + obj.width / 2 - 3, y + 6, 6, obj.height - 10, "#58499c");
+    pxRect(x + obj.width / 2 - 6, y + 1, 3, 4, "#211a3d");
+    pxRect(x + obj.width / 2 + 3, y + 1, 3, 4, "#211a3d");
+    pxRect(x + obj.width / 2 - 3, y + 8, 2, 2, "#f3f2ff");
+    pxRect(x + obj.width / 2 + 1, y + 8, 2, 2, "#f3f2ff");
+    pxRect(x + obj.width / 2 - 1, y + obj.height - 4, 2, 3, "#ff8a9e");
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendaryMage(obj, c) {
+    const x = obj.x, y = obj.y;
+    enemyAura(obj, c.glow);
+    pxRect(x + 5, y + 5, obj.width - 10, 5, c.hat);
+    pxRect(x + 8, y + 1, obj.width - 16, 4, c.hatLight);
+    pxRect(x + obj.width / 2 - 4, y + 8, 8, 7, c.skin);
+    pxRect(x + obj.width / 2 - 3, y + 10, 2, 2, "#1b2440");
+    pxRect(x + obj.width / 2 + 1, y + 10, 2, 2, "#1b2440");
+    pxRect(x + 5, y + 15, obj.width - 10, obj.height - 15, c.robeDark);
+    pxRect(x + 8, y + 16, obj.width - 16, obj.height - 20, c.robe);
+    pxRect(x + obj.width / 2 - 2, y + 15, 4, obj.height - 18, c.rune);
+    pxRect(x + 2, y + 12, 3, obj.height - 8, "#26324c");
+    pxRect(x + 1, y + 13, 5, 9, c.staffGlow);
+    orbitSparks(x + obj.width / 2, y + 17, 16, 12, 4, c.staffGlow, "rgba(255,255,255,0.75)");
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendaryGoblin(obj, archer) {
+    const x = obj.x, y = obj.y;
+    enemyAura(obj, archer ? "rgba(255,214,124,0.22)" : "rgba(123,219,115,0.22)");
+    pxRect(x + obj.width / 2 - 6, y + 5, 12, 10, "#77cf5a");
+    pxRect(x + obj.width / 2 - 4, y + 6, 8, 5, "#d7ff9a");
+    pxRect(x + obj.width / 2 - 5, y + 9, 2, 2, "#213823");
+    pxRect(x + obj.width / 2 + 3, y + 9, 2, 2, "#213823");
+    pxRect(x + 4, y + 15, obj.width - 8, obj.height - 16, archer ? "#744c2c" : "#36537d");
+    pxRect(x + 7, y + 17, obj.width - 14, obj.height - 22, archer ? "#b87955" : "#6b91c8");
+    pxRect(x + 5, y + obj.height - 6, 4, 4, "#2f4635");
+    pxRect(x + obj.width - 9, y + obj.height - 6, 4, 4, "#2f4635");
+    if (archer) {
+      pxRect(x + obj.width - 5, y + 10, 2, obj.height - 6, "#5d3843");
+      pxRect(x + obj.width - 9, y + 14, 7, 1, "#e9dfcd");
+      pxRect(x + obj.width - 9, y + obj.height - 6, 7, 1, "#e9dfcd");
+      pxRect(x + 3, y + 18, 6, 2, "#fff3d6");
+    } else {
+      pxRect(x + 2, y + 18, 9, 3, "#d6eaff");
+      pxRect(x + 4, y + 17, 4, 8, "#8cbaff");
+    }
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendarySpider(obj) {
+    const x = obj.x, y = obj.y;
+    enemyAura(obj, "rgba(255,122,181,0.22)");
+    for (let i = 0; i < 4; i++) {
+      pxRect(x + 2 + i * 4, y + obj.height - 9, 1, 8, "#202338");
+      pxRect(x + obj.width - 3 - i * 4, y + obj.height - 9, 1, 8, "#202338");
+    }
+    pxRect(x + obj.width / 2 - 7, y + 8, 14, 8, "#282640");
+    pxRect(x + obj.width / 2 - 9, y + 13, 18, obj.height - 15, "#63356e");
+    pxRect(x + obj.width / 2 - 5, y + 15, 3, 3, "#ff7ca1");
+    pxRect(x + obj.width / 2 + 2, y + 15, 3, 3, "#ff7ca1");
+    pxRect(x + obj.width / 2 - 2, y + obj.height - 7, 4, 2, "#e9dfcd");
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendaryGolem(obj, p) {
+    const x = obj.x, y = obj.y;
+    enemyAura(obj, p.glow);
+    pxRect(x + 3, y + 6, obj.width - 6, obj.height - 8, p.dark);
+    pxRect(x + 6, y + 8, obj.width - 12, obj.height - 14, p.main);
+    pxRect(x + 8, y + 10, obj.width - 16, 5, p.light);
+    pxRect(x + obj.width / 2 - 4, y + 10, 8, obj.height - 18, p.core);
+    pxRect(x + obj.width / 2 - 1, y + 12, 2, obj.height - 22, "rgba(255,255,255,0.45)");
+    pxRect(x + 8, y + 14, 4, 3, "#1f2738");
+    pxRect(x + obj.width - 12, y + 14, 4, 3, "#1f2738");
+    pxRect(x + 5, y + obj.height - 8, 5, 4, p.dark);
+    pxRect(x + obj.width - 10, y + obj.height - 8, 5, 4, p.dark);
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendaryGuardian(obj) {
+    const x = obj.x, y = obj.y;
+    enemyAura(obj, "rgba(132,255,168,0.24)");
+    pxRect(x + 3, y + 4, obj.width - 6, obj.height - 6, "#243250");
+    pxRect(x + 6, y + 8, obj.width - 12, obj.height - 13, "#4e6688");
+    pxRect(x + obj.width / 2 - 5, y + 3, 10, 8, "#84ffa8");
+    pxRect(x + obj.width / 2 - 2, y + 4, 4, 5, "#e9ffff");
+    pxRect(x + 5, y + 14, 4, obj.height - 17, "#8fd9ff");
+    pxRect(x + obj.width - 9, y + 14, 4, obj.height - 17, "#8fd9ff");
+    pxRect(x + 10, y + 17, obj.width - 20, obj.height - 24, "#273052");
+    pxRect(x + 12, y + 19, obj.width - 24, 4, "#bdfdff");
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendaryFish(obj) {
+    const x = obj.x, y = obj.y;
+    enemyAura(obj, "rgba(85,232,255,0.20)");
+    pxRect(x + 2, y + 4, obj.width - 4, obj.height - 6, "#2b789e");
+    pxRect(x + 5, y + 6, obj.width - 10, obj.height - 10, "#7bdfff");
+    pxRect(x + 7, y + 7, obj.width - 14, 3, "#d9f8ff");
+    pxRect(x + obj.width - 10, y + 9, 3, 3, "#1e4057");
+    pxRect(x + obj.width - 9, y + 9, 1, 1, "#fff");
+    pxRect(x + 1, y + obj.height / 2 - 3, 5, 6, "#1f6a94");
+    pxRect(x + obj.width / 2 - 2, y + 3, 4, 4, "#c9f6ff");
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendaryGhost(obj) {
+    const x = obj.x, y = obj.y + Math.sin(performance.now() / 220 + obj.x * 0.05) * 1.5;
+    enemyAura(obj, "rgba(186,219,255,0.24)");
+    pxRect(x + 2, y + 3, obj.width - 4, obj.height - 5, "rgba(205,228,255,0.75)");
+    pxRect(x + 5, y + 5, obj.width - 10, obj.height - 12, "rgba(255,255,255,0.82)");
+    pxRect(x + 8, y + 11, 3, 3, "#273052");
+    pxRect(x + obj.width - 11, y + 11, 3, 3, "#273052");
+    pxRect(x + obj.width / 2 - 3, y + 17, 6, 2, "#8aa1d0");
+    pxRect(x + 5, y + obj.height - 9, 4, 5, "rgba(160,194,255,0.74)");
+    pxRect(x + obj.width / 2 - 2, y + obj.height - 7, 4, 4, "rgba(160,194,255,0.74)");
+    pxRect(x + obj.width - 9, y + obj.height - 9, 4, 5, "rgba(160,194,255,0.74)");
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendaryDragon(obj) {
+    const x = obj.x, y = obj.y;
+    enemyAura(obj, "rgba(180,122,255,0.26)");
+    pxRect(x + 5, y + 9, obj.width - 10, obj.height - 11, "#6046b8");
+    pxRect(x + 8, y + 11, obj.width - 16, obj.height - 17, "#a180ff");
+    pxRect(x + obj.width / 2 - 5, y + 10, 10, 7, "#d6c8ff");
+    pxRect(x + obj.width / 2 - 6, y + 4, 3, 5, "#273052");
+    pxRect(x + obj.width / 2 + 3, y + 4, 3, 5, "#273052");
+    pxRect(x + 3, y + 14, 5, 10, "#59d94a");
+    pxRect(x + obj.width - 8, y + 14, 5, 10, "#59d94a");
+    pxRect(x + obj.width - 3, y + obj.height / 2 - 1, 5, 2, "#ffb84c");
+    pxRect(x + obj.width / 2 - 3, y + obj.height - 9, 6, 5, "#b9f968");
+    drawPremiumHealthBar(obj);
+  }
+
+  function drawLegendarySerpent(obj, poison = false) {
+    const x = obj.x, y = obj.y;
+    const t = performance.now() / 1000;
+    enemyAura(obj, poison ? "rgba(154,255,114,0.22)" : "rgba(85,232,255,0.20)");
+    pxRect(x + 2, y + 6, obj.width - 4, obj.height - 10, poison ? "#214f35" : "#2b789e");
+    for (let i = 0; i < obj.width - 10; i += 6) {
+      const yy = y + 7 + Math.sin(t * 6 + i * 0.4) * 1.5;
+      pxRect(x + 4 + i, yy, 6, obj.height - 12, poison ? "#59d94a" : "#7bdfff");
+    }
+    pxRect(x + obj.width - 11, y + 7, 6, obj.height - 12, poison ? "#cfff9f" : "#d9f8ff");
+    pxRect(x + obj.width - 9, y + 8, 2, 2, "#173224");
+    pxRect(x + obj.width - 6, y + 8, 2, 2, "#173224");
+    pxRect(x + obj.width - 3, y + obj.height / 2, 4, 1, "#ff8aa1");
+    drawPremiumHealthBar(obj);
+  }
+
+  const drawEnemyBeforeLegendaryFinal = drawEnemy;
+  drawEnemy = function drawEnemyLegendaryFinalPatch(obj) {
+    drawEnemyBeforeLegendaryFinal(obj);
+    if (!obj || obj.type !== "enemy") return;
+
+    const palette = {
+      slime: { main: "#62d8f9", light: "#b7f4ff", dark: "#2d87a6", core: "#e9ffff", eye: "#17475d", mouth: "#25718d", spark: "rgba(213,255,255,0.75)", glow: "rgba(85,232,255,0.24)" },
+      slimeVerde: { main: "#78dd65", light: "#d2ff9f", dark: "#2f7c3b", core: "#f2ffce", eye: "#204d25", mouth: "#2f7c3b", spark: "rgba(213,255,168,0.75)", glow: "rgba(123,219,115,0.24)" },
+      slimeVermelho: { main: "#ff7676", light: "#ffc6a6", dark: "#a73f4f", core: "#fff264", eye: "#5a1f2d", mouth: "#8f2d3f", spark: "rgba(255,232,132,0.75)", glow: "rgba(255,79,98,0.24)" },
+      slimeAzul: { main: "#6688ff", light: "#c8d9ff", dark: "#405cbe", core: "#e9ffff", eye: "#23325d", mouth: "#405cbe", spark: "rgba(180,230,255,0.75)", glow: "rgba(85,132,255,0.24)" },
+      slimeGelo: { main: "#8bcfff", light: "#e9ffff", dark: "#3f8fe5", core: "#ffffff", eye: "#273052", mouth: "#55c4ff", spark: "rgba(233,255,255,0.78)", glow: "rgba(139,207,255,0.26)" },
+      slimeToxico: { main: "#74ff58", light: "#d8ffa5", dark: "#2f8a42", core: "#f1ffb8", eye: "#17472a", mouth: "#244d35", spark: "rgba(202,255,144,0.78)", glow: "rgba(154,255,114,0.26)" }
+    };
+
+    if (palette[obj.kind]) return drawLegendarySlime(obj, palette[obj.kind]);
+    if (["morcego", "morcegoNeve", "passaroCelestial"].includes(obj.kind)) return drawLegendaryBat(obj);
+    if (obj.kind === "mago") return drawLegendaryMage(obj, { glow: "rgba(85,232,255,0.24)", hat: "#274eaa", hatLight: "#55e8ff", skin: "#eadbb8", robeDark: "#23366a", robe: "#3e78ff", rune: "#e9ffff", staffGlow: "#55e8ff" });
+    if (["magoSombrio", "bruxoSombrio", "bruxaPantano", "bruxaDoPantano"].includes(obj.kind)) return drawLegendaryMage(obj, { glow: "rgba(180,122,255,0.26)", hat: "#27133f", hatLight: "#b67cff", skin: "#d9d0ef", robeDark: "#24133f", robe: "#5f2d7d", rune: "#d39cff", staffGlow: "#d39cff" });
+    if (obj.kind === "goblin") return drawLegendaryGoblin(obj, false);
+    if (["arqueiroGoblin", "arqueiroCongelado", "esqueletoArqueiro"].includes(obj.kind)) return drawLegendaryGoblin(obj, true);
+    if (obj.kind === "aranha") return drawLegendarySpider(obj);
+    if (["golem", "golemPedra"].includes(obj.kind)) return drawLegendaryGolem(obj, { dark: "#5f665f", main: "#9aa39b", light: "#c8d4df", core: "#5bd7ff", glow: "rgba(85,232,255,0.22)" });
+    if (obj.kind === "golemGelo") return drawLegendaryGolem(obj, { dark: "#54708a", main: "#9fd7ff", light: "#e9ffff", core: "#ffffff", glow: "rgba(139,207,255,0.26)" });
+    if (["golemAreia", "mumia", "zumbiLama"].includes(obj.kind)) return drawLegendaryGolem(obj, { dark: "#8f5a3f", main: "#d6a05d", light: "#fff3d6", core: "#fff264", glow: "rgba(255,214,124,0.24)" });
+    if (obj.kind === "guardiao" || obj.kind === "guardiaoMarmore") return drawLegendaryGuardian(obj);
+    if (obj.kind === "peixeHostil") return drawLegendaryFish(obj);
+    if (obj.kind === "fantasma" || obj.kind === "espiritoCongelado" || obj.kind === "espiritoEstelar") return drawLegendaryGhost(obj);
+    if (obj.kind === "miniDragao") return drawLegendaryDragon(obj);
+    if (obj.kind === "sapoGigante") return drawLegendarySlime(obj, { main: "#66c35a", light: "#c8ff94", dark: "#2f7c3b", core: "#e9ffcb", eye: "#1f3b20", mouth: "#244d35", spark: "rgba(213,255,168,0.65)", glow: "rgba(123,219,115,0.22)" });
+    if (obj.kind === "serpenteAquatica" || obj.kind === "serpenteDeserto") return drawLegendarySerpent(obj, obj.kind === "serpenteAquatica");
+  };
+
+  function drawLegendaryTrail(obj, outer, inner, length, width) {
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    pxRect(-length, -width / 2 - 2, length, width + 4, outer);
+    pxRect(-length + 5, -width / 2, length - 8, width, inner);
+    for (let i = 0; i < 5; i++) pxRect(-length + 5 + i * 6, -1, 3, 2, i % 2 ? outer : inner);
+    ctx.restore();
+  }
+
+  function drawLegendaryFireball(obj) {
+    const t = performance.now() / 1000;
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    drawLegendaryTrail(obj, "rgba(255,79,98,0.32)", "rgba(255,214,84,0.48)", 42, 9);
+    radialGlow(cx, cy, 32, "rgba(255,214,84,0.55)", "rgba(255,79,98,0.18)");
+    pxRect(cx - 11, cy - 11, 22, 22, "#5c2032");
+    pxRect(cx - 8, cy - 8, 16, 16, "#ff5d47");
+    pxRect(cx - 5, cy - 5, 10, 10, "#ffb84c");
+    pxRect(cx - 2, cy - 2, 4, 4, "#fff5a6");
+    orbitSparks(cx, cy, 17, 17, 8, "rgba(255,232,132,0.90)", "rgba(255,120,78,0.82)");
+    for (let i = 0; i < 6; i++) {
+      const a = t * 6 + i;
+      pxRect(cx + Math.cos(a) * 12, cy + Math.sin(a) * 12, 3, 3, "#ff7b59");
+    }
+  }
+
+  function drawLegendaryBlueRay(obj) {
+    const t = performance.now() / 1000;
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    drawLegendaryTrail(obj, "rgba(85,232,255,0.34)", "rgba(233,255,255,0.52)", 50, 8);
+    radialGlow(cx, cy, 34, "rgba(233,255,255,0.48)", "rgba(85,232,255,0.20)");
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    pxRect(-12, -8, 24, 16, "#273052");
+    pxRect(-9, -6, 18, 12, "#4fe5ff");
+    pxRect(-2, -7, 4, 14, "#e9ffff");
+    pxRect(-16, -2, 8, 4, "#9ef8ff");
+    pxRect(8, -2, 8, 4, "#9ef8ff");
+    ctx.restore();
+    orbitSparks(cx, cy, 18, 12, 8, "rgba(233,255,255,0.90)", "rgba(85,232,255,0.80)");
+  }
+
+  const drawProjectilesBeforeLegendaryFinal = drawProjectiles;
+  drawProjectiles = function drawProjectilesLegendaryFinalPatch() {
+    try {
+      const playerShots = Array.isArray(projectiles) ? projectiles : [];
+      for (const obj of playerShots) {
+        if (!obj) continue;
+        if (obj.type === "arrow") drawArrowProjectile(obj);
+        else if (obj.type === "fireball" || obj.type === "fire") drawLegendaryFireball(obj);
+        else if (obj.type === "blueRay") drawLegendaryBlueRay(obj);
+        else drawMagicProjectile(obj);
+      }
+
+      const enemyShots = Array.isArray(enemyProjectiles) ? enemyProjectiles : [];
+      for (const obj of enemyShots) {
+        if (!obj) continue;
+        if (obj.type === "bossWave") {
+          ctx.strokeStyle = "rgba(255,79,98,0.78)";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+          ctx.stroke();
+          continue;
+        }
+        if (obj.type === "arrow") drawArrowProjectile(obj);
+        else drawMagicProjectile(obj);
+      }
+    } catch (error) {
+      drawWeaponPatchError("Erro projeteis lendarios: " + (error?.message || error));
+      drawProjectilesBeforeLegendaryFinal();
+    }
+  };
+
+  drawShockwaves = function drawShockwavesLegendaryFinalPatch() {
+    const t = performance.now() / 1000;
+    for (const obj of shockwaves) {
+      const progress = 1 - obj.timer / obj.maxTimer;
+      const alpha = 1 - progress;
+      const radius = obj.radius * progress;
+      radialGlow(obj.x, obj.y, Math.max(24, radius), `rgba(85,232,255,${alpha * 0.18})`, "rgba(0,0,0,0)");
+      for (let r = 0; r < 3; r++) {
+        ctx.strokeStyle = r === 0 ? `rgba(233,255,255,${alpha * 0.95})` : `rgba(85,232,255,${alpha * (0.75 - r * 0.15)})`;
+        ctx.lineWidth = 6 - r * 2;
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, Math.max(6, radius - r * 10), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      for (let i = 0; i < 14; i++) {
+        const angle = i * (Math.PI * 2 / 14) + t * 1.3;
+        const sx = obj.x + Math.cos(angle) * radius;
+        const sy = obj.y + Math.sin(angle) * radius;
+        pxRect(sx - 2, sy - 2, 4, 4, i % 2 ? `rgba(233,255,255,${alpha})` : `rgba(85,232,255,${alpha})`);
+      }
+    }
+  };
+
+  drawHealBursts = function drawHealBurstsLegendaryFinalPatch() {
+    const t = performance.now() / 1000;
+    for (const obj of healBursts) {
+      const progress = 1 - obj.timer / obj.maxTimer;
+      const alpha = 1 - progress;
+      const radius = 22 + progress * 38;
+      radialGlow(obj.x, obj.y, radius + 16, `rgba(181,255,120,${alpha * 0.22})`, "rgba(0,0,0,0)");
+      ctx.fillStyle = `rgba(123,219,115,${alpha * 0.16})`;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(233,255,255,${alpha * 0.88})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, radius - 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(123,219,115,${alpha * 0.95})`;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      pxRect(obj.x - 4, obj.y - 15, 8, 30, `rgba(213,255,168,${alpha})`);
+      pxRect(obj.x - 15, obj.y - 4, 30, 8, `rgba(213,255,168,${alpha})`);
+      for (let i = 0; i < 12; i++) {
+        const a = i * (Math.PI * 2 / 12) + t;
+        pxRect(obj.x + Math.cos(a) * (radius - 4) - 2, obj.y + Math.sin(a) * (radius - 4) - 2, 4, 4, i % 2 ? `rgba(233,255,255,${alpha})` : `rgba(123,219,115,${alpha})`);
+      }
+    }
+  };
+})();
+
+
+/* ==================================================
+   Patch final: Entrada da Dimensão Celestial LENDÁRIA
+   - portal externo muito mais bonito
+   - moldura sagrada, asas, halo, aura, runas e partículas
+   ================================================== */
+(function celestialEntryLegendPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_CELESTIAL_ENTRY_LEGEND_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_CELESTIAL_ENTRY_LEGEND_PATCH = true;
+
+  function beautifyCelestialGate() {
+    try {
+      const gate = villageObjects.find((obj) => obj.type === "celestialGate" && obj.role === "celestialEntry");
+      if (gate && !gate.legendaryVisualV2) {
+        const centerX = gate.x + gate.width / 2;
+        gate.width = 84;
+        gate.height = 104;
+        gate.x = centerX - gate.width / 2;
+        gate.y -= 16;
+        gate.solid = false;
+        gate.legendaryVisualV2 = true;
+        gate.message = "Portal Celestial: pressione E ou clique para ascender à Dimensão Celestial.";
+      }
+    } catch (error) {}
+  }
+
+  beautifyCelestialGate();
+
+  const setActiveSceneBeforeCelestialEntryLegend = setActiveScene;
+  setActiveScene = function setActiveSceneCelestialEntryLegendPatch(scene) {
+    setActiveSceneBeforeCelestialEntryLegend(scene);
+    if (currentScene === "village") beautifyCelestialGate();
+  };
+
+  function fillRectR(x, y, w, h, c) {
+    ctx.fillStyle = c;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function softGlow(x, y, radius, inner, outer) {
+    const g = ctx.createRadialGradient(x, y, 4, x, y, radius);
+    g.addColorStop(0, inner);
+    g.addColorStop(0.58, outer);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+
+  function drawStarSpark(x, y, color) {
+    fillRectR(x - 1, y - 1, 3, 3, color);
+    fillRectR(x - 4, y, 9, 1, color);
+    fillRectR(x, y - 4, 1, 9, color);
+  }
+
+  function drawWingFeather(x, y, colorA, colorB, dir = 1) {
+    fillRectR(x, y, 10, 4, colorA);
+    fillRectR(x + dir * 3, y + 4, 12, 4, colorA);
+    fillRectR(x + dir * 6, y + 8, 12, 4, colorA);
+    fillRectR(x + dir * 8, y + 12, 10, 4, colorA);
+    fillRectR(x + dir * 2, y + 1, 6, 2, colorB);
+    fillRectR(x + dir * 5, y + 5, 7, 2, colorB);
+    fillRectR(x + dir * 8, y + 9, 7, 2, colorB);
+  }
+
+  const drawObjectBeforeCelestialEntryLegend = drawObject;
+  drawObject = function drawObjectCelestialEntryLegendPatch(obj) {
+    if (obj?.type === "celestialGate" && obj.role === "celestialEntry") return drawLegendaryCelestialGate(obj);
+    return drawObjectBeforeCelestialEntryLegend(obj);
+  };
+
+  function drawLegendaryCelestialGate(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+    const t = performance.now() / 1000;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const pulse = 0.24 + Math.sin(t * 2.9) * 0.05;
+
+    // aura base e sombra
+    drawSoftShadow(x + 8, y + h - 10, w - 16, 16, 0.32);
+    softGlow(cx, cy + 2, 78, `rgba(195,236,255,${pulse + 0.12})`, "rgba(105,196,255,0.18)");
+    softGlow(cx, y + 18, 42, `rgba(255,240,172,${pulse})`, "rgba(0,0,0,0)");
+
+    // halo superior
+    ctx.strokeStyle = "rgba(255,239,180,0.95)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, y + 10, 16, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, y + 10, 22, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // asas angelicais
+    drawWingFeather(x + 1, y + 24, "#eff8ff", "#ffffff", -1);
+    drawWingFeather(x + 10, y + 35, "#d7e9ff", "#ffffff", -1);
+    drawWingFeather(x + w - 21, y + 24, "#eff8ff", "#ffffff", 1);
+    drawWingFeather(x + w - 30, y + 35, "#d7e9ff", "#ffffff", 1);
+
+    // escadaria/base
+    fillRectR(x + 16, y + h - 12, w - 32, 8, "#8e6d4d");
+    fillRectR(x + 12, y + h - 8, w - 24, 6, "#d9c58e");
+    fillRectR(x + 20, y + h - 20, w - 40, 8, "#30466a");
+    fillRectR(x + 24, y + h - 18, w - 48, 3, "#a9d6ff");
+
+    // colunas de mármore
+    fillRectR(x + 11, y + 26, 14, h - 44, "#f3f7ff");
+    fillRectR(x + w - 25, y + 26, 14, h - 44, "#f3f7ff");
+    fillRectR(x + 14, y + 30, 6, h - 52, "#cfe1ff");
+    fillRectR(x + w - 20, y + 30, 6, h - 52, "#cfe1ff");
+    fillRectR(x + 8, y + 18, 20, 10, "#f4d889");
+    fillRectR(x + w - 28, y + 18, 20, 10, "#f4d889");
+    fillRectR(x + 10, y + h - 30, 18, 10, "#d3b465");
+    fillRectR(x + w - 28, y + h - 30, 18, 10, "#d3b465");
+
+    // arco dourado superior
+    fillRectR(x + 20, y + 18, w - 40, 12, "#f4d889");
+    fillRectR(x + 24, y + 20, w - 48, 6, "#fff0ba");
+    fillRectR(x + 30, y + 14, w - 60, 5, "#fff4cf");
+
+    // moldura do portal
+    fillRectR(x + 24, y + 28, w - 48, h - 48, "#263c63");
+    fillRectR(x + 28, y + 32, w - 56, h - 56, "#f4f8ff");
+    fillRectR(x + 31, y + 35, w - 62, h - 62, "#cde4ff");
+
+    // energia interna celestial
+    const innerX = x + 33;
+    const innerY = y + 37;
+    const innerW = w - 66;
+    const innerH = h - 66;
+    const grad = ctx.createLinearGradient(innerX, innerY, innerX + innerW, innerY + innerH);
+    grad.addColorStop(0, "#eaf9ff");
+    grad.addColorStop(0.45, "#b8e5ff");
+    grad.addColorStop(1, "#8bcfff");
+    ctx.fillStyle = grad;
+    ctx.fillRect(innerX, innerY, innerW, innerH);
+    fillRectR(innerX + innerW / 2 - 3, innerY - 2, 6, innerH + 4, "rgba(255,255,255,0.72)");
+    fillRectR(innerX + 4, innerY + 8, 4, innerH - 16, "rgba(255,255,255,0.32)");
+    fillRectR(innerX + innerW - 8, innerY + 12, 3, innerH - 24, "rgba(255,255,255,0.22)");
+
+    // runas laterais
+    for (let i = 0; i < 6; i++) {
+      const ry = y + 35 + i * 10;
+      fillRectR(x + 15, ry, 4, 4, "#fff4cf");
+      fillRectR(x + w - 19, ry + 4, 4, 4, "#fff4cf");
+    }
+
+    // estrela no topo
+    drawStarSpark(cx, y + 23, "rgba(255,246,196,0.95)");
+    fillRectR(cx - 1, y + 20, 2, 7, "#ffffff");
+
+    // partículas orbitando
+    for (let i = 0; i < 12; i++) {
+      const ang = t * 1.4 + i * (Math.PI * 2 / 12);
+      const px = cx + Math.cos(ang) * (w * 0.44);
+      const py = cy + Math.sin(ang) * (h * 0.34);
+      fillRectR(px, py, 2 + (i % 2), 2 + (i % 2), i % 2 ? "rgba(255,255,255,0.88)" : "rgba(255,235,150,0.78)");
+    }
+
+    // brilho no chão
+    ctx.fillStyle = "rgba(196,240,255,0.20)";
+    ctx.beginPath();
+    ctx.ellipse(cx, y + h - 4, w * 0.34, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // cruz de luz discreta ao centro
+    fillRectR(cx - 2, y + 48, 4, 18, "rgba(255,255,255,0.42)");
+    fillRectR(cx - 8, y + 55, 16, 4, "rgba(255,255,255,0.32)");
+  }
+})();
+
+
+/* ==================================================
+   Patch final: Gelo LENDÁRIO do Bioma Congelado
+   - gelo muito mais bonito, brilhante e vivo
+   - neve com cristais, reflexos, rachaduras e aura fria
+   ================================================== */
+(function legendaryIceBiomePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_LEGENDARY_ICE_BIOME_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_LEGENDARY_ICE_BIOME_PATCH = true;
+
+  function iceHash(tileX, tileY, salt = 0) {
+    const raw = Math.sin(tileX * 91.713 + tileY * 143.271 + salt * 41.91) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function px(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function drawIceSpark(x, y, alpha = 0.8) {
+    px(x, y, 2, 2, `rgba(255,255,255,${alpha})`);
+    px(x - 2, y, 6, 1, `rgba(185,235,255,${alpha * 0.7})`);
+    px(x, y - 2, 1, 6, `rgba(185,235,255,${alpha * 0.7})`);
+  }
+
+  function drawTinySnowflake(cx, cy, alpha = 0.62) {
+    ctx.strokeStyle = `rgba(180,225,255,${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - 4, cy);
+    ctx.lineTo(cx + 4, cy);
+    ctx.moveTo(cx, cy - 4);
+    ctx.lineTo(cx, cy + 4);
+    ctx.moveTo(cx - 3, cy - 3);
+    ctx.lineTo(cx + 3, cy + 3);
+    ctx.moveTo(cx + 3, cy - 3);
+    ctx.lineTo(cx - 3, cy + 3);
+    ctx.stroke();
+  }
+
+  drawSnowTile = function drawSnowTileLegendary(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const h = iceHash(tileX, tileY, 1);
+
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#eef8ff" : "#e3f1ff";
+    ctx.fillRect(x, y, TILE, TILE);
+
+    // Sombra azulada macia para tirar a aparência chapada.
+    ctx.fillStyle = h > 0.45 ? "rgba(164,205,246,0.20)" : "rgba(202,229,255,0.24)";
+    ctx.fillRect(x + 1, y + 2, TILE - 2, TILE - 4);
+
+    // Camadas de neve fofa.
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillRect(x + 2, y + 2, 12, 4);
+    if (iceHash(tileX, tileY, 2) > 0.38) ctx.fillRect(x + 17, y + 19, 10, 4);
+    if (iceHash(tileX, tileY, 3) > 0.52) ctx.fillRect(x + 8, y + 23, 8, 3);
+
+    // Cristais pequenos no chão.
+    ctx.fillStyle = "rgba(127,213,255,0.32)";
+    if (iceHash(tileX, tileY, 4) > 0.45) {
+      ctx.beginPath();
+      ctx.moveTo(x + 8, y + 8);
+      ctx.lineTo(x + 12, y + 4);
+      ctx.lineTo(x + 16, y + 8);
+      ctx.lineTo(x + 12, y + 12);
+      ctx.closePath();
+      ctx.fill();
+    }
+    if (iceHash(tileX, tileY, 5) > 0.58) drawTinySnowflake(x + 23, y + 9, 0.48);
+
+    // Micro-brilho frio.
+    if (iceHash(tileX, tileY, 6) > 0.68) {
+      const a = 0.30 + Math.sin(t * 2.6 + tileX + tileY) * 0.16;
+      drawIceSpark(x + 14, y + 15, a);
+    }
+
+    // Bordas suaves entre blocos.
+    ctx.fillStyle = "rgba(126,181,230,0.16)";
+    ctx.fillRect(x, y + TILE - 2, TILE, 2);
+    ctx.fillRect(x + TILE - 2, y, 2, TILE);
+  };
+
+  drawIceTile = function drawIceTileLegendary(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const h = iceHash(tileX, tileY, 10);
+    const shimmer = 0.18 + Math.sin(t * 2.8 + tileX * 0.8 + tileY * 0.4) * 0.07;
+
+    // Base de gelo translúcido.
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#c7efff" : "#b5e4ff";
+    ctx.fillRect(x, y, TILE, TILE);
+
+    // Profundidade azul interna.
+    ctx.fillStyle = h > 0.5 ? "rgba(72,154,220,0.20)" : "rgba(119,197,245,0.18)";
+    ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2);
+
+    // Reflexo grande diagonal, tipo chão de cristal.
+    ctx.strokeStyle = `rgba(255,255,255,${0.34 + shimmer})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y + 25);
+    ctx.lineTo(x + 15, y + 10);
+    ctx.lineTo(x + 28, y + 18);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(63,143,229,0.42)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + 2, y + 27);
+    ctx.lineTo(x + 13, y + 13);
+    ctx.lineTo(x + 23, y + 21);
+    ctx.stroke();
+
+    // Rachaduras finas e bonitas.
+    if (iceHash(tileX, tileY, 11) > 0.22) {
+      ctx.strokeStyle = "rgba(80,165,230,0.35)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + 7, y + 8);
+      ctx.lineTo(x + 12, y + 13);
+      ctx.lineTo(x + 10, y + 19);
+      ctx.moveTo(x + 12, y + 13);
+      ctx.lineTo(x + 18, y + 12);
+      ctx.stroke();
+    }
+
+    if (iceHash(tileX, tileY, 12) > 0.48) {
+      ctx.strokeStyle = "rgba(255,255,255,0.45)";
+      ctx.beginPath();
+      ctx.moveTo(x + 20, y + 5);
+      ctx.lineTo(x + 25, y + 9);
+      ctx.lineTo(x + 29, y + 7);
+      ctx.stroke();
+    }
+
+    // Bordas brilhantes de placa de gelo.
+    ctx.fillStyle = "rgba(255,255,255,0.30)";
+    ctx.fillRect(x, y, TILE, 2);
+    ctx.fillRect(x, y, 2, TILE);
+    ctx.fillStyle = "rgba(49,120,190,0.20)";
+    ctx.fillRect(x, y + TILE - 2, TILE, 2);
+    ctx.fillRect(x + TILE - 2, y, 2, TILE);
+
+    // Bolhas congeladas/pontos aprisionados no gelo.
+    if (iceHash(tileX, tileY, 13) > 0.38) {
+      ctx.fillStyle = "rgba(233,255,255,0.40)";
+      ctx.beginPath();
+      ctx.arc(x + 8 + iceHash(tileX, tileY, 14) * 13, y + 9 + iceHash(tileX, tileY, 15) * 12, 2.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Estrela de brilho ocasional.
+    if (iceHash(tileX, tileY, 16) > 0.66) {
+      const a = 0.42 + Math.sin(t * 3.4 + tileX) * 0.22;
+      drawIceSpark(x + 10 + iceHash(tileX, tileY, 17) * 12, y + 7 + iceHash(tileX, tileY, 18) * 14, a);
+    }
+
+    // Luz azul no centro para parecer gelo mágico.
+    ctx.fillStyle = `rgba(130,220,255,${0.07 + shimmer * 0.45})`;
+    ctx.fillRect(x + 5, y + 5, TILE - 10, TILE - 10);
+  };
+
+  const drawSceneGroundOverlayBeforeLegendaryIce = typeof drawSceneGroundOverlayV2 === "function" ? drawSceneGroundOverlayV2 : null;
+  if (drawSceneGroundOverlayBeforeLegendaryIce) {
+    drawSceneGroundOverlayV2 = function drawSceneGroundOverlayLegendaryIcePatch() {
+      drawSceneGroundOverlayBeforeLegendaryIce();
+      if (currentScene !== "village") return;
+      if (getAreaName() !== "Vila Congelada") return;
+
+      const t = performance.now() / 1000;
+
+      // Névoa fria azulada passando por cima do gelo.
+      for (let i = 0; i < 7; i++) {
+        const fx = camera.x + ((i * 151 + t * 18) % (canvas.width + 180)) - 90;
+        const fy = camera.y + 18 + ((i * 67) % Math.max(1, canvas.height - 40));
+        ctx.fillStyle = "rgba(210,240,255,0.075)";
+        ctx.fillRect(fx, fy, 92, 10);
+        ctx.fillStyle = "rgba(130,210,255,0.045)";
+        ctx.fillRect(fx + 14, fy + 8, 70, 7);
+      }
+
+      // Partículas de neve/luz no chão.
+      for (let i = 0; i < 34; i++) {
+        const sx = camera.x + ((i * 83 + t * 24) % (canvas.width + 80)) - 40;
+        const sy = camera.y + ((i * 127 + Math.sin(t + i) * 12) % (canvas.height + 40)) - 20;
+        const size = i % 5 === 0 ? 3 : 2;
+        ctx.fillStyle = i % 3 === 0 ? "rgba(255,255,255,0.42)" : "rgba(155,220,255,0.34)";
+        ctx.fillRect(sx, sy, size, size);
+      }
+
+      // Reflexo aurora bem sutil.
+      const bandY = camera.y + 20 + Math.sin(t * 0.8) * 10;
+      ctx.fillStyle = "rgba(132,255,226,0.040)";
+      ctx.fillRect(camera.x, bandY, canvas.width, 26);
+      ctx.fillStyle = "rgba(151,180,255,0.035)";
+      ctx.fillRect(camera.x, bandY + 22, canvas.width, 18);
+    };
+  }
+})();
+
+
+/* ==================================================
+   Patch final: Areia Movediça LENDÁRIA do Deserto
+   - redemoinhos animados, profundidade, brilho quente e poeira
+   ================================================== */
+(function legendaryQuicksandPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_LEGENDARY_QUICKSAND_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_LEGENDARY_QUICKSAND_PATCH = true;
+
+  function quicksandHash(tileX, tileY, salt = 0) {
+    const raw = Math.sin(tileX * 83.119 + tileY * 157.337 + salt * 29.71) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function px(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function drawSandSpark(x, y, alpha = 0.7) {
+    px(x, y, 2, 2, `rgba(255,236,172,${alpha})`);
+    px(x - 2, y, 6, 1, `rgba(255,202,104,${alpha * 0.55})`);
+    px(x, y - 2, 1, 6, `rgba(255,202,104,${alpha * 0.55})`);
+  }
+
+  drawQuicksandTile = function drawQuicksandTileLegendary(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const h = quicksandHash(tileX, tileY, 1);
+    const spin = t * 2.4 + tileX * 0.55 + tileY * 0.35;
+
+    // Base quente, mais profunda que a areia normal.
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#e7bd62" : "#d9a952";
+    ctx.fillRect(x, y, TILE, TILE);
+
+    // Mancha principal afundando.
+    const cx = x + 16;
+    const cy = y + 16;
+    const pulse = 1 + Math.sin(spin) * 0.8;
+    ctx.fillStyle = "rgba(117,70,54,0.20)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 1, 14, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(168,95,74,0.38)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 12 + pulse, 9 + pulse * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(226,163,82,0.46)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 9 + Math.sin(spin + 1.2) * 1.4, 6, 0.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Anéis do redemoinho.
+    for (let i = 0; i < 4; i++) {
+      const radiusX = 5 + i * 3.2 + Math.sin(spin + i) * 0.8;
+      const radiusY = 3 + i * 2.1 + Math.cos(spin + i) * 0.5;
+      ctx.strokeStyle = i % 2 === 0 ? "rgba(93,56,67,0.55)" : "rgba(255,215,137,0.45)";
+      ctx.lineWidth = i === 0 ? 2 : 1;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, radiusX, radiusY, spin * 0.18 + i * 0.42, 0, Math.PI * 1.72);
+      ctx.stroke();
+    }
+
+    // Fendas/linhas puxando para o centro.
+    ctx.strokeStyle = "rgba(104,66,54,0.28)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      const angle = spin * 0.35 + i * (Math.PI * 2 / 5);
+      const sx = cx + Math.cos(angle) * 14;
+      const sy = cy + Math.sin(angle) * 10;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(cx + Math.cos(angle + 0.7) * 4, cy + Math.sin(angle + 0.7) * 3);
+      ctx.stroke();
+    }
+
+    // Grãos claros girando.
+    for (let i = 0; i < 8; i++) {
+      const angle = spin + i * (Math.PI * 2 / 8);
+      const distX = 6 + (i % 3) * 3;
+      const distY = 4 + (i % 3) * 2;
+      const gx = cx + Math.cos(angle) * distX;
+      const gy = cy + Math.sin(angle) * distY;
+      px(gx, gy, 2, 1, i % 2 ? "rgba(255,236,172,0.70)" : "rgba(128,83,61,0.46)");
+    }
+
+    // Bordas fofas de areia acumulada.
+    ctx.fillStyle = "rgba(255,220,135,0.20)";
+    ctx.fillRect(x + 2, y + 3, 11, 3);
+    ctx.fillRect(x + 19, y + 25, 10, 3);
+    ctx.fillRect(x + 23, y + 7, 5, 2);
+    ctx.fillStyle = "rgba(119,74,54,0.15)";
+    ctx.fillRect(x + 4, y + 22, 8, 2);
+    ctx.fillRect(x + 18, y + 12, 7, 2);
+
+    // Brilho seco do deserto.
+    if (quicksandHash(tileX, tileY, 2) > 0.56) {
+      const alpha = 0.25 + Math.sin(t * 3 + tileX) * 0.12;
+      drawSandSpark(x + 7 + quicksandHash(tileX, tileY, 3) * 16, y + 5 + quicksandHash(tileX, tileY, 4) * 18, alpha);
+    }
+
+    // Sombra central do buraco.
+    ctx.fillStyle = "rgba(69,45,48,0.28)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 1, 4.5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const drawSceneGroundOverlayBeforeQuicksandLegend = typeof drawSceneGroundOverlayV2 === "function" ? drawSceneGroundOverlayV2 : null;
+  if (drawSceneGroundOverlayBeforeQuicksandLegend) {
+    drawSceneGroundOverlayV2 = function drawSceneGroundOverlayQuicksandLegendPatch() {
+      drawSceneGroundOverlayBeforeQuicksandLegend();
+      if (currentScene !== "village") return;
+      if (getAreaName() !== "Vila do Deserto") return;
+
+      const t = performance.now() / 1000;
+
+      // Névoa/dunas de calor passando pelo deserto.
+      for (let i = 0; i < 7; i++) {
+        const fx = camera.x + ((i * 173 + t * 20) % (canvas.width + 160)) - 80;
+        const fy = camera.y + 16 + ((i * 71) % Math.max(1, canvas.height - 30));
+        ctx.fillStyle = "rgba(255,220,135,0.055)";
+        ctx.fillRect(fx, fy, 110, 9);
+        ctx.fillStyle = "rgba(184,121,85,0.035)";
+        ctx.fillRect(fx + 22, fy + 8, 78, 7);
+      }
+
+      // Poeira brilhante sobre as áreas de areia movediça.
+      for (let i = 0; i < 36; i++) {
+        const sx = camera.x + ((i * 97 + t * 28) % (canvas.width + 90)) - 45;
+        const sy = camera.y + ((i * 149 + Math.sin(t + i) * 10) % (canvas.height + 50)) - 25;
+        const size = i % 5 === 0 ? 3 : 2;
+        ctx.fillStyle = i % 3 === 0 ? "rgba(255,236,172,0.34)" : "rgba(184,121,85,0.20)";
+        ctx.fillRect(sx, sy, size, size);
+      }
+
+      // Tom dourado cinematográfico no bioma.
+      ctx.fillStyle = "rgba(255,198,92,0.035)";
+      ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+    };
+  }
+})();
+
+
+/* ==================================================
+   CORREÇÃO REAL: Gelo e Areia Movediça por cima do drawMap
+   Motivo: os desenhos antigos estavam em funções internas do patch de biomas.
+   Este patch desenha por cima do mapa real, então a mudança aparece de verdade.
+   ================================================== */
+(function realIceQuicksandVisualPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_REAL_ICE_QUICKSAND_VISUAL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_REAL_ICE_QUICKSAND_VISUAL_PATCH = true;
+
+  function h(tileX, tileY, salt = 0) {
+    const raw = Math.sin(tileX * 97.713 + tileY * 151.271 + salt * 47.91) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function r(x, y, w, hgt, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(hgt));
+  }
+
+  function sparkle(x, y, color = "rgba(255,255,255,0.85)") {
+    r(x, y, 2, 2, color);
+    r(x - 3, y, 8, 1, color);
+    r(x, y - 3, 1, 8, color);
+  }
+
+  function drawSnowflake(cx, cy, alpha = 0.62) {
+    ctx.strokeStyle = `rgba(190,235,255,${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, cy);
+    ctx.lineTo(cx + 5, cy);
+    ctx.moveTo(cx, cy - 5);
+    ctx.lineTo(cx, cy + 5);
+    ctx.moveTo(cx - 3, cy - 3);
+    ctx.lineTo(cx + 3, cy + 3);
+    ctx.moveTo(cx + 3, cy - 3);
+    ctx.lineTo(cx - 3, cy + 3);
+    ctx.stroke();
+  }
+
+  function drawREALSnowTile(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const v = h(tileX, tileY, 1);
+
+    r(x, y, TILE, TILE, (tileX + tileY) % 2 === 0 ? "#effaff" : "#dff1ff");
+    r(x + 1, y + 1, TILE - 2, TILE - 2, v > 0.5 ? "rgba(174,214,255,0.22)" : "rgba(255,255,255,0.28)");
+
+    // camadas fofas
+    r(x + 2, y + 2, 13, 4, "rgba(255,255,255,0.58)");
+    r(x + 17, y + 20, 11, 4, "rgba(255,255,255,0.42)");
+    if (h(tileX, tileY, 2) > 0.42) r(x + 7, y + 24, 9, 3, "rgba(255,255,255,0.44)");
+
+    // cristais no chão
+    if (h(tileX, tileY, 3) > 0.35) {
+      ctx.fillStyle = "rgba(115,205,255,0.42)";
+      ctx.beginPath();
+      ctx.moveTo(x + 12, y + 4);
+      ctx.lineTo(x + 17, y + 10);
+      ctx.lineTo(x + 12, y + 16);
+      ctx.lineTo(x + 7, y + 10);
+      ctx.closePath();
+      ctx.fill();
+      r(x + 11, y + 7, 2, 7, "rgba(255,255,255,0.55)");
+    }
+
+    if (h(tileX, tileY, 4) > 0.52) drawSnowflake(x + 23, y + 9, 0.55);
+    if (h(tileX, tileY, 5) > 0.66) sparkle(x + 9 + h(tileX, tileY, 6) * 14, y + 9 + h(tileX, tileY, 7) * 12, `rgba(255,255,255,${0.45 + Math.sin(t * 3 + tileX) * 0.18})`);
+
+    // bordas azuladas
+    r(x, y + TILE - 2, TILE, 2, "rgba(105,165,230,0.18)");
+    r(x + TILE - 2, y, 2, TILE, "rgba(105,165,230,0.16)");
+  }
+
+  function drawREALIceTile(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const shimmer = 0.25 + Math.sin(t * 3.2 + tileX * 0.8 + tileY * 0.4) * 0.09;
+
+    // cobre totalmente o gelo antigo
+    r(x, y, TILE, TILE, (tileX + tileY) % 2 === 0 ? "#bdf0ff" : "#a7ddff");
+
+    // profundidade em camadas
+    r(x + 1, y + 1, TILE - 2, TILE - 2, "rgba(54,145,215,0.18)");
+    r(x + 4, y + 4, TILE - 8, TILE - 8, `rgba(205,247,255,${0.18 + shimmer})`);
+
+    // reflexo cristalino grande, bem visível
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(255,255,255,${0.45 + shimmer})`;
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + 26);
+    ctx.lineTo(x + 15, y + 8);
+    ctx.lineTo(x + 29, y + 17);
+    ctx.stroke();
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(39,120,210,0.48)";
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y + 27);
+    ctx.lineTo(x + 14, y + 13);
+    ctx.lineTo(x + 22, y + 20);
+    ctx.stroke();
+
+    // rachaduras
+    ctx.strokeStyle = "rgba(42,127,205,0.50)";
+    ctx.beginPath();
+    ctx.moveTo(x + 7, y + 7);
+    ctx.lineTo(x + 12, y + 13);
+    ctx.lineTo(x + 10, y + 20);
+    ctx.moveTo(x + 12, y + 13);
+    ctx.lineTo(x + 19, y + 11);
+    ctx.moveTo(x + 21, y + 23);
+    ctx.lineTo(x + 25, y + 18);
+    ctx.lineTo(x + 29, y + 20);
+    ctx.stroke();
+
+    // bolhas congeladas
+    ctx.fillStyle = "rgba(235,255,255,0.50)";
+    ctx.beginPath();
+    ctx.arc(x + 9 + h(tileX, tileY, 8) * 14, y + 9 + h(tileX, tileY, 9) * 12, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // bordas premium
+    r(x, y, TILE, 2, "rgba(255,255,255,0.45)");
+    r(x, y, 2, TILE, "rgba(255,255,255,0.35)");
+    r(x, y + TILE - 2, TILE, 2, "rgba(35,110,185,0.26)");
+    r(x + TILE - 2, y, 2, TILE, "rgba(35,110,185,0.22)");
+
+    if (h(tileX, tileY, 10) > 0.55) {
+      sparkle(x + 8 + h(tileX, tileY, 11) * 15, y + 7 + h(tileX, tileY, 12) * 15, `rgba(255,255,255,${0.55 + Math.sin(t * 3.8 + tileX) * 0.22})`);
+    }
+  }
+
+  function drawREALQuicksandTile(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const spin = t * 2.8 + tileX * 0.6 + tileY * 0.35;
+    const cx = x + TILE / 2;
+    const cy = y + TILE / 2;
+
+    // cobre totalmente a areia movediça antiga
+    r(x, y, TILE, TILE, (tileX + tileY) % 2 === 0 ? "#e6b75b" : "#d7a04d");
+
+    // areia acumulada / bordas
+    r(x + 1, y + 1, TILE - 2, TILE - 2, "rgba(255,216,126,0.16)");
+    r(x + 2, y + 3, 11, 3, "rgba(255,229,154,0.32)");
+    r(x + 19, y + 25, 10, 3, "rgba(128,83,61,0.18)");
+    r(x + 22, y + 7, 6, 2, "rgba(255,229,154,0.22)");
+
+    // poço profundo
+    ctx.fillStyle = "rgba(87,51,47,0.26)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 1, 15, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(168,95,74,0.42)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 13 + Math.sin(spin) * 1.2, 9 + Math.cos(spin) * 0.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(240,171,78,0.46)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 9, 6, spin * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // redemoinhos grandes, agora bem fortes
+    for (let i = 0; i < 5; i++) {
+      const rx = 4.5 + i * 2.9 + Math.sin(spin + i) * 0.7;
+      const ry = 2.5 + i * 1.8 + Math.cos(spin + i) * 0.45;
+      ctx.strokeStyle = i % 2 === 0 ? "rgba(75,45,49,0.70)" : "rgba(255,223,145,0.60)";
+      ctx.lineWidth = i === 0 ? 2.5 : 1.3;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, spin * 0.20 + i * 0.5, 0.2, Math.PI * 1.78);
+      ctx.stroke();
+    }
+
+    // linhas sugando para o centro
+    ctx.strokeStyle = "rgba(85,53,49,0.42)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      const a = spin * 0.32 + i * (Math.PI * 2 / 6);
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 15, cy + Math.sin(a) * 10);
+      ctx.lineTo(cx + Math.cos(a + 0.8) * 4, cy + Math.sin(a + 0.8) * 3);
+      ctx.stroke();
+    }
+
+    // grãos girando
+    for (let i = 0; i < 10; i++) {
+      const a = spin + i * (Math.PI * 2 / 10);
+      const gx = cx + Math.cos(a) * (6 + (i % 3) * 3);
+      const gy = cy + Math.sin(a) * (4 + (i % 3) * 2);
+      r(gx, gy, 2, 1, i % 2 ? "rgba(255,237,171,0.78)" : "rgba(96,60,52,0.58)");
+    }
+
+    // centro escuro
+    ctx.fillStyle = "rgba(54,36,42,0.42)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 1, 4.8, 3.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (h(tileX, tileY, 30) > 0.48) {
+      sparkle(x + 7 + h(tileX, tileY, 31) * 16, y + 5 + h(tileX, tileY, 32) * 18, `rgba(255,236,172,${0.36 + Math.sin(t * 3 + tileX) * 0.16})`);
+    }
+  }
+
+  function drawRealFrozenDesertOverlay() {
+    if (currentScene !== "village" || !Array.isArray(worldMap)) return;
+
+    const startX = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const endX = Math.min(worldMap[0]?.length || 0, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const startY = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const endY = Math.min(worldMap.length || 0, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+
+    for (let ty = startY; ty < endY; ty++) {
+      const row = worldMap[ty];
+      if (!row) continue;
+      for (let tx = startX; tx < endX; tx++) {
+        const tile = row[tx];
+        const x = tx * TILE;
+        const y = ty * TILE;
+
+        if (tile === "N") drawREALSnowTile(x, y, tx, ty);
+        else if (tile === "L") drawREALIceTile(x, y, tx, ty);
+        else if (tile === "X") drawREALQuicksandTile(x, y, tx, ty);
+      }
+    }
+
+    // overlays por área, também por cima do mapa real
+    const area = getAreaName();
+    const t = performance.now() / 1000;
+
+    if (area === "Vila Congelada") {
+      for (let i = 0; i < 10; i++) {
+        const fx = camera.x + ((i * 151 + t * 20) % (canvas.width + 180)) - 90;
+        const fy = camera.y + 18 + ((i * 67) % Math.max(1, canvas.height - 40));
+        ctx.fillStyle = "rgba(210,240,255,0.075)";
+        ctx.fillRect(fx, fy, 100, 10);
+      }
+
+      for (let i = 0; i < 42; i++) {
+        const sx = camera.x + ((i * 83 + t * 24) % (canvas.width + 80)) - 40;
+        const sy = camera.y + ((i * 127 + Math.sin(t + i) * 12) % (canvas.height + 40)) - 20;
+        ctx.fillStyle = i % 3 === 0 ? "rgba(255,255,255,0.46)" : "rgba(155,220,255,0.34)";
+        ctx.fillRect(sx, sy, i % 5 === 0 ? 3 : 2, i % 5 === 0 ? 3 : 2);
+      }
+    }
+
+    if (area === "Vila do Deserto") {
+      for (let i = 0; i < 10; i++) {
+        const fx = camera.x + ((i * 173 + t * 24) % (canvas.width + 160)) - 80;
+        const fy = camera.y + 16 + ((i * 71) % Math.max(1, canvas.height - 30));
+        ctx.fillStyle = "rgba(255,220,135,0.065)";
+        ctx.fillRect(fx, fy, 118, 9);
+      }
+
+      for (let i = 0; i < 46; i++) {
+        const sx = camera.x + ((i * 97 + t * 34) % (canvas.width + 90)) - 45;
+        const sy = camera.y + ((i * 149 + Math.sin(t + i) * 10) % (canvas.height + 50)) - 25;
+        ctx.fillStyle = i % 3 === 0 ? "rgba(255,236,172,0.38)" : "rgba(184,121,85,0.22)";
+        ctx.fillRect(sx, sy, i % 5 === 0 ? 3 : 2, i % 5 === 0 ? 3 : 2);
+      }
+    }
+  }
+
+  const drawMapBeforeRealIceQuicksand = drawMap;
+  drawMap = function drawMapRealIceQuicksandPatch() {
+    drawMapBeforeRealIceQuicksand();
+    drawRealFrozenDesertOverlay();
+  };
+})();
+
+
+/* ==================================================
+   PATCH LENDÁRIO: Deserto inteiro MUITO mais bonito e estendido
+   - expande a área do deserto dentro do mapa existente
+   - redesenha areia, dunas, estradas, ruínas, oasis e areia movediça por cima do mapa real
+   - adiciona decorações épicas sem gerar imagens externas
+   ================================================== */
+(function legendaryWholeDesertPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_WHOLE_DESERT_LEGEND_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_WHOLE_DESERT_LEGEND_PATCH = true;
+
+  const DESERT_EXT = { x1: 82, y1: 3, x2: 145, y2: 45 };
+  const SAND = "A";
+  const QUICKSAND = "X";
+  const ROAD = "D";
+  const PLAZA = "P";
+  const WATER = "W";
+
+  function desertHash(tileX, tileY, salt = 0) {
+    const raw = Math.sin(tileX * 79.733 + tileY * 173.319 + salt * 37.911) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function inLegendDesert(tileX, tileY) {
+    return tileX >= DESERT_EXT.x1 && tileX <= DESERT_EXT.x2 && tileY >= DESERT_EXT.y1 && tileY <= DESERT_EXT.y2;
+  }
+
+  function setTileSafe(tileX, tileY, tile) {
+    if (!Array.isArray(worldMap) || !worldMap[tileY]) return;
+    if (tileX < 0 || tileX >= worldMap[tileY].length) return;
+    worldMap[tileY][tileX] = tile;
+  }
+
+  function fillTiles(x1, y1, w, h, tile) {
+    for (let y = y1; y < y1 + h; y++) {
+      for (let x = x1; x < x1 + w; x++) setTileSafe(x, y, tile);
+    }
+  }
+
+  function ellipseTiles(cx, cy, rx, ry, tile) {
+    for (let y = cy - ry; y <= cy + ry; y++) {
+      for (let x = cx - rx; x <= cx + rx; x++) {
+        const dx = (x - cx) / Math.max(1, rx);
+        const dy = (y - cy) / Math.max(1, ry);
+        if (dx * dx + dy * dy <= 1) setTileSafe(x, y, tile);
+      }
+    }
+  }
+
+  function extendDesertTerrain() {
+    if (!Array.isArray(worldMap) || !worldMap.length) return;
+
+    // Expande o deserto dentro do mapa existente.
+    for (let y = DESERT_EXT.y1; y <= DESERT_EXT.y2; y++) {
+      for (let x = DESERT_EXT.x1; x <= DESERT_EXT.x2; x++) {
+        if (!worldMap[y] || x >= worldMap[y].length) continue;
+        const borderNoise = desertHash(x, y, 1);
+        const nearEdge = x <= DESERT_EXT.x1 + 2 || x >= DESERT_EXT.x2 - 2 || y <= DESERT_EXT.y1 + 2 || y >= DESERT_EXT.y2 - 2;
+        worldMap[y][x] = nearEdge && borderNoise > 0.78 ? "G" : SAND;
+      }
+    }
+
+    // Caminhos de pedra e ruínas, para o deserto não virar só um tapete amarelo.
+    fillTiles(86, 22, 43, 3, ROAD);
+    fillTiles(109, 7, 4, 34, ROAD);
+    fillTiles(90, 37, 42, 3, ROAD);
+    fillTiles(120, 10, 12, 8, PLAZA);
+    fillTiles(116, 28, 14, 10, PLAZA);
+    fillTiles(135, 7, 8, 7, PLAZA);
+    fillTiles(87, 10, 9, 7, PLAZA);
+
+    // Oásis e água no deserto.
+    ellipseTiles(127, 17, 6, 4, WATER);
+    ellipseTiles(140, 29, 5, 3, WATER);
+    ellipseTiles(94, 34, 4, 3, WATER);
+
+    // Areias movediças maiores e mais espalhadas.
+    ellipseTiles(103, 28, 7, 5, QUICKSAND);
+    ellipseTiles(131, 34, 6, 4, QUICKSAND);
+    ellipseTiles(92, 17, 5, 4, QUICKSAND);
+    ellipseTiles(114, 14, 5, 3, QUICKSAND);
+    ellipseTiles(139, 19, 5, 4, QUICKSAND);
+    ellipseTiles(120, 41, 7, 3, QUICKSAND);
+    ellipseTiles(86, 40, 4, 3, QUICKSAND);
+  }
+
+  function addDesertLegendDecorations() {
+    if (!Array.isArray(villageObjects)) return;
+    if (villageObjects.some((obj) => obj.type === "desertLegendMarker")) return;
+
+    villageObjects.push({ type: "desertLegendMarker", x: 0, y: 0, width: 1, height: 1, solid: false });
+    const make = (tileX, tileY, kind, width = 32, height = 32, message = "") => ({
+      type: "desertLegendFeature",
+      kind,
+      x: tileX * TILE + Math.max(0, (TILE - width) / 2),
+      y: tileY * TILE + Math.max(0, (TILE - height) / 2),
+      width,
+      height,
+      solid: false,
+      message
+    });
+
+    villageObjects.push(
+      make(88, 8, "goldenDune", 76, 34),
+      make(97, 7, "sunObelisk", 24, 58, "Obelisco Solar: runas antigas brilham com o calor do deserto."),
+      make(132, 8, "sunObelisk", 24, 58, "Obelisco Solar: a areia canta ao redor da pedra."),
+      make(122, 26, "buriedRuin", 74, 46, "Ruína soterrada: metade do templo foi engolido pelas dunas."),
+      make(139, 34, "palmOasis", 44, 56, "Palmeira do Oásis: sombra rara no meio do calor."),
+      make(93, 31, "palmOasis", 44, 56, "Palmeira do Oásis: folhas dançam com o vento seco."),
+      make(105, 39, "giantBones", 72, 28, "Ossadas gigantes: algo enorme morreu sob este sol."),
+      make(116, 5, "sunCrystal", 30, 42, "Cristal Solar: energia dourada vibra dentro dele."),
+      make(143, 14, "sunCrystal", 30, 42, "Cristal Solar: parece guardar o brilho de um meio-dia eterno."),
+      make(84, 28, "sandBanner", 24, 46),
+      make(136, 42, "sandBanner", 24, 46),
+      make(128, 24, "desertStatue", 40, 58, "Estátua do Deserto: um guardião antigo encara as dunas.")
+    );
+
+    if (currentScene === "village") {
+      objects = villageObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  extendDesertTerrain();
+  addDesertLegendDecorations();
+
+  const getAreaNameBeforeWholeDesertLegend = getAreaName;
+  getAreaName = function getAreaNameWholeDesertLegendPatch() {
+    if (currentScene === "village") {
+      const tileX = Math.floor(player.x / TILE);
+      const tileY = Math.floor(player.y / TILE);
+      if (inLegendDesert(tileX, tileY)) return "Vila do Deserto";
+    }
+    return getAreaNameBeforeWholeDesertLegend();
+  };
+
+  function px(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function drawSandSpark(x, y, alpha = 0.6) {
+    px(x, y, 2, 2, `rgba(255,238,174,${alpha})`);
+    px(x - 3, y, 8, 1, `rgba(255,207,108,${alpha * 0.55})`);
+    px(x, y - 3, 1, 8, `rgba(255,207,108,${alpha * 0.55})`);
+  }
+
+  function drawLegendarySandTile(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const n = desertHash(tileX, tileY, 10);
+
+    // areia base com variação cinematográfica
+    px(x, y, TILE, TILE, (tileX + tileY) % 2 === 0 ? "#e8be65" : "#dcae58");
+    px(x + 1, y + 1, TILE - 2, TILE - 2, n > 0.5 ? "rgba(255,221,137,0.20)" : "rgba(161,98,62,0.10)");
+
+    // ondas de duna grandes e visíveis
+    ctx.strokeStyle = "rgba(255,232,158,0.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 2, y + 8 + Math.sin(t + tileX) * 1);
+    ctx.quadraticCurveTo(x + 12, y + 3, x + 22, y + 9);
+    ctx.quadraticCurveTo(x + 27, y + 12, x + 31, y + 9);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(125,76,54,0.23)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + 23);
+    ctx.quadraticCurveTo(x + 14, y + 17, x + 29, y + 22);
+    ctx.stroke();
+
+    // pedrinhas e grãos
+    if (desertHash(tileX, tileY, 11) > 0.22) px(x + 5, y + 17, 4, 2, "rgba(134,82,58,0.38)");
+    if (desertHash(tileX, tileY, 12) > 0.42) px(x + 19, y + 6, 5, 2, "rgba(255,229,150,0.32)");
+    if (desertHash(tileX, tileY, 13) > 0.50) px(x + 24, y + 24, 3, 2, "rgba(119,74,54,0.28)");
+
+    // brilho raro
+    if (desertHash(tileX, tileY, 14) > 0.70) {
+      const a = 0.25 + Math.sin(t * 2.7 + tileX) * 0.13;
+      drawSandSpark(x + 8 + desertHash(tileX, tileY, 15) * 16, y + 6 + desertHash(tileX, tileY, 16) * 18, a);
+    }
+  }
+
+  function drawLegendaryRoadTile(x, y, tileX, tileY) {
+    px(x, y, TILE, TILE, "#9c704b");
+    px(x + 1, y + 2, TILE - 2, TILE - 4, "#b38255");
+    px(x + 4, y + 7, 8, 3, "rgba(82,58,52,0.34)");
+    px(x + 20, y + 20, 7, 3, "rgba(82,58,52,0.28)");
+    px(x + 13, y + 14, 5, 2, "rgba(255,222,156,0.22)");
+    if (desertHash(tileX, tileY, 20) > 0.48) px(x + 5, y + 25, 16, 2, "rgba(79,53,48,0.22)");
+  }
+
+  function drawLegendaryRuinTile(x, y, tileX, tileY) {
+    px(x, y, TILE, TILE, "#d3a45a");
+    px(x + 1, y + 1, TILE - 2, TILE - 2, "#c08c4f");
+    px(x + 4, y + 4, 24, 6, "rgba(255,225,147,0.22)");
+    px(x + 5, y + 17, 21, 5, "rgba(89,61,54,0.22)");
+    px(x + 13, y + 11, 5, 5, "rgba(255,241,177,0.32)");
+    px(x, y + TILE - 3, TILE, 3, "rgba(89,61,54,0.18)");
+  }
+
+  function drawLegendaryOasisTile(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    px(x, y, TILE, TILE, "#d9b15c");
+    ctx.fillStyle = "#4ebbd7";
+    ctx.beginPath();
+    ctx.ellipse(x + 16, y + 16, 14, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(211,255,255,0.38)";
+    ctx.beginPath();
+    ctx.ellipse(x + 16, y + 14, 9, 4, Math.sin(t + tileX) * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    px(x + 4, y + 22, 23, 3, "rgba(85,128,73,0.32)");
+    px(x + 7, y + 5, 6, 2, "rgba(255,235,154,0.22)");
+  }
+
+  function drawLegendaryQuicksandTileBig(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const spin = t * 3 + tileX * 0.6 + tileY * 0.35;
+    const cx = x + 16;
+    const cy = y + 16;
+
+    px(x, y, TILE, TILE, (tileX + tileY) % 2 === 0 ? "#e0ab55" : "#cf9548");
+    px(x + 1, y + 1, TILE - 2, TILE - 2, "rgba(255,219,130,0.14)");
+
+    ctx.fillStyle = "rgba(74,46,45,0.34)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 1, 15, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(168,95,74,0.50)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 13 + Math.sin(spin) * 1.2, 9 + Math.cos(spin) * 0.9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(246,174,78,0.48)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 9, 6, spin * 0.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (let i = 0; i < 5; i++) {
+      const rx = 4.5 + i * 3.0 + Math.sin(spin + i) * 0.8;
+      const ry = 2.5 + i * 1.9 + Math.cos(spin + i) * 0.45;
+      ctx.strokeStyle = i % 2 === 0 ? "rgba(72,43,48,0.75)" : "rgba(255,226,145,0.62)";
+      ctx.lineWidth = i === 0 ? 2.5 : 1.3;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, spin * 0.21 + i * 0.5, 0.2, Math.PI * 1.78);
+      ctx.stroke();
+    }
+
+    // setas/fendas puxando para o centro
+    ctx.strokeStyle = "rgba(69,42,45,0.48)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      const a = spin * 0.35 + i * (Math.PI * 2 / 6);
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 15, cy + Math.sin(a) * 10);
+      ctx.lineTo(cx + Math.cos(a + 0.8) * 4, cy + Math.sin(a + 0.8) * 3);
+      ctx.stroke();
+    }
+
+    for (let i = 0; i < 10; i++) {
+      const a = spin + i * (Math.PI * 2 / 10);
+      const gx = cx + Math.cos(a) * (6 + (i % 3) * 3);
+      const gy = cy + Math.sin(a) * (4 + (i % 3) * 2);
+      px(gx, gy, 2, 1, i % 2 ? "rgba(255,238,174,0.82)" : "rgba(84,52,48,0.62)");
+    }
+
+    ctx.fillStyle = "rgba(45,32,39,0.46)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 1, 5, 3.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawDesertLegendOverlay() {
+    if (currentScene !== "village" || !Array.isArray(worldMap)) return;
+
+    // Desenha só quando a câmera realmente encosta no deserto.
+    const camLeft = camera.x;
+    const camRight = camera.x + canvas.width;
+    const camTop = camera.y;
+    const camBottom = camera.y + canvas.height;
+    const desertLeft = DESERT_EXT.x1 * TILE;
+    const desertRight = (DESERT_EXT.x2 + 1) * TILE;
+    const desertTop = DESERT_EXT.y1 * TILE;
+    const desertBottom = (DESERT_EXT.y2 + 1) * TILE;
+    if (camRight < desertLeft || camLeft > desertRight || camBottom < desertTop || camTop > desertBottom) return;
+
+    const startX = Math.max(DESERT_EXT.x1, Math.floor(camera.x / TILE) - 1);
+    const endX = Math.min(DESERT_EXT.x2 + 1, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const startY = Math.max(DESERT_EXT.y1, Math.floor(camera.y / TILE) - 1);
+    const endY = Math.min(DESERT_EXT.y2 + 1, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+
+    for (let ty = startY; ty < endY; ty++) {
+      const row = worldMap[ty];
+      if (!row) continue;
+      for (let tx = startX; tx < endX; tx++) {
+        const tile = row[tx];
+        const x = tx * TILE;
+        const y = ty * TILE;
+
+        // IMPORTANTE: versão otimizada. Sem dezenas de curves por tile.
+        if (tile === SAND) drawFastLegendarySandTile(x, y, tx, ty);
+        else if (tile === QUICKSAND) drawFastLegendaryQuicksandTile(x, y, tx, ty);
+        else if (tile === ROAD) drawFastLegendaryRoadTile(x, y, tx, ty);
+        else if (tile === PLAZA) drawFastLegendaryRuinTile(x, y, tx, ty);
+        else if (tile === WATER) drawConnectedOasisTile(x, y, tx, ty);
+      }
+    }
+
+    const area = getAreaName();
+    if (area !== "Vila do Deserto") return;
+
+    const t = performance.now() / 1000;
+
+    // Menos partículas = muito menos travamento.
+    for (let i = 0; i < 16; i++) {
+      const fx = camera.x + ((i * 173 + t * 18) % (canvas.width + 150)) - 75;
+      const fy = camera.y + 18 + ((i * 71) % Math.max(1, canvas.height - 30));
+      ctx.fillStyle = "rgba(255,221,136,0.040)";
+      ctx.fillRect(fx, fy, 96, 8);
+    }
+
+    for (let i = 0; i < 18; i++) {
+      const sx = camera.x + ((i * 97 + t * 22) % (canvas.width + 80)) - 40;
+      const sy = camera.y + ((i * 149 + Math.sin(t + i) * 8) % (canvas.height + 40)) - 20;
+      ctx.fillStyle = i % 3 === 0 ? "rgba(255,238,174,0.30)" : "rgba(151,90,58,0.16)";
+      ctx.fillRect(sx, sy, i % 5 === 0 ? 3 : 2, i % 5 === 0 ? 3 : 2);
+    }
+
+    ctx.fillStyle = "rgba(255,192,82,0.020)";
+    ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+  }
+
+  function drawFastLegendarySandTile(x, y, tileX, tileY) {
+    const n = desertHash(tileX, tileY, 50);
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#e8be65" : "#dcae58";
+    ctx.fillRect(x, y, TILE, TILE);
+
+    ctx.fillStyle = n > 0.5 ? "rgba(255,226,146,0.18)" : "rgba(128,79,54,0.09)";
+    ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2);
+
+    // Dunas visíveis, mas leves para o FPS.
+    ctx.fillStyle = "rgba(255,236,166,0.36)";
+    if (desertHash(tileX, tileY, 51) > 0.18) ctx.fillRect(x + 3, y + 8, 18, 2);
+    if (desertHash(tileX, tileY, 52) > 0.44) ctx.fillRect(x + 12, y + 20, 15, 2);
+
+    ctx.fillStyle = "rgba(118,72,52,0.28)";
+    if (desertHash(tileX, tileY, 53) > 0.30) ctx.fillRect(x + 6, y + 16, 5, 2);
+    if (desertHash(tileX, tileY, 54) > 0.56) ctx.fillRect(x + 22, y + 6, 4, 2);
+  }
+
+  function drawFastLegendaryRoadTile(x, y, tileX, tileY) {
+    ctx.fillStyle = "#9c704b";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "#b38255";
+    ctx.fillRect(x + 1, y + 2, TILE - 2, TILE - 4);
+    ctx.fillStyle = "rgba(82,58,52,0.28)";
+    ctx.fillRect(x + 4, y + 7, 8, 3);
+    ctx.fillRect(x + 20, y + 20, 7, 3);
+    ctx.fillStyle = "rgba(255,222,156,0.18)";
+    ctx.fillRect(x + 13, y + 14, 5, 2);
+  }
+
+  function drawFastLegendaryRuinTile(x, y, tileX, tileY) {
+    ctx.fillStyle = "#d3a45a";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "#c08c4f";
+    ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2);
+    ctx.fillStyle = "rgba(255,225,147,0.22)";
+    ctx.fillRect(x + 4, y + 4, 24, 6);
+    ctx.fillStyle = "rgba(89,61,54,0.22)";
+    ctx.fillRect(x + 5, y + 17, 21, 5);
+  }
+
+  function isOasisWaterTile(tileX, tileY) {
+    return Boolean(worldMap?.[tileY]?.[tileX] === WATER);
+  }
+
+  function drawConnectedOasisTile(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+
+    const up = isOasisWaterTile(tileX, tileY - 1);
+    const down = isOasisWaterTile(tileX, tileY + 1);
+    const left = isOasisWaterTile(tileX - 1, tileY);
+    const right = isOasisWaterTile(tileX + 1, tileY);
+
+    // Fundo de água conectado, sem bolinhas separadas.
+    ctx.fillStyle = "#48bfe0";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "rgba(145,238,255,0.34)";
+    ctx.fillRect(x + 2, y + 3, TILE - 4, TILE - 7);
+    ctx.fillStyle = "rgba(25,104,146,0.18)";
+    ctx.fillRect(x + 2, y + TILE - 7, TILE - 4, 5);
+
+    // Ondas leves.
+    ctx.fillStyle = "rgba(230,255,255,0.42)";
+    ctx.fillRect(x + 5, y + 8 + Math.sin(t + tileX) * 1.5, 12, 2);
+    ctx.fillRect(x + 16, y + 18 + Math.cos(t + tileY) * 1.3, 10, 2);
+
+    // Margem de areia só onde não tem água vizinha.
+    ctx.fillStyle = "#e2b65e";
+    if (!up) ctx.fillRect(x, y, TILE, 4);
+    if (!down) ctx.fillRect(x, y + TILE - 4, TILE, 4);
+    if (!left) ctx.fillRect(x, y, 4, TILE);
+    if (!right) ctx.fillRect(x + TILE - 4, y, 4, TILE);
+
+    // Borda verde/vida no oásis.
+    ctx.fillStyle = "rgba(63,154,98,0.42)";
+    if (!up) ctx.fillRect(x + 4, y + 4, TILE - 8, 3);
+    if (!down) ctx.fillRect(x + 4, y + TILE - 7, TILE - 8, 3);
+    if (!left) ctx.fillRect(x + 4, y + 5, 3, TILE - 10);
+    if (!right) ctx.fillRect(x + TILE - 7, y + 5, 3, TILE - 10);
+
+    // Cantos arredondados visualmente.
+    ctx.fillStyle = "rgba(255,231,150,0.20)";
+    if (!up && !left) ctx.fillRect(x, y, 5, 5);
+    if (!up && !right) ctx.fillRect(x + TILE - 5, y, 5, 5);
+    if (!down && !left) ctx.fillRect(x, y + TILE - 5, 5, 5);
+    if (!down && !right) ctx.fillRect(x + TILE - 5, y + TILE - 5, 5, 5);
+  }
+
+  function drawFastLegendaryQuicksandTile(x, y, tileX, tileY) {
+    const t = performance.now() / 1000;
+    const spin = t * 2.2 + tileX * 0.5 + tileY * 0.35;
+    const cx = x + 16;
+    const cy = y + 16;
+
+    ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#e0ab55" : "#cf9548";
+    ctx.fillRect(x, y, TILE, TILE);
+    ctx.fillStyle = "rgba(255,219,130,0.14)";
+    ctx.fillRect(x + 1, y + 1, TILE - 2, TILE - 2);
+
+    ctx.fillStyle = "rgba(74,46,45,0.34)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 1, 14, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(72,43,48,0.68)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 11, 7, spin * 0.18, 0.1, Math.PI * 1.75);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(255,226,145,0.55)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 7, 4, spin * 0.22, 0.2, Math.PI * 1.7);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(45,32,39,0.44)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 1, 4, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255,238,174,0.62)";
+    for (let i = 0; i < 4; i++) {
+      const a = spin + i * Math.PI / 2;
+      ctx.fillRect(cx + Math.cos(a) * 10, cy + Math.sin(a) * 6, 2, 1);
+    }
+  }
+
+  const drawMapBeforeWholeDesertLegend = drawMap;
+  drawMap = function drawMapWholeDesertLegendPatch() {
+    drawMapBeforeWholeDesertLegend();
+    drawDesertLegendOverlay();
+  };
+
+  const drawObjectBeforeWholeDesertLegend = drawObject;
+  drawObject = function drawObjectWholeDesertLegendPatch(obj) {
+    if (obj?.type === "desertLegendFeature") return drawDesertLegendFeature(obj);
+    return drawObjectBeforeWholeDesertLegend(obj);
+  };
+
+  function drawDesertLegendFeature(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const t = performance.now() / 1000;
+
+    if (obj.kind === "goldenDune") {
+      ctx.fillStyle = "rgba(127,77,50,0.16)";
+      ctx.beginPath();
+      ctx.ellipse(x + obj.width / 2, y + obj.height - 7, obj.width / 2, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#dcae58";
+      ctx.beginPath();
+      ctx.ellipse(x + obj.width / 2, y + obj.height - 10, obj.width / 2 - 4, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,232,158,0.45)";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(x + 8 + i * 8, y + 16 + i * 3);
+        ctx.quadraticCurveTo(x + obj.width / 2, y + 4 + i * 4, x + obj.width - 10, y + 16 + i * 3);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    if (obj.kind === "sunObelisk") {
+      drawSoftShadow(x + 2, y + obj.height - 5, obj.width - 4, 8, 0.30);
+      ctx.fillStyle = "#7d5a42";
+      ctx.fillRect(x + 6, y + 10, obj.width - 12, obj.height - 12);
+      ctx.fillStyle = "#d8a85c";
+      ctx.fillRect(x + 8, y + 12, obj.width - 16, obj.height - 18);
+      ctx.fillStyle = "#fff0a5";
+      ctx.fillRect(x + obj.width / 2 - 2, y + 15, 4, obj.height - 28);
+      ctx.fillStyle = `rgba(255,230,120,${0.22 + Math.sin(t * 2.6) * 0.08})`;
+      ctx.fillRect(x, y, obj.width, obj.height);
+      return;
+    }
+
+    if (obj.kind === "sunCrystal") {
+      drawSoftShadow(x + 5, y + obj.height - 5, obj.width - 10, 8, 0.26);
+      ctx.fillStyle = `rgba(255,238,120,${0.18 + Math.sin(t * 3.2) * 0.07})`;
+      ctx.fillRect(x - 8, y - 8, obj.width + 16, obj.height + 16);
+      ctx.fillStyle = "#f1c45e";
+      ctx.fillRect(x + 10, y + 4, 10, obj.height - 8);
+      ctx.fillRect(x + 6, y + 14, 18, 10);
+      ctx.fillStyle = "#fff5a6";
+      ctx.fillRect(x + 13, y + 8, 4, obj.height - 16);
+      return;
+    }
+
+    if (obj.kind === "palmOasis") {
+      drawSoftShadow(x + 5, y + obj.height - 5, obj.width - 10, 8, 0.25);
+      ctx.fillStyle = "#8b5a38";
+      ctx.fillRect(x + 20, y + 18, 7, obj.height - 20);
+      ctx.fillStyle = "#68432d";
+      ctx.fillRect(x + 21, y + 22, 4, obj.height - 28);
+      ctx.fillStyle = "#3f9a62";
+      ctx.fillRect(x + 10, y + 8, 24, 6);
+      ctx.fillRect(x + 6, y + 15, 18, 6);
+      ctx.fillRect(x + 24, y + 15, 18, 6);
+      ctx.fillStyle = "#87d279";
+      ctx.fillRect(x + 15, y + 5, 17, 4);
+      return;
+    }
+
+    if (obj.kind === "buriedRuin" || obj.kind === "desertStatue") {
+      drawSoftShadow(x + 6, y + obj.height - 7, obj.width - 12, 10, 0.28);
+      ctx.fillStyle = "#8e6544";
+      ctx.fillRect(x + 8, y + 18, obj.width - 16, obj.height - 20);
+      ctx.fillStyle = "#c99a57";
+      ctx.fillRect(x + 12, y + 12, obj.width - 24, 10);
+      ctx.fillRect(x + 14, y + 25, obj.width - 28, obj.height - 34);
+      ctx.fillStyle = "#fff0a5";
+      ctx.fillRect(x + obj.width / 2 - 3, y + 16, 6, obj.height - 30);
+      ctx.fillStyle = "rgba(70,45,42,0.32)";
+      ctx.fillRect(x + 20, y + obj.height - 20, obj.width - 40, 7);
+      return;
+    }
+
+    if (obj.kind === "giantBones") {
+      drawSoftShadow(x + 5, y + obj.height - 4, obj.width - 10, 6, 0.20);
+      ctx.fillStyle = "#e9dfcd";
+      ctx.fillRect(x + 6, y + 13, obj.width - 12, 5);
+      for (let i = 0; i < 5; i++) {
+        ctx.fillRect(x + 10 + i * 11, y + 8, 5, 16);
+      }
+      ctx.fillStyle = "#fff7e2";
+      ctx.fillRect(x + 12, y + 10, 3, 6);
+      return;
+    }
+
+    if (obj.kind === "sandBanner") {
+      ctx.fillStyle = "#6f4a38";
+      ctx.fillRect(x + 10, y + 4, 4, obj.height - 5);
+      ctx.fillStyle = "#d24c63";
+      ctx.fillRect(x + 14, y + 6, 14, 10);
+      ctx.fillStyle = "#fff0a5";
+      ctx.fillRect(x + 15, y + 7, 12, 2);
+      return;
+    }
+  }
+
+  // Reaplica uma vez depois do carregamento, caso algum patch antigo mexa no mapa depois.
+  setTimeout(() => {
+    extendDesertTerrain();
+    addDesertLegendDecorations();
+  }, 250);
+})();
+
+
+/* ==================================================
+   CORREÇÃO EXTREMA DE FPS DO DESERTO
+   - quando a câmera está no deserto, pula TODOS os overlays antigos pesados
+   - renderiza o mapa do deserto direto, com textura bonita porém leve
+   - corrige o oásis para virar lago conectado e não bolinhas
+   ================================================== */
+(function desertExtremePerformancePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DESERT_EXTREME_PERFORMANCE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_DESERT_EXTREME_PERFORMANCE_PATCH = true;
+
+  const DESERT_PERF = { x1: 82, y1: 3, x2: 145, y2: 45 };
+  const TILE_SAND = "A";
+  const TILE_QUICKSAND = "X";
+  const TILE_ROAD = "D";
+  const TILE_PLAZA = "P";
+  const TILE_WATER = "W";
+
+  function inDesertPerfTile(tileX, tileY) {
+    return tileX >= DESERT_PERF.x1 && tileX <= DESERT_PERF.x2 && tileY >= DESERT_PERF.y1 && tileY <= DESERT_PERF.y2;
+  }
+
+  function cameraTouchesDesert() {
+    if (currentScene !== "village") return false;
+    const left = camera.x;
+    const right = camera.x + canvas.width;
+    const top = camera.y;
+    const bottom = camera.y + canvas.height;
+    return !(
+      right < DESERT_PERF.x1 * TILE ||
+      left > (DESERT_PERF.x2 + 1) * TILE ||
+      bottom < DESERT_PERF.y1 * TILE ||
+      top > (DESERT_PERF.y2 + 1) * TILE
+    );
+  }
+
+  function hash(tileX, tileY, salt = 0) {
+    const raw = Math.sin(tileX * 71.91 + tileY * 113.17 + salt * 19.43) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function rect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function safeTile(tileX, tileY) {
+    return worldMap?.[tileY]?.[tileX] || "G";
+  }
+
+  function drawUltraSand(x, y, tileX, tileY) {
+    const alt = (tileX + tileY) & 1;
+    rect(x, y, TILE, TILE, alt ? "#dcae58" : "#e8be65");
+    rect(x + 1, y + 1, TILE - 2, TILE - 2, hash(tileX, tileY, 1) > 0.5 ? "rgba(255,226,146,0.16)" : "rgba(128,79,54,0.08)");
+
+    // Detalhes retangulares simples. Sem curvas, sem partículas por tile.
+    if (hash(tileX, tileY, 2) > 0.18) rect(x + 3, y + 8, 18, 2, "rgba(255,236,166,0.34)");
+    if (hash(tileX, tileY, 3) > 0.42) rect(x + 12, y + 20, 15, 2, "rgba(126,76,52,0.20)");
+    if (hash(tileX, tileY, 4) > 0.55) rect(x + 22, y + 6, 4, 2, "rgba(255,229,150,0.28)");
+  }
+
+  function drawUltraRoad(x, y, tileX, tileY) {
+    rect(x, y, TILE, TILE, "#9c704b");
+    rect(x + 1, y + 2, TILE - 2, TILE - 4, "#b38255");
+    rect(x + 4, y + 7, 8, 3, "rgba(82,58,52,0.27)");
+    rect(x + 20, y + 20, 7, 3, "rgba(82,58,52,0.22)");
+    if (hash(tileX, tileY, 8) > 0.5) rect(x + 12, y + 14, 7, 2, "rgba(255,222,156,0.18)");
+  }
+
+  function drawUltraRuin(x, y, tileX, tileY) {
+    rect(x, y, TILE, TILE, "#d3a45a");
+    rect(x + 1, y + 1, TILE - 2, TILE - 2, "#c08c4f");
+    rect(x + 4, y + 4, 24, 6, "rgba(255,225,147,0.22)");
+    rect(x + 5, y + 17, 21, 5, "rgba(89,61,54,0.22)");
+  }
+
+  function isWater(tileX, tileY) {
+    return safeTile(tileX, tileY) === TILE_WATER;
+  }
+
+  function drawUltraOasis(x, y, tileX, tileY) {
+    const up = isWater(tileX, tileY - 1);
+    const down = isWater(tileX, tileY + 1);
+    const left = isWater(tileX - 1, tileY);
+    const right = isWater(tileX + 1, tileY);
+
+    // Água conectada, reta e leve.
+    rect(x, y, TILE, TILE, "#41bddd");
+    rect(x + 2, y + 3, TILE - 4, TILE - 7, "rgba(156,240,255,0.34)");
+    rect(x + 2, y + TILE - 7, TILE - 4, 5, "rgba(20,90,130,0.18)");
+
+    // Ondas estáticas, sem sin por tile.
+    rect(x + 5, y + 9, 12, 2, "rgba(230,255,255,0.38)");
+    rect(x + 16, y + 19, 10, 2, "rgba(230,255,255,0.28)");
+
+    // Margem só onde acaba a água.
+    if (!up) {
+      rect(x, y, TILE, 4, "#e2b65e");
+      rect(x + 4, y + 4, TILE - 8, 3, "rgba(63,154,98,0.42)");
+    }
+    if (!down) {
+      rect(x, y + TILE - 4, TILE, 4, "#e2b65e");
+      rect(x + 4, y + TILE - 7, TILE - 8, 3, "rgba(63,154,98,0.42)");
+    }
+    if (!left) {
+      rect(x, y, 4, TILE, "#e2b65e");
+      rect(x + 4, y + 5, 3, TILE - 10, "rgba(63,154,98,0.42)");
+    }
+    if (!right) {
+      rect(x + TILE - 4, y, 4, TILE, "#e2b65e");
+      rect(x + TILE - 7, y + 5, 3, TILE - 10, "rgba(63,154,98,0.42)");
+    }
+  }
+
+  function drawUltraQuicksand(x, y, tileX, tileY) {
+    // Versão bonita, mas estática e ultra leve.
+    rect(x, y, TILE, TILE, (tileX + tileY) & 1 ? "#cf9548" : "#e0ab55");
+    rect(x + 1, y + 1, TILE - 2, TILE - 2, "rgba(255,219,130,0.14)");
+
+    const cx = x + 16;
+    const cy = y + 16;
+
+    // Sem ellipse: simula redemoinho com retângulos em camadas.
+    rect(cx - 13, cy - 9, 26, 18, "rgba(74,46,45,0.26)");
+    rect(cx - 10, cy - 7, 20, 14, "rgba(168,95,74,0.42)");
+    rect(cx - 7, cy - 5, 14, 10, "rgba(246,174,78,0.35)");
+    rect(cx - 4, cy - 3, 8, 6, "rgba(45,32,39,0.38)");
+
+    rect(cx - 11, cy - 7, 16, 2, "rgba(255,226,145,0.54)");
+    rect(cx - 5, cy - 2, 15, 2, "rgba(72,43,48,0.56)");
+    rect(cx - 9, cy + 4, 18, 2, "rgba(255,226,145,0.38)");
+  }
+
+  function drawUltraFallback(tile, x, y, tileX, tileY) {
+    // Renderiza só o básico, sem overlays antigos.
+    if (tile === "F") return drawForestGrass(x, y, tileX, tileY);
+    if (tile === "G") return drawGrass(x, y, tileX, tileY);
+    if (tile === "D") return drawDirt(x, y, tileX, tileY);
+    if (tile === "W") return drawWater(x, y, tileX, tileY);
+    if (tile === "P") return drawPlaza(x, y, tileX, tileY);
+    if (tile === "A") return drawUltraSand(x, y, tileX, tileY);
+    if (tile === "X") return drawUltraQuicksand(x, y, tileX, tileY);
+    ctx.fillStyle = "#83d873";
+    ctx.fillRect(x, y, TILE, TILE);
+  }
+
+  function drawFastDesertCameraMap() {
+    const cols = worldMap[0]?.length || MAP_COLS;
+    const rows = worldMap.length || MAP_ROWS;
+    const startX = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const endX = Math.min(cols, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const startY = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const endY = Math.min(rows, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+
+    for (let ty = startY; ty < endY; ty++) {
+      const row = worldMap[ty];
+      if (!row) continue;
+      for (let tx = startX; tx < endX; tx++) {
+        const tile = row[tx];
+        const x = tx * TILE;
+        const y = ty * TILE;
+
+        if (inDesertPerfTile(tx, ty)) {
+          if (tile === TILE_SAND) drawUltraSand(x, y, tx, ty);
+          else if (tile === TILE_QUICKSAND) drawUltraQuicksand(x, y, tx, ty);
+          else if (tile === TILE_ROAD) drawUltraRoad(x, y, tx, ty);
+          else if (tile === TILE_PLAZA) drawUltraRuin(x, y, tx, ty);
+          else if (tile === TILE_WATER) drawUltraOasis(x, y, tx, ty);
+          else drawUltraSand(x, y, tx, ty);
+        } else {
+          drawUltraFallback(tile, x, y, tx, ty);
+        }
+      }
+    }
+
+    // Overlay único, bem leve.
+    if (getAreaName() === "Vila do Deserto") {
+      ctx.fillStyle = "rgba(255,192,82,0.018)";
+      ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+    }
+  }
+
+  const drawMapBeforeDesertExtremePerformance = drawMap;
+  drawMap = function drawMapDesertExtremePerformancePatch() {
+    if (cameraTouchesDesert()) {
+      drawFastDesertCameraMap();
+      return;
+    }
+    drawMapBeforeDesertExtremePerformance();
+  };
+
+  // Decorações do deserto estavam bonitas, mas algumas usam curvas.
+  // Aqui fazemos versão barata delas quando a câmera está no deserto.
+  const drawObjectBeforeDesertExtremePerformance = drawObject;
+  drawObject = function drawObjectDesertExtremePerformancePatch(obj) {
+    if (obj?.type === "desertLegendFeature" && cameraTouchesDesert()) {
+      const x = obj.x;
+      const y = obj.y;
+
+      if (obj.kind === "goldenDune") {
+        rect(x + 6, y + 18, obj.width - 12, 10, "#dcae58");
+        rect(x + 12, y + 13, obj.width - 24, 6, "#e8be65");
+        rect(x + 14, y + 16, obj.width - 28, 2, "rgba(255,236,166,0.42)");
+        return;
+      }
+
+      if (obj.kind === "sunObelisk") {
+        rect(x + 6, y + 10, obj.width - 12, obj.height - 12, "#8e6544");
+        rect(x + 8, y + 12, obj.width - 16, obj.height - 18, "#d8a85c");
+        rect(x + obj.width / 2 - 2, y + 15, 4, obj.height - 28, "#fff0a5");
+        return;
+      }
+
+      if (obj.kind === "sunCrystal") {
+        rect(x + 10, y + 4, 10, obj.height - 8, "#f1c45e");
+        rect(x + 6, y + 14, 18, 10, "#f7db74");
+        rect(x + 13, y + 8, 4, obj.height - 16, "#fff5a6");
+        return;
+      }
+
+      if (obj.kind === "palmOasis") {
+        rect(x + 20, y + 18, 7, obj.height - 20, "#8b5a38");
+        rect(x + 10, y + 8, 24, 6, "#3f9a62");
+        rect(x + 6, y + 15, 18, 6, "#3f9a62");
+        rect(x + 24, y + 15, 18, 6, "#3f9a62");
+        rect(x + 15, y + 5, 17, 4, "#87d279");
+        return;
+      }
+
+      if (obj.kind === "giantBones") {
+        rect(x + 6, y + 13, obj.width - 12, 5, "#e9dfcd");
+        for (let i = 0; i < 5; i++) rect(x + 10 + i * 11, y + 8, 5, 16, "#e9dfcd");
+        return;
+      }
+
+      if (obj.kind === "sandBanner") {
+        rect(x + 10, y + 4, 4, obj.height - 5, "#6f4a38");
+        rect(x + 14, y + 6, 14, 10, "#d24c63");
+        return;
+      }
+
+      if (obj.kind === "buriedRuin" || obj.kind === "desertStatue") {
+        rect(x + 8, y + 18, obj.width - 16, obj.height - 20, "#8e6544");
+        rect(x + 12, y + 12, obj.width - 24, 10, "#c99a57");
+        rect(x + 14, y + 25, obj.width - 28, obj.height - 34, "#c99a57");
+        rect(x + obj.width / 2 - 3, y + 16, 6, obj.height - 30, "#fff0a5");
+        return;
+      }
+    }
+
+    return drawObjectBeforeDesertExtremePerformance(obj);
+  };
+})();
+
+
+/* ==================================================
+   Patch: mover pirâmide para junto do oásis
+   ================================================== */
+(function moveDesertPyramidNearOasisPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MOVE_PYRAMID_OASIS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MOVE_PYRAMID_OASIS_PATCH = true;
+
+  function movePyramidNearOasis() {
+    if (!Array.isArray(villageObjects)) return;
+
+    const oasis = villageObjects.find((obj) => obj.type === "biomeFeature" && obj.role === "desertOasis");
+    const pyramid = villageObjects.find((obj) => obj.type === "biomeFeature" && obj.role === "sunTemple");
+    if (!oasis || !pyramid) return;
+
+    // Coloca a pirâmide em outro lugar, ao lado do oásis.
+    pyramid.x = oasis.x + 74;
+    pyramid.y = oasis.y - 26;
+    pyramid.movedNearOasis = true;
+    pyramid.message = "Piramide solar: agora ela repousa ao lado do oasis, como um santuario perdido no deserto.";
+  }
+
+  movePyramidNearOasis();
+
+  const setActiveSceneBeforeMovePyramidOasis = setActiveScene;
+  setActiveScene = function setActiveSceneMovePyramidOasisPatch(scene) {
+    setActiveSceneBeforeMovePyramidOasis(scene);
+    if (currentScene === "village") movePyramidNearOasis();
+  };
+
+  setTimeout(movePyramidNearOasis, 200);
+})();
+
+
+/* ==================================================
+   CORREÇÃO DEFINITIVA DO TRAVAMENTO DO DESERTO
+   - cria um cache/imagem pronta do chão do deserto
+   - desenha o deserto com 1 drawImage em vez de redesenhar centenas de tiles por frame
+   - deixa o oásis conectado e leve
+   ================================================== */
+(function desertCachedPerformancePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DESERT_CACHED_PERFORMANCE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_DESERT_CACHED_PERFORMANCE_PATCH = true;
+
+  const DESERT_CACHE = { x1: 82, y1: 3, x2: 145, y2: 45 };
+  const SAND = "A";
+  const QUICKSAND = "X";
+  const ROAD = "D";
+  const PLAZA = "P";
+  const WATER = "W";
+  let desertCanvas = null;
+  let desertCtx = null;
+  let desertCacheReady = false;
+
+  function h(tileX, tileY, salt = 0) {
+    const raw = Math.sin(tileX * 71.91 + tileY * 113.17 + salt * 19.43) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function rect(c, x, y, w, height, color) {
+    c.fillStyle = color;
+    c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(height));
+  }
+
+  function inDesertTile(tileX, tileY) {
+    return tileX >= DESERT_CACHE.x1 && tileX <= DESERT_CACHE.x2 && tileY >= DESERT_CACHE.y1 && tileY <= DESERT_CACHE.y2;
+  }
+
+  function cameraTouchesDesertCache() {
+    if (currentScene !== "village") return false;
+    return !(
+      camera.x + canvas.width < DESERT_CACHE.x1 * TILE ||
+      camera.x > (DESERT_CACHE.x2 + 1) * TILE ||
+      camera.y + canvas.height < DESERT_CACHE.y1 * TILE ||
+      camera.y > (DESERT_CACHE.y2 + 1) * TILE
+    );
+  }
+
+  function tileAt(tileX, tileY) {
+    return worldMap?.[tileY]?.[tileX] || "G";
+  }
+
+  function isWater(tileX, tileY) {
+    return tileAt(tileX, tileY) === WATER;
+  }
+
+  function drawCachedSand(c, x, y, tileX, tileY) {
+    rect(c, x, y, TILE, TILE, (tileX + tileY) & 1 ? "#dcae58" : "#e8be65");
+    rect(c, x + 1, y + 1, TILE - 2, TILE - 2, h(tileX, tileY, 1) > 0.5 ? "rgba(255,226,146,0.16)" : "rgba(128,79,54,0.08)");
+
+    if (h(tileX, tileY, 2) > 0.18) rect(c, x + 3, y + 8, 18, 2, "rgba(255,236,166,0.34)");
+    if (h(tileX, tileY, 3) > 0.42) rect(c, x + 12, y + 20, 15, 2, "rgba(126,76,52,0.20)");
+    if (h(tileX, tileY, 4) > 0.55) rect(c, x + 22, y + 6, 4, 2, "rgba(255,229,150,0.28)");
+  }
+
+  function drawCachedRoad(c, x, y, tileX, tileY) {
+    rect(c, x, y, TILE, TILE, "#9c704b");
+    rect(c, x + 1, y + 2, TILE - 2, TILE - 4, "#b38255");
+    rect(c, x + 4, y + 7, 8, 3, "rgba(82,58,52,0.27)");
+    rect(c, x + 20, y + 20, 7, 3, "rgba(82,58,52,0.22)");
+    if (h(tileX, tileY, 8) > 0.5) rect(c, x + 12, y + 14, 7, 2, "rgba(255,222,156,0.18)");
+  }
+
+  function drawCachedRuin(c, x, y) {
+    rect(c, x, y, TILE, TILE, "#d3a45a");
+    rect(c, x + 1, y + 1, TILE - 2, TILE - 2, "#c08c4f");
+    rect(c, x + 4, y + 4, 24, 6, "rgba(255,225,147,0.22)");
+    rect(c, x + 5, y + 17, 21, 5, "rgba(89,61,54,0.22)");
+  }
+
+  function drawCachedOasis(c, x, y, tileX, tileY) {
+    const up = isWater(tileX, tileY - 1);
+    const down = isWater(tileX, tileY + 1);
+    const left = isWater(tileX - 1, tileY);
+    const right = isWater(tileX + 1, tileY);
+
+    rect(c, x, y, TILE, TILE, "#41bddd");
+    rect(c, x + 2, y + 3, TILE - 4, TILE - 7, "rgba(156,240,255,0.34)");
+    rect(c, x + 2, y + TILE - 7, TILE - 4, 5, "rgba(20,90,130,0.18)");
+    rect(c, x + 5, y + 9, 12, 2, "rgba(230,255,255,0.38)");
+    rect(c, x + 16, y + 19, 10, 2, "rgba(230,255,255,0.28)");
+
+    if (!up) {
+      rect(c, x, y, TILE, 4, "#e2b65e");
+      rect(c, x + 4, y + 4, TILE - 8, 3, "rgba(63,154,98,0.42)");
+    }
+    if (!down) {
+      rect(c, x, y + TILE - 4, TILE, 4, "#e2b65e");
+      rect(c, x + 4, y + TILE - 7, TILE - 8, 3, "rgba(63,154,98,0.42)");
+    }
+    if (!left) {
+      rect(c, x, y, 4, TILE, "#e2b65e");
+      rect(c, x + 4, y + 5, 3, TILE - 10, "rgba(63,154,98,0.42)");
+    }
+    if (!right) {
+      rect(c, x + TILE - 4, y, 4, TILE, "#e2b65e");
+      rect(c, x + TILE - 7, y + 5, 3, TILE - 10, "rgba(63,154,98,0.42)");
+    }
+  }
+
+  function drawCachedQuicksand(c, x, y, tileX, tileY) {
+    rect(c, x, y, TILE, TILE, (tileX + tileY) & 1 ? "#cf9548" : "#e0ab55");
+    rect(c, x + 1, y + 1, TILE - 2, TILE - 2, "rgba(255,219,130,0.14)");
+
+    const cx = x + 16;
+    const cy = y + 16;
+    rect(c, cx - 13, cy - 9, 26, 18, "rgba(74,46,45,0.26)");
+    rect(c, cx - 10, cy - 7, 20, 14, "rgba(168,95,74,0.42)");
+    rect(c, cx - 7, cy - 5, 14, 10, "rgba(246,174,78,0.35)");
+    rect(c, cx - 4, cy - 3, 8, 6, "rgba(45,32,39,0.38)");
+    rect(c, cx - 11, cy - 7, 16, 2, "rgba(255,226,145,0.54)");
+    rect(c, cx - 5, cy - 2, 15, 2, "rgba(72,43,48,0.56)");
+    rect(c, cx - 9, cy + 4, 18, 2, "rgba(255,226,145,0.38)");
+  }
+
+  function buildDesertCache() {
+    if (desertCacheReady) return;
+    if (typeof document === "undefined" || !Array.isArray(worldMap)) return;
+
+    const width = (DESERT_CACHE.x2 - DESERT_CACHE.x1 + 1) * TILE;
+    const height = (DESERT_CACHE.y2 - DESERT_CACHE.y1 + 1) * TILE;
+
+    desertCanvas = document.createElement("canvas");
+    desertCanvas.width = width;
+    desertCanvas.height = height;
+    desertCtx = desertCanvas.getContext("2d", { alpha: false });
+
+    for (let ty = DESERT_CACHE.y1; ty <= DESERT_CACHE.y2; ty++) {
+      for (let tx = DESERT_CACHE.x1; tx <= DESERT_CACHE.x2; tx++) {
+        const localX = (tx - DESERT_CACHE.x1) * TILE;
+        const localY = (ty - DESERT_CACHE.y1) * TILE;
+        const tile = tileAt(tx, ty);
+
+        if (tile === WATER) drawCachedOasis(desertCtx, localX, localY, tx, ty);
+        else if (tile === QUICKSAND) drawCachedQuicksand(desertCtx, localX, localY, tx, ty);
+        else if (tile === ROAD) drawCachedRoad(desertCtx, localX, localY, tx, ty);
+        else if (tile === PLAZA) drawCachedRuin(desertCtx, localX, localY, tx, ty);
+        else drawCachedSand(desertCtx, localX, localY, tx, ty);
+      }
+    }
+
+    // Camada dourada única, já pré-renderizada.
+    desertCtx.fillStyle = "rgba(255,192,82,0.020)";
+    desertCtx.fillRect(0, 0, width, height);
+    desertCacheReady = true;
+  }
+
+  function drawSimpleTileOutsideDesert(tile, x, y, tileX, tileY) {
+    // Para bordas quando a câmera pega um pedacinho fora do deserto.
+    if (tile === "F") return drawForestGrass(x, y, tileX, tileY);
+    if (tile === "G") return drawGrass(x, y, tileX, tileY);
+    if (tile === "D") return drawDirt(x, y, tileX, tileY);
+    if (tile === "W") return drawWater(x, y, tileX, tileY);
+    if (tile === "P") return drawPlaza(x, y, tileX, tileY);
+    ctx.fillStyle = "#83d873";
+    ctx.fillRect(x, y, TILE, TILE);
+  }
+
+  function drawOutsideDesertBorderTiles() {
+    const cols = worldMap[0]?.length || MAP_COLS;
+    const rows = worldMap.length || MAP_ROWS;
+    const startX = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const endX = Math.min(cols, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const startY = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const endY = Math.min(rows, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+
+    for (let ty = startY; ty < endY; ty++) {
+      const row = worldMap[ty];
+      if (!row) continue;
+      for (let tx = startX; tx < endX; tx++) {
+        if (inDesertTile(tx, ty)) continue;
+        drawSimpleTileOutsideDesert(row[tx], tx * TILE, ty * TILE, tx, ty);
+      }
+    }
+  }
+
+  const drawMapBeforeDesertCachePatch = drawMap;
+  drawMap = function drawMapDesertCachePatch() {
+    if (!cameraTouchesDesertCache()) {
+      drawMapBeforeDesertCachePatch();
+      return;
+    }
+
+    buildDesertCache();
+
+    // Fundo para qualquer canto fora da área renderizada.
+    ctx.fillStyle = "#dcae58";
+    ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+
+    drawOutsideDesertBorderTiles();
+
+    if (desertCacheReady && desertCanvas) {
+      ctx.drawImage(
+        desertCanvas,
+        DESERT_CACHE.x1 * TILE,
+        DESERT_CACHE.y1 * TILE
+      );
+    }
+  };
+
+  // Desativa partículas/névoas pesadas de patches antigos enquanto estiver no deserto.
+  const drawObjectBeforeDesertCachePatch = drawObject;
+  drawObject = function drawObjectDesertCachePatch(obj) {
+    if (cameraTouchesDesertCache() && obj?.type === "desertLegendFeature") {
+      const x = obj.x;
+      const y = obj.y;
+
+      if (obj.kind === "palmOasis") {
+        rect(ctx, x + 20, y + 18, 7, obj.height - 20, "#8b5a38");
+        rect(ctx, x + 10, y + 8, 24, 6, "#3f9a62");
+        rect(ctx, x + 6, y + 15, 18, 6, "#3f9a62");
+        rect(ctx, x + 24, y + 15, 18, 6, "#3f9a62");
+        rect(ctx, x + 15, y + 5, 17, 4, "#87d279");
+        return;
+      }
+
+      if (obj.kind === "sunObelisk") {
+        rect(ctx, x + 6, y + 10, obj.width - 12, obj.height - 12, "#8e6544");
+        rect(ctx, x + 8, y + 12, obj.width - 16, obj.height - 18, "#d8a85c");
+        rect(ctx, x + obj.width / 2 - 2, y + 15, 4, obj.height - 28, "#fff0a5");
+        return;
+      }
+
+      if (obj.kind === "sunCrystal") {
+        rect(ctx, x + 10, y + 4, 10, obj.height - 8, "#f1c45e");
+        rect(ctx, x + 6, y + 14, 18, 10, "#f7db74");
+        rect(ctx, x + 13, y + 8, 4, obj.height - 16, "#fff5a6");
+        return;
+      }
+
+      if (obj.kind === "goldenDune") {
+        rect(ctx, x + 6, y + 18, obj.width - 12, 10, "#dcae58");
+        rect(ctx, x + 12, y + 13, obj.width - 24, 6, "#e8be65");
+        return;
+      }
+
+      if (obj.kind === "giantBones") {
+        rect(ctx, x + 6, y + 13, obj.width - 12, 5, "#e9dfcd");
+        for (let i = 0; i < 5; i++) rect(ctx, x + 10 + i * 11, y + 8, 5, 16, "#e9dfcd");
+        return;
+      }
+
+      if (obj.kind === "sandBanner") {
+        rect(ctx, x + 10, y + 4, 4, obj.height - 5, "#6f4a38");
+        rect(ctx, x + 14, y + 6, 14, 10, "#d24c63");
+        return;
+      }
+
+      if (obj.kind === "buriedRuin" || obj.kind === "desertStatue") {
+        rect(ctx, x + 8, y + 18, obj.width - 16, obj.height - 20, "#8e6544");
+        rect(ctx, x + 12, y + 12, obj.width - 24, 10, "#c99a57");
+        rect(ctx, x + 14, y + 25, obj.width - 28, obj.height - 34, "#c99a57");
+        return;
+      }
+    }
+
+    return drawObjectBeforeDesertCachePatch(obj);
+  };
+
+  // Atalho para reconstruir cache se algum dia o mapa do deserto for alterado.
+  window.ETERNAL_RIFT_REBUILD_DESERT_CACHE = function rebuildDesertCache() {
+    desertCacheReady = false;
+    buildDesertCache();
+  };
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: Sistemas Grandes
+   - Bosses por bioma
+   - Armas raras
+   - Ferreiro / forja
+   - Montarias
+   - Pets
+   - Dungeons secretas
+   - Dia e noite
+   - Títulos
+   - Conquistas
+   ================================================== */
+(function eternalRiftBigSystemsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BIG_SYSTEMS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BIG_SYSTEMS_PATCH = true;
+
+  const SYSTEM_VERSION = "big-systems-v1";
+  const TITLE_COLOR = "#fff4ac";
+
+  const BOSS_DEFS = {
+    solarPharaoh: {
+      name: "Faraó Solar Maldito",
+      reward: "Coroa Solar Maldita",
+      title: "Explorador do Deserto",
+      achievement: "bossDesert",
+      weapon: "desertAxe",
+      color: "#ffcf5a"
+    },
+    iceQueen: {
+      name: "Rainha Glacial",
+      reward: "Coroa da Nevasca",
+      title: "Frio na Alma",
+      achievement: "bossIce",
+      weapon: "eternalIceSpear",
+      color: "#bdf2ff"
+    },
+    supremeSwampWitch: {
+      name: "Bruxa Venenosa Suprema",
+      reward: "Orbe da Bruxa Suprema",
+      title: "Purificador do Pântano",
+      achievement: "bossSwamp",
+      weapon: "acidStaff",
+      color: "#8cff4a"
+    },
+    corruptedReactor: {
+      name: "Reator Vivo Corrompido",
+      reward: "Núcleo Vivo Corrompido",
+      title: "Senhor das Fendas",
+      achievement: "bossAcid",
+      weapon: "acidStaff",
+      color: "#80ff2b"
+    },
+    fallenSeraph: {
+      name: "Serafim Caído",
+      reward: "Asa do Serafim Caído",
+      title: "Ascendido Celestial",
+      achievement: "bossCelestial",
+      weapon: "celestialBow",
+      color: "#d9c3ff"
+    },
+    ancientCatacombLord: {
+      name: "Senhor das Catacumbas Antigas",
+      reward: "Chave dos Bosses Antigos",
+      title: "Matador de Bosses",
+      achievement: "bossCatacomb",
+      weapon: "solarSword",
+      color: "#ffef9a"
+    }
+  };
+
+  const RARE_WEAPON_DEFS = {
+    reinforcedSword: {
+      name: "Espada Reforçada",
+      rarity: "Rara",
+      damage: 4,
+      range: 52,
+      cooldown: 0.30,
+      arc: Math.PI * 0.75,
+      kind: "melee",
+      damageType: "fisico",
+      description: "Forjada com Ferro Sombrio. Forte, simples e confiável."
+    },
+    crystalSword: {
+      name: "Espada Cristalina",
+      rarity: "Épica",
+      damage: 6,
+      range: 56,
+      cooldown: 0.29,
+      arc: Math.PI * 0.78,
+      kind: "melee",
+      damageType: "magico",
+      description: "Uma lâmina que vibra com Cristal Azul."
+    },
+    divineSword: {
+      name: "Espada Divina",
+      rarity: "Divina",
+      damage: 9,
+      range: 62,
+      cooldown: 0.27,
+      arc: Math.PI * 0.86,
+      kind: "melee",
+      damageType: "divino",
+      description: "A evolução final da espada: luz pura em forma de lâmina."
+    },
+    solarSword: {
+      name: "Espada Solar",
+      rarity: "Lendária",
+      damage: 7,
+      range: 58,
+      cooldown: 0.30,
+      arc: Math.PI * 0.82,
+      kind: "melee",
+      damageType: "solar",
+      description: "Dá dano extra contra monstros do gelo."
+    },
+    acidStaff: {
+      name: "Cajado Ácido",
+      rarity: "Corrompida",
+      damage: 6,
+      range: 410,
+      cooldown: 0.48,
+      projectile: "acidBolt",
+      projectileSpeed: 345,
+      kind: "projectile",
+      damageType: "veneno",
+      description: "Dispara magia cáustica e pode deixar poças venenosas."
+    },
+    celestialBow: {
+      name: "Arco Celestial",
+      rarity: "Divina",
+      damage: 5,
+      range: 500,
+      cooldown: 0.36,
+      projectile: "celestialArrow",
+      projectileSpeed: 520,
+      kind: "projectile",
+      damageType: "divino",
+      description: "Flechas luminosas que atravessam inimigos."
+    },
+    eternalIceSpear: {
+      name: "Lança de Gelo Eterno",
+      rarity: "Mítica",
+      damage: 7,
+      range: 82,
+      cooldown: 0.42,
+      arc: Math.PI * 0.28,
+      kind: "line",
+      damageType: "gelo",
+      description: "Chance de congelar inimigos."
+    },
+    desertAxe: {
+      name: "Machado do Deserto",
+      rarity: "Lendária",
+      damage: 8,
+      range: 60,
+      cooldown: 0.56,
+      arc: Math.PI * 0.95,
+      kind: "melee",
+      damageType: "terra",
+      description: "Cria ondas de areia ao atacar."
+    }
+  };
+
+  const MOUNTS = [
+    { id: "iceWolf", name: "Lobo de Gelo", title: "Montaria: Lobo de Gelo", speed: 34, color: "#bdf2ff" },
+    { id: "desertScorpion", name: "Escorpião do Deserto", title: "Montaria: Escorpião do Deserto", speed: 26, color: "#ffcf5a" },
+    { id: "swampFrog", name: "Sapo Gigante do Pântano", title: "Montaria: Sapo Gigante", speed: 22, color: "#7bd65b" },
+    { id: "smallDragon", name: "Dragão Pequeno", title: "Montaria: Dragão Pequeno", speed: 40, color: "#b67cff" },
+    { id: "celestialDeer", name: "Cervo Celestial", title: "Montaria: Cervo Celestial", speed: 32, color: "#fff4ac" }
+  ];
+
+  const PETS = [
+    { id: "blueSlime", name: "Slime Azul Pet", title: "Pet: Slime Azul", color: "#62d8f9" },
+    { id: "bat", name: "Morcego Pet", title: "Pet: Morcego", color: "#7562c1" },
+    { id: "miniDragon", name: "Mini Dragão Pet", title: "Pet: Mini Dragão", color: "#b67cff" },
+    { id: "celestialOwl", name: "Coruja Celestial", title: "Pet: Coruja Celestial", color: "#fff4ac" },
+    { id: "tinyScorpion", name: "Escorpiãozinho", title: "Pet: Escorpiãozinho", color: "#ffcf5a" }
+  ];
+
+  const DUNGEON_DEFS = {
+    desertTemple: {
+      name: "Templo Soterrado",
+      entranceTitle: "Entrada do Templo Soterrado",
+      theme: "#dcae58",
+      bossKind: "solarPharaoh",
+      reward: "Relíquia do Templo Soterrado"
+    },
+    frozenCrypt: {
+      name: "Cripta Congelada",
+      entranceTitle: "Entrada da Cripta Congelada",
+      theme: "#bdf2ff",
+      bossKind: "iceQueen",
+      reward: "Relíquia da Cripta Congelada"
+    },
+    toxicLab: {
+      name: "Laboratório Tóxico",
+      entranceTitle: "Entrada do Laboratório Tóxico",
+      theme: "#80ff2b",
+      bossKind: "supremeSwampWitch",
+      reward: "Relíquia do Laboratório Tóxico"
+    },
+    brokenTower: {
+      name: "Torre Celestial Quebrada",
+      entranceTitle: "Entrada da Torre Celestial Quebrada",
+      theme: "#fff4ac",
+      bossKind: "fallenSeraph",
+      reward: "Relíquia da Torre Celestial"
+    },
+    ancientCatacomb: {
+      name: "Catacumba dos Bosses Antigos",
+      entranceTitle: "Entrada da Catacumba dos Bosses",
+      theme: "#ffef9a",
+      bossKind: "ancientCatacombLord",
+      reward: "Relíquia dos Bosses Antigos"
+    }
+  };
+
+  let currentDungeonKind = "";
+  const secretDungeonObjects = [];
+  const secretDungeonWidth = 62 * TILE;
+  const secretDungeonHeight = 46 * TILE;
+  const eternalZones = [];
+  const petState = { x: player.x - 18, y: player.y + 12, healTimer: 18, attackTimer: 4 };
+  let nightGhostCooldown = 0;
+
+  function ensureSystemsState() {
+    if (!questBook.eternalSystems || typeof questBook.eternalSystems !== "object") {
+      questBook.eternalSystems = {};
+    }
+    const state = questBook.eternalSystems;
+    state.version = SYSTEM_VERSION;
+    if (!state.defeatedBosses || typeof state.defeatedBosses !== "object") state.defeatedBosses = {};
+    if (!state.titles || typeof state.titles !== "object") state.titles = {};
+    if (!state.achievements || typeof state.achievements !== "object") state.achievements = {};
+    if (!state.dungeons || typeof state.dungeons !== "object") state.dungeons = {};
+    if (!state.forge || typeof state.forge !== "object") state.forge = { stage: 0 };
+    if (!state.mounts || typeof state.mounts !== "object") state.mounts = {};
+    if (!state.pets || typeof state.pets !== "object") state.pets = {};
+    if (!state.dayNight || typeof state.dayNight !== "object") state.dayNight = { time: 0, day: 1 };
+    if (!state.stats || typeof state.stats !== "object") state.stats = { frozenKills: 0, desertCoinsBest: 0 };
+
+    if (!Array.isArray(inventory.rareWeapons)) inventory.rareWeapons = [];
+    if (!Array.isArray(inventory.biomeRelics)) inventory.biomeRelics = [];
+    if (!Array.isArray(inventory.mountLicenses)) inventory.mountLicenses = [];
+    if (!Array.isArray(inventory.petContracts)) inventory.petContracts = [];
+    inventory.fragmentoCelestial = Number(inventory.fragmentoCelestial || 0);
+
+    for (const mount of MOUNTS) {
+      if (state.mounts[mount.id] === undefined) state.mounts[mount.id] = false;
+    }
+    for (const pet of PETS) {
+      if (state.pets[pet.id] === undefined) state.pets[pet.id] = false;
+    }
+
+    state.activeMount = state.activeMount || "";
+    state.activePet = state.activePet || "";
+    state.activeTitle = state.activeTitle || "";
+  }
+
+  ensureSystemsState();
+
+  function addRareWeaponsToGame() {
+    for (const [key, def] of Object.entries(RARE_WEAPON_DEFS)) {
+      if (!weapons[key]) {
+        weapons[key] = {
+          name: def.name,
+          damage: def.damage,
+          range: def.range,
+          cooldown: def.cooldown,
+          arc: def.arc,
+          projectile: def.projectile,
+          projectileSpeed: def.projectileSpeed,
+          kind: def.kind,
+          damageType: def.damageType
+        };
+      }
+      if (Array.isArray(weaponOrder) && !weaponOrder.includes(key)) weaponOrder.push(key);
+    }
+  }
+  addRareWeaponsToGame();
+
+  function grantTitle(title) {
+    ensureSystemsState();
+    if (!title) return;
+    const state = questBook.eternalSystems;
+    if (!state.titles[title]) {
+      state.titles[title] = true;
+      state.activeTitle = title;
+      showHudToast(`Novo título: ${title}`);
+      spawnFloatingText(`Título: ${title}`, player.x, player.y - 40, TITLE_COLOR);
+    }
+  }
+
+  function unlockAchievement(id, name) {
+    ensureSystemsState();
+    const state = questBook.eternalSystems;
+    if (state.achievements[id]) return;
+    state.achievements[id] = { name, unlockedAt: Date.now() };
+    showHudToast(`Conquista: ${name}`);
+    spawnFloatingText(`Conquista desbloqueada!`, player.x, player.y - 54, "#fff4ac");
+  }
+
+  function grantRareWeapon(key) {
+    ensureSystemsState();
+    if (!RARE_WEAPON_DEFS[key]) return;
+    if (!inventory.rareWeapons.includes(key)) inventory.rareWeapons.push(key);
+    if (!player.unlockedWeapons.includes(key)) player.unlockedWeapons.push(key);
+    showHudToast(`Arma obtida: ${RARE_WEAPON_DEFS[key].name}`);
+    renderInventory();
+    updateHud();
+  }
+
+  function grantRelic(name) {
+    ensureSystemsState();
+    if (!inventory.biomeRelics.includes(name)) inventory.biomeRelics.push(name);
+    if (!Array.isArray(inventory.itensBoss)) inventory.itensBoss = [];
+    if (!inventory.itensBoss.includes(name)) inventory.itensBoss.push(name);
+  }
+
+  function bossEnemy(tileX, tileY, kind) {
+    const obj = enemy(tileX, tileY, kind);
+    obj.eternalBoss = true;
+    obj.boss = true;
+    obj.name = BOSS_DEFS[kind]?.name || kind;
+    obj.bossId = kind;
+    obj.attackPatternTimer = 2;
+    obj.specialTimer = 2.5;
+    obj.width = Math.max(obj.width, 42);
+    obj.height = Math.max(obj.height, 46);
+    obj.spawnX = tileX * TILE + 4;
+    obj.spawnY = tileY * TILE + 4;
+    return obj;
+  }
+
+  const getEnemyStatsBeforeSystems = getEnemyStats;
+  getEnemyStats = function getEnemyStatsSystemsPatch(kind) {
+    const bossDrop = { coin: 1, potion: 0.35, powerUp: 0.55, loot: 0.8 };
+    const extra = {
+      solarPharaoh: { width: 54, height: 60, hp: 150, damage: 4, speed: 42, aggroRange: 360, attackRange: 180, attackDelay: 1.15, coinReward: 120, projectileType: "fire", dropTable: bossDrop, xpReward: 950, defense: 1, boss: true },
+      iceQueen: { width: 52, height: 62, hp: 145, damage: 4, speed: 45, aggroRange: 360, attackRange: 190, attackDelay: 1.05, coinReward: 115, projectileType: "ice", dropTable: bossDrop, xpReward: 920, defense: 1, boss: true },
+      supremeSwampWitch: { width: 50, height: 60, hp: 155, damage: 4, speed: 46, aggroRange: 360, attackRange: 210, attackDelay: 1.0, coinReward: 125, projectileType: "poison", dropTable: bossDrop, xpReward: 970, defense: 1, boss: true },
+      corruptedReactor: { width: 86, height: 82, hp: 210, damage: 5, speed: 22, aggroRange: 420, attackRange: 240, attackDelay: 0.95, coinReward: 160, projectileType: "acid", dropTable: bossDrop, xpReward: 1300, defense: 2, boss: true },
+      fallenSeraph: { width: 58, height: 68, hp: 180, damage: 5, speed: 62, aggroRange: 420, attackRange: 230, attackDelay: 0.95, coinReward: 150, projectileType: "light", dropTable: bossDrop, xpReward: 1250, defense: 1, boss: true, canFly: true },
+      ancientCatacombLord: { width: 66, height: 70, hp: 260, damage: 6, speed: 44, aggroRange: 460, attackRange: 210, attackDelay: 0.9, coinReward: 240, projectileType: "shadow", dropTable: bossDrop, xpReward: 1800, defense: 3, boss: true },
+      dungeonSentinel: { width: 34, height: 38, hp: 28, damage: 2, speed: 58, aggroRange: 260, attackRange: 40, attackDelay: 0.9, coinReward: 16, projectileType: null, dropTable: { coin: 0.8, potion: 0.12, powerUp: 0.2, loot: 0.25 }, xpReward: 42 },
+      nightGhost: { width: 28, height: 32, hp: 12, damage: 2, speed: 64, aggroRange: 240, attackRange: 36, attackDelay: 1.0, coinReward: 7, projectileType: null, dropTable: { coin: 0.7, potion: 0.08, powerUp: 0.18, loot: 0.20 }, xpReward: 18, canFly: true }
+    };
+    if (extra[kind]) return extra[kind];
+    return getEnemyStatsBeforeSystems(kind);
+  };
+
+  function addVillageSystemObjects() {
+    ensureSystemsState();
+    if (!villageObjects.some((obj) => obj.type === "npc" && obj.role === "legendForge")) {
+      villageObjects.push(
+        npc(33, 23, "Branor", "Branor: Eu forjo armas raras com minérios e fragmentos.", "legendForge"),
+        npc(35, 23, "Mira", "Mira: Eu treino montarias raras para explorar biomas.", "mountTrainer"),
+        npc(37, 23, "Lia", "Lia: Pets pequenos podem mudar uma batalha inteira.", "petTrainer")
+      );
+    }
+
+    const bossSpawns = [
+      ["solarPharaoh", 126, 13],
+      ["iceQueen", 122, 61],
+      ["supremeSwampWitch", 54, 88]
+    ];
+    for (const [kind, x, y] of bossSpawns) {
+      if (questBook.eternalSystems.defeatedBosses[kind]) continue;
+      if (!villageObjects.some((obj) => obj.type === "enemy" && obj.bossId === kind)) {
+        villageObjects.push(bossEnemy(x, y, kind));
+      }
+    }
+
+    const dungeonEntrances = [
+      ["desertTemple", 121, 15],
+      ["frozenCrypt", 102, 72],
+      ["toxicLab", 70, 85],
+      ["ancientCatacomb", 57, 54]
+    ];
+    for (const [kind, x, y] of dungeonEntrances) {
+      if (!villageObjects.some((obj) => obj.type === "secretDungeonEntrance" && obj.dungeonKind === kind)) {
+        villageObjects.push({
+          type: "secretDungeonEntrance",
+          dungeonKind: kind,
+          x: x * TILE + 4,
+          y: y * TILE + 4,
+          width: 42,
+          height: 46,
+          solid: false,
+          message: `${DUNGEON_DEFS[kind].entranceTitle}: pressione E para entrar.`
+        });
+      }
+    }
+
+    if (currentScene === "village") {
+      objects = villageObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  addVillageSystemObjects();
+
+  function ensureSceneBosses() {
+    ensureSystemsState();
+    if (currentScene === "acidDimension") {
+      if (!questBook.eternalSystems.defeatedBosses.corruptedReactor && !objects.some((obj) => obj.bossId === "corruptedReactor")) {
+        objects.push(bossEnemy(42, 29, "corruptedReactor"));
+      }
+      interactables = objects.filter((obj) => obj.message);
+    }
+
+    if (currentScene === "celestialDimension") {
+      if (!questBook.eternalSystems.defeatedBosses.fallenSeraph && !objects.some((obj) => obj.bossId === "fallenSeraph")) {
+        objects.push(bossEnemy(41, 10, "fallenSeraph"));
+      }
+      if (!objects.some((obj) => obj.type === "secretDungeonEntrance" && obj.dungeonKind === "brokenTower")) {
+        objects.push({
+          type: "secretDungeonEntrance",
+          dungeonKind: "brokenTower",
+          x: 46 * TILE,
+          y: 18 * TILE,
+          width: 46,
+          height: 54,
+          solid: false,
+          message: `${DUNGEON_DEFS.brokenTower.entranceTitle}: pressione E para entrar.`
+        });
+      }
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  const setActiveSceneBeforeSystems = setActiveScene;
+  setActiveScene = function setActiveSceneSystemsPatch(scene) {
+    if (scene === "secretDungeon") {
+      currentScene = "secretDungeon";
+      buildSecretDungeon(currentDungeonKind || "desertTemple");
+      objects = secretDungeonObjects;
+      normalizeRuntimeState();
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+      closeDialog();
+      closeShop();
+      keys.clear();
+      projectiles.length = 0;
+      enemyProjectiles.length = 0;
+      return;
+    }
+    setActiveSceneBeforeSystems(scene);
+    addVillageSystemObjects();
+    ensureSceneBosses();
+  };
+
+  const getSceneNameBeforeSystems = getSceneName;
+  getSceneName = function getSceneNameSystemsPatch() {
+    if (currentScene === "secretDungeon") return DUNGEON_DEFS[currentDungeonKind]?.name || "Dungeon Secreta";
+    return getSceneNameBeforeSystems();
+  };
+
+  const getSceneWidthBeforeSystems = getSceneWidth;
+  getSceneWidth = function getSceneWidthSystemsPatch() {
+    if (currentScene === "secretDungeon") return secretDungeonWidth;
+    return getSceneWidthBeforeSystems();
+  };
+
+  const getSceneHeightBeforeSystems = getSceneHeight;
+  getSceneHeight = function getSceneHeightSystemsPatch() {
+    if (currentScene === "secretDungeon") return secretDungeonHeight;
+    return getSceneHeightBeforeSystems();
+  };
+
+  const getAreaNameBeforeSystems = getAreaName;
+  getAreaName = function getAreaNameSystemsPatch() {
+    if (currentScene === "secretDungeon") return DUNGEON_DEFS[currentDungeonKind]?.name || "Dungeon Secreta";
+    return getAreaNameBeforeSystems();
+  };
+
+  function enterSecretDungeon(kind) {
+    currentDungeonKind = kind;
+    lastVillagePosition = { x: player.x, y: player.y };
+    setActiveScene("secretDungeon");
+    player.x = 5 * TILE;
+    player.y = 37 * TILE;
+    player.direction = "up";
+    showHudToast(DUNGEON_DEFS[kind]?.name || "Dungeon Secreta");
+    unlockAchievement(`enterDungeon_${kind}`, `Descobriu ${DUNGEON_DEFS[kind]?.name || "Dungeon Secreta"}`);
+  }
+
+  function exitSecretDungeon() {
+    setActiveScene("village");
+    player.x = lastVillagePosition?.x ?? 30 * TILE;
+    player.y = lastVillagePosition?.y ?? 24 * TILE;
+    showHudToast("Você saiu da dungeon");
+  }
+
+  function dungeonObj(tileX, tileY, kind, options = {}) {
+    return {
+      type: "dungeonFeature",
+      kind,
+      x: tileX * TILE + (options.offsetX || 0),
+      y: tileY * TILE + (options.offsetY || 0),
+      width: options.width || TILE,
+      height: options.height || TILE,
+      solid: Boolean(options.solid),
+      message: options.message || "",
+      role: options.role || "",
+      activated: false
+    };
+  }
+
+  function buildSecretDungeon(kind) {
+    secretDungeonObjects.length = 0;
+    const def = DUNGEON_DEFS[kind] || DUNGEON_DEFS.desertTemple;
+    secretDungeonObjects.push(
+      { type: "dungeonExit", x: 4 * TILE, y: 39 * TILE, width: 48, height: 48, solid: false, message: "Saída da dungeon: pressione E para voltar." },
+      dungeonObj(20, 24, "runePillar", { width: 34, height: 56, solid: true, message: "Pilar rúnico: pressione E para ativar.", role: "puzzle" }),
+      dungeonObj(34, 24, "runePillar", { width: 34, height: 56, solid: true, message: "Pilar rúnico: pressione E para ativar.", role: "puzzle" }),
+      dungeonObj(27, 15, "sealedChest", { width: 48, height: 38, solid: true, message: "Baú selado: precisa das duas runas da dungeon.", role: "chest" }),
+      enemy(18, 30, "dungeonSentinel"),
+      enemy(36, 30, "dungeonSentinel"),
+      enemy(27, 21, "dungeonSentinel"),
+      bossEnemy(27, 10, def.bossKind)
+    );
+    for (const obj of secretDungeonObjects) {
+      if (obj.type === "enemy") {
+        obj.dungeonEnemy = true;
+        obj.coinReward = obj.boss ? Math.max(obj.coinReward, 90) : obj.coinReward;
+      }
+    }
+  }
+
+  const drawMapBeforeSystems = drawMap;
+  drawMap = function drawMapSystemsPatch() {
+    if (currentScene !== "secretDungeon") {
+      drawMapBeforeSystems();
+      return;
+    }
+    drawSecretDungeonMap();
+  };
+
+  function drawSecretDungeonMap() {
+    const def = DUNGEON_DEFS[currentDungeonKind] || DUNGEON_DEFS.desertTemple;
+    const startCol = Math.floor(camera.x / TILE) - 1;
+    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const startRow = Math.floor(camera.y / TILE) - 1;
+    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+
+    for (let ty = startRow; ty <= endRow; ty++) {
+      for (let tx = startCol; tx <= endCol; tx++) {
+        if (tx < 0 || ty < 0 || tx >= 62 || ty >= 46) continue;
+        const x = tx * TILE;
+        const y = ty * TILE;
+        const border = tx <= 1 || ty <= 1 || tx >= 60 || ty >= 44;
+        ctx.fillStyle = border ? "#1f2746" : "#2f3856";
+        ctx.fillRect(x, y, TILE, TILE);
+        if (!border) {
+          ctx.fillStyle = (tx + ty) % 2 ? "rgba(255,255,255,0.035)" : "rgba(0,0,0,0.08)";
+          ctx.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+          if ((tx * 7 + ty * 11) % 13 === 0) {
+            ctx.fillStyle = def.theme + "55";
+            ctx.fillRect(x + 10, y + 10, 12, 3);
+          }
+        }
+      }
+    }
+  }
+
+  const getQuestMessageBeforeSystems = getQuestMessage;
+  getQuestMessage = function getQuestMessageSystemsPatch(target) {
+    ensureSystemsState();
+
+    if (target?.type === "secretDungeonEntrance") {
+      enterSecretDungeon(target.dungeonKind);
+      return "";
+    }
+
+    if (target?.type === "dungeonExit") {
+      exitSecretDungeon();
+      return "";
+    }
+
+    if (target?.type === "dungeonFeature" && target.role === "puzzle") {
+      target.activated = true;
+      playSound("portal");
+      spawnFloatingText("Runa ativada", target.x, target.y - 14, "#fff4ac");
+      return "A runa acende e a dungeon responde com um eco antigo.";
+    }
+
+    if (target?.type === "dungeonFeature" && target.role === "chest") {
+      const pillars = objects.filter((obj) => obj.type === "dungeonFeature" && obj.role === "puzzle");
+      if (!pillars.every((obj) => obj.activated)) return "O baú ainda está selado. Ative as duas runas da dungeon.";
+      const key = `chest_${currentDungeonKind}`;
+      if (questBook.eternalSystems.dungeons[key]) return "O baú desta dungeon já foi aberto.";
+      questBook.eternalSystems.dungeons[key] = true;
+      inventory.moedas += 90;
+      inventory.fragmentoCelestial += 1;
+      grantRelic(DUNGEON_DEFS[currentDungeonKind]?.reward || "Relíquia de Dungeon");
+      unlockAchievement(`dungeonChest_${currentDungeonKind}`, `Tesouro de ${DUNGEON_DEFS[currentDungeonKind]?.name || "Dungeon"}`);
+      renderInventory();
+      updateHud();
+      return "Você abriu o baú selado e encontrou moedas, 1 Fragmento Celestial e uma relíquia rara.";
+    }
+
+    if (target?.type === "npc" && target.role === "legendForge") return handleForgeNpc();
+    if (target?.type === "npc" && target.role === "mountTrainer") return handleMountTrainer();
+    if (target?.type === "npc" && target.role === "petTrainer") return handlePetTrainer();
+
+    return getQuestMessageBeforeSystems(target);
+  };
+
+  function handleForgeNpc() {
+    ensureSystemsState();
+    const forge = questBook.eternalSystems.forge;
+    const iron = Number(inventory.caveFerroSombrio || 0);
+    const blue = Number(inventory.caveCristalAzul || 0);
+    const celestial = Number(inventory.fragmentoCelestial || 0);
+
+    if (forge.stage < 1) {
+      if (iron >= 3) {
+        inventory.caveFerroSombrio -= 3;
+        forge.stage = 1;
+        grantRareWeapon("reinforcedSword");
+        renderInventory();
+        return "Branor: Usei 3 Ferros Sombrios. Sua Espada Curta virou Espada Reforçada.";
+      }
+      return `Branor: Traga 3 Ferros Sombrios da Mina Cristalina. Você tem ${iron}/3.`;
+    }
+
+    if (forge.stage < 2) {
+      if (blue >= 3) {
+        inventory.caveCristalAzul -= 3;
+        forge.stage = 2;
+        grantRareWeapon("crystalSword");
+        renderInventory();
+        return "Branor: Cristais Azuis encaixados. A Espada Reforçada virou Espada Cristalina.";
+      }
+      return `Branor: Agora preciso de 3 Cristais Azuis. Você tem ${blue}/3.`;
+    }
+
+    if (forge.stage < 3) {
+      if (celestial >= 2) {
+        inventory.fragmentoCelestial -= 2;
+        forge.stage = 3;
+        grantRareWeapon("divineSword");
+        grantTitle("Forjador Divino");
+        unlockAchievement("divineForge", "Forjou a Espada Divina");
+        renderInventory();
+        return "Branor: A luz aceitou sua lâmina. A Espada Cristalina virou Espada Divina.";
+      }
+      return `Branor: Para a forma final preciso de 2 Fragmentos Celestiais. Você tem ${celestial}/2.`;
+    }
+
+    return "Branor: Sua lâmina já carrega uma lenda. Derrote bosses para encontrar armas ainda mais raras.";
+  }
+
+  function handleMountTrainer() {
+    ensureSystemsState();
+    const state = questBook.eternalSystems;
+    const nextLocked = MOUNTS.find((mount) => !state.mounts[mount.id]);
+    if (nextLocked) {
+      state.mounts[nextLocked.id] = true;
+      if (!inventory.mountLicenses.includes(nextLocked.name)) inventory.mountLicenses.push(nextLocked.name);
+      state.activeMount = nextLocked.id;
+      grantTitle(nextLocked.title);
+      showHudToast(`Montaria liberada: ${nextLocked.name}`);
+      return `Mira: Eu treinei para você a montaria ${nextLocked.name}. Pressione M para alternar montarias.`;
+    }
+    cycleMount();
+    return `Mira: Montaria ativa: ${getActiveMount()?.name || "nenhuma"}. Pressione M para alternar.`;
+  }
+
+  function handlePetTrainer() {
+    ensureSystemsState();
+    const state = questBook.eternalSystems;
+    const nextLocked = PETS.find((pet) => !state.pets[pet.id]);
+    if (nextLocked) {
+      state.pets[nextLocked.id] = true;
+      if (!inventory.petContracts.includes(nextLocked.name)) inventory.petContracts.push(nextLocked.name);
+      state.activePet = nextLocked.id;
+      grantTitle(nextLocked.title);
+      showHudToast(`Pet liberado: ${nextLocked.name}`);
+      return `Lia: ${nextLocked.name} agora te acompanha. Pressione P para alternar pets.`;
+    }
+    cyclePet();
+    return `Lia: Pet ativo: ${getActivePet()?.name || "nenhum"}. Pressione P para alternar.`;
+  }
+
+  function getActiveMount() {
+    ensureSystemsState();
+    return MOUNTS.find((mount) => mount.id === questBook.eternalSystems.activeMount) || null;
+  }
+
+  function getActivePet() {
+    ensureSystemsState();
+    return PETS.find((pet) => pet.id === questBook.eternalSystems.activePet) || null;
+  }
+
+  function cycleMount() {
+    ensureSystemsState();
+    const unlocked = MOUNTS.filter((mount) => questBook.eternalSystems.mounts[mount.id]);
+    if (!unlocked.length) {
+      showHudToast("Nenhuma montaria liberada");
+      return;
+    }
+    const current = unlocked.findIndex((mount) => mount.id === questBook.eternalSystems.activeMount);
+    const next = unlocked[(current + 1) % unlocked.length];
+    questBook.eternalSystems.activeMount = next.id;
+    showHudToast(`Montaria: ${next.name}`);
+  }
+
+  function cyclePet() {
+    ensureSystemsState();
+    const unlocked = PETS.filter((pet) => questBook.eternalSystems.pets[pet.id]);
+    if (!unlocked.length) {
+      showHudToast("Nenhum pet liberado");
+      return;
+    }
+    const current = unlocked.findIndex((pet) => pet.id === questBook.eternalSystems.activePet);
+    const next = unlocked[(current + 1) % unlocked.length];
+    questBook.eternalSystems.activePet = next.id;
+    showHudToast(`Pet: ${next.name}`);
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.repeat || dialogOpen || shopOpen || pauseOpen || inventoryOpen) return;
+    if (event.key.toLowerCase() === "m") cycleMount();
+    if (event.key.toLowerCase() === "p") cyclePet();
+    if (event.key.toLowerCase() === "t") cycleTitle();
+  });
+
+  function cycleTitle() {
+    ensureSystemsState();
+    const titles = Object.keys(questBook.eternalSystems.titles).filter((key) => questBook.eternalSystems.titles[key]);
+    if (!titles.length) {
+      showHudToast("Nenhum título liberado");
+      return;
+    }
+    const index = titles.indexOf(questBook.eternalSystems.activeTitle);
+    const next = titles[(index + 1) % titles.length];
+    questBook.eternalSystems.activeTitle = next;
+    showHudToast(`Título ativo: ${next}`);
+  }
+
+  const getPlayerSpeedBeforeSystems = getPlayerSpeed;
+  getPlayerSpeed = function getPlayerSpeedSystemsPatch() {
+    let speed = getPlayerSpeedBeforeSystems();
+    const mount = getActiveMount();
+    if (mount) {
+      speed += mount.speed;
+      const area = getAreaName();
+      if (mount.id === "desertScorpion" && area === "Vila do Deserto") speed += 24;
+      if (mount.id === "iceWolf" && area === "Vila Congelada") speed += 22;
+      if (mount.id === "swampFrog" && area === "Pantano dos Sussurros") speed += 20;
+      if (mount.id === "celestialDeer" && currentScene === "celestialDimension") speed += 20;
+    }
+    return speed;
+  };
+
+  const awardXpBeforeSystems = awardXp;
+  awardXp = function awardXpSystemsPatch(amount, reason = "XP") {
+    const pet = getActivePet();
+    const bonus = pet?.id === "celestialOwl" ? 1.20 : 1;
+    return awardXpBeforeSystems(Math.floor(amount * bonus), reason);
+  };
+
+  const getBasicAttackDamageBeforeSystems = getBasicAttackDamage;
+  getBasicAttackDamage = function getBasicAttackDamageSystemsPatch(weaponKey = getCurrentWeaponKey()) {
+    let dmg = getBasicAttackDamageBeforeSystems(weaponKey);
+    const weapon = RARE_WEAPON_DEFS[weaponKey];
+    if (weaponKey === "solarSword" && getAreaName() === "Vila Congelada") dmg += 3;
+    if (weaponKey === "divineSword") dmg += 2;
+    if (weaponKey === "desertAxe" && getAreaName() === "Vila do Deserto") dmg += 2;
+    if (weapon) dmg += 1;
+    return dmg;
+  };
+
+  function createEternalZone(type, x, y, radius, duration, damage, color) {
+    eternalZones.push({ type, x, y, radius, timer: duration, maxTimer: duration, damage, color, tick: 0 });
+  }
+
+  const updateHazardsBeforeSystems = updateHazards;
+  updateHazards = function updateHazardsSystemsPatch(delta) {
+    updateHazardsBeforeSystems(delta);
+    updateEternalZones(delta);
+  };
+
+  function updateEternalZones(delta) {
+    const pcx = player.x + player.width / 2;
+    const pcy = player.y + player.height / 2;
+    for (let i = eternalZones.length - 1; i >= 0; i--) {
+      const zone = eternalZones[i];
+      zone.timer -= delta;
+      zone.tick -= delta;
+      if (zone.timer <= 0) {
+        eternalZones.splice(i, 1);
+        continue;
+      }
+      if (Math.hypot(pcx - zone.x, pcy - zone.y) <= zone.radius && zone.tick <= 0 && damageCooldown <= 0) {
+        takeDamage(zone.damage, zone.x, zone.y);
+        damageCooldown = 1.0;
+        zone.tick = 1.0;
+      }
+    }
+  }
+
+  const drawHazardsBeforeSystems = drawHazards;
+  drawHazards = function drawHazardsSystemsPatch() {
+    drawHazardsBeforeSystems();
+    for (const zone of eternalZones) {
+      const alpha = Math.max(0, zone.timer / zone.maxTimer);
+      ctx.fillStyle = zone.color || `rgba(255, 79, 98, ${0.22 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(zone.x, zone.y, zone.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255,255,255,${0.24 * alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(zone.x, zone.y, zone.radius * 0.72, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  };
+
+  function updateBossPatterns(delta) {
+    const list = currentScene === "village" ? villageObjects : objects;
+    if (!Array.isArray(list)) return;
+    const pcx = player.x + player.width / 2;
+    const pcy = player.y + player.height / 2;
+
+    for (const obj of list) {
+      if (obj.type !== "enemy" || !obj.alive || !obj.eternalBoss) continue;
+      obj.specialTimer = Math.max(0, (obj.specialTimer || 2) - delta);
+      if (obj.specialTimer > 0) continue;
+
+      // CORREÇÃO REAL:
+      // Antes, TODOS os bosses do mapa usavam habilidades mesmo estando longe.
+      // Isso criava círculos de dano em cima do jogador "do nada".
+      // Agora o boss só usa especial se estiver perto o bastante ou visível na câmera.
+      const bossCenterX = obj.x + obj.width / 2;
+      const bossCenterY = obj.y + obj.height / 2;
+      const distanceToBoss = Math.hypot(pcx - bossCenterX, pcy - bossCenterY);
+      const bossOnCamera = typeof isOnCamera === "function" ? isOnCamera(obj, 120) : false;
+      const sameDungeonFight = currentScene === "secretDungeon";
+      const sameDimensionFight = currentScene === "acidDimension" || currentScene === "celestialDimension";
+      if (!sameDungeonFight && !sameDimensionFight && distanceToBoss > 360 && !bossOnCamera) {
+        obj.specialTimer = 1.25;
+        continue;
+      }
+      if ((sameDimensionFight || sameDungeonFight) && distanceToBoss > 520 && !bossOnCamera) {
+        obj.specialTimer = 1.25;
+        continue;
+      }
+
+      if (obj.bossId === "solarPharaoh") {
+        createEternalZone("solarBeam", pcx, pcy, 44, 2.2, 2, "rgba(255,207,90,0.26)");
+        createEternalZone("sandstorm", obj.x + obj.width / 2, obj.y + obj.height / 2, 78, 2.8, 1, "rgba(255,190,86,0.18)");
+        summonMinionNear(obj, "serpenteDeserto");
+        showHudToast("Faraó Solar: tempestade de areia!");
+      } else if (obj.bossId === "iceQueen") {
+        createEternalZone("frozenGround", pcx, pcy, 52, 2.5, 2, "rgba(173,235,255,0.24)");
+        summonCloneNear(obj, "slimeGelo");
+        showHudToast("Rainha Glacial: chão congelado!");
+      } else if (obj.bossId === "supremeSwampWitch") {
+        createEternalZone("poisonPool", pcx, pcy, 50, 3.0, 2, "rgba(127,255,75,0.22)");
+        createEternalZone("roots", player.x, player.y, 36, 1.8, 1, "rgba(63,154,98,0.24)");
+        summonMinionNear(obj, "sapoGigante");
+        showHudToast("Bruxa Suprema: raízes venenosas!");
+      } else if (obj.bossId === "corruptedReactor") {
+        createEternalZone("acidLaser", pcx, pcy, 56, 2.2, 3, "rgba(128,255,43,0.24)");
+        summonMinionNear(obj, "slimeToxico");
+        showHudToast("Reator Corrompido: laser ácido!");
+      } else if (obj.bossId === "fallenSeraph") {
+        createEternalZone("fallenLight", pcx, pcy, 62, 2.1, 3, "rgba(217,195,255,0.24)");
+        summonCloneNear(obj, "fantasma");
+        showHudToast("Serafim Caído: julgamento sombrio!");
+      } else if (obj.bossId === "ancientCatacombLord") {
+        createEternalZone("ancientCurse", pcx, pcy, 68, 2.7, 3, "rgba(255,239,154,0.20)");
+        summonMinionNear(obj, "dungeonSentinel");
+        showHudToast("Senhor das Catacumbas: maldição antiga!");
+      }
+
+      obj.specialTimer = obj.hp < obj.maxHp * 0.45 ? 3.4 : 5.2;
+    }
+  }
+
+  function summonMinionNear(boss, kind) {
+    const list = currentScene === "village" ? villageObjects : objects;
+    if (!Array.isArray(list)) return;
+    const aliveSame = list.filter((obj) => obj.type === "enemy" && obj.alive && obj.summonedBy === boss.bossId).length;
+    if (aliveSame >= 3) return;
+    const e = enemy(Math.floor((boss.x + boss.width / 2) / TILE) + 1, Math.floor((boss.y + boss.height / 2) / TILE) + 1, kind);
+    e.x = boss.x + boss.width + 12;
+    e.y = boss.y + 12;
+    e.summonedBy = boss.bossId;
+    list.push(e);
+  }
+
+  function summonCloneNear(boss, kind) {
+    const e = enemy(Math.floor(boss.x / TILE) - 1, Math.floor(boss.y / TILE) + 1, kind);
+    e.x = boss.x - 30;
+    e.y = boss.y + 20;
+    e.summonedBy = boss.bossId;
+    e.hp = Math.min(e.hp, 10);
+    e.maxHp = e.hp;
+    const list = currentScene === "village" ? villageObjects : objects;
+    list.push(e);
+  }
+
+  function updateNonVillageEnemies(delta) {
+    if (currentScene === "village") return;
+    if (!Array.isArray(objects)) return;
+    const pcx = player.x + player.width / 2;
+    const pcy = player.y + player.height / 2;
+    const playerRect = getPlayerRect();
+
+    for (const obj of objects) {
+      if (obj.type !== "enemy" || !obj.alive) continue;
+      normalizeEnemy(obj);
+
+      obj.invulnerableTimer = Math.max(0, obj.invulnerableTimer - delta);
+      obj.attackCooldown = Math.max(0, obj.attackCooldown - delta);
+      const ex = obj.x + obj.width / 2;
+      const ey = obj.y + obj.height / 2;
+      const dx = pcx - ex;
+      const dy = pcy - ey;
+      const dist = Math.hypot(dx, dy) || 1;
+
+      if (dist < obj.aggroRange) {
+        const step = Math.min(obj.speed * delta, 5);
+        if (dist > obj.attackRange * 0.45) {
+          const nx = obj.x + (dx / dist) * step;
+          const ny = obj.y + (dy / dist) * step;
+          if (canEntityMoveTo(obj, nx, obj.y)) obj.x = nx;
+          if (canEntityMoveTo(obj, obj.x, ny)) obj.y = ny;
+        }
+      }
+
+      if (rectsOverlap(playerRect, obj) && damageCooldown <= 0) {
+        takeDamage(obj.damage, ex, ey);
+        damageCooldown = obj.attackDelay;
+      }
+    }
+  }
+
+  const updateBeforeSystems = update;
+  update = function updateSystemsPatch(delta) {
+    updateBeforeSystems(delta);
+    ensureSystemsState();
+    ensureSceneBosses();
+    updateBossPatterns(delta);
+    updateNonVillageEnemies(delta);
+    updateDayNight(delta);
+    updatePet(delta);
+    checkAchievements();
+  };
+
+  function updateDayNight(delta) {
+    const state = questBook.eternalSystems.dayNight;
+    state.time += delta;
+    if (state.time >= 180) {
+      state.time -= 180;
+      state.day += 1;
+      showHudToast(`Dia ${state.day}`);
+    }
+    const isNight = state.time >= 105;
+    if (isNight && currentScene === "village") {
+      nightGhostCooldown -= delta;
+      if (nightGhostCooldown <= 0) {
+        nightGhostCooldown = 18;
+        spawnNightGhost();
+      }
+    }
+  }
+
+  function spawnNightGhost() {
+    const existing = villageObjects.filter((obj) => obj.type === "enemy" && obj.kind === "nightGhost" && obj.alive).length;
+    if (existing >= 4) return;
+    const tx = Math.floor(player.x / TILE) + (Math.random() > 0.5 ? 5 : -5);
+    const ty = Math.floor(player.y / TILE) + (Math.random() > 0.5 ? 4 : -4);
+    const e = enemy(Math.max(2, tx), Math.max(2, ty), "nightGhost");
+    e.nightSpawn = true;
+    villageObjects.push(e);
+  }
+
+  function isNightTime() {
+    ensureSystemsState();
+    return questBook.eternalSystems.dayNight.time >= 105;
+  }
+
+  const drawBeforeSystems = draw;
+  draw = function drawSystemsPatch() {
+    drawBeforeSystems();
+    ensureSystemsState();
+
+    if (isNightTime()) {
+      ctx.fillStyle = currentScene === "village" ? "rgba(11,18,42,0.22)" : "rgba(25,18,48,0.16)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    drawSystemBadges();
+  };
+
+  function drawSystemBadges() {
+    const state = questBook.eternalSystems;
+    const phase = isNightTime() ? "Noite" : "Dia";
+    const timeText = `${phase} ${state.dayNight.day}`;
+    ctx.save();
+    ctx.font = "700 13px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillStyle = "rgba(39,48,82,0.82)";
+    ctx.fillRect(16, canvas.height - 34, 150, 24);
+    ctx.fillStyle = isNightTime() ? "#bdf2ff" : "#fff4ac";
+    ctx.fillText(timeText, 26, canvas.height - 17);
+    ctx.restore();
+  }
+
+  const drawPlayerBeforeSystems = drawPlayer;
+  drawPlayer = function drawPlayerSystemsPatch() {
+    drawMountUnderPlayer();
+    drawPlayerBeforeSystems();
+    drawPetFollower();
+    drawActiveTitle();
+  };
+
+  function drawMountUnderPlayer() {
+    const mount = getActiveMount();
+    if (!mount) return;
+    const x = player.x - 7;
+    const y = player.y + player.height - 11;
+    ctx.fillStyle = mount.color + "55";
+    ctx.fillRect(x - 3, y - 4, player.width + 12, 14);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x, y, player.width + 6, 10);
+    ctx.fillStyle = mount.color;
+    ctx.fillRect(x + 4, y + 2, player.width - 2, 5);
+    if (mount.id === "smallDragon") {
+      ctx.fillStyle = "#b67cff";
+      ctx.fillRect(x - 5, y - 6, 8, 8);
+      ctx.fillRect(x + player.width + 4, y - 6, 8, 8);
+    }
+    if (mount.id === "celestialDeer") {
+      ctx.fillStyle = "#fff4ac";
+      ctx.fillRect(x + 5, y - 7, 3, 7);
+      ctx.fillRect(x + player.width - 1, y - 7, 3, 7);
+    }
+  }
+
+  function updatePet(delta) {
+    const pet = getActivePet();
+    if (!pet) return;
+    const targetX = player.x - 24;
+    const targetY = player.y + 6;
+    petState.x += (targetX - petState.x) * Math.min(1, delta * 5);
+    petState.y += (targetY - petState.y) * Math.min(1, delta * 5);
+
+    petState.healTimer -= delta;
+    petState.attackTimer -= delta;
+
+    if (pet.id === "blueSlime" && petState.healTimer <= 0) {
+      petState.healTimer = 18;
+      if (player.health < player.maxHealth) {
+        player.health = Math.min(player.maxHealth, player.health + 1);
+        healBursts.push({ x: player.x + player.width / 2, y: player.y + player.height / 2, timer: 0.9, maxTimer: 0.9 });
+        showHudToast("Slime Azul Pet curou você");
+      }
+    }
+
+    if ((pet.id === "miniDragon" || pet.id === "tinyScorpion") && petState.attackTimer <= 0) {
+      petState.attackTimer = 5.5;
+      const list = currentScene === "village" ? villageObjects : objects;
+      const target = list.find((obj) => obj.type === "enemy" && obj.alive && Math.hypot((obj.x + obj.width / 2) - player.x, (obj.y + obj.height / 2) - player.y) < 180);
+      if (target) {
+        damageEnemy(target, pet.id === "miniDragon" ? 2 : 1, petState.x, petState.y, 80, pet.id === "tinyScorpion" ? "veneno" : "fire");
+        spawnFloatingText(pet.id === "miniDragon" ? "fogo pet" : "veneno pet", target.x, target.y - 12, pet.color);
+      }
+    }
+  }
+
+  function drawPetFollower() {
+    const pet = getActivePet();
+    if (!pet) return;
+    const x = petState.x;
+    const y = petState.y;
+    ctx.fillStyle = pet.color + "55";
+    ctx.fillRect(x - 3, y - 3, 24, 20);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 2, y + 4, 16, 12);
+    ctx.fillStyle = pet.color;
+    ctx.fillRect(x + 5, y + 6, 10, 8);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x + 7, y + 8, 2, 2);
+    ctx.fillRect(x + 12, y + 8, 2, 2);
+  }
+
+  function drawActiveTitle() {
+    ensureSystemsState();
+    const title = questBook.eternalSystems.activeTitle;
+    if (!title) return;
+    ctx.save();
+    ctx.font = "700 11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(39,48,82,0.82)";
+    const tx = player.x + player.width / 2;
+    const ty = player.y - 16;
+    ctx.fillRect(tx - 64, ty - 11, 128, 14);
+    ctx.fillStyle = TITLE_COLOR;
+    ctx.fillText(title, tx, ty);
+    ctx.restore();
+  }
+
+  const drawObjectBeforeSystems = drawObject;
+  drawObject = function drawObjectSystemsPatch(obj) {
+    if (obj?.type === "secretDungeonEntrance") return drawDungeonEntrance(obj);
+    if (obj?.type === "dungeonExit") return drawDungeonExit(obj);
+    if (obj?.type === "dungeonFeature") return drawDungeonFeature(obj);
+    return drawObjectBeforeSystems(obj);
+  };
+
+  function drawDungeonEntrance(obj) {
+    const def = DUNGEON_DEFS[obj.dungeonKind] || DUNGEON_DEFS.desertTemple;
+    ctx.fillStyle = def.theme + "55";
+    ctx.fillRect(obj.x - 8, obj.y - 8, obj.width + 16, obj.height + 16);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+    ctx.fillStyle = def.theme;
+    ctx.fillRect(obj.x + 8, obj.y + 8, obj.width - 16, obj.height - 16);
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillRect(obj.x + obj.width / 2 - 3, obj.y + 5, 6, obj.height - 10);
+  }
+
+  function drawDungeonExit(obj) {
+    ctx.fillStyle = "rgba(85,232,255,0.22)";
+    ctx.fillRect(obj.x - 6, obj.y - 6, obj.width + 12, obj.height + 12);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(obj.x + 4, obj.y + 4, obj.width - 8, obj.height - 8);
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(obj.x + 12, obj.y + 10, obj.width - 24, obj.height - 20);
+  }
+
+  function drawDungeonFeature(obj) {
+    const def = DUNGEON_DEFS[currentDungeonKind] || DUNGEON_DEFS.desertTemple;
+    if (obj.kind === "runePillar") {
+      ctx.fillStyle = "#273052";
+      ctx.fillRect(obj.x + 4, obj.y + 8, obj.width - 8, obj.height - 10);
+      ctx.fillStyle = obj.activated ? "#fff4ac" : def.theme;
+      ctx.fillRect(obj.x + obj.width / 2 - 4, obj.y + 14, 8, obj.height - 24);
+      return;
+    }
+    if (obj.kind === "sealedChest") {
+      ctx.fillStyle = "#5d3843";
+      ctx.fillRect(obj.x, obj.y + 10, obj.width, obj.height - 12);
+      ctx.fillStyle = "#f0b276";
+      ctx.fillRect(obj.x + 4, obj.y + 14, obj.width - 8, 8);
+      ctx.fillStyle = def.theme;
+      ctx.fillRect(obj.x + obj.width / 2 - 5, obj.y + 22, 10, 8);
+    }
+  }
+
+  const drawEnemyBeforeSystems = drawEnemy;
+  drawEnemy = function drawEnemySystemsPatch(obj) {
+    drawEnemyBeforeSystems(obj);
+    if (!obj || !obj.eternalBoss) return;
+    drawEternalBossOverlay(obj);
+  };
+
+  function drawEternalBossOverlay(obj) {
+    const def = BOSS_DEFS[obj.bossId] || { color: "#fff4ac", name: obj.kind };
+    const x = obj.x;
+    const y = obj.y;
+    ctx.fillStyle = def.color + "55";
+    ctx.fillRect(x - 8, y - 12, obj.width + 16, obj.height + 18);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 2, y + 2, obj.width - 4, obj.height - 4);
+    ctx.fillStyle = def.color;
+    ctx.fillRect(x + 8, y + 8, obj.width - 16, obj.height - 16);
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillRect(x + obj.width / 2 - 4, y + 6, 8, obj.height - 12);
+
+    // Barra grande de boss.
+    if (obj.maxHp > 0) {
+      const ratio = Math.max(0, obj.hp / obj.maxHp);
+      const bx = camera.x + canvas.width / 2 - 170;
+      const by = camera.y + 20;
+      ctx.fillStyle = "rgba(39,48,82,0.92)";
+      ctx.fillRect(bx, by, 340, 30);
+      ctx.fillStyle = "#5d3843";
+      ctx.fillRect(bx + 10, by + 18, 320, 6);
+      ctx.fillStyle = def.color;
+      ctx.fillRect(bx + 10, by + 18, 320 * ratio, 6);
+      ctx.font = "700 12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff3d6";
+      ctx.fillText(def.name, bx + 170, by + 13);
+    }
+  }
+
+  const defeatEnemyBeforeSystems = defeatEnemy;
+  defeatEnemy = function defeatEnemySystemsPatch(obj) {
+    const wasSystemBoss = obj?.eternalBoss && obj?.bossId;
+    const wasFrozen = ["iceQueen", "slimeGelo", "golemGelo", "espiritoCongelado", "loboGelo", "loboBranco"].includes(obj?.kind);
+    defeatEnemyBeforeSystems(obj);
+
+    ensureSystemsState();
+
+    if (wasFrozen) {
+      questBook.eternalSystems.stats.frozenKills = Number(questBook.eternalSystems.stats.frozenKills || 0) + 1;
+    }
+
+    if (wasSystemBoss) {
+      const def = BOSS_DEFS[obj.bossId];
+      questBook.eternalSystems.defeatedBosses[obj.bossId] = true;
+      if (def) {
+        grantRelic(def.reward);
+        grantTitle(def.title);
+        unlockAchievement(def.achievement, `Derrotou ${def.name}`);
+        if (def.weapon) grantRareWeapon(def.weapon);
+      }
+      if (Object.keys(BOSS_DEFS).filter((key) => key !== "ancientCatacombLord").every((key) => questBook.eternalSystems.defeatedBosses[key])) {
+        unlockAchievement("riftLegend", "Lenda do Eternal Rift");
+        grantTitle("Lenda do Eternal Rift");
+      }
+      renderInventory();
+      updateHud();
+    }
+  };
+
+  const resolveBasicAttackBeforeSystems = resolveBasicAttack;
+  resolveBasicAttack = function resolveBasicAttackSystemsPatch() {
+    resolveBasicAttackBeforeSystems();
+    if (!currentMeleeAttack || currentScene === "village") return;
+    let hit = false;
+    for (const obj of objects) {
+      if (obj.type !== "enemy" || !obj.alive || obj.acidEnemyId || !enemyInMeleeArc(obj, currentMeleeAttack)) continue;
+      const weaponKey = currentMeleeAttack.weaponKey;
+      const weapon = weapons[weaponKey] || weapons.sword;
+      if (damageEnemy(obj, getBasicAttackDamage(weaponKey), player.x + player.width / 2, player.y + player.height / 2, 190, weapon.damageType)) hit = true;
+    }
+    if (hit) playSound("hitEnemy");
+  };
+
+  const updateProjectilesBeforeSystems = updateProjectiles;
+  updateProjectiles = function updateProjectilesSystemsPatch(delta) {
+    updateProjectilesBeforeSystems(delta);
+    const weaponKey = getCurrentWeaponKey();
+
+    if (currentScene === "village") return;
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const p = projectiles[i];
+      const target = objects.find((obj) => obj.type === "enemy" && obj.alive && !obj.acidEnemyId && rectsOverlap(p, obj));
+      if (!target) continue;
+      damageEnemy(target, p.damage || 2, p.x, p.y, 120, p.damageType || "fisico");
+      if (weaponKey !== "celestialBow") projectiles.splice(i, 1);
+    }
+  };
+
+  function checkAchievements() {
+    ensureSystemsState();
+    const state = questBook.eternalSystems;
+    const mined = Number(inventory.caveFerroSombrio || 0) + Number(inventory.caveCristalAzul || 0) + Number(inventory.caveAmetistaLunar || 0) + Number(inventory.acidNecritaVerde || 0) + Number(inventory.acidCristalCaustico || 0) + Number(inventory.acidOuroCorrosivo || 0);
+    if (mined >= 10) unlockAchievement("firstMine", "Primeira Mina");
+    if (currentScene === "acidDimension" || questBook.discoveredAreas?.acidDimension) unlockAchievement("noFearPoison", "Sem Medo do Veneno");
+    if (Number(state.stats.frozenKills || 0) >= 50) unlockAchievement("coldSoul50", "Frio na Alma");
+    if (getAreaName() === "Vila do Deserto" && Number(inventory.moedas || 0) >= 100) unlockAchievement("richDesert", "Rico do Deserto");
+    if (questBook.bossDefeated) grantTitle("Caçador de Slimes");
+    if (questBook.discoveredAreas?.acidDimension) grantTitle("Senhor das Fendas");
+  }
+
+  const getCompactMissionTextBeforeSystems = getCompactMissionText;
+  getCompactMissionText = function getCompactMissionTextSystemsPatch() {
+    ensureSystemsState();
+    const state = questBook.eternalSystems;
+    const undefeatedBoss = Object.keys(BOSS_DEFS).find((key) => !state.defeatedBosses[key]);
+    if (undefeatedBoss && currentScene === "village") return `Boss: ${BOSS_DEFS[undefeatedBoss].name}`;
+    if (currentScene === "secretDungeon") return `Dungeon: ${DUNGEON_DEFS[currentDungeonKind]?.name || "Secreta"}`;
+    return getCompactMissionTextBeforeSystems();
+  };
+
+  const getInventoryItemsBeforeSystems = getInventoryItems;
+  getInventoryItems = function getInventoryItemsSystemsPatch() {
+    ensureSystemsState();
+    const items = getInventoryItemsBeforeSystems();
+
+    for (const key of inventory.rareWeapons || []) {
+      const def = RARE_WEAPON_DEFS[key];
+      if (!def) continue;
+      items.push({
+        id: `rare-weapon-${key}`,
+        name: def.name,
+        icon: "⚔",
+        quantity: 1,
+        category: "equipamentos",
+        typeLabel: `Arma ${def.rarity}`,
+        rarity: String(def.rarity || "rara").toLowerCase(),
+        description: def.description,
+        effect: "Equipe usando a troca de armas.",
+        locked: true
+      });
+    }
+
+    for (const title of Object.keys(questBook.eternalSystems.titles || {})) {
+      items.push({
+        id: `title-${title}`,
+        name: title,
+        icon: "T",
+        quantity: 1,
+        category: "raros",
+        typeLabel: "Título",
+        rarity: "epico",
+        description: "Título liberado por progresso no mundo.",
+        effect: "Pressione T para alternar títulos.",
+        locked: true
+      });
+    }
+
+    for (const [id, ach] of Object.entries(questBook.eternalSystems.achievements || {})) {
+      items.push({
+        id: `achievement-${id}`,
+        name: ach.name || id,
+        icon: "★",
+        quantity: 1,
+        category: "raros",
+        typeLabel: "Conquista",
+        rarity: "lendario",
+        description: "Conquista desbloqueada.",
+        effect: "Marca permanente de progresso.",
+        locked: true
+      });
+    }
+
+    for (const name of inventory.mountLicenses || []) {
+      items.push({
+        id: `mount-${name}`,
+        name,
+        icon: "M",
+        quantity: 1,
+        category: "raros",
+        typeLabel: "Montaria",
+        rarity: "epico",
+        description: "Montaria liberada.",
+        effect: "Pressione M para alternar.",
+        locked: true
+      });
+    }
+
+    for (const name of inventory.petContracts || []) {
+      items.push({
+        id: `pet-${name}`,
+        name,
+        icon: "P",
+        quantity: 1,
+        category: "raros",
+        typeLabel: "Pet",
+        rarity: "epico",
+        description: "Pet liberado.",
+        effect: "Pressione P para alternar.",
+        locked: true
+      });
+    }
+
+    if (Number(inventory.fragmentoCelestial || 0) > 0) {
+      items.push({
+        id: "fragmento-celestial",
+        name: "Fragmento Celestial",
+        icon: "FC",
+        quantity: Number(inventory.fragmentoCelestial || 0),
+        category: "materiais",
+        typeLabel: "Material divino",
+        rarity: "divino",
+        description: "Material usado na forja final.",
+        effect: "Necessário para Espada Divina."
+      });
+    }
+
+    return items;
+  };
+
+  // Garante que os novos sistemas apareçam mesmo em saves antigos.
+  setTimeout(() => {
+    ensureSystemsState();
+    addRareWeaponsToGame();
+    addVillageSystemObjects();
+    ensureSceneBosses();
+    unlockAchievement("bigSystemsAwakened", "O Mundo Ficou Vivo");
+  }, 300);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - TESTE DE PODERES DESBLOQUEAVEIS
+   - 8 poderes novos no inventario
+   - aba Poderes
+   - Equipar no Slot 1/2/3/4
+   - teclas 1/2/3/4 selecionam slot
+   - Q ou botao direito usa o poder selecionado
+   - modo teste: todos aparecem no inventario agora
+   ================================================== */
+(function eternalRiftTestNewPowersPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_TEST_NEW_POWERS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_TEST_NEW_POWERS_PATCH = true;
+
+  const NEW_POWER_DEFS = {
+    celestialSpear: {
+      name: "Lança Celestial",
+      icon: "✦",
+      rarity: "lendario",
+      cost: 4,
+      cooldown: 4.8,
+      source: "Drop futuro: Boss Serafim Caído",
+      description: "Uma lança de luz desce do céu e explode em área sagrada.",
+      effect: "Dano em área alto. Excelente contra grupos e bosses lentos."
+    },
+    eternalIceExplosion: {
+      name: "Explosão de Gelo Eterno",
+      icon: "❄",
+      rarity: "epico",
+      cost: 4,
+      cooldown: 6.0,
+      source: "Drop futuro: Boss Rainha Glacial",
+      description: "Uma coroa de gelo explode ao redor do jogador e congela inimigos.",
+      effect: "Congela inimigos próximos e causa dano mágico."
+    },
+    solarSandTornado: {
+      name: "Tornado de Areia Solar",
+      icon: "☀",
+      rarity: "epico",
+      cost: 4,
+      cooldown: 7.0,
+      source: "Drop futuro: Boss Faraó Solar",
+      description: "Invoca um redemoinho dourado que puxa inimigos para o centro.",
+      effect: "Puxa, segura e causa dano contínuo em área."
+    },
+    venomRoots: {
+      name: "Raízes Venenosas",
+      icon: "♧",
+      rarity: "raro",
+      cost: 4,
+      cooldown: 6.5,
+      source: "Drop futuro: Boss Bruxa Suprema do Pântano",
+      description: "Raízes escuras brotam do chão, prendem inimigos e envenenam.",
+      effect: "Prende inimigos em área e dá dano venenoso por alguns segundos."
+    },
+    dimensionalSlash: {
+      name: "Corte Dimensional",
+      icon: "◇",
+      rarity: "lendario",
+      cost: 5,
+      cooldown: 5.5,
+      source: "Drop futuro: Boss secreto",
+      description: "Abre um rasgo roxo gigante que atravessa tudo na direção mirada.",
+      effect: "Corte longo, atravessa vários inimigos e causa dano pesado."
+    },
+    crimsonMeteor: {
+      name: "Meteoro Carmesim",
+      icon: "◆",
+      rarity: "lendario",
+      cost: 6,
+      cooldown: 10.0,
+      source: "Drop futuro: Baú raro lendário",
+      description: "Um meteoro vermelho despenca e destrói uma área enorme.",
+      effect: "Dano absurdo em área após um pequeno aviso visual."
+    },
+    divineShield: {
+      name: "Escudo Divino",
+      icon: "⬡",
+      rarity: "epico",
+      cost: 4,
+      cooldown: 9.0,
+      source: "Drop futuro: Baú celestial ou missão sagrada",
+      description: "Cria uma barreira dourada ao redor do jogador por alguns segundos.",
+      effect: "Bloqueia dano enquanto a barreira estiver ativa."
+    },
+    shadowTeleport: {
+      name: "Teleporte Sombrio",
+      icon: "☾",
+      rarity: "raro",
+      cost: 3,
+      cooldown: 4.0,
+      source: "Drop futuro: Baú sombrio ou boss secreto",
+      description: "Teleporta para frente e deixa sombras falsas confundindo inimigos.",
+      effect: "Mobilidade curta, cria sombras e confunde inimigos próximos."
+    }
+  };
+
+  const BASE_POWER_KEYS = ["fireball", "blueRay", "shockwave", "heal"];
+  const NEW_POWER_KEYS = Object.keys(NEW_POWER_DEFS);
+  const ALL_TEST_POWER_KEYS = [...BASE_POWER_KEYS, ...NEW_POWER_KEYS];
+
+  const BASE_POWER_META = {
+    fireball: {
+      name: "Bola de Fogo",
+      icon: "F",
+      rarity: "raro",
+      description: "Dispara uma bola de fogo em linha reta.",
+      effect: "Dano mágico de fogo em alvo único.",
+      source: "Poder inicial"
+    },
+    blueRay: {
+      name: "Raio Azul",
+      icon: "R",
+      rarity: "raro",
+      description: "Dispara um raio azul rápido e preciso.",
+      effect: "Projétil rápido que pode atravessar.",
+      source: "Poder inicial"
+    },
+    shockwave: {
+      name: "Onda de Choque",
+      icon: "O",
+      rarity: "epico",
+      description: "Empurra e fere inimigos ao redor.",
+      effect: "Área pequena ao redor do jogador.",
+      source: "Poder inicial"
+    },
+    heal: {
+      name: "Cura Mágica",
+      icon: "+",
+      rarity: "incomum",
+      description: "Recupera vida usando mana.",
+      effect: "Cura simples em emergência.",
+      source: "Poder inicial"
+    }
+  };
+
+  const powerEffectState = {
+    effects: [],
+    shadows: [],
+    divineShieldTimer: 0,
+    lastRightClickPower: 0
+  };
+
+  function ensureNewPowersState() {
+    if (!questBook.eternalPowerTest) {
+      questBook.eternalPowerTest = {
+        unlocked: [...ALL_TEST_POWER_KEYS],
+        loadout: ["celestialSpear", "eternalIceExplosion", "solarSandTornado", "dimensionalSlash"],
+        activeSlot: 0
+      };
+    }
+
+    if (!Array.isArray(questBook.eternalPowerTest.unlocked)) {
+      questBook.eternalPowerTest.unlocked = [...ALL_TEST_POWER_KEYS];
+    }
+
+    for (const key of ALL_TEST_POWER_KEYS) {
+      if (!questBook.eternalPowerTest.unlocked.includes(key)) questBook.eternalPowerTest.unlocked.push(key);
+    }
+
+    if (!Array.isArray(questBook.eternalPowerTest.loadout) || questBook.eternalPowerTest.loadout.length < 4) {
+      questBook.eternalPowerTest.loadout = ["celestialSpear", "eternalIceExplosion", "solarSandTornado", "dimensionalSlash"];
+    }
+
+    questBook.eternalPowerTest.loadout = questBook.eternalPowerTest.loadout.slice(0, 4).map((key, index) => {
+      return ALL_TEST_POWER_KEYS.includes(key) ? key : BASE_POWER_KEYS[index] || "fireball";
+    });
+
+    questBook.eternalPowerTest.activeSlot = Math.max(0, Math.min(3, Number(questBook.eternalPowerTest.activeSlot || 0)));
+
+    // powerSlots era a lista fixa antiga. Agora ela vira os 4 slots equipados.
+    for (let i = 0; i < 4; i += 1) {
+      powerSlots[i] = questBook.eternalPowerTest.loadout[i];
+    }
+
+    for (const key of NEW_POWER_KEYS) {
+      const def = NEW_POWER_DEFS[key];
+      powerNames[key] = def.name;
+      spellCosts[key] = def.cost;
+      if (player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+    }
+
+    for (const key of BASE_POWER_KEYS) {
+      if (player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+    }
+
+    if (!ALL_TEST_POWER_KEYS.includes(equippedPower)) {
+      equippedPower = powerSlots[questBook.eternalPowerTest.activeSlot] || "fireball";
+    }
+  }
+
+  function getPowerMeta(key) {
+    return NEW_POWER_DEFS[key] || BASE_POWER_META[key] || {
+      name: powerNames[key] || "Poder",
+      icon: "Q",
+      rarity: "raro",
+      description: "Poder especial.",
+      effect: `Custo de mana: ${spellCosts[key] || 0}`,
+      source: "Fonte desconhecida"
+    };
+  }
+
+  function getPowerTargetPoint(distance = 150) {
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const aim = getAimVector();
+
+    if (mouseAim?.active && !isMobile) {
+      const dx = mouseAim.worldX - centerX;
+      const dy = mouseAim.worldY - centerY;
+      const len = Math.hypot(dx, dy) || 1;
+      const maxDistance = Math.max(distance, 260);
+      const clamped = Math.min(maxDistance, len);
+      return {
+        x: centerX + (dx / len) * clamped,
+        y: centerY + (dy / len) * clamped,
+        angle: Math.atan2(dy, dx)
+      };
+    }
+
+    return {
+      x: centerX + aim.x * distance,
+      y: centerY + aim.y * distance,
+      angle: aim.angle ?? Math.atan2(aim.y, aim.x)
+    };
+  }
+
+  function getPowerEnemies() {
+    const list = currentScene === "village" ? villageObjects : objects;
+    return Array.isArray(list) ? list.filter((obj) => obj.type === "enemy" && obj.alive) : [];
+  }
+
+  function enemyCenter(obj) {
+    return {
+      x: obj.x + obj.width / 2,
+      y: obj.y + obj.height / 2
+    };
+  }
+
+  function damageEnemiesInRadius(x, y, radius, amount, damageType = "magico", knockback = 160, onHit = null) {
+    let hits = 0;
+    for (const obj of getPowerEnemies()) {
+      const c = enemyCenter(obj);
+      if (Math.hypot(c.x - x, c.y - y) <= radius) {
+        if (damageEnemy(obj, amount, x, y, knockback, damageType)) hits += 1;
+        if (onHit) onHit(obj, c);
+      }
+    }
+    return hits;
+  }
+
+  function distancePointToSegment(px, py, ax, ay, bx, by) {
+    const abx = bx - ax;
+    const aby = by - ay;
+    const apx = px - ax;
+    const apy = py - ay;
+    const lengthSq = abx * abx + aby * aby || 1;
+    const t = clamp((apx * abx + apy * aby) / lengthSq, 0, 1);
+    const cx = ax + abx * t;
+    const cy = ay + aby * t;
+    return Math.hypot(px - cx, py - cy);
+  }
+
+  function damageEnemiesOnLine(ax, ay, bx, by, width, amount, damageType = "magico") {
+    let hits = 0;
+    for (const obj of getPowerEnemies()) {
+      const c = enemyCenter(obj);
+      if (distancePointToSegment(c.x, c.y, ax, ay, bx, by) <= width) {
+        if (damageEnemy(obj, amount, ax, ay, 260, damageType)) hits += 1;
+      }
+    }
+    return hits;
+  }
+
+  function addPowerEffect(effect) {
+    powerEffectState.effects.push({
+      timer: effect.duration || 1,
+      maxTimer: effect.duration || 1,
+      hitDone: false,
+      tick: 0,
+      particles: [],
+      ...effect
+    });
+  }
+
+  function useNewTestPower(powerKey) {
+    ensureNewPowersState();
+
+    if (!NEW_POWER_DEFS[powerKey]) return false;
+    const def = NEW_POWER_DEFS[powerKey];
+    if (!canUsePower(powerKey, def.cost)) return true;
+
+    updateDirectionFromAim();
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const target = getPowerTargetPoint(powerKey === "crimsonMeteor" ? 240 : 170);
+
+    if (powerKey === "celestialSpear") {
+      addPowerEffect({
+        kind: "celestialSpear",
+        x: target.x,
+        y: target.y,
+        radius: 96,
+        duration: 0.92,
+        hitDelay: 0.42,
+        damage: 8
+      });
+      player.spellCooldowns[powerKey] = def.cooldown;
+      spawnFloatingText("Lança Celestial!", target.x, target.y - 34, "#fff4ac");
+      playSound("magic");
+      vibrate([18, 28, 18]);
+      return true;
+    }
+
+    if (powerKey === "eternalIceExplosion") {
+      addPowerEffect({
+        kind: "eternalIceExplosion",
+        x: centerX,
+        y: centerY,
+        radius: 122,
+        duration: 0.95,
+        hitDelay: 0.18,
+        damage: 4
+      });
+      player.spellCooldowns[powerKey] = def.cooldown;
+      spawnFloatingText("Gelo Eterno!", centerX, centerY - 40, "#bdf2ff");
+      playSound("magic");
+      vibrate([16, 20, 16]);
+      return true;
+    }
+
+    if (powerKey === "solarSandTornado") {
+      addPowerEffect({
+        kind: "solarSandTornado",
+        x: target.x,
+        y: target.y,
+        radius: 145,
+        duration: 2.8,
+        damage: 1
+      });
+      player.spellCooldowns[powerKey] = def.cooldown;
+      spawnFloatingText("Tornado Solar!", target.x, target.y - 36, "#ffd26d");
+      playSound("shockwave");
+      vibrate([22, 24, 22]);
+      return true;
+    }
+
+    if (powerKey === "venomRoots") {
+      addPowerEffect({
+        kind: "venomRoots",
+        x: target.x,
+        y: target.y,
+        radius: 118,
+        duration: 2.9,
+        damage: 2
+      });
+      player.spellCooldowns[powerKey] = def.cooldown;
+      spawnFloatingText("Raízes Venenosas!", target.x, target.y - 34, "#c8ff88");
+      playSound("magic");
+      vibrate(20);
+      return true;
+    }
+
+    if (powerKey === "dimensionalSlash") {
+      const aim = getAimVector();
+      const length = 430;
+      const ax = centerX - aim.x * 26;
+      const ay = centerY - aim.y * 26;
+      const bx = centerX + aim.x * length;
+      const by = centerY + aim.y * length;
+      addPowerEffect({
+        kind: "dimensionalSlash",
+        x: centerX,
+        y: centerY,
+        ax,
+        ay,
+        bx,
+        by,
+        angle: aim.angle ?? Math.atan2(aim.y, aim.x),
+        radius: 38,
+        duration: 0.55,
+        hitDelay: 0.08,
+        damage: 7
+      });
+      player.spellCooldowns[powerKey] = def.cooldown;
+      spawnFloatingText("Corte Dimensional!", centerX + aim.x * 48, centerY + aim.y * 48 - 30, "#d1a5ff");
+      playSound("slash");
+      vibrate([18, 34, 18]);
+      return true;
+    }
+
+    if (powerKey === "crimsonMeteor") {
+      addPowerEffect({
+        kind: "crimsonMeteor",
+        x: target.x,
+        y: target.y,
+        radius: 138,
+        duration: 1.35,
+        hitDelay: 0.78,
+        damage: 15
+      });
+      player.spellCooldowns[powerKey] = def.cooldown;
+      spawnFloatingText("Meteoro Carmesim!", target.x, target.y - 46, "#ff6a54");
+      playSound("bossWave");
+      vibrate([30, 30, 38]);
+      return true;
+    }
+
+    if (powerKey === "divineShield") {
+      powerEffectState.divineShieldTimer = Math.max(powerEffectState.divineShieldTimer, 4.8);
+      activePowerUps.shield = Math.max(activePowerUps.shield || 0, 4.8);
+      playerInvulnerableTimer = Math.max(playerInvulnerableTimer, 0.4);
+      addPowerEffect({
+        kind: "divineShieldCast",
+        x: centerX,
+        y: centerY,
+        radius: 80,
+        duration: 0.85,
+        damage: 0
+      });
+      player.spellCooldowns[powerKey] = def.cooldown;
+      spawnFloatingText("Escudo Divino!", centerX, centerY - 42, "#fff4ac");
+      playSound("powerup");
+      vibrate(18);
+      return true;
+    }
+
+    if (powerKey === "shadowTeleport") {
+      const aim = getAimVector();
+      const range = 172;
+      let bestX = player.x;
+      let bestY = player.y;
+      for (let step = range; step >= 28; step -= 12) {
+        const nx = player.x + aim.x * step;
+        const ny = player.y + aim.y * step;
+        if (canMoveTo(nx, ny)) {
+          bestX = nx;
+          bestY = ny;
+          break;
+        }
+      }
+
+      const oldX = player.x + player.width / 2;
+      const oldY = player.y + player.height / 2;
+      player.x = bestX;
+      player.y = bestY;
+      const newX = player.x + player.width / 2;
+      const newY = player.y + player.height / 2;
+
+      for (let i = 0; i < 4; i += 1) {
+        powerEffectState.shadows.push({
+          x: oldX + (i - 1.5) * 18,
+          y: oldY + Math.sin(i) * 18,
+          timer: 2.4,
+          maxTimer: 2.4,
+          driftX: (i - 1.5) * 12,
+          driftY: i % 2 ? -10 : 10
+        });
+      }
+
+      for (const obj of getPowerEnemies()) {
+        const c = enemyCenter(obj);
+        if (Math.hypot(c.x - newX, c.y - newY) <= 175) {
+          obj.confusedTimer = Math.max(obj.confusedTimer || 0, 3.1);
+          obj.confusedX = oldX;
+          obj.confusedY = oldY;
+          obj.attackCooldown = Math.max(obj.attackCooldown || 0, 1.0);
+        }
+      }
+
+      addPowerEffect({
+        kind: "shadowTeleport",
+        x: newX,
+        y: newY,
+        oldX,
+        oldY,
+        radius: 86,
+        duration: 0.75,
+        damage: 0
+      });
+      player.spellCooldowns[powerKey] = def.cooldown;
+      spawnFloatingText("Teleporte Sombrio!", newX, newY - 38, "#d1a5ff");
+      playSound("dash");
+      vibrate([12, 18, 12]);
+      return true;
+    }
+
+    return false;
+  }
+
+  const equipPowerBeforeNewPowerTest = equipPower;
+  equipPower = function equipPowerNewPowerTestPatch(slotIndex) {
+    ensureNewPowersState();
+    const index = Math.max(0, Math.min(3, Number(slotIndex || 0)));
+    questBook.eternalPowerTest.activeSlot = index;
+    equippedPower = powerSlots[index] || "fireball";
+    spawnFloatingText(`Slot ${index + 1}: ${powerNames[equippedPower] || "Poder"}`, player.x + 12, player.y - 18, "#55e8ff");
+    showHudToast(`Slot ${index + 1} selecionado: ${powerNames[equippedPower] || "Poder"}`);
+    playSound("powerup");
+    vibrate(10);
+    updateMobilePowerButtons();
+    updateHud();
+    return true;
+  };
+
+  const useEquippedPowerBeforeNewPowerTest = useEquippedPower;
+  useEquippedPower = function useEquippedPowerNewPowerTestPatch() {
+    ensureNewPowersState();
+    if (useNewTestPower(equippedPower)) return;
+    return useEquippedPowerBeforeNewPowerTest();
+  };
+
+  const updateMobilePowerButtonsBeforeNewPowerTest = updateMobilePowerButtons;
+  updateMobilePowerButtons = function updateMobilePowerButtonsNewPowerTestPatch() {
+    ensureNewPowersState();
+    const buttons = [touchPower1Button, touchPower2Button, touchPower3Button, touchPower4Button];
+    buttons.forEach((button, index) => {
+      if (!button) return;
+      button.classList.toggle("is-equipped", index === questBook.eternalPowerTest.activeSlot);
+      const key = powerSlots[index] || "fireball";
+      const def = getPowerMeta(key);
+      button.textContent = `${index + 1}`;
+      button.title = `${index + 1}: ${def.name}`;
+    });
+  };
+
+  const getPowerHudTextBeforeNewPowerTest = getPowerHudText;
+  getPowerHudText = function getPowerHudTextNewPowerTestPatch() {
+    ensureNewPowersState();
+    const cooldown = player.spellCooldowns[equippedPower] || 0;
+    const suffix = cooldown > 0 ? ` ${formatCooldown(cooldown)}` : "";
+    const slot = (questBook.eternalPowerTest.activeSlot || 0) + 1;
+    return `Slot ${slot} | Q: ${powerNames[equippedPower] || "Poder"}${suffix}`;
+  };
+
+  const getPowerDescriptionBeforeNewPowerTest = getPowerDescription;
+  getPowerDescription = function getPowerDescriptionNewPowerTestPatch(powerKey) {
+    const def = getPowerMeta(powerKey);
+    if (def) return `${def.description} ${def.source ? "(" + def.source + ")" : ""}`;
+    return getPowerDescriptionBeforeNewPowerTest(powerKey);
+  };
+
+  const getInventoryItemsBeforeNewPowerTest = getInventoryItems;
+  getInventoryItems = function getInventoryItemsNewPowerTestPatch() {
+    ensureNewPowersState();
+
+    const oldItems = getInventoryItemsBeforeNewPowerTest()
+      .filter((item) => !(item.action === "equipPower" && item.powerKey));
+
+    const already = new Set(oldItems.map((item) => item.id));
+    for (const key of ALL_TEST_POWER_KEYS) {
+      if (!questBook.eternalPowerTest.unlocked.includes(key)) continue;
+      const def = getPowerMeta(key);
+      const id = `test-power-${key}`;
+      if (already.has(id)) continue;
+      oldItems.push({
+        id,
+        name: def.name,
+        icon: def.icon || "Q",
+        quantity: 1,
+        category: "poderes",
+        typeLabel: "Poder",
+        rarity: def.rarity || "raro",
+        description: `${def.description} ${def.source ? def.source + "." : ""}`,
+        effect: `${def.effect || ""} Custo de mana: ${spellCosts[key] || 0}.`,
+        action: "equipPowerSlot",
+        powerKey: key
+      });
+    }
+
+    return oldItems;
+  };
+
+  const getFilteredInventoryItemsBeforeNewPowerTest = getFilteredInventoryItems;
+  getFilteredInventoryItems = function getFilteredInventoryItemsNewPowerTestPatch(items) {
+    if (inventoryTab === "poderes") return items.filter((item) => item.category === "poderes" || item.typeLabel === "Poder");
+    return getFilteredInventoryItemsBeforeNewPowerTest(items);
+  };
+
+  const getInventoryActionHtmlBeforeNewPowerTest = getInventoryActionHtml;
+  getInventoryActionHtml = function getInventoryActionHtmlNewPowerTestPatch(item) {
+    ensureNewPowersState();
+
+    if (item?.action === "equipPowerSlot" && item.powerKey) {
+      const buttons = [];
+      for (let i = 0; i < 4; i += 1) {
+        const inSlot = powerSlots[i] === item.powerKey;
+        const active = inSlot && questBook.eternalPowerTest.activeSlot === i;
+        buttons.push(`<button type="button" data-inventory-action="equipPowerSlot" data-power-key="${item.powerKey}" data-slot-index="${i}">${active ? "Ativo" : inSlot ? "No" : "Equipar no"} Slot ${i + 1}</button>`);
+      }
+      return `<div class="power-slot-actions">${buttons.join("")}</div>`;
+    }
+
+    return getInventoryActionHtmlBeforeNewPowerTest(item);
+  };
+
+  const handleInventoryActionBeforeNewPowerTest = handleInventoryAction;
+  handleInventoryAction = function handleInventoryActionNewPowerTestPatch(actionButton) {
+    ensureNewPowersState();
+
+    const action = actionButton.dataset.inventoryAction;
+    if (action === "equipPowerSlot") {
+      const key = actionButton.dataset.powerKey;
+      const index = Math.max(0, Math.min(3, Number(actionButton.dataset.slotIndex || 0)));
+      if (!ALL_TEST_POWER_KEYS.includes(key)) {
+        playSound("invalid");
+        showHudToast("Poder desconhecido.");
+        return;
+      }
+
+      powerSlots[index] = key;
+      questBook.eternalPowerTest.loadout[index] = key;
+      questBook.eternalPowerTest.activeSlot = index;
+      equippedPower = key;
+
+      playSound("equipItem");
+      spawnFloatingText(`${getPowerMeta(key).name} no Slot ${index + 1}`, player.x + 12, player.y - 18, "#fff264");
+      showHudToast(`${getPowerMeta(key).name} equipado no Slot ${index + 1}`);
+      updateMobilePowerButtons();
+      renderInventory();
+      updateHud();
+      return;
+    }
+
+    return handleInventoryActionBeforeNewPowerTest(actionButton);
+  };
+
+  function ensurePowerInventoryTab() {
+    if (!inventoryTabs || inventoryTabs.querySelector('[data-inventory-tab="poderes"]')) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.inventoryTab = "poderes";
+    button.textContent = "Poderes";
+    inventoryTabs.appendChild(button);
+  }
+
+  const renderInventoryBeforeNewPowerTest = renderInventory;
+  renderInventory = function renderInventoryNewPowerTestPatch() {
+    ensureNewPowersState();
+    ensurePowerInventoryTab();
+    return renderInventoryBeforeNewPowerTest();
+  };
+
+  const renderEquipmentSlotsBeforeNewPowerTest = renderEquipmentSlots;
+  renderEquipmentSlots = function renderEquipmentSlotsNewPowerTestPatch() {
+    ensureNewPowersState();
+    if (!equipmentSlots) return renderEquipmentSlotsBeforeNewPowerTest();
+
+    const slotHtml = powerSlots.map((key, index) => {
+      const active = index === questBook.eternalPowerTest.activeSlot;
+      return `
+        <div class="equipment-slot ${active ? "is-active" : ""}">
+          <span>Poder ${index + 1}</span>
+          <strong>${active ? "▶ " : ""}${powerNames[key] || "Vazio"}</strong>
+        </div>
+      `;
+    }).join("");
+
+    const bossItem = inventory.itensBoss?.[0] || "Vazio";
+    equipmentSlots.innerHTML = `
+      <div class="equipment-slot">
+        <span>Arma</span>
+        <strong>${getCurrentWeapon().name}</strong>
+      </div>
+      ${slotHtml}
+      <div class="equipment-slot">
+        <span>Amuleto</span>
+        <strong>${quest.status === "done" ? (quest.reward || "Amuleto da Vila") : "Vazio"}</strong>
+      </div>
+      <div class="equipment-slot">
+        <span>Especial</span>
+        <strong>${bossItem}</strong>
+      </div>
+      <div class="equipment-slot">
+        <span>Defesa</span>
+        <strong>${player.defense || 0}</strong>
+      </div>
+    `;
+  };
+
+  const getPlayerProjectileColorBeforeNewPowerTest = getPlayerProjectileColor;
+  getPlayerProjectileColor = function getPlayerProjectileColorNewPowerTestPatch(type) {
+    if (type === "celestialSpear") return { glow: "rgba(255,244,172,0.38)", main: "#fff4ac", core: "#ffffff" };
+    if (type === "dimensionalSlash") return { glow: "rgba(180,109,255,0.44)", main: "#b46dff", core: "#f3e6ff" };
+    if (type === "crimsonMeteor") return { glow: "rgba(255,79,98,0.48)", main: "#ff4f62", core: "#fff264" };
+    return getPlayerProjectileColorBeforeNewPowerTest(type);
+  };
+
+  function drawWorldPowerEffects() {
+    ensureNewPowersState();
+
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
+
+    const now = performance.now() / 1000;
+
+    for (const fx of powerEffectState.effects) {
+      const progress = 1 - fx.timer / fx.maxTimer;
+      const alpha = clamp(fx.timer / fx.maxTimer, 0, 1);
+
+      if (fx.kind === "celestialSpear") {
+        const beamY = fx.y - 170 + progress * 160;
+        const glow = ctx.createRadialGradient(fx.x, fx.y, 4, fx.x, fx.y, fx.radius);
+        glow.addColorStop(0, `rgba(255,255,255,${0.42 * alpha})`);
+        glow.addColorStop(0.45, `rgba(255,244,172,${0.26 * alpha})`);
+        glow.addColorStop(1, "rgba(255,244,172,0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, fx.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(255,244,172,${0.95 * alpha})`;
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(fx.x, beamY);
+        ctx.lineTo(fx.x, fx.y + 18);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(255,255,255,${0.9 * alpha})`;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i += 1) {
+          const angle = now * 1.4 + i * Math.PI / 4;
+          ctx.beginPath();
+          ctx.moveTo(fx.x, fx.y);
+          ctx.lineTo(fx.x + Math.cos(angle) * fx.radius * 0.75, fx.y + Math.sin(angle) * fx.radius * 0.75);
+          ctx.stroke();
+        }
+      }
+
+      if (fx.kind === "eternalIceExplosion") {
+        const radius = fx.radius * (0.55 + progress * 0.55);
+        const glow = ctx.createRadialGradient(fx.x, fx.y, 8, fx.x, fx.y, radius);
+        glow.addColorStop(0, `rgba(233,255,255,${0.35 * alpha})`);
+        glow.addColorStop(0.45, `rgba(85,232,255,${0.20 * alpha})`);
+        glow.addColorStop(1, "rgba(85,232,255,0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(189,242,255,${0.9 * alpha})`;
+        ctx.lineWidth = 4;
+        for (let i = 0; i < 12; i += 1) {
+          const angle = i * Math.PI / 6 + progress * 0.2;
+          ctx.beginPath();
+          ctx.moveTo(fx.x + Math.cos(angle) * 16, fx.y + Math.sin(angle) * 16);
+          ctx.lineTo(fx.x + Math.cos(angle) * radius, fx.y + Math.sin(angle) * radius);
+          ctx.stroke();
+        }
+      }
+
+      if (fx.kind === "solarSandTornado") {
+        for (let i = 0; i < 9; i += 1) {
+          const r = 20 + i * 13 + Math.sin(now * 5 + i) * 6;
+          const start = now * 3 + i * 0.6;
+          ctx.strokeStyle = i % 2 ? `rgba(255,210,109,${0.54 * alpha})` : `rgba(255,137,64,${0.42 * alpha})`;
+          ctx.lineWidth = 5 - i * 0.25;
+          ctx.beginPath();
+          ctx.arc(fx.x, fx.y - i * 3, r, start, start + Math.PI * 1.28);
+          ctx.stroke();
+        }
+        ctx.fillStyle = `rgba(255,244,172,${0.22 * alpha})`;
+        ctx.beginPath();
+        ctx.ellipse(fx.x, fx.y + 4, fx.radius * 0.65, fx.radius * 0.28, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (fx.kind === "venomRoots") {
+        for (let i = 0; i < 16; i += 1) {
+          const angle = i * Math.PI / 8 + Math.sin(now + i) * 0.15;
+          const length = fx.radius * (0.35 + 0.65 * Math.min(1, progress * 2));
+          const x2 = fx.x + Math.cos(angle) * length;
+          const y2 = fx.y + Math.sin(angle) * length;
+          ctx.strokeStyle = i % 2 ? `rgba(53,86,68,${0.92 * alpha})` : `rgba(200,255,136,${0.42 * alpha})`;
+          ctx.lineWidth = i % 2 ? 5 : 2;
+          ctx.beginPath();
+          ctx.moveTo(fx.x, fx.y);
+          ctx.quadraticCurveTo(
+            fx.x + Math.cos(angle + 0.7) * length * 0.38,
+            fx.y + Math.sin(angle + 0.7) * length * 0.38,
+            x2,
+            y2
+          );
+          ctx.stroke();
+
+          ctx.fillStyle = `rgba(200,255,136,${0.55 * alpha})`;
+          ctx.fillRect(x2 - 3, y2 - 3, 6, 6);
+        }
+      }
+
+      if (fx.kind === "dimensionalSlash") {
+        const pulse = Math.sin(progress * Math.PI);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = `rgba(180,109,255,${0.86 * pulse})`;
+        ctx.lineWidth = 28;
+        ctx.beginPath();
+        ctx.moveTo(fx.ax, fx.ay);
+        ctx.lineTo(fx.bx, fx.by);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(255,255,255,${0.82 * pulse})`;
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.moveTo(fx.ax, fx.ay);
+        ctx.lineTo(fx.bx, fx.by);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(85,232,255,${0.48 * pulse})`;
+        ctx.lineWidth = 3;
+        for (let i = -2; i <= 2; i += 1) {
+          const ox = Math.cos(fx.angle + Math.PI / 2) * i * 12;
+          const oy = Math.sin(fx.angle + Math.PI / 2) * i * 12;
+          ctx.beginPath();
+          ctx.moveTo(fx.ax + ox, fx.ay + oy);
+          ctx.lineTo(fx.bx + ox, fx.by + oy);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      if (fx.kind === "crimsonMeteor") {
+        const warning = progress < 0.58;
+        const fall = clamp((progress - 0.25) / 0.52, 0, 1);
+        const meteorX = fx.x - 150 + fall * 150;
+        const meteorY = fx.y - 230 + fall * 230;
+
+        ctx.strokeStyle = warning ? `rgba(255,79,98,${0.75 * alpha})` : `rgba(255,242,100,${0.85 * alpha})`;
+        ctx.lineWidth = warning ? 4 : 8;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, fx.radius * (warning ? 0.55 + Math.sin(now * 8) * 0.05 : 0.85), 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = `rgba(255,79,98,${0.68 * alpha})`;
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(meteorX - 40, meteorY - 40);
+        ctx.lineTo(meteorX, meteorY);
+        ctx.stroke();
+
+        const glow = ctx.createRadialGradient(meteorX, meteorY, 4, meteorX, meteorY, 54);
+        glow.addColorStop(0, `rgba(255,255,255,${0.9 * alpha})`);
+        glow.addColorStop(0.35, `rgba(255,242,100,${0.65 * alpha})`);
+        glow.addColorStop(1, "rgba(255,79,98,0)");
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(meteorX, meteorY, 54, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (fx.kind === "divineShieldCast") {
+        const radius = 44 + progress * 46;
+        ctx.strokeStyle = `rgba(255,244,172,${0.86 * alpha})`;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        for (let i = 0; i < 6; i += 1) {
+          const angle = now * 1.8 + i * Math.PI / 3;
+          ctx.fillStyle = `rgba(255,255,255,${0.72 * alpha})`;
+          ctx.fillRect(fx.x + Math.cos(angle) * radius - 3, fx.y + Math.sin(angle) * radius - 3, 6, 6);
+        }
+      }
+
+      if (fx.kind === "shadowTeleport") {
+        ctx.strokeStyle = `rgba(180,109,255,${0.78 * alpha})`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(fx.oldX, fx.oldY);
+        ctx.lineTo(fx.x, fx.y);
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(32,19,54,${0.35 * alpha})`;
+        ctx.beginPath();
+        ctx.arc(fx.oldX, fx.oldY, fx.radius * progress, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(209,165,255,${0.8 * alpha})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, fx.radius * (1 - progress * 0.35), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    if (powerEffectState.divineShieldTimer > 0) {
+      const cx = player.x + player.width / 2;
+      const cy = player.y + player.height / 2;
+      const pulse = 0.72 + Math.sin(now * 6) * 0.08;
+      const shield = ctx.createRadialGradient(cx, cy, 10, cx, cy, 58);
+      shield.addColorStop(0, "rgba(255,244,172,0.06)");
+      shield.addColorStop(0.62, `rgba(255,244,172,${0.18 * pulse})`);
+      shield.addColorStop(1, "rgba(255,244,172,0)");
+      ctx.fillStyle = shield;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 58, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(255,244,172,${0.75 * pulse})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 40 + Math.sin(now * 4) * 3, 0, Math.PI * 2);
+      ctx.stroke();
+
+      for (let i = 0; i < 8; i += 1) {
+        const angle = now * 1.2 + i * Math.PI / 4;
+        ctx.fillStyle = "rgba(255,255,255,0.7)";
+        ctx.fillRect(cx + Math.cos(angle) * 42 - 2, cy + Math.sin(angle) * 42 - 2, 4, 4);
+      }
+    }
+
+    for (const sh of powerEffectState.shadows) {
+      const alpha = clamp(sh.timer / sh.maxTimer, 0, 1);
+      ctx.globalAlpha = alpha * 0.55;
+      ctx.fillStyle = "#201336";
+      ctx.fillRect(sh.x - 8, sh.y - 14, 16, 28);
+      ctx.fillStyle = "#b46dff";
+      ctx.fillRect(sh.x - 5, sh.y - 18, 10, 6);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+  }
+
+  function updateNewPowerEffects(delta) {
+    ensureNewPowersState();
+
+    powerEffectState.divineShieldTimer = Math.max(0, powerEffectState.divineShieldTimer - delta);
+    if (powerEffectState.divineShieldTimer > 0) {
+      playerInvulnerableTimer = Math.max(playerInvulnerableTimer, 0.18);
+      activePowerUps.shield = Math.max(activePowerUps.shield || 0, 0.25);
+    }
+
+    for (const obj of getPowerEnemies()) {
+      if (obj.frozenTimer > 0) {
+        obj.frozenTimer = Math.max(0, obj.frozenTimer - delta);
+        obj.x = obj.frozenX ?? obj.x;
+        obj.y = obj.frozenY ?? obj.y;
+        obj.attackCooldown = Math.max(obj.attackCooldown || 0, 0.4);
+      }
+
+      if (obj.rootedTimer > 0) {
+        obj.rootedTimer = Math.max(0, obj.rootedTimer - delta);
+        obj.x = obj.rootedX ?? obj.x;
+        obj.y = obj.rootedY ?? obj.y;
+        obj.attackCooldown = Math.max(obj.attackCooldown || 0, 0.25);
+      }
+
+      if (obj.confusedTimer > 0) {
+        obj.confusedTimer = Math.max(0, obj.confusedTimer - delta);
+        obj.attackCooldown = Math.max(obj.attackCooldown || 0, 0.35);
+        if (obj.confusedX !== undefined && obj.confusedY !== undefined) {
+          const c = enemyCenter(obj);
+          const dx = obj.confusedX - c.x;
+          const dy = obj.confusedY - c.y;
+          const d = Math.hypot(dx, dy) || 1;
+          const step = Math.min((obj.speed || 42) * delta * 0.45, 2.6);
+          obj.x += (dx / d) * step;
+          obj.y += (dy / d) * step;
+        }
+      }
+    }
+
+    for (let i = powerEffectState.shadows.length - 1; i >= 0; i -= 1) {
+      const sh = powerEffectState.shadows[i];
+      sh.timer -= delta;
+      sh.x += sh.driftX * delta;
+      sh.y += sh.driftY * delta;
+      if (sh.timer <= 0) powerEffectState.shadows.splice(i, 1);
+    }
+
+    for (let i = powerEffectState.effects.length - 1; i >= 0; i -= 1) {
+      const fx = powerEffectState.effects[i];
+      fx.timer -= delta;
+
+      if (!fx.hitDone && fx.hitDelay !== undefined && fx.maxTimer - fx.timer >= fx.hitDelay) {
+        fx.hitDone = true;
+
+        if (fx.kind === "celestialSpear") {
+          const hits = damageEnemiesInRadius(fx.x, fx.y, fx.radius, fx.damage, "sagrado", 260);
+          if (hits > 0) spawnFloatingText(`${hits} atingidos`, fx.x, fx.y - 54, "#fff4ac");
+        }
+
+        if (fx.kind === "eternalIceExplosion") {
+          damageEnemiesInRadius(fx.x, fx.y, fx.radius, fx.damage, "gelo", 150, (obj) => {
+            obj.frozenTimer = Math.max(obj.frozenTimer || 0, 3.0);
+            obj.frozenX = obj.x;
+            obj.frozenY = obj.y;
+          });
+        }
+
+        if (fx.kind === "dimensionalSlash") {
+          const hits = damageEnemiesOnLine(fx.ax, fx.ay, fx.bx, fx.by, 42, fx.damage, "dimensional");
+          if (hits > 0) spawnFloatingText(`${hits} cortados`, fx.x, fx.y - 48, "#d1a5ff");
+        }
+
+        if (fx.kind === "crimsonMeteor") {
+          const hits = damageEnemiesInRadius(fx.x, fx.y, fx.radius, fx.damage, "fogo", 360);
+          if (hits > 0) spawnFloatingText(`IMPACTO x${hits}`, fx.x, fx.y - 60, "#ff6a54");
+          playSound("bossDown");
+          vibrate([40, 50, 40]);
+        }
+      }
+
+      if (fx.kind === "solarSandTornado") {
+        fx.tick -= delta;
+        for (const obj of getPowerEnemies()) {
+          const c = enemyCenter(obj);
+          const dist = Math.hypot(c.x - fx.x, c.y - fx.y) || 1;
+          if (dist <= fx.radius) {
+            const pull = Math.min(90 * delta, dist * 0.25);
+            obj.x += ((fx.x - c.x) / dist) * pull;
+            obj.y += ((fx.y - c.y) / dist) * pull;
+            obj.attackCooldown = Math.max(obj.attackCooldown || 0, 0.2);
+          }
+        }
+        if (fx.tick <= 0) {
+          fx.tick = 0.48;
+          damageEnemiesInRadius(fx.x, fx.y, fx.radius * 0.88, fx.damage, "fogo", 90);
+        }
+      }
+
+      if (fx.kind === "venomRoots") {
+        fx.tick -= delta;
+        for (const obj of getPowerEnemies()) {
+          const c = enemyCenter(obj);
+          if (Math.hypot(c.x - fx.x, c.y - fx.y) <= fx.radius) {
+            obj.rootedTimer = Math.max(obj.rootedTimer || 0, 0.45);
+            obj.rootedX = obj.rootedX ?? obj.x;
+            obj.rootedY = obj.rootedY ?? obj.y;
+            obj.attackCooldown = Math.max(obj.attackCooldown || 0, 0.25);
+          }
+        }
+        if (fx.tick <= 0) {
+          fx.tick = 0.72;
+          damageEnemiesInRadius(fx.x, fx.y, fx.radius, fx.damage, "veneno", 70, (obj) => {
+            obj.rootedTimer = Math.max(obj.rootedTimer || 0, 1.3);
+            obj.rootedX = obj.x;
+            obj.rootedY = obj.y;
+          });
+        }
+      }
+
+      if (fx.timer <= 0) {
+        powerEffectState.effects.splice(i, 1);
+      }
+    }
+  }
+
+  const updateBeforeNewPowerTest = update;
+  update = function updateNewPowerTestPatch(delta) {
+    updateBeforeNewPowerTest(delta);
+    updateNewPowerEffects(delta);
+  };
+
+  const drawBeforeNewPowerTest = draw;
+  draw = function drawNewPowerTestPatch() {
+    drawBeforeNewPowerTest();
+    drawWorldPowerEffects();
+  };
+
+  canvas?.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+
+  canvas?.addEventListener("mousedown", (event) => {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const now = performance.now();
+    if (now - powerEffectState.lastRightClickPower < 120) return;
+    powerEffectState.lastRightClickPower = now;
+    if (!gameStarted || gameOver || inventoryOpen || pauseOpen || shopOpen || dialogOpen) return;
+    useEquippedPower();
+  }, true);
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .power-slot-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .power-slot-actions button {
+      min-height: 34px;
+    }
+    .equipment-slot.is-active {
+      box-shadow: 0 0 0 2px rgba(255, 242, 100, 0.45) inset;
+    }
+  `;
+  document.head?.appendChild(style);
+
+  ensureNewPowersState();
+})();
+
+
+/* ==================================================
+   Modo teste: mana infinita
+   - poderes não gastam mana
+   - barra de mana fica sempre cheia
+   ================================================== */
+(function eternalRiftInfiniteManaTestPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_INFINITE_MANA_TEST_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_INFINITE_MANA_TEST_PATCH = true;
+
+  const spendManaBeforeInfiniteMana = spendMana;
+  spendMana = function spendManaInfiniteManaPatch(cost) {
+    player.mana = player.maxMana;
+    return true;
+  };
+
+  const updateTimedEffectsBeforeInfiniteMana = updateTimedEffects;
+  updateTimedEffects = function updateTimedEffectsInfiniteManaPatch(delta) {
+    updateTimedEffectsBeforeInfiniteMana(delta);
+    player.mana = player.maxMana;
+  };
+
+  const updateHudBeforeInfiniteMana = updateHud;
+  updateHud = function updateHudInfiniteManaPatch() {
+    player.mana = player.maxMana;
+    return updateHudBeforeInfiniteMana();
+  };
+})();
+
+
+/* ==================================================
+   MELHORIA VISUAL DOS BOSSES
+   - redesenha bosses com silhuetas mais ricas
+   - evita aparência de quadrado simples
+   ================================================== */
+(function eternalRiftBossVisualUpgradePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BOSS_VISUAL_UPGRADE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BOSS_VISUAL_UPGRADE_PATCH = true;
+
+  function bossPulse(speed = 3, amount = 1) {
+    return Math.sin(performance.now() / 1000 * speed) * amount;
+  }
+
+  function drawBossShadow(x, y, w, h) {
+    ctx.fillStyle = "rgba(16, 18, 30, 0.32)";
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h - 2, Math.max(18, w * 0.45), Math.max(6, h * 0.12), 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawBossAura(x, y, w, h, colorA, colorB, alpha = 0.2) {
+    const g = ctx.createRadialGradient(x + w / 2, y + h / 2, 8, x + w / 2, y + h / 2, Math.max(w, h) * 0.82);
+    g.addColorStop(0, colorA.replace("ALPHA", (alpha * 1.15).toFixed(3)));
+    g.addColorStop(0.55, colorB.replace("ALPHA", alpha.toFixed(3)));
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h / 2, w * 0.9, h * 0.82, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawSolarPharaoh(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const bob = bossPulse(2.2, 1.2);
+    drawBossShadow(x, y, w, h);
+    drawBossAura(x - 6, y - 2, w + 12, h + 10, "rgba(255, 228, 123, ALPHA)", "rgba(255, 135, 64, ALPHA)", 0.22);
+
+    // Capa
+    ctx.fillStyle = "#7e2a29";
+    ctx.beginPath();
+    ctx.moveTo(x + 10, y + 28);
+    ctx.lineTo(x + w / 2, y + h - 2);
+    ctx.lineTo(x + w - 10, y + 28);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ombreiras
+    pixelRect(x + 4, y + 21, 13, 12, "#d38f24");
+    pixelRect(x + w - 17, y + 21, 13, 12, "#d38f24");
+    pixelRect(x + 2, y + 23, 7, 6, "#ffcf5a");
+    pixelRect(x + w - 9, y + 23, 7, 6, "#ffcf5a");
+
+    // Corpo
+    pixelRect(x + 15, y + 20, w - 30, h - 25, "#c48a2d");
+    pixelRect(x + 18, y + 26, w - 36, h - 37, "#3e2450");
+    pixelRect(x + w / 2 - 3, y + 27, 6, 20, "#ffcf5a");
+
+    // Cabeça e cocar
+    pixelRect(x + w / 2 - 9, y + 8 + bob, 18, 15, "#f4bd8f");
+    pixelRect(x + w / 2 - 14, y + 3 + bob, 28, 8, "#ffcf5a");
+    pixelRect(x + w / 2 - 18, y + 7 + bob, 6, 18, "#e7b93d");
+    pixelRect(x + w / 2 + 12, y + 7 + bob, 6, 18, "#e7b93d");
+    pixelRect(x + w / 2 - 2, y + 3 + bob, 4, 6, "#fff0a8");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + w / 2 - 6, y + 15 + bob, 3, 3);
+    ctx.fillRect(x + w / 2 + 3, y + 15 + bob, 3, 3);
+
+    // Sol flutuando
+    const sunX = x + w / 2;
+    const sunY = y - 6 + bob;
+    ctx.fillStyle = "rgba(255, 242, 100, 0.9)";
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 242, 100, 0.85)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 8; i += 1) {
+      const a = i * Math.PI / 4 + performance.now() / 900;
+      ctx.beginPath();
+      ctx.moveTo(sunX + Math.cos(a) * 9, sunY + Math.sin(a) * 9);
+      ctx.lineTo(sunX + Math.cos(a) * 15, sunY + Math.sin(a) * 15);
+      ctx.stroke();
+    }
+
+    // Cetro
+    pixelRect(x + w - 12, y + 18, 3, h - 16, "#6c4630");
+    pixelRect(x + w - 15, y + 16, 9, 6, "#fff0a8");
+  }
+
+  function drawIceQueen(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const bob = bossPulse(2.1, 1.1);
+    drawBossShadow(x, y, w, h);
+    drawBossAura(x - 4, y - 4, w + 8, h + 12, "rgba(189, 242, 255, ALPHA)", "rgba(85, 232, 255, ALPHA)", 0.24);
+
+    // Vestido
+    ctx.fillStyle = "#d8f6ff";
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y + 20);
+    ctx.lineTo(x + 10, y + h - 4);
+    ctx.lineTo(x + w - 10, y + h - 4);
+    ctx.closePath();
+    ctx.fill();
+    pixelRect(x + w / 2 - 8, y + 18, 16, 18, "#9edfff");
+    pixelRect(x + w / 2 - 5, y + 22, 10, h - 30, "#ffffff");
+
+    // Mangas/ombros
+    pixelRect(x + 10, y + 25, 10, 9, "#bdf2ff");
+    pixelRect(x + w - 20, y + 25, 10, 9, "#bdf2ff");
+
+    // Cabeça
+    pixelRect(x + w / 2 - 8, y + 7 + bob, 16, 14, "#f4d7c7");
+    ctx.fillStyle = "#8ed4ff";
+    ctx.fillRect(x + w / 2 - 10, y + 4 + bob, 20, 5);
+    ctx.fillRect(x + w / 2 - 11, y + 8 + bob, 22, 4);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + w / 2 - 5, y + 14 + bob, 2, 2);
+    ctx.fillRect(x + w / 2 + 3, y + 14 + bob, 2, 2);
+
+    // Coroa / cristais
+    for (let i = -2; i <= 2; i += 1) {
+      pixelRect(x + w / 2 + i * 4 - 1, y - 1 + bob - Math.abs(i), 3, 6 + Math.abs(i) * 2, i === 0 ? "#ffffff" : "#bdf2ff");
+    }
+
+    // Cristais laterais
+    for (let i = 0; i < 5; i += 1) {
+      const cx = x + 4 + i * 10;
+      const cy = y + h - 20 - (i % 2) * 4;
+      ctx.fillStyle = i % 2 ? "rgba(189,242,255,0.65)" : "rgba(255,255,255,0.55)";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + 5, cy - 10);
+      ctx.lineTo(cx + 10, cy);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawSwampWitch(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const bob = bossPulse(1.8, 1.2);
+    drawBossShadow(x, y, w, h);
+    drawBossAura(x - 6, y, w + 12, h + 6, "rgba(140, 255, 74, ALPHA)", "rgba(53, 86, 68, ALPHA)", 0.22);
+
+    // Saia/vestes irregulares
+    ctx.fillStyle = "#3a2750";
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y + 18);
+    ctx.lineTo(x + 8, y + h - 4);
+    ctx.lineTo(x + w - 8, y + h - 3);
+    ctx.closePath();
+    ctx.fill();
+
+    // Capuz
+    ctx.fillStyle = "#273052";
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y + 4 + bob);
+    ctx.lineTo(x + w / 2 - 14, y + 18 + bob);
+    ctx.lineTo(x + w / 2 + 14, y + 18 + bob);
+    ctx.closePath();
+    ctx.fill();
+    pixelRect(x + w / 2 - 8, y + 10 + bob, 16, 12, "#9c7d5d");
+    ctx.fillStyle = "#8cff4a";
+    ctx.fillRect(x + w / 2 - 6, y + 14 + bob, 3, 3);
+    ctx.fillRect(x + w / 2 + 3, y + 14 + bob, 3, 3);
+
+    // Cajado venenoso
+    pixelRect(x + 6, y + 18, 3, h - 14, "#5f4329");
+    ctx.fillStyle = "#8cff4a";
+    ctx.beginPath();
+    ctx.arc(x + 7.5, y + 16, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Raízes / tentáculos
+    ctx.strokeStyle = "rgba(98, 174, 72, 0.88)";
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 5; i += 1) {
+      const sx = x + 12 + i * 7;
+      ctx.beginPath();
+      ctx.moveTo(sx, y + h - 8);
+      ctx.quadraticCurveTo(sx - 5 + i, y + h - 1, sx + ((i % 2) ? 6 : -6), y + h + 8);
+      ctx.stroke();
+    }
+  }
+
+  function drawCorruptedReactor(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const pulse = 0.88 + Math.sin(performance.now() / 180) * 0.12;
+    drawBossShadow(x, y, w, h);
+    drawBossAura(x - 10, y - 6, w + 20, h + 12, "rgba(128, 255, 43, ALPHA)", "rgba(39, 48, 82, ALPHA)", 0.26);
+
+    // Tentáculos
+    ctx.strokeStyle = "rgba(112, 255, 77, 0.55)";
+    ctx.lineWidth = 6;
+    for (let i = 0; i < 4; i += 1) {
+      const side = i < 2 ? -1 : 1;
+      const offY = (i % 2) * 18 + 18;
+      ctx.beginPath();
+      ctx.moveTo(x + w / 2 + side * 22, y + offY);
+      ctx.quadraticCurveTo(x + w / 2 + side * 42, y + offY + 6, x + w / 2 + side * 32, y + h - 4);
+      ctx.stroke();
+    }
+
+    // Corpo principal
+    pixelRect(x + 10, y + 9, w - 20, h - 18, "#273052");
+    pixelRect(x + 16, y + 15, w - 32, h - 30, "#3e476f");
+    pixelRect(x + 26, y + 18, w - 52, h - 36, "#1f2538");
+
+    // Núcleo
+    const coreX = x + w / 2 - 11;
+    const coreY = y + h / 2 - 16;
+    pixelRect(coreX - 6, coreY - 6, 34, 42, "#5e7087");
+    pixelRect(coreX, coreY, 22, 30, "#80ff2b");
+    pixelRect(coreX + 7, coreY + 3, 8, 24, "#d9ff97");
+    ctx.fillStyle = `rgba(217, 255, 151, ${0.26 * pulse})`;
+    ctx.fillRect(coreX - 10, coreY - 8, 42, 46);
+
+    // Tubos
+    pixelRect(x + 2, y + 18, 10, 14, "#59647c");
+    pixelRect(x + w - 12, y + 18, 10, 14, "#59647c");
+    pixelRect(x + 2, y + h - 32, 10, 14, "#59647c");
+    pixelRect(x + w - 12, y + h - 32, 10, 14, "#59647c");
+  }
+
+  function drawFallenSeraph(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const bob = bossPulse(2.0, 1.4);
+    drawBossShadow(x, y, w, h);
+    drawBossAura(x - 8, y - 6, w + 16, h + 14, "rgba(217, 195, 255, ALPHA)", "rgba(255, 255, 255, ALPHA)", 0.2);
+
+    // Asas
+    ctx.fillStyle = "rgba(240, 235, 255, 0.9)";
+    ctx.beginPath();
+    ctx.ellipse(x + 11, y + 30, 12, 24, -0.65, 0, Math.PI * 2);
+    ctx.ellipse(x + w - 11, y + 30, 12, 24, 0.65, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(180, 109, 255, 0.28)";
+    ctx.fillRect(x + 2, y + 19, 10, 23);
+    ctx.fillRect(x + w - 12, y + 19, 10, 23);
+
+    // Robe
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y + 20);
+    ctx.lineTo(x + 14, y + h - 4);
+    ctx.lineTo(x + w - 14, y + h - 4);
+    ctx.closePath();
+    ctx.fill();
+    pixelRect(x + w / 2 - 6, y + 20, 12, h - 28, "#d9c3ff");
+    pixelRect(x + w / 2 - 2, y + 22, 4, h - 30, "#fff4ac");
+
+    // Cabeça / halo quebrado
+    pixelRect(x + w / 2 - 8, y + 7 + bob, 16, 14, "#f4d7c7");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + w / 2 - 5, y + 14 + bob, 2, 2);
+    ctx.fillRect(x + w / 2 + 3, y + 14 + bob, 2, 2);
+    ctx.strokeStyle = "rgba(255, 244, 172, 0.9)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x + w / 2, y + 3 + bob, 11, Math.PI * 0.16, Math.PI * 1.84);
+    ctx.stroke();
+
+    // Fragmentos de luz
+    for (let i = 0; i < 4; i += 1) {
+      pixelRect(x + 8 + i * 11, y - 2 + (i % 2) * 4 + bob, 3, 5, i % 2 ? "#fff4ac" : "#d9c3ff");
+    }
+  }
+
+  function drawAncientCatacombLord(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const pulse = bossPulse(1.7, 1.0);
+    drawBossShadow(x, y, w, h);
+    drawBossAura(x - 6, y - 4, w + 12, h + 10, "rgba(180, 109, 255, ALPHA)", "rgba(39, 48, 82, ALPHA)", 0.18);
+
+    // Capa
+    ctx.fillStyle = "#332042";
+    ctx.beginPath();
+    ctx.moveTo(x + 14, y + 22);
+    ctx.lineTo(x + 6, y + h - 5);
+    ctx.lineTo(x + w - 6, y + h - 5);
+    ctx.lineTo(x + w - 14, y + 22);
+    ctx.closePath();
+    ctx.fill();
+
+    // Armadura
+    pixelRect(x + 16, y + 18, w - 32, h - 24, "#5b677f");
+    pixelRect(x + 20, y + 22, w - 40, h - 34, "#3d455a");
+    pixelRect(x + w / 2 - 4, y + 22, 8, h - 32, "#d9c3ff");
+    pixelRect(x + 10, y + 24, 8, 10, "#59647c");
+    pixelRect(x + w - 18, y + 24, 8, 10, "#59647c");
+
+    // Cabeça e chifres
+    pixelRect(x + w / 2 - 9, y + 6 + pulse, 18, 14, "#c9d3df");
+    ctx.fillStyle = "#b46dff";
+    ctx.fillRect(x + w / 2 - 6, y + 12 + pulse, 3, 3);
+    ctx.fillRect(x + w / 2 + 3, y + 12 + pulse, 3, 3);
+    ctx.strokeStyle = "#c9d3df";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2 - 7, y + 8 + pulse);
+    ctx.lineTo(x + w / 2 - 18, y - 2 + pulse);
+    ctx.moveTo(x + w / 2 + 7, y + 8 + pulse);
+    ctx.lineTo(x + w / 2 + 18, y - 2 + pulse);
+    ctx.stroke();
+
+    // Espinhos
+    for (let i = 0; i < 5; i += 1) {
+      pixelRect(x + 10 + i * 9, y + h - 10, 3, 6 + (i % 2) * 2, "#b46dff");
+    }
+  }
+
+  function drawBossCustom(obj) {
+    if (obj.kind === "solarPharaoh") return drawSolarPharaoh(obj);
+    if (obj.kind === "iceQueen") return drawIceQueen(obj);
+    if (obj.kind === "supremeSwampWitch") return drawSwampWitch(obj);
+    if (obj.kind === "corruptedReactor") return drawCorruptedReactor(obj);
+    if (obj.kind === "fallenSeraph") return drawFallenSeraph(obj);
+    if (obj.kind === "ancientCatacombLord") return drawAncientCatacombLord(obj);
+    return false;
+  }
+
+  const drawEnemyBeforeBossVisualUpgrade = drawEnemy;
+  drawEnemy = function drawEnemyBossVisualUpgradePatch(obj) {
+    if (!obj?.boss) return drawEnemyBeforeBossVisualUpgrade(obj);
+
+    const blinking = obj.invulnerableTimer > 0 && Math.floor(performance.now() / 70) % 2 === 0;
+    const phaseGlow = obj.phase === 2;
+
+    ctx.save();
+    if (blinking) ctx.globalAlpha = 0.45;
+    if (phaseGlow) {
+      ctx.fillStyle = "rgba(255, 79, 98, 0.15)";
+      ctx.beginPath();
+      ctx.ellipse(obj.x + obj.width / 2, obj.y + obj.height / 2, obj.width * 0.7, obj.height * 0.7, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const handled = drawBossCustom(obj);
+    ctx.restore();
+
+    if (!handled) {
+      return drawEnemyBeforeBossVisualUpgrade(obj);
+    }
+  };
+})();
+
+
+/* ==================================================
+   REWORK VISUAL FINAL DOS BOSSES
+   Objetivo: parar de parecer quadrado de verdade.
+   Silhuetas bem mais exageradas, com partes saindo do hitbox.
+   ================================================== */
+(function eternalRiftBossesNotSquareFinalPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BOSSES_NOT_SQUARE_FINAL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BOSSES_NOT_SQUARE_FINAL_PATCH = true;
+
+  function pulse(speed = 2, amp = 1) {
+    return Math.sin(performance.now() / 1000 * speed) * amp;
+  }
+
+  function drawSoftAura(cx, cy, rx, ry, inner, outer) {
+    const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(rx, ry));
+    g.addColorStop(0, inner);
+    g.addColorStop(0.6, outer);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawBossGroundShadow(cx, cy, rx, ry) {
+    ctx.fillStyle = "rgba(17,18,28,0.32)";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawSolarPharaohEpic(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const cx = x + w / 2;
+    const bob = pulse(1.8, 1.2);
+
+    drawBossGroundShadow(cx, y + h + 2, 24, 8);
+    drawSoftAura(cx, y + h / 2, 42, 34, "rgba(255,228,123,0.22)", "rgba(255,135,64,0.12)");
+
+    // capa aberta bem larga
+    ctx.fillStyle = "#782930";
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 24);
+    ctx.lineTo(x - 4, y + h - 4);
+    ctx.lineTo(x + 16, y + h - 8);
+    ctx.lineTo(cx, y + h - 16);
+    ctx.lineTo(x + w - 16, y + h - 8);
+    ctx.lineTo(x + w + 4, y + h - 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // braços e cetro
+    pixelRect(x + 5, y + 27, 10, 8, "#d38f24");
+    pixelRect(x + w - 15, y + 26, 10, 8, "#d38f24");
+    pixelRect(x + w + 4, y + 18, 4, h - 10, "#6a482c");
+    pixelRect(x + w + 1, y + 14, 10, 8, "#fff0a8");
+
+    // corpo
+    pixelRect(cx - 11, y + 22, 22, 28, "#d39a37");
+    pixelRect(cx - 8, y + 27, 16, 23, "#3b234f");
+    pixelRect(cx - 2, y + 24, 4, 26, "#ffcf5a");
+
+    // saia/tiras
+    for (let i = -2; i <= 2; i += 1) {
+      pixelRect(cx + i * 5 - 1, y + 43, 3, 14 + Math.abs(i), i % 2 === 0 ? "#d39a37" : "#ffcf5a");
+    }
+
+    // cabeça
+    pixelRect(cx - 8, y + 9 + bob, 16, 14, "#f4bd8f");
+
+    // cocar triangular grande
+    ctx.fillStyle = "#ffcf5a";
+    ctx.beginPath();
+    ctx.moveTo(cx, y - 4 + bob);
+    ctx.lineTo(cx - 18, y + 10 + bob);
+    ctx.lineTo(cx - 10, y + 24 + bob);
+    ctx.lineTo(cx + 10, y + 24 + bob);
+    ctx.lineTo(cx + 18, y + 10 + bob);
+    ctx.closePath();
+    ctx.fill();
+    pixelRect(cx - 3, y - 2 + bob, 6, 10, "#fff0a8");
+    pixelRect(cx - 18, y + 7 + bob, 6, 20, "#e5b43a");
+    pixelRect(cx + 12, y + 7 + bob, 6, 20, "#e5b43a");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(cx - 5, y + 15 + bob, 2, 2);
+    ctx.fillRect(cx + 3, y + 15 + bob, 2, 2);
+
+    // sol flutuante
+    const sunX = cx;
+    const sunY = y - 10 + bob;
+    ctx.fillStyle = "rgba(255,244,172,0.95)";
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,214,76,0.9)";
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 10; i += 1) {
+      const a = i * (Math.PI * 2 / 10) + performance.now() / 1100;
+      ctx.beginPath();
+      ctx.moveTo(sunX + Math.cos(a) * 10, sunY + Math.sin(a) * 10);
+      ctx.lineTo(sunX + Math.cos(a) * 16, sunY + Math.sin(a) * 16);
+      ctx.stroke();
+    }
+  }
+
+  function drawIceQueenEpic(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const cx = x + w / 2;
+    const bob = pulse(2.0, 1.0);
+
+    drawBossGroundShadow(cx, y + h + 1, 24, 8);
+    drawSoftAura(cx, y + h / 2, 40, 36, "rgba(189,242,255,0.22)", "rgba(85,232,255,0.12)");
+
+    // asas/cristais laterais grandes
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = side === -1 ? "rgba(189,242,255,0.72)" : "rgba(220,250,255,0.78)";
+      ctx.beginPath();
+      ctx.moveTo(cx + side * 12, y + 24);
+      ctx.lineTo(cx + side * 30, y + 8);
+      ctx.lineTo(cx + side * 42, y + 28);
+      ctx.lineTo(cx + side * 26, y + 43);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx + side * 10, y + 34);
+      ctx.lineTo(cx + side * 34, y + 28);
+      ctx.lineTo(cx + side * 24, y + 56);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // vestido em triângulo
+    ctx.fillStyle = "#f3fdff";
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 22);
+    ctx.lineTo(x + 10, y + h - 3);
+    ctx.lineTo(x + w - 10, y + h - 3);
+    ctx.closePath();
+    ctx.fill();
+    pixelRect(cx - 9, y + 22, 18, 20, "#9edfff");
+    pixelRect(cx - 3, y + 22, 6, 28, "#ffffff");
+
+    // braços
+    pixelRect(x + 12, y + 26, 8, 8, "#d8f6ff");
+    pixelRect(x + w - 20, y + 26, 8, 8, "#d8f6ff");
+
+    // cabeça
+    pixelRect(cx - 8, y + 9 + bob, 16, 14, "#f4d7c7");
+    ctx.fillStyle = "#8ed4ff";
+    ctx.fillRect(cx - 10, y + 6 + bob, 20, 4);
+    ctx.fillRect(cx - 11, y + 10 + bob, 22, 3);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(cx - 5, y + 15 + bob, 2, 2);
+    ctx.fillRect(cx + 3, y + 15 + bob, 2, 2);
+
+    // coroa de gelo
+    for (let i = -3; i <= 3; i += 1) {
+      const height = 5 + (3 - Math.abs(i)) * 3;
+      pixelRect(cx + i * 4 - 1, y + 1 + bob - height * 0.35, 3, height, i === 0 ? "#ffffff" : "#bdf2ff");
+    }
+
+    // cristais no chão
+    for (let i = -2; i <= 2; i += 1) {
+      ctx.fillStyle = i % 2 === 0 ? "rgba(189,242,255,0.72)" : "rgba(255,255,255,0.65)";
+      ctx.beginPath();
+      ctx.moveTo(cx + i * 10, y + h - 6);
+      ctx.lineTo(cx + i * 10 - 4, y + h + 4);
+      ctx.lineTo(cx + i * 10 + 4, y + h + 4);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  function drawSwampWitchEpic(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const cx = x + w / 2;
+    const bob = pulse(1.7, 1.2);
+
+    drawBossGroundShadow(cx, y + h + 2, 26, 8);
+    drawSoftAura(cx, y + h / 2 + 2, 42, 34, "rgba(140,255,74,0.18)", "rgba(53,86,68,0.12)");
+
+    // chapéu torto grande
+    ctx.fillStyle = "#2a203a";
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 2 + bob);
+    ctx.lineTo(cx - 12, y + 18 + bob);
+    ctx.lineTo(cx - 4, y + 19 + bob);
+    ctx.lineTo(cx + 8, y + 8 + bob);
+    ctx.lineTo(cx + 18, y + 19 + bob);
+    ctx.lineTo(cx + 6, y + 18 + bob);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillRect(cx - 18, y + 17 + bob, 36, 4);
+
+    // rosto
+    pixelRect(cx - 8, y + 18 + bob, 16, 12, "#9c7d5d");
+    ctx.fillStyle = "#8cff4a";
+    ctx.fillRect(cx - 5, y + 23 + bob, 2, 2);
+    ctx.fillRect(cx + 3, y + 23 + bob, 2, 2);
+
+    // robe irregular
+    ctx.fillStyle = "#412258";
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 28);
+    ctx.lineTo(x + 8, y + h - 4);
+    ctx.lineTo(x + 18, y + h - 10);
+    ctx.lineTo(cx, y + h - 6);
+    ctx.lineTo(x + w - 18, y + h - 10);
+    ctx.lineTo(x + w - 8, y + h - 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // braços
+    pixelRect(x + 10, y + 31, 9, 8, "#5e3b72");
+    pixelRect(x + w - 19, y + 31, 9, 8, "#5e3b72");
+
+    // cajado
+    pixelRect(x - 2, y + 24, 4, h - 8, "#614228");
+    ctx.fillStyle = "#8cff4a";
+    ctx.beginPath();
+    ctx.arc(x, y + 22, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // raízes espalhadas
+    ctx.strokeStyle = "rgba(98,174,72,0.85)";
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 6; i += 1) {
+      const sx = x + 10 + i * 7;
+      ctx.beginPath();
+      ctx.moveTo(sx, y + h - 6);
+      ctx.quadraticCurveTo(sx - 6 + i, y + h + 4, sx + ((i % 2) ? 9 : -9), y + h + 12);
+      ctx.stroke();
+    }
+  }
+
+  function drawCorruptedReactorEpic(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const p = 0.82 + Math.sin(performance.now() / 160) * 0.12;
+
+    drawBossGroundShadow(cx, y + h + 4, 34, 10);
+    drawSoftAura(cx, cy, 52, 42, "rgba(128,255,43,0.20)", "rgba(80,255,43,0.08)");
+
+    // tentáculos grossos, já quebrando a silhueta quadrada
+    ctx.strokeStyle = "rgba(112,255,77,0.55)";
+    ctx.lineWidth = 7;
+    const tentacles = [
+      [x + 16, y + 20, x - 14, y + 10, x - 8, y + 42],
+      [x + 18, y + h - 22, x - 18, y + h - 2, x - 6, y + h + 10],
+      [x + w - 16, y + 20, x + w + 14, y + 12, x + w + 10, y + 44],
+      [x + w - 18, y + h - 22, x + w + 18, y + h - 4, x + w + 6, y + h + 12]
+    ];
+    for (const t of tentacles) {
+      ctx.beginPath();
+      ctx.moveTo(t[0], t[1]);
+      ctx.quadraticCurveTo(t[2], t[3], t[4], t[5]);
+      ctx.stroke();
+    }
+
+    // corpo rachado em forma menos quadrada
+    ctx.fillStyle = "#273052";
+    ctx.beginPath();
+    ctx.moveTo(cx - 24, y + 10);
+    ctx.lineTo(cx + 24, y + 10);
+    ctx.lineTo(x + w - 12, cy);
+    ctx.lineTo(cx + 20, y + h - 10);
+    ctx.lineTo(cx - 20, y + h - 10);
+    ctx.lineTo(x + 12, cy);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#445170";
+    ctx.beginPath();
+    ctx.moveTo(cx - 18, y + 16);
+    ctx.lineTo(cx + 18, y + 16);
+    ctx.lineTo(x + w - 18, cy);
+    ctx.lineTo(cx + 15, y + h - 16);
+    ctx.lineTo(cx - 15, y + h - 16);
+    ctx.lineTo(x + 18, cy);
+    ctx.closePath();
+    ctx.fill();
+
+    // núcleo vertical
+    pixelRect(cx - 12, cy - 17, 24, 34, "#80ff2b");
+    pixelRect(cx - 4, cy - 12, 8, 24, "#d9ff97");
+    ctx.fillStyle = `rgba(217,255,151,${0.30 * p})`;
+    ctx.fillRect(cx - 18, cy - 22, 36, 44);
+
+    // chaminés/torres laterais
+    pixelRect(x + 6, y + 22, 8, 20, "#5f6985");
+    pixelRect(x + w - 14, y + 22, 8, 20, "#5f6985");
+    pixelRect(x + 10, y + 14, 2, 8, "#80ff2b");
+    pixelRect(x + w - 12, y + 14, 2, 8, "#80ff2b");
+  }
+
+  function drawFallenSeraphEpic(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const cx = x + w / 2;
+    const bob = pulse(2.1, 1.3);
+
+    drawBossGroundShadow(cx, y + h + 1, 24, 8);
+    drawSoftAura(cx, y + h / 2, 45, 38, "rgba(217,195,255,0.20)", "rgba(255,255,255,0.10)");
+
+    // asas grandes
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = side === -1 ? "rgba(246,242,255,0.88)" : "rgba(230,218,255,0.92)";
+      ctx.beginPath();
+      ctx.moveTo(cx + side * 6, y + 24);
+      ctx.lineTo(cx + side * 22, y + 10);
+      ctx.lineTo(cx + side * 38, y + 20);
+      ctx.lineTo(cx + side * 28, y + 34);
+      ctx.lineTo(cx + side * 42, y + 48);
+      ctx.lineTo(cx + side * 18, y + 46);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // túnica
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 20);
+    ctx.lineTo(x + 14, y + h - 4);
+    ctx.lineTo(x + w - 14, y + h - 4);
+    ctx.closePath();
+    ctx.fill();
+    pixelRect(cx - 7, y + 22, 14, h - 28, "#d9c3ff");
+    pixelRect(cx - 2, y + 22, 4, h - 26, "#fff4ac");
+
+    // cabeça
+    pixelRect(cx - 8, y + 8 + bob, 16, 14, "#f4d7c7");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(cx - 5, y + 15 + bob, 2, 2);
+    ctx.fillRect(cx + 3, y + 15 + bob, 2, 2);
+
+    // halo quebrado
+    ctx.strokeStyle = "rgba(255,244,172,0.95)";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, y + 4 + bob, 12, Math.PI * 0.20, Math.PI * 1.72);
+    ctx.stroke();
+    pixelRect(cx + 9, y - 1 + bob, 4, 2, "#d9c3ff");
+
+    // luzes
+    for (let i = -2; i <= 2; i += 1) {
+      pixelRect(cx + i * 6 - 1, y - 4 + (i % 2 ? 4 : 0) + bob, 3, 5, i % 2 ? "#fff4ac" : "#d9c3ff");
+    }
+  }
+
+  function drawAncientCatacombLordEpic(obj) {
+    const x = obj.x, y = obj.y, w = obj.width, h = obj.height;
+    const cx = x + w / 2;
+    const bob = pulse(1.5, 0.9);
+
+    drawBossGroundShadow(cx, y + h + 2, 28, 9);
+    drawSoftAura(cx, y + h / 2, 42, 36, "rgba(180,109,255,0.16)", "rgba(39,48,82,0.08)");
+
+    // capa grossa
+    ctx.fillStyle = "#2e203d";
+    ctx.beginPath();
+    ctx.moveTo(cx, y + 18);
+    ctx.lineTo(x + 6, y + h - 4);
+    ctx.lineTo(cx, y + h - 12);
+    ctx.lineTo(x + w - 6, y + h - 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // armadura
+    pixelRect(cx - 14, y + 20, 28, 28, "#5b677f");
+    pixelRect(cx - 10, y + 24, 20, 20, "#394458");
+    pixelRect(cx - 2, y + 22, 4, 24, "#d9c3ff");
+
+    // pauldrons
+    pixelRect(cx - 22, y + 22, 10, 10, "#6a7591");
+    pixelRect(cx + 12, y + 22, 10, 10, "#6a7591");
+
+    // cabeça
+    pixelRect(cx - 9, y + 7 + bob, 18, 14, "#cad1dd");
+    ctx.fillStyle = "#b46dff";
+    ctx.fillRect(cx - 5, y + 13 + bob, 2, 2);
+    ctx.fillRect(cx + 3, y + 13 + bob, 2, 2);
+
+    // chifres exagerados
+    ctx.strokeStyle = "#cad1dd";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, y + 10 + bob);
+    ctx.lineTo(cx - 18, y - 2 + bob);
+    ctx.lineTo(cx - 24, y + 6 + bob);
+    ctx.moveTo(cx + 7, y + 10 + bob);
+    ctx.lineTo(cx + 18, y - 2 + bob);
+    ctx.lineTo(cx + 24, y + 6 + bob);
+    ctx.stroke();
+
+    // espada lateral
+    pixelRect(x + w + 2, y + 16, 3, h - 2, "#7d8599");
+    pixelRect(x + w, y + 14, 7, 4, "#b46dff");
+  }
+
+  function drawBossEpicShape(obj) {
+    if (obj.kind === "solarPharaoh") return drawSolarPharaohEpic(obj), true;
+    if (obj.kind === "iceQueen") return drawIceQueenEpic(obj), true;
+    if (obj.kind === "supremeSwampWitch") return drawSwampWitchEpic(obj), true;
+    if (obj.kind === "corruptedReactor") return drawCorruptedReactorEpic(obj), true;
+    if (obj.kind === "fallenSeraph") return drawFallenSeraphEpic(obj), true;
+    if (obj.kind === "ancientCatacombLord") return drawAncientCatacombLordEpic(obj), true;
+    return false;
+  }
+
+  const drawEnemyBeforeBossesNotSquareFinal = drawEnemy;
+  drawEnemy = function drawEnemyBossesNotSquareFinalPatch(obj) {
+    if (!obj?.boss) return drawEnemyBeforeBossesNotSquareFinal(obj);
+
+    const blinking = obj.invulnerableTimer > 0 && Math.floor(performance.now() / 70) % 2 === 0;
+    const phaseGlow = obj.phase === 2;
+
+    ctx.save();
+    if (blinking) ctx.globalAlpha = 0.45;
+    if (phaseGlow) {
+      drawSoftAura(obj.x + obj.width / 2, obj.y + obj.height / 2, obj.width * 0.8, obj.height * 0.8, "rgba(255,79,98,0.12)", "rgba(255,79,98,0.04)");
+    }
+
+    const handled = drawBossEpicShape(obj);
+    ctx.restore();
+
+    if (!handled) return drawEnemyBeforeBossesNotSquareFinal(obj);
+  };
+})();
+
+
+/* ==================================================
+   PRODUÇÃO DOS PODERES NOVOS
+   - remove mana infinita
+   - tira poderes novos do inventário até serem conquistados
+   - deixa poderes antigos nos 4 slots iniciais
+   - poderes novos agora vêm de bosses e baús
+   ================================================== */
+(function eternalRiftNewPowersProductionPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_NEW_POWERS_PRODUCTION_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_NEW_POWERS_PRODUCTION_PATCH = true;
+
+  const OLD_POWER_LOADOUT = ["fireball", "blueRay", "shockwave", "heal"];
+  const NEW_POWER_KEYS = [
+    "celestialSpear",
+    "eternalIceExplosion",
+    "solarSandTornado",
+    "venomRoots",
+    "dimensionalSlash",
+    "crimsonMeteor",
+    "divineShield",
+    "shadowTeleport"
+  ];
+
+  const POWER_NAMES_PRODUCTION = {
+    celestialSpear: "Lança Celestial",
+    eternalIceExplosion: "Explosão de Gelo Eterno",
+    solarSandTornado: "Tornado de Areia Solar",
+    venomRoots: "Raízes Venenosas",
+    dimensionalSlash: "Corte Dimensional",
+    crimsonMeteor: "Meteoro Carmesim",
+    divineShield: "Escudo Divino",
+    shadowTeleport: "Teleporte Sombrio"
+  };
+
+  const POWER_DROP_BY_BOSS = {
+    fallenSeraph: "celestialSpear",
+    serafimCorrompido: "celestialSpear",
+
+    iceQueen: "eternalIceExplosion",
+    yetiAncestral: "eternalIceExplosion",
+
+    solarPharaoh: "solarSandTornado",
+    faraoAreia: "solarSandTornado",
+
+    supremeSwampWitch: "venomRoots",
+    bruxaDoPantano: "venomRoots",
+
+    ancientCatacombLord: "dimensionalSlash",
+    corruptedReactor: "dimensionalSlash",
+    bruxoSombrio: "dimensionalSlash"
+  };
+
+  const POWER_DROP_BY_BIOME_CHEST = {
+    desert: "solarSandTornado",
+    frozen: "eternalIceExplosion",
+    swamp: "venomRoots"
+  };
+
+  const POWER_DROP_BY_DUNGEON_CHEST = {
+    desertTemple: "crimsonMeteor",
+    frozenCrypt: "eternalIceExplosion",
+    toxicLab: "venomRoots",
+    brokenTower: "divineShield",
+    ancientCatacomb: "dimensionalSlash"
+  };
+
+  function ensureProductionPowerState() {
+    if (!questBook.eternalPowerProduction || typeof questBook.eternalPowerProduction !== "object") {
+      questBook.eternalPowerProduction = {
+        unlocked: [],
+        initializedOldLoadout: false,
+        chestRewards: {},
+        bossRewards: {}
+      };
+    }
+
+    const state = questBook.eternalPowerProduction;
+    if (!Array.isArray(state.unlocked)) state.unlocked = [];
+    if (!state.chestRewards || typeof state.chestRewards !== "object") state.chestRewards = {};
+    if (!state.bossRewards || typeof state.bossRewards !== "object") state.bossRewards = {};
+
+    // Ao sair do modo teste, volta os 4 slots para os poderes antigos.
+    if (!state.initializedOldLoadout) {
+      if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") {
+        questBook.eternalPowerTest = {};
+      }
+      questBook.eternalPowerTest.loadout = [...OLD_POWER_LOADOUT];
+      questBook.eternalPowerTest.activeSlot = 0;
+      equippedPower = "fireball";
+      state.initializedOldLoadout = true;
+    }
+
+    if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") {
+      questBook.eternalPowerTest = { loadout: [...OLD_POWER_LOADOUT], activeSlot: 0 };
+    }
+
+    if (!Array.isArray(questBook.eternalPowerTest.loadout)) {
+      questBook.eternalPowerTest.loadout = [...OLD_POWER_LOADOUT];
+    }
+
+    while (questBook.eternalPowerTest.loadout.length < 4) {
+      questBook.eternalPowerTest.loadout.push(OLD_POWER_LOADOUT[questBook.eternalPowerTest.loadout.length] || "fireball");
+    }
+
+    questBook.eternalPowerTest.loadout = questBook.eternalPowerTest.loadout.slice(0, 4).map((key, index) => {
+      if (NEW_POWER_KEYS.includes(key) && !state.unlocked.includes(key)) {
+        return OLD_POWER_LOADOUT[index] || "fireball";
+      }
+      return key || OLD_POWER_LOADOUT[index] || "fireball";
+    });
+
+    for (let i = 0; i < 4; i += 1) {
+      powerSlots[i] = questBook.eternalPowerTest.loadout[i];
+    }
+
+    questBook.eternalPowerTest.activeSlot = Math.max(0, Math.min(3, Number(questBook.eternalPowerTest.activeSlot || 0)));
+
+    if (NEW_POWER_KEYS.includes(equippedPower) && !state.unlocked.includes(equippedPower)) {
+      equippedPower = powerSlots[questBook.eternalPowerTest.activeSlot] || "fireball";
+    }
+
+    for (const key of NEW_POWER_KEYS) {
+      if (player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+      if (POWER_NAMES_PRODUCTION[key]) powerNames[key] = POWER_NAMES_PRODUCTION[key];
+    }
+
+    return state;
+  }
+
+  function hasProductionPower(powerKey) {
+    const state = ensureProductionPowerState();
+    return state.unlocked.includes(powerKey);
+  }
+
+  function grantProductionPower(powerKey, sourceText = "Poder conquistado") {
+    if (!NEW_POWER_KEYS.includes(powerKey)) return false;
+    const state = ensureProductionPowerState();
+    if (state.unlocked.includes(powerKey)) return false;
+
+    state.unlocked.push(powerKey);
+    const name = POWER_NAMES_PRODUCTION[powerKey] || powerNames[powerKey] || "Poder";
+    spawnFloatingText(`Novo poder: ${name}`, player.x + 4, player.y - 34, "#fff264");
+    showHudToast(`${name} desbloqueado! Veja na aba Poderes.`);
+    playSound("mission");
+    vibrate([28, 38, 28]);
+    renderInventory();
+    updateHud();
+    return true;
+  }
+
+  // Mana volta ao normal: gastar mana novamente.
+  spendMana = function spendManaProductionPatch(cost) {
+    const realCost = Number(cost || 0);
+    if (player.mana < realCost) {
+      spawnFloatingText("Mana insuficiente!", player.x - 18, player.y - 18, "#55e8ff");
+      showHudToast("Mana insuficiente!");
+      return false;
+    }
+
+    player.mana = Math.max(0, player.mana - realCost);
+    return true;
+  };
+
+  // Remove o wrapper da mana infinita: mana regenera normal, sem encher à força.
+  updateTimedEffects = function updateTimedEffectsProductionPatch(delta) {
+    updatePowerUps(delta);
+    playerInvulnerableTimer = Math.max(0, playerInvulnerableTimer - delta);
+    player.mana = Math.min(player.maxMana, player.mana + player.manaRegen * delta);
+
+    for (const key of Object.keys(player.spellCooldowns)) {
+      player.spellCooldowns[key] = Math.max(0, player.spellCooldowns[key] - delta);
+    }
+  };
+
+  // Recria o HUD sem forçar mana máxima.
+  updateHud = function updateHudProductionPatch() {
+    ensureProductionPowerState();
+    normalizeLevelState();
+    updateMobilePowerButtons();
+
+    if (playerNameEl) playerNameEl.textContent = getPlayerHudName();
+
+    if (xpHud) {
+      xpHud.textContent = player.level >= player.maxLevel ? "XP: Nivel maximo" : `XP: ${player.xp}/${player.xpToNextLevel}`;
+    }
+
+    if (xpFill) {
+      const percent = player.level >= player.maxLevel ? 100 : clamp((player.xp / player.xpToNextLevel) * 100, 0, 100);
+      xpFill.style.width = `${percent}%`;
+    }
+
+    if (healthHud) healthHud.textContent = "♥ ".repeat(player.health).trim() || "0";
+    if (manaHud) manaHud.textContent = `${Math.floor(player.mana)}/${player.maxMana}`;
+    if (manaFill) manaFill.style.width = `${clamp((player.mana / player.maxMana) * 100, 0, 100)}%`;
+    if (coinHud) coinHud.textContent = inventory.moedas;
+    if (playerPositionEl) playerPositionEl.textContent = getAreaName();
+
+    if (weaponHud) {
+      weaponHud.textContent = `Arma: ${getCurrentWeapon().name}${getCurrentWeaponKey() === "bow" ? ` (${inventory.flechas})` : ""}`;
+    }
+
+    if (oxygenHud) {
+      if (player.isSwimming) {
+        oxygenHud.textContent = activePowerUps.waterBreathing > 0 ? "Respirando" : `${Math.ceil(player.oxygen)}/${player.maxOxygen}`;
+      } else {
+        oxygenHud.textContent = "Fora da agua";
+      }
+    }
+
+    if (oxygenFill) oxygenFill.style.width = `${clamp((player.oxygen / player.maxOxygen) * 100, 0, 100)}%`;
+    const oxygenBox = oxygenHud?.closest?.(".hud-oxygen-box");
+    oxygenBox?.classList.toggle("mobile-hidden", isMobile && !player.isSwimming);
+    oxygenBox?.classList.toggle("hidden", !player.isSwimming);
+    oxygenBox?.classList.toggle("is-low", player.isSwimming && player.oxygen <= 3);
+
+    if (powerHud) powerHud.textContent = getPowerHudText();
+    if (statusOpen) renderStatusPanel();
+
+    const activeBoss = getActiveBoss();
+    bossHud?.classList.toggle("hidden", !activeBoss);
+    if (activeBoss) {
+      if (bossNameHud) bossNameHud.textContent = `${getEnemyDisplayName(activeBoss.kind)}${activeBoss.phase === 2 ? " - fase 2" : ""}`;
+      if (bossFill) bossFill.style.width = `${clamp((activeBoss.hp / activeBoss.maxHp) * 100, 0, 100)}%`;
+    }
+  };
+
+  const getInventoryItemsBeforeProductionPowers = getInventoryItems;
+  getInventoryItems = function getInventoryItemsProductionPowersPatch() {
+    const state = ensureProductionPowerState();
+    const items = getInventoryItemsBeforeProductionPowers();
+
+    // O patch de teste ainda cria todos os poderes novos. Aqui escondemos os não conquistados.
+    return items.filter((item) => {
+      if (!item?.powerKey) return true;
+      if (!NEW_POWER_KEYS.includes(item.powerKey)) return true;
+      return state.unlocked.includes(item.powerKey);
+    });
+  };
+
+  const handleInventoryActionBeforeProductionPowers = handleInventoryAction;
+  handleInventoryAction = function handleInventoryActionProductionPowersPatch(actionButton) {
+    const action = actionButton?.dataset?.inventoryAction;
+    const key = actionButton?.dataset?.powerKey;
+
+    if (action === "equipPowerSlot" && NEW_POWER_KEYS.includes(key) && !hasProductionPower(key)) {
+      playSound("invalid");
+      showHudToast("Você ainda não conquistou esse poder.");
+      renderInventory();
+      return;
+    }
+
+    const result = handleInventoryActionBeforeProductionPowers(actionButton);
+    ensureProductionPowerState();
+    renderInventory();
+    updateHud();
+    return result;
+  };
+
+  const equipPowerBeforeProductionPowers = equipPower;
+  equipPower = function equipPowerProductionPowersPatch(slotIndex) {
+    ensureProductionPowerState();
+    const index = Math.max(0, Math.min(3, Number(slotIndex || 0)));
+    const key = powerSlots[index];
+
+    if (NEW_POWER_KEYS.includes(key) && !hasProductionPower(key)) {
+      powerSlots[index] = OLD_POWER_LOADOUT[index] || "fireball";
+      questBook.eternalPowerTest.loadout[index] = powerSlots[index];
+    }
+
+    return equipPowerBeforeProductionPowers(index);
+  };
+
+  const getPowerHudTextBeforeProductionPowers = getPowerHudText;
+  getPowerHudText = function getPowerHudTextProductionPowersPatch() {
+    ensureProductionPowerState();
+    return getPowerHudTextBeforeProductionPowers();
+  };
+
+  const renderInventoryBeforeProductionPowers = renderInventory;
+  renderInventory = function renderInventoryProductionPowersPatch() {
+    ensureProductionPowerState();
+    return renderInventoryBeforeProductionPowers();
+  };
+
+  const updateBeforeProductionPowers = update;
+  update = function updateProductionPowersPatch(delta) {
+    ensureProductionPowerState();
+    updateBeforeProductionPowers(delta);
+    ensureProductionPowerState();
+  };
+
+  const defeatEnemyBeforeProductionPowers = defeatEnemy;
+  defeatEnemy = function defeatEnemyProductionPowersPatch(obj) {
+    const bossKey = obj?.bossId || obj?.kind || "";
+    const wasAlive = obj?.alive !== false;
+
+    const result = defeatEnemyBeforeProductionPowers(obj);
+
+    if (wasAlive && obj?.boss) {
+      const power = POWER_DROP_BY_BOSS[bossKey];
+      if (power) {
+        const state = ensureProductionPowerState();
+        if (!state.bossRewards[bossKey]) {
+          state.bossRewards[bossKey] = true;
+          grantProductionPower(power, `Boss: ${bossKey}`);
+        }
+      }
+    }
+
+    return result;
+  };
+
+  const getQuestMessageBeforeProductionPowers = getQuestMessage;
+  getQuestMessage = function getQuestMessageProductionPowersPatch(target) {
+    const beforeOpened = Boolean(target?.opened);
+    const beforeRareChest = Boolean(questBook.bossChestOpened);
+    const beforeDimensionChest = Boolean(dimensionQuest?.chestOpened);
+    const beforeCelestialChests = target?.chestId && questBook.celestial?.openedChests ? Boolean(questBook.celestial.openedChests[target.chestId]) : false;
+    const beforeBiomeChest = target?.chestId && questBook.biomeMissions?.chests ? Boolean(questBook.biomeMissions.chests[target.chestId]) : false;
+    const beforeDungeonChest = target?.role === "chest" && questBook.eternalSystems?.dungeons && typeof currentDungeonKind !== "undefined"
+      ? Boolean(questBook.eternalSystems.dungeons[`chest_${currentDungeonKind}`])
+      : false;
+
+    const result = getQuestMessageBeforeProductionPowers(target);
+
+    const state = ensureProductionPowerState();
+
+    if (target?.type === "rareChest" && !beforeRareChest && questBook.bossChestOpened) {
+      if (!state.chestRewards.rareChest) {
+        state.chestRewards.rareChest = true;
+        grantProductionPower("crimsonMeteor", "Baú raro");
+      }
+    }
+
+    if (target?.type === "dimensionChest" && !beforeDimensionChest && dimensionQuest?.chestOpened) {
+      if (!state.chestRewards.dimensionChest) {
+        state.chestRewards.dimensionChest = true;
+        grantProductionPower("shadowTeleport", "Baú da dimensão");
+      }
+    }
+
+    if (target?.type === "celestialChest" && target.chestId && !beforeCelestialChests && questBook.celestial?.openedChests?.[target.chestId]) {
+      const key = `celestial_${target.chestId}`;
+      if (!state.chestRewards[key]) {
+        state.chestRewards[key] = true;
+        grantProductionPower("divineShield", "Baú celestial");
+      }
+    }
+
+    if (target?.type === "biomeFeature" && target.role === "biomeChest" && target.chestId) {
+      const openedNow = questBook.biomeMissions?.chests?.[target.chestId] || target.opened;
+      if (!beforeBiomeChest && openedNow) {
+        const power = POWER_DROP_BY_BIOME_CHEST[target.chestId];
+        const key = `biome_${target.chestId}`;
+        if (power && !state.chestRewards[key]) {
+          state.chestRewards[key] = true;
+          grantProductionPower(power, `Baú do bioma ${target.chestId}`);
+        }
+      }
+    }
+
+    if (target?.type === "dungeonFeature" && target.role === "chest") {
+      let dungeonKind = "";
+      try {
+        dungeonKind = currentDungeonKind || "";
+      } catch (error) {
+        dungeonKind = "";
+      }
+      const openedNow = dungeonKind && questBook.eternalSystems?.dungeons?.[`chest_${dungeonKind}`];
+      if (!beforeDungeonChest && openedNow) {
+        const power = POWER_DROP_BY_DUNGEON_CHEST[dungeonKind];
+        const key = `dungeon_${dungeonKind}`;
+        if (power && !state.chestRewards[key]) {
+          state.chestRewards[key] = true;
+          grantProductionPower(power, `Baú da dungeon ${dungeonKind}`);
+        }
+      }
+    }
+
+    ensureProductionPowerState();
+    return result;
+  };
+
+  ensureProductionPowerState();
+})();
+
+
+/* ==================================================
+   POÇÃO DE MANA MÁXIMA + RESPAWN 5 MIN + FERREIRO VISUAL
+   - Poção Arcana aumenta mana máxima em +1 até 50
+   - todos os inimigos/mobs respawnam 5 minutos após morrer
+   - Branor fica parado com bigorna e área de trabalho
+   ================================================== */
+(function eternalRiftManaPotionRespawnForgePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MANA_POTION_RESPAWN_FORGE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MANA_POTION_RESPAWN_FORGE_PATCH = true;
+
+  const MAX_MANA_CAP = 50;
+  const ENEMY_RESPAWN_TIME = 300; // 5 minutos
+
+  function ensureManaPotionState() {
+    inventory.manaMaxPotions = Number(inventory.manaMaxPotions || 0);
+    player.maxMana = Math.min(MAX_MANA_CAP, Math.max(1, Number(player.maxMana || 6)));
+    player.mana = Math.min(player.maxMana, Math.max(0, Number(player.mana || 0)));
+  }
+
+  function giveManaMaxPotion(amount = 1, source = "") {
+    ensureManaPotionState();
+    inventory.manaMaxPotions += amount;
+    spawnFloatingText("+Poção Arcana", player.x + 6, player.y - 32, "#55e8ff");
+    showHudToast(source ? `Poção Arcana obtida: ${source}` : "Poção Arcana obtida!");
+    playSound("powerup");
+    renderInventory();
+    updateHud();
+  }
+
+  function useManaMaxPotion() {
+    ensureManaPotionState();
+
+    if (inventory.manaMaxPotions <= 0) {
+      showHudToast("Você não tem Poção Arcana.");
+      playSound("invalid");
+      return false;
+    }
+
+    if (player.maxMana >= MAX_MANA_CAP) {
+      player.maxMana = MAX_MANA_CAP;
+      player.mana = Math.min(player.mana, player.maxMana);
+      showHudToast("Mana máxima já está no limite: 50.");
+      spawnFloatingText("Mana máxima 50", player.x - 12, player.y - 20, "#55e8ff");
+      playSound("invalid");
+      renderInventory();
+      updateHud();
+      return false;
+    }
+
+    inventory.manaMaxPotions -= 1;
+    player.maxMana = Math.min(MAX_MANA_CAP, player.maxMana + 1);
+    player.mana = player.maxMana;
+    spawnFloatingText(`Mana máxima +1 (${player.maxMana}/50)`, player.x - 10, player.y - 24, "#55e8ff");
+    showHudToast(`Mana máxima aumentou para ${player.maxMana}/50`);
+    playSound("magic");
+    renderInventory();
+    updateHud();
+    return true;
+  }
+
+  const getInventoryItemsBeforeManaPotion = getInventoryItems;
+  getInventoryItems = function getInventoryItemsManaPotionPatch() {
+    ensureManaPotionState();
+    const items = getInventoryItemsBeforeManaPotion();
+
+    if (inventory.manaMaxPotions > 0 && !items.some((item) => item.id === "manaMaxPotions")) {
+      items.push({
+        id: "manaMaxPotions",
+        name: "Poção Arcana",
+        icon: "M",
+        quantity: inventory.manaMaxPotions,
+        category: "consumiveis",
+        typeLabel: "Poção",
+        rarity: "epico",
+        description: "Uma poção azul rara que fortalece a alma mágica do jogador.",
+        effect: `Aumenta a mana máxima em +1. Limite máximo: ${MAX_MANA_CAP}.`,
+        action: "useManaMaxPotion"
+      });
+    }
+
+    return items;
+  };
+
+  const getInventoryActionHtmlBeforeManaPotion = getInventoryActionHtml;
+  getInventoryActionHtml = function getInventoryActionHtmlManaPotionPatch(item) {
+    if (item?.action === "useManaMaxPotion") {
+      const disabled = player.maxMana >= MAX_MANA_CAP ? " disabled" : "";
+      const label = player.maxMana >= MAX_MANA_CAP ? "Mana no limite 50" : "Usar: +1 mana máxima";
+      return `<button type="button" data-inventory-action="useManaMaxPotion"${disabled}>${label}</button>`;
+    }
+
+    return getInventoryActionHtmlBeforeManaPotion(item);
+  };
+
+  const handleInventoryActionBeforeManaPotion = handleInventoryAction;
+  handleInventoryAction = function handleInventoryActionManaPotionPatch(actionButton) {
+    if (actionButton?.dataset?.inventoryAction === "useManaMaxPotion") {
+      useManaMaxPotion();
+      renderInventory();
+      return;
+    }
+
+    return handleInventoryActionBeforeManaPotion(actionButton);
+  };
+
+  function markEnemyForRespawn(obj) {
+    if (!obj || obj.type !== "enemy") return;
+    obj.respawnTimer = ENEMY_RESPAWN_TIME;
+    obj.respawnMaxTimer = ENEMY_RESPAWN_TIME;
+    obj.respawnX = Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+    obj.respawnY = Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+  }
+
+  function respawnEnemy(obj) {
+    if (!obj || obj.type !== "enemy") return;
+
+    normalizeEnemy(obj);
+    obj.alive = true;
+    obj.hp = obj.maxHp;
+    obj.x = Number.isFinite(obj.respawnX) ? obj.respawnX : Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+    obj.y = Number.isFinite(obj.respawnY) ? obj.respawnY : Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+    obj.knockbackX = 0;
+    obj.knockbackY = 0;
+    obj.attackCooldown = 0.75;
+    obj.attackTimer = 0;
+    obj.invulnerableTimer = 0.5;
+    obj.respawnTimer = 0;
+    obj.phase = 1;
+
+    spawnFloatingText("Respawn!", obj.x + obj.width / 2, obj.y - 12, obj.boss ? "#fff264" : "#55e8ff");
+  }
+
+  function getRespawnLists() {
+    const lists = [];
+    try { if (Array.isArray(villageObjects)) lists.push(villageObjects); } catch (error) {}
+    try { if (Array.isArray(objects)) lists.push(objects); } catch (error) {}
+    try { if (Array.isArray(crystalDimensionObjects)) lists.push(crystalDimensionObjects); } catch (error) {}
+    try { if (Array.isArray(celestialObjects)) lists.push(celestialObjects); } catch (error) {}
+    try { if (Array.isArray(acidDimensionObjects)) lists.push(acidDimensionObjects); } catch (error) {}
+    return lists;
+  }
+
+  function updateEnemyRespawns(delta) {
+    const seen = new Set();
+    for (const list of getRespawnLists()) {
+      for (const obj of list) {
+        if (!obj || obj.type !== "enemy" || obj.alive || !obj.respawnTimer) continue;
+        if (seen.has(obj)) continue;
+        seen.add(obj);
+
+        obj.respawnTimer = Math.max(0, obj.respawnTimer - delta);
+        if (obj.respawnTimer <= 0) respawnEnemy(obj);
+      }
+    }
+  }
+
+  const defeatEnemyBeforeRespawnAndManaPotion = defeatEnemy;
+  defeatEnemy = function defeatEnemyRespawnAndManaPotionPatch(obj) {
+    const wasAlive = obj?.alive !== false;
+    const result = defeatEnemyBeforeRespawnAndManaPotion(obj);
+
+    if (wasAlive && obj?.type === "enemy") {
+      markEnemyForRespawn(obj);
+
+      // Poção Arcana: bosses dão 1 garantida; mobs comuns têm chance pequena.
+      if (obj.boss) {
+        giveManaMaxPotion(1, "boss derrotado");
+      } else if (Math.random() < 0.07) {
+        giveManaMaxPotion(1, "drop raro de mob");
+      }
+    }
+
+    return result;
+  };
+
+  const getQuestMessageBeforeManaPotionChest = getQuestMessage;
+  getQuestMessage = function getQuestMessageManaPotionChestPatch(target) {
+    const wasOpened = Boolean(target?.opened);
+    const wasRareChest = Boolean(questBook.bossChestOpened);
+    const wasDimensionChest = Boolean(dimensionQuest?.chestOpened);
+    const wasBiomeChest = target?.chestId && questBook.biomeMissions?.chests
+      ? Boolean(questBook.biomeMissions.chests[target.chestId])
+      : false;
+    const wasCelestialChest = target?.chestId && questBook.celestial?.openedChests
+      ? Boolean(questBook.celestial.openedChests[target.chestId])
+      : false;
+
+    const result = getQuestMessageBeforeManaPotionChest(target);
+
+    const openedNow = Boolean(target?.opened);
+    const rareOpenedNow = Boolean(questBook.bossChestOpened);
+    const dimensionOpenedNow = Boolean(dimensionQuest?.chestOpened);
+    const biomeOpenedNow = target?.chestId && questBook.biomeMissions?.chests
+      ? Boolean(questBook.biomeMissions.chests[target.chestId])
+      : false;
+    const celestialOpenedNow = target?.chestId && questBook.celestial?.openedChests
+      ? Boolean(questBook.celestial.openedChests[target.chestId])
+      : false;
+
+    const chestOpened =
+      (!wasOpened && openedNow && /ba[úu]/i.test(String(result || ""))) ||
+      (!wasRareChest && rareOpenedNow && target?.type === "rareChest") ||
+      (!wasDimensionChest && dimensionOpenedNow && target?.type === "dimensionChest") ||
+      (!wasBiomeChest && biomeOpenedNow && target?.role === "biomeChest") ||
+      (!wasCelestialChest && celestialOpenedNow && target?.type === "celestialChest");
+
+    if (chestOpened) {
+      giveManaMaxPotion(1, "baú aberto");
+    }
+
+    return result;
+  };
+
+  function ensureForgeVisualObjects() {
+    if (currentScene !== "village") return;
+
+    const forgeNpc = villageObjects.find((obj) => obj.type === "npc" && obj.role === "legendForge");
+    if (forgeNpc) {
+      forgeNpc.x = 25 * TILE + 4;
+      forgeNpc.y = 27 * TILE;
+      forgeNpc.spawnX = forgeNpc.x;
+      forgeNpc.spawnY = forgeNpc.y;
+      forgeNpc.speed = 0;
+      forgeNpc.direction = "right";
+      forgeNpc.moveTimer = 999;
+      forgeNpc.bob = 0;
+      forgeNpc.width = 28;
+      forgeNpc.height = 34;
+      forgeNpc.solid = false;
+    }
+
+    if (!villageObjects.some((obj) => obj.type === "forgeStation" && obj.stationId === "branorForge")) {
+      villageObjects.push({
+        type: "forgeStation",
+        stationId: "branorForge",
+        x: 26 * TILE,
+        y: 27 * TILE + 6,
+        width: 48,
+        height: 36,
+        solid: false,
+        message: "Forja do Branor: bigorna, mesa de trabalho e ferramentas lendárias."
+      });
+      if (currentScene === "village") {
+        objects = villageObjects;
+        colliders = objects.filter((obj) => obj.solid);
+        interactables = objects.filter((obj) => obj.message || obj.type === "npc" || obj.type === "rareChest");
+      }
+    }
+  }
+
+  function drawForgeStation(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const glow = 0.2 + Math.sin(performance.now() / 220) * 0.05;
+
+    ctx.fillStyle = "rgba(17, 18, 28, 0.28)";
+    ctx.beginPath();
+    ctx.ellipse(x + 24, y + 32, 28, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // mesa de trabalho
+    pixelRect(x + 2, y + 18, 42, 10, "#7b5134");
+    pixelRect(x + 6, y + 26, 6, 10, "#5a3828");
+    pixelRect(x + 33, y + 26, 6, 10, "#5a3828");
+
+    // bigorna
+    pixelRect(x + 13, y + 8, 24, 7, "#273052");
+    pixelRect(x + 17, y + 3, 16, 7, "#5e6b7e");
+    pixelRect(x + 10, y + 12, 30, 6, "#8a8da2");
+    pixelRect(x + 19, y + 18, 12, 8, "#59647c");
+    pixelRect(x + 12, y + 10, 8, 3, "#c7ccd4");
+    pixelRect(x + 31, y + 10, 8, 3, "#c7ccd4");
+
+    // brasas
+    ctx.fillStyle = `rgba(255, 103, 64, ${0.45 + glow})`;
+    ctx.fillRect(x + 3, y + 7, 9, 9);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 5, y + 9, 5, 5);
+
+    // ferramentas
+    pixelRect(x + 40, y + 6, 3, 20, "#273052");
+    pixelRect(x + 37, y + 5, 9, 4, "#c7ccd4");
+    pixelRect(x + 4, y + 2, 4, 17, "#6c452b");
+    pixelRect(x + 2, y + 1, 8, 5, "#8a8da2");
+  }
+
+  function drawLegendForgeNpc(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const hammerUp = Math.sin(performance.now() / 170) > -0.2;
+
+    // sombra
+    ctx.fillStyle = "rgba(17, 18, 28, 0.28)";
+    ctx.beginPath();
+    ctx.ellipse(x + 14, y + 34, 16, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // avental e corpo
+    pixelRect(x + 5, y + 14, 18, 18, "#6d3d2b");
+    pixelRect(x + 7, y + 15, 14, 16, "#b76f39");
+    pixelRect(x + 10, y + 17, 8, 13, "#273052");
+
+    // cabeça/barba
+    pixelRect(x + 6, y + 5, 16, 12, "#f0b276");
+    pixelRect(x + 5, y + 13, 18, 7, "#7b5134");
+    pixelRect(x + 4, y + 2, 20, 5, "#273052");
+    pixelRect(x + 8, y, 12, 4, "#8a8da2");
+
+    // olhos
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 10, y + 9, 2, 2);
+    ctx.fillRect(x + 17, y + 9, 2, 2);
+
+    // pernas
+    pixelRect(x + 7, y + 31, 5, 7, "#273052");
+    pixelRect(x + 17, y + 31, 5, 7, "#273052");
+
+    // braço esquerdo
+    pixelRect(x + 1, y + 17, 6, 5, "#f0b276");
+    pixelRect(x - 2, y + 20, 6, 4, "#8a8da2");
+
+    // braço com martelo batendo na bigorna
+    if (hammerUp) {
+      pixelRect(x + 21, y + 11, 5, 14, "#f0b276");
+      pixelRect(x + 24, y + 5, 4, 14, "#6c452b");
+      pixelRect(x + 21, y + 3, 10, 5, "#8a8da2");
+    } else {
+      pixelRect(x + 21, y + 19, 14, 5, "#f0b276");
+      pixelRect(x + 31, y + 17, 4, 12, "#6c452b");
+      pixelRect(x + 28, y + 25, 10, 5, "#8a8da2");
+
+      ctx.fillStyle = "rgba(255, 242, 100, 0.85)";
+      ctx.fillRect(x + 34, y + 25, 3, 3);
+      ctx.fillRect(x + 38, y + 20, 2, 2);
+      ctx.fillRect(x + 31, y + 29, 2, 2);
+    }
+  }
+
+  const drawNpcBeforeForgeVisual = drawNpc;
+  drawNpc = function drawNpcForgeVisualPatch(obj) {
+    if (obj?.role === "legendForge") {
+      drawLegendForgeNpc(obj);
+      return;
+    }
+    return drawNpcBeforeForgeVisual(obj);
+  };
+
+  const drawObjectBeforeForgeVisual = drawObject;
+  drawObject = function drawObjectForgeVisualPatch(obj) {
+    if (obj?.type === "forgeStation") {
+      drawForgeStation(obj);
+      return;
+    }
+    return drawObjectBeforeForgeVisual(obj);
+  };
+
+  const updateBeforeManaPotionRespawnForge = update;
+  update = function updateManaPotionRespawnForgePatch(delta) {
+    ensureManaPotionState();
+    ensureForgeVisualObjects();
+    updateBeforeManaPotionRespawnForge(delta);
+    updateEnemyRespawns(delta);
+    ensureForgeVisualObjects();
+    ensureManaPotionState();
+  };
+
+  ensureManaPotionState();
+  setTimeout(ensureForgeVisualObjects, 250);
+})();
+
+
+/* ==================================================
+   LENDARY / MYTHIC / DIVINE SWORD PATCH
+   - 10 novas espadas lindas
+   - drops em bosses / baús / forja
+   - especiais em R (ataque carregado)
+   - duas espadas do castelo ficam preparadas para o futuro
+   ================================================== */
+(function eternalRiftLegendarySwordsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_LEGENDARY_SWORDS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_LEGENDARY_SWORDS_PATCH = true;
+
+  const LEGENDARY_SWORDS = {
+    solarKingSword: {
+      weaponKey: "solarKingSword",
+      name: "Espada do Rei Solar",
+      rarity: "lendario",
+      damage: 8,
+      range: 66,
+      cooldown: 0.34,
+      arc: Math.PI * 0.82,
+      kind: "melee",
+      damageType: "fogo",
+      elemental: "fire",
+      description: "Uma espada lendária de ouro solar. Deixa trilha de fogo dourado e destrói criaturas geladas.",
+      obtainHint: "Derrote o Faraó Solar ou abra o baú do deserto.",
+      sourceType: "drop",
+      theme: { main: "#f7c54d", glow: "#fff264", dark: "#c86a1f", accent: "#fff2be" },
+      specialName: "Explosão Solar",
+      specialCooldown: 9
+    },
+    moonShadowBlade: {
+      weaponKey: "moonShadowBlade",
+      name: "Lâmina da Lua Sombria",
+      rarity: "lendario",
+      damage: 7,
+      range: 68,
+      cooldown: 0.31,
+      arc: Math.PI * 0.86,
+      kind: "melee",
+      damageType: "sombrio",
+      elemental: "shadow",
+      description: "Lâmina lunar roxa. A cada terceiro golpe, cria um corte sombrio que atravessa inimigos.",
+      obtainHint: "Abra um baú de dungeon durante a noite ou derrote um boss secreto.",
+      sourceType: "drop",
+      theme: { main: "#7e5bff", glow: "#d0b4ff", dark: "#2b1755", accent: "#f1e7ff" },
+      specialName: "Lua Cortante",
+      specialCooldown: 8
+    },
+    eternalIceSword: {
+      weaponKey: "eternalIceSword",
+      name: "Espada de Gelo Eterno",
+      rarity: "mitico",
+      damage: 8,
+      range: 68,
+      cooldown: 0.34,
+      arc: Math.PI * 0.82,
+      kind: "melee",
+      damageType: "gelo",
+      elemental: "ice",
+      description: "Forjada com gelo antigo. Congela inimigos, e quebra o gelo para causar dano extra.",
+      obtainHint: "Derrote a Rainha Glacial.",
+      sourceType: "drop",
+      theme: { main: "#86e8ff", glow: "#f4ffff", dark: "#2e7fd4", accent: "#d8ffff" },
+      specialName: "Tempestade de Gelo",
+      specialCooldown: 9
+    },
+    dimensionalKatana: {
+      weaponKey: "dimensionalKatana",
+      name: "Katana Dimensional",
+      rarity: "lendario",
+      damage: 9,
+      range: 72,
+      cooldown: 0.28,
+      arc: Math.PI * 0.78,
+      kind: "melee",
+      damageType: "dimensional",
+      elemental: "shadow",
+      description: "Katana veloz com rastro roxo. O corte carrega energia dimensional e atravessa vários inimigos.",
+      obtainHint: "Derrote o boss das Catacumbas ou abra o baú dimensional secreto.",
+      sourceType: "drop",
+      theme: { main: "#9b5fc7", glow: "#f6dcff", dark: "#2a1448", accent: "#cf8cff" },
+      specialName: "Corte Dimensional",
+      specialCooldown: 10
+    },
+    swampLivingSword: {
+      weaponKey: "swampLivingSword",
+      name: "Espada Viva do Pântano",
+      rarity: "epico",
+      damage: 7,
+      range: 64,
+      cooldown: 0.34,
+      arc: Math.PI * 0.82,
+      kind: "melee",
+      damageType: "veneno",
+      elemental: "poison",
+      description: "Uma espada orgânica, viva e venenosa. Aplica veneno e convoca raízes do chão.",
+      obtainHint: "Derrote a Bruxa Suprema do Pântano.",
+      sourceType: "drop",
+      theme: { main: "#69de7d", glow: "#d7ffd8", dark: "#21623f", accent: "#a1ff85" },
+      specialName: "Jardim Venenoso",
+      specialCooldown: 9
+    },
+    fallenSeraphSword: {
+      weaponKey: "fallenSeraphSword",
+      name: "Espada do Serafim Caído",
+      rarity: "divino",
+      damage: 9,
+      range: 70,
+      cooldown: 0.31,
+      arc: Math.PI * 0.84,
+      kind: "melee",
+      damageType: "sagrado",
+      elemental: "celestial",
+      description: "Lâmina divina de luz quebrada. Quando a vida fica baixa, ela ergue um escudo protetor.",
+      obtainHint: "Derrote o Serafim Caído.",
+      sourceType: "drop",
+      theme: { main: "#fff4ac", glow: "#ffffff", dark: "#b89d43", accent: "#c7f3ff" },
+      specialName: "Escudo Divino",
+      specialCooldown: 14
+    },
+    crimsonMeteorSword: {
+      weaponKey: "crimsonMeteorSword",
+      name: "Espada Carmesim do Meteoro",
+      rarity: "lendario",
+      damage: 10,
+      range: 67,
+      cooldown: 0.36,
+      arc: Math.PI * 0.80,
+      kind: "melee",
+      damageType: "fogo",
+      elemental: "meteor",
+      description: "Espada absurda de energia carmesim. Golpes podem invocar meteoros em miniatura.",
+      obtainHint: "Abra um baú lendário raro.",
+      sourceType: "drop",
+      theme: { main: "#ff6262", glow: "#ffd0aa", dark: "#7a1721", accent: "#fff264" },
+      specialName: "Meteoro Carmesim",
+      specialCooldown: 12
+    },
+    ancientVoidSword: {
+      weaponKey: "ancientVoidSword",
+      name: "Espada do Vazio Antigo",
+      rarity: "secreto",
+      damage: 10,
+      range: 70,
+      cooldown: 0.32,
+      arc: Math.PI * 0.82,
+      kind: "melee",
+      damageType: "vazio",
+      elemental: "void",
+      description: "Rouba mana ao acertar e abre uma fenda negra que puxa inimigos.",
+      obtainHint: "Será obtida no castelo abandonado ou no boss final do castelo.",
+      sourceType: "castle",
+      theme: { main: "#4b4a86", glow: "#a1a0ff", dark: "#13122d", accent: "#c9c4ff" },
+      specialName: "Fenda Negra",
+      specialCooldown: 12
+    },
+    supremeCrystalSword: {
+      weaponKey: "supremeCrystalSword",
+      name: "Espada Cristalina Suprema",
+      rarity: "mitico",
+      damage: 10,
+      range: 70,
+      cooldown: 0.30,
+      arc: Math.PI * 0.84,
+      kind: "melee",
+      damageType: "cristal",
+      elemental: "crystal",
+      description: "Evolução suprema da Espada Cristalina. Solta fragmentos de cristal e repele projéteis.",
+      obtainHint: "Evolua a Espada Cristalina com o ferreiro Branor.",
+      sourceType: "forge",
+      theme: { main: "#6fe8ff", glow: "#ffffff", dark: "#356eb4", accent: "#c9b6ff" },
+      specialName: "Tempestade Cristalina",
+      specialCooldown: 11
+    },
+    royalCastleSword: {
+      weaponKey: "royalCastleSword",
+      name: "Espada Real do Castelo",
+      rarity: "real",
+      damage: 11,
+      range: 72,
+      cooldown: 0.31,
+      arc: Math.PI * 0.84,
+      kind: "melee",
+      damageType: "real",
+      elemental: "royal",
+      description: "A lâmina dos reis. Fortalece o jogador contra bosses e ergue uma bandeira real.",
+      obtainHint: "Será obtida dentro do castelo quando o castelo for adicionado.",
+      sourceType: "castle",
+      theme: { main: "#f3d77e", glow: "#fff4c2", dark: "#6b4a24", accent: "#d14dbf" },
+      specialName: "Bandeira Real",
+      specialCooldown: 14
+    }
+  };
+
+  const LEGENDARY_SWORD_KEYS = Object.keys(LEGENDARY_SWORDS);
+  const LEGENDARY_RARITY_LABEL = {
+    epico: "Épica",
+    lendario: "Lendária",
+    mitico: "Mítica",
+    divino: "Divina",
+    secreto: "Secreta",
+    real: "Real"
+  };
+
+  const legendarySwordFx = Array.isArray(globalThis.legendarySwordFx) ? globalThis.legendarySwordFx : [];
+  globalThis.legendarySwordFx = legendarySwordFx;
+
+  function getAllWorldObjectLists() {
+    const lists = [];
+    try { if (Array.isArray(villageObjects)) lists.push(villageObjects); } catch (error) {}
+    try { if (Array.isArray(objects)) lists.push(objects); } catch (error) {}
+    try { if (Array.isArray(crystalDimensionObjects)) lists.push(crystalDimensionObjects); } catch (error) {}
+    try { if (Array.isArray(celestialObjects)) lists.push(celestialObjects); } catch (error) {}
+    try { if (Array.isArray(acidDimensionObjects)) lists.push(acidDimensionObjects); } catch (error) {}
+    return lists;
+  }
+
+  function getUniqueEnemies() {
+    const seen = new Set();
+    const out = [];
+    for (const list of getAllWorldObjectLists()) {
+      for (const obj of list) {
+        if (!obj || obj.type !== "enemy" || !obj.alive || seen.has(obj)) continue;
+        seen.add(obj);
+        out.push(obj);
+      }
+    }
+    return out;
+  }
+
+  function isNightNow() {
+    try {
+      return typeof isNightTime === "function" ? Boolean(isNightTime()) : false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function ensureLegendarySwordState() {
+    if (!questBook.legendarySwords || typeof questBook.legendarySwords !== "object") {
+      questBook.legendarySwords = {};
+    }
+    const state = questBook.legendarySwords;
+    if (!state.obtained || typeof state.obtained !== "object") state.obtained = {};
+    if (!state.specialCooldowns || typeof state.specialCooldowns !== "object") state.specialCooldowns = {};
+    if (!state.moonComboHits || typeof state.moonComboHits !== "number") state.moonComboHits = 0;
+    if (!state.castNotificationShown || typeof state.castNotificationShown !== "object") state.castNotificationShown = {};
+    if (!Array.isArray(inventory.legendarySwordOrder)) inventory.legendarySwordOrder = [];
+    if (!Array.isArray(inventory.rareWeapons)) inventory.rareWeapons = [];
+    if (!Array.isArray(player.unlockedWeapons)) player.unlockedWeapons = [...weaponOrder];
+    if (typeof player.royalCastleBuffTimer !== "number") player.royalCastleBuffTimer = 0;
+    if (typeof player.seraphShieldTimer !== "number") player.seraphShieldTimer = 0;
+    if (typeof player.crystalReflectTimer !== "number") player.crystalReflectTimer = 0;
+    return state;
+  }
+
+  function registerLegendaryWeapons() {
+    ensureLegendarySwordState();
+    for (const sword of Object.values(LEGENDARY_SWORDS)) {
+      if (!weapons[sword.weaponKey]) {
+        weapons[sword.weaponKey] = {
+          name: sword.name,
+          damage: sword.damage,
+          range: sword.range,
+          cooldown: sword.cooldown,
+          arc: sword.arc,
+          kind: sword.kind,
+          damageType: sword.damageType,
+          elemental: sword.elemental,
+          bossWeapon: true
+        };
+      }
+      if (weaponOrder.indexOf(sword.weaponKey) === -1) {
+        weaponOrder.push(sword.weaponKey);
+      }
+    }
+  }
+
+  function swordTheme(key) {
+    return LEGENDARY_SWORDS[key]?.theme || { main: "#fff264", glow: "#ffffff", dark: "#273052", accent: "#55e8ff" };
+  }
+
+  function getLegendarySwordDisplayRarity(key) {
+    return LEGENDARY_RARITY_LABEL[LEGENDARY_SWORDS[key]?.rarity] || "Lendária";
+  }
+
+  function getCurrentLegendarySwordKey() {
+    const key = getCurrentWeaponKey();
+    return LEGENDARY_SWORDS[key] ? key : "";
+  }
+
+  function grantLegendarySword(weaponKey, sourceText = "") {
+    registerLegendaryWeapons();
+    const state = ensureLegendarySwordState();
+    const sword = LEGENDARY_SWORDS[weaponKey];
+    if (!sword) return false;
+    if (state.obtained[weaponKey]) return false;
+
+    state.obtained[weaponKey] = true;
+    if (!inventory.legendarySwordOrder.includes(weaponKey)) inventory.legendarySwordOrder.push(weaponKey);
+    if (!inventory.rareWeapons.includes(weaponKey)) inventory.rareWeapons.push(weaponKey);
+    if (!player.unlockedWeapons.includes(weaponKey)) player.unlockedWeapons.push(weaponKey);
+
+    spawnFloatingText(sword.name, player.x + 8, player.y - 34, sword.theme.glow);
+    showHudToast(`Nova espada obtida: ${sword.name}${sourceText ? " - " + sourceText : ""}`);
+    playSound("mission");
+    vibrate([28, 42, 28]);
+    renderInventory();
+    updateHud();
+    return true;
+  }
+
+  function isIceEnemy(obj) {
+    const key = `${obj?.kind || ""}`.toLowerCase();
+    return currentScene === "frozen" || /gelo|ice|glacial|rainha|yeti/.test(key);
+  }
+
+  function applyFreeze(obj, time = 2.1) {
+    obj.frozenTimer = Math.max(obj.frozenTimer || 0, time);
+    obj.frozenX = obj.x;
+    obj.frozenY = obj.y;
+    spawnFloatingText("Congelado!", obj.x + obj.width / 2, obj.y - 10, "#d8ffff");
+  }
+
+  function applyPoison(obj, time = 3.5) {
+    obj.legendPoisonTimer = Math.max(obj.legendPoisonTimer || 0, time);
+    obj.legendPoisonTick = Math.min(obj.legendPoisonTick || 0, 0);
+    spawnFloatingText("Veneno", obj.x + obj.width / 2, obj.y - 10, "#9dff85");
+  }
+
+  function applyRoots(obj, time = 1.6) {
+    obj.rootedTimer = Math.max(obj.rootedTimer || 0, time);
+    spawnFloatingText("Preso!", obj.x + obj.width / 2, obj.y - 10, "#8de68f");
+  }
+
+  function addSwordFx(fx) {
+    legendarySwordFx.push(fx);
+  }
+
+  function findEnemiesInRadius(x, y, radius) {
+    const list = [];
+    for (const obj of getUniqueEnemies()) {
+      const ox = obj.x + obj.width / 2;
+      const oy = obj.y + obj.height / 2;
+      if (Math.hypot(ox - x, oy - y) <= radius) list.push(obj);
+    }
+    return list;
+  }
+
+  function getNearestEnemy(x, y, maxDistance = 260) {
+    let best = null;
+    let bestDistance = maxDistance;
+    for (const obj of getUniqueEnemies()) {
+      const ox = obj.x + obj.width / 2;
+      const oy = obj.y + obj.height / 2;
+      const dist = Math.hypot(ox - x, oy - y);
+      if (dist < bestDistance) {
+        best = obj;
+        bestDistance = dist;
+      }
+    }
+    return best;
+  }
+
+  function lineDistance(ax, ay, bx, by, px, py) {
+    const abx = bx - ax;
+    const aby = by - ay;
+    const apx = px - ax;
+    const apy = py - ay;
+    const ab2 = abx * abx + aby * aby || 1;
+    const t = clamp((apx * abx + apy * aby) / ab2, 0, 1);
+    const cx = ax + abx * t;
+    const cy = ay + aby * t;
+    return Math.hypot(px - cx, py - cy);
+  }
+
+  function damageLine(ax, ay, angle, length, width, damage, damageType, color, knockback = 240) {
+    const bx = ax + Math.cos(angle) * length;
+    const by = ay + Math.sin(angle) * length;
+    let hit = false;
+    for (const obj of getUniqueEnemies()) {
+      const ox = obj.x + obj.width / 2;
+      const oy = obj.y + obj.height / 2;
+      if (lineDistance(ax, ay, bx, by, ox, oy) <= width) {
+        if (damageEnemy(obj, damage, ax, ay, knockback, damageType)) {
+          hit = true;
+          spawnFloatingText("Corte!", ox, oy - 10, color);
+        }
+      }
+    }
+    return hit;
+  }
+
+  function damageArea(x, y, radius, damage, damageType, color, knockback = 220) {
+    let hit = false;
+    for (const obj of findEnemiesInRadius(x, y, radius)) {
+      if (damageEnemy(obj, damage, x, y, knockback, damageType)) {
+        hit = true;
+        spawnFloatingText("Impacto!", obj.x + obj.width / 2, obj.y - 10, color);
+      }
+    }
+    return hit;
+  }
+
+  function showCastleLockedHint(weaponKey) {
+    const state = ensureLegendarySwordState();
+    if (state.castNotificationShown[weaponKey]) return;
+    state.castNotificationShown[weaponKey] = true;
+    showHudToast(`${LEGENDARY_SWORDS[weaponKey].name} já está pronta no jogo, mas só poderá ser obtida quando o castelo for adicionado.`);
+  }
+
+  function useLegendarySwordSpecial() {
+    registerLegendaryWeapons();
+    const state = ensureLegendarySwordState();
+    const weaponKey = getCurrentLegendarySwordKey();
+    if (!weaponKey) {
+      showHudToast("Equipe uma espada lendária para usar o ataque carregado.");
+      return false;
+    }
+
+    const sword = LEGENDARY_SWORDS[weaponKey];
+    if (!state.obtained[weaponKey] && sword.sourceType !== "castle") {
+      showHudToast("Você ainda não desbloqueou essa espada.");
+      return false;
+    }
+    if (sword.sourceType === "castle") {
+      showCastleLockedHint(weaponKey);
+      return false;
+    }
+
+    const currentCooldown = Number(state.specialCooldowns[weaponKey] || 0);
+    if (currentCooldown > 0) {
+      showHudToast(`${sword.specialName} em ${currentCooldown.toFixed(1)}s`);
+      playSound("invalid");
+      return false;
+    }
+
+    const cx = player.x + player.width / 2;
+    const cy = player.y + player.height / 2;
+    const aim = getAimVector();
+    const angle = aim?.angle ?? (player.direction === "left" ? Math.PI : player.direction === "up" ? -Math.PI/2 : player.direction === "down" ? Math.PI/2 : 0);
+    state.specialCooldowns[weaponKey] = sword.specialCooldown;
+
+    if (weaponKey === "solarKingSword") {
+      addSwordFx({ kind: "solarExplosion", x: cx, y: cy, radius: 12, maxRadius: 108, timer: 0.55, maxTimer: 0.55, color: sword.theme.main });
+      damageArea(cx, cy, 104, 5, "fogo", sword.theme.main, 280);
+      playSound("portal");
+    } else if (weaponKey === "moonShadowBlade") {
+      addSwordFx({ kind: "shadowWave", x: cx, y: cy, angle, length: 190, width: 38, timer: 0.42, maxTimer: 0.42, color: sword.theme.main });
+      damageLine(cx, cy, angle, 190, 32, isNightNow() ? 6 : 5, "sombrio", sword.theme.main, 280);
+      playSound("magic");
+    } else if (weaponKey === "eternalIceSword") {
+      addSwordFx({ kind: "iceStorm", x: cx, y: cy, radius: 20, maxRadius: 120, timer: 0.65, maxTimer: 0.65, color: sword.theme.main });
+      for (const obj of findEnemiesInRadius(cx, cy, 115)) {
+        applyFreeze(obj, 2.8);
+        damageEnemy(obj, 3, cx, cy, 180, "gelo");
+      }
+      playSound("magic");
+    } else if (weaponKey === "dimensionalKatana") {
+      addSwordFx({ kind: "dimensionalSlash", x: cx, y: cy, angle, length: 220, width: 24, timer: 0.45, maxTimer: 0.45, color: sword.theme.main });
+      damageLine(cx, cy, angle, 220, 20, 7, "dimensional", sword.theme.main, 320);
+      playSound("attack");
+    } else if (weaponKey === "swampLivingSword") {
+      addSwordFx({ kind: "rootsBurst", x: cx, y: cy, radius: 100, timer: 0.7, maxTimer: 0.7, color: sword.theme.main });
+      for (const obj of findEnemiesInRadius(cx, cy, 96)) {
+        applyRoots(obj, 2.2);
+        applyPoison(obj, 4.2);
+        damageEnemy(obj, 3, cx, cy, 140, "veneno");
+      }
+      playSound("magic");
+    } else if (weaponKey === "fallenSeraphSword") {
+      player.seraphShieldTimer = Math.max(player.seraphShieldTimer || 0, 5.5);
+      addSwordFx({ kind: "holyShield", x: cx, y: cy, radius: 40, timer: 5.5, maxTimer: 5.5, color: sword.theme.main });
+      damageArea(cx, cy, 72, 3, "sagrado", sword.theme.main, 160);
+      playSound("mission");
+    } else if (weaponKey === "crimsonMeteorSword") {
+      const target = getNearestEnemy(cx, cy, 320);
+      if (target) {
+        addSwordFx({ kind: "meteorFall", x: target.x + target.width / 2, y: target.y + target.height / 2 - 120, targetX: target.x + target.width / 2, targetY: target.y + target.height / 2, timer: 0.55, maxTimer: 0.55, color: sword.theme.main, damage: 8 });
+      }
+      playSound("bossDown");
+    } else if (weaponKey === "ancientVoidSword") {
+      showCastleLockedHint(weaponKey);
+      state.specialCooldowns[weaponKey] = 0;
+      return false;
+    } else if (weaponKey === "supremeCrystalSword") {
+      addSwordFx({ kind: "crystalCone", x: cx, y: cy, angle, radius: 145, timer: 0.52, maxTimer: 0.52, color: sword.theme.main });
+      for (const obj of getUniqueEnemies()) {
+        const ox = obj.x + obj.width / 2;
+        const oy = obj.y + obj.height / 2;
+        const dx = ox - cx;
+        const dy = oy - cy;
+        const dist = Math.hypot(dx, dy);
+        if (dist > 150) continue;
+        const ang = Math.atan2(dy, dx);
+        const diff = Math.abs(angleDifference(ang, angle));
+        if (diff <= Math.PI * 0.26) {
+          damageEnemy(obj, 5, cx, cy, 200, "cristal");
+        }
+      }
+      player.crystalReflectTimer = Math.max(player.crystalReflectTimer || 0, 4.5);
+      playSound("magic");
+    } else if (weaponKey === "royalCastleSword") {
+      showCastleLockedHint(weaponKey);
+      state.specialCooldowns[weaponKey] = 0;
+      return false;
+    }
+
+    spawnFloatingText(sword.specialName, cx - 8, cy - 28, sword.theme.glow);
+    showHudToast(`${sword.specialName} ativado! (R)`);
+    updateHud();
+    return true;
+  }
+
+  function legendarySwordIcon(item) {
+    const sword = LEGENDARY_SWORDS[item.weaponKey];
+    const theme = swordTheme(item.weaponKey);
+    return `<span class="inventory-icon-wrap"><svg class="inventory-svg" viewBox="0 0 32 32" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="lg-${item.weaponKey}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${theme.glow}"/>
+          <stop offset="55%" stop-color="${theme.main}"/>
+          <stop offset="100%" stop-color="${theme.dark}"/>
+        </linearGradient>
+      </defs>
+      <path d="M16 2 22 10 18 25 16 30 14 25 10 10z" fill="url(#lg-${item.weaponKey})" stroke="#273052" stroke-width="2"/>
+      <path d="M16 5v20" stroke="${theme.accent}" stroke-width="2" opacity=".95"/>
+      <path d="M9 17h14l-3 4h-8z" fill="#f5ce79" stroke="#5c413c" stroke-width="1.5"/>
+      <rect x="14" y="22" width="4" height="5" rx="1" fill="#5c413c"/>
+      <circle cx="16" cy="9" r="2" fill="${theme.glow}" opacity=".85"/>
+    </svg></span>`;
+  }
+
+  registerLegendaryWeapons();
+  ensureLegendarySwordState();
+
+  const getWeaponDescriptionBeforeLegendarySwords = getWeaponDescription;
+  getWeaponDescription = function getWeaponDescriptionLegendarySwords(weaponKey) {
+    if (LEGENDARY_SWORDS[weaponKey]) {
+      const sword = LEGENDARY_SWORDS[weaponKey];
+      return `${getLegendarySwordDisplayRarity(weaponKey)}. ${sword.description}`;
+    }
+    return getWeaponDescriptionBeforeLegendarySwords(weaponKey);
+  };
+
+  const getInventoryItemsBeforeLegendarySwords = getInventoryItems;
+  getInventoryItems = function getInventoryItemsLegendarySwords() {
+    registerLegendaryWeapons();
+    const items = getInventoryItemsBeforeLegendarySwords();
+    for (const item of items) {
+      if (item?.weaponKey && LEGENDARY_SWORDS[item.weaponKey]) {
+        const sword = LEGENDARY_SWORDS[item.weaponKey];
+        item.rarity = sword.rarity;
+        item.effect = `Dano ${weapons[sword.weaponKey].damage} | Alcance ${weapons[sword.weaponKey].range} | Especial: ${sword.specialName} (R)`;
+        item.description = sword.description + ` Como conseguir: ${sword.obtainHint}`;
+        item.typeLabel = "Espada";
+      }
+    }
+    return items;
+  };
+
+  const getInventoryIconHtmlBeforeLegendarySwords = getInventoryIconHtml;
+  getInventoryIconHtml = function getInventoryIconHtmlLegendarySwords(item) {
+    if (item?.weaponKey && LEGENDARY_SWORDS[item.weaponKey]) return legendarySwordIcon(item);
+    return getInventoryIconHtmlBeforeLegendarySwords(item);
+  };
+
+  const getFilteredInventoryItemsBeforeLegendarySwords = getFilteredInventoryItems;
+  getFilteredInventoryItems = function getFilteredInventoryItemsLegendarySwords(items) {
+    if (inventoryTab === "raros") {
+      return items.filter((item) => item.category === "raros" || ["raro", "epico", "lendario", "mitico", "divino", "secreto", "real"].includes(item.rarity));
+    }
+    return getFilteredInventoryItemsBeforeLegendarySwords(items);
+  };
+
+  const getBasicAttackDamageBeforeLegendarySwords = getBasicAttackDamage;
+  getBasicAttackDamage = function getBasicAttackDamageLegendarySwords(weaponKey = getCurrentWeaponKey()) {
+    let damage = getBasicAttackDamageBeforeLegendarySwords(weaponKey);
+    if (weaponKey === "moonShadowBlade" && isNightNow()) damage += 1;
+    if (weaponKey === "royalCastleSword" && player.royalCastleBuffTimer > 0) damage += 2;
+    if (weaponKey === "dimensionalKatana") damage += 1;
+    return damage;
+  };
+
+  const takeDamageBeforeLegendarySwords = takeDamage;
+  takeDamage = function takeDamageLegendarySwords(amount, sourceX = player.x, sourceY = player.y) {
+    if (player.seraphShieldTimer > 0) {
+      playerInvulnerableTimer = 0.25;
+      spawnFloatingText("Escudo Divino!", player.x + 10, player.y - 14, "#fff4ac");
+      player.seraphShieldTimer = Math.max(0, player.seraphShieldTimer - Math.max(0.5, amount * 0.4));
+      playSound("shield");
+      updateHud();
+      return;
+    }
+    const lowHealthEquipped = getCurrentWeaponKey() === "fallenSeraphSword" && player.health <= 2;
+    if (lowHealthEquipped && player.seraphShieldTimer <= 0) {
+      player.seraphShieldTimer = 4.5;
+      addSwordFx({ kind: "holyShield", x: player.x + player.width / 2, y: player.y + player.height / 2, radius: 40, timer: 4.5, maxTimer: 4.5, color: "#fff4ac" });
+      showHudToast("A Espada do Serafim criou um escudo!");
+      spawnFloatingText("Proteção!", player.x + 10, player.y - 18, "#fff4ac");
+      playSound("mission");
+      updateHud();
+      return;
+    }
+    return takeDamageBeforeLegendarySwords(amount, sourceX, sourceY);
+  };
+
+  const damageEnemyBeforeLegendarySwords = damageEnemy;
+  damageEnemy = function damageEnemyLegendarySwords(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = "fisico") {
+    const currentWeapon = currentMeleeAttack?.weaponKey || getCurrentWeaponKey();
+    const wasFrozen = Number(obj?.frozenTimer || 0) > 0;
+    const result = damageEnemyBeforeLegendarySwords(obj, amount, sourceX, sourceY, knockbackPower, damageType);
+
+    if (!result || !obj?.alive && obj?.hp <= 0) {
+      // still continue on kill? some effects already visible
+    }
+    if (!result) return result;
+    if (!LEGENDARY_SWORDS[currentWeapon]) return result;
+
+    const sword = LEGENDARY_SWORDS[currentWeapon];
+    const tx = obj.x + obj.width / 2;
+    const ty = obj.y + obj.height / 2;
+    addSwordFx({ kind: "hitSpark", x: tx, y: ty, timer: 0.25, maxTimer: 0.25, color: sword.theme.main });
+
+    if (currentWeapon === "solarKingSword") {
+      addSwordFx({ kind: "solarTrail", x: tx, y: ty, timer: 0.35, maxTimer: 0.35, color: sword.theme.main });
+      if (isIceEnemy(obj)) {
+        directElementalDamage(obj, 2, "SOLAR", sword.theme.main);
+      }
+    } else if (currentWeapon === "moonShadowBlade") {
+      const state = ensureLegendarySwordState();
+      state.moonComboHits = (state.moonComboHits || 0) + 1;
+      if (isNightNow()) directElementalDamage(obj, 1, "LUA", sword.theme.main);
+      if (state.moonComboHits >= 3) {
+        state.moonComboHits = 0;
+        addSwordFx({ kind: "shadowWave", x: tx, y: ty, angle: currentMeleeAttack?.angle || 0, length: 150, width: 26, timer: 0.36, maxTimer: 0.36, color: sword.theme.main });
+        for (const other of findEnemiesInRadius(tx, ty, 90)) {
+          if (other === obj) continue;
+          directElementalDamage(other, 3, "LUA", sword.theme.main);
+        }
+      }
+    } else if (currentWeapon === "eternalIceSword") {
+      if (wasFrozen) {
+        directElementalDamage(obj, 3, "QUEBRA", sword.theme.main);
+      } else if (Math.random() < 0.35) {
+        applyFreeze(obj, 2.2);
+      }
+    } else if (currentWeapon === "dimensionalKatana") {
+      addSwordFx({ kind: "dimensionalTrace", x: tx, y: ty, angle: currentMeleeAttack?.angle || 0, timer: 0.34, maxTimer: 0.34, color: sword.theme.main });
+    } else if (currentWeapon === "swampLivingSword") {
+      applyPoison(obj, 3.5);
+      if (Math.random() < 0.28) applyRoots(obj, 1.4);
+    } else if (currentWeapon === "fallenSeraphSword") {
+      if (player.health <= 2 && player.seraphShieldTimer <= 0) {
+        player.seraphShieldTimer = 4.2;
+        addSwordFx({ kind: "holyShield", x: player.x + player.width / 2, y: player.y + player.height / 2, radius: 40, timer: 4.2, maxTimer: 4.2, color: sword.theme.main });
+      }
+      for (const other of findEnemiesInRadius(tx, ty, 62)) {
+        if (other === obj) continue;
+        directElementalDamage(other, 1, "LUZ", sword.theme.main);
+      }
+    } else if (currentWeapon === "crimsonMeteorSword") {
+      if (Math.random() < 0.25) {
+        addSwordFx({ kind: "meteorFall", x: tx, y: ty - 100, targetX: tx, targetY: ty, timer: 0.5, maxTimer: 0.5, color: sword.theme.main, damage: 4 });
+      }
+    } else if (currentWeapon === "ancientVoidSword") {
+      player.mana = Math.min(player.maxMana, player.mana + 1);
+      addSwordFx({ kind: "voidPulse", x: tx, y: ty, timer: 0.4, maxTimer: 0.4, color: sword.theme.main });
+    } else if (currentWeapon === "supremeCrystalSword") {
+      const nearby = findEnemiesInRadius(tx, ty, 86).slice(0, 3);
+      for (const other of nearby) {
+        if (other === obj) continue;
+        directElementalDamage(other, 2, "CRISTAL", sword.theme.main);
+      }
+      addSwordFx({ kind: "crystalShards", x: tx, y: ty, timer: 0.45, maxTimer: 0.45, color: sword.theme.main });
+    } else if (currentWeapon === "royalCastleSword") {
+      if (obj.boss) directElementalDamage(obj, 2, "REAL", sword.theme.main);
+    }
+
+    return result;
+  };
+
+  const defeatEnemyBeforeLegendarySwords = defeatEnemy;
+  defeatEnemy = function defeatEnemyLegendarySwords(obj) {
+    const bossKind = obj?.bossId || obj?.kind || "";
+    const wasAlive = obj?.alive !== false;
+    const result = defeatEnemyBeforeLegendarySwords(obj);
+
+    if (wasAlive && obj?.boss) {
+      if (bossKind === "solarPharaoh" || bossKind === "faraoSolar") grantLegendarySword("solarKingSword", "Faraó Solar");
+      if (bossKind === "iceQueen" || bossKind === "rainhaGlacial") grantLegendarySword("eternalIceSword", "Rainha Glacial");
+      if (bossKind === "supremeSwampWitch" || bossKind === "bruxaDoPantano") grantLegendarySword("swampLivingSword", "Bruxa Suprema");
+      if (bossKind === "fallenSeraph" || bossKind === "serafimCorrompido") grantLegendarySword("fallenSeraphSword", "Serafim Caído");
+      if (bossKind === "ancientCatacombLord") {
+        grantLegendarySword("moonShadowBlade", "Boss secreto");
+        grantLegendarySword("dimensionalKatana", "Catacumbas");
+      }
+    }
+
+    return result;
+  };
+
+  const getQuestMessageBeforeLegendarySwords = getQuestMessage;
+  getQuestMessage = function getQuestMessageLegendarySwords(target) {
+    const beforeRareChest = Boolean(questBook.bossChestOpened);
+    const beforeDimensionChest = Boolean(dimensionQuest?.chestOpened);
+    const beforeBiomeChest = target?.chestId && questBook.biomeMissions?.chests ? Boolean(questBook.biomeMissions.chests[target.chestId]) : false;
+    const beforeCelestialChest = target?.chestId && questBook.celestial?.openedChests ? Boolean(questBook.celestial.openedChests[target.chestId]) : false;
+    let beforeDungeonOpened = false;
+    let dungeonKind = "";
+    try {
+      dungeonKind = typeof currentDungeonKind !== "undefined" ? currentDungeonKind || "" : "";
+      beforeDungeonOpened = dungeonKind ? Boolean(questBook.eternalSystems?.dungeons?.[`chest_${dungeonKind}`]) : false;
+    } catch (error) {}
+
+    const result = getQuestMessageBeforeLegendarySwords(target);
+
+    if (target?.type === "rareChest" && !beforeRareChest && questBook.bossChestOpened) {
+      grantLegendarySword("crimsonMeteorSword", "Baú lendário raro");
+    }
+    if (target?.type === "dimensionChest" && !beforeDimensionChest && dimensionQuest?.chestOpened) {
+      grantLegendarySword("dimensionalKatana", "Baú dimensional");
+    }
+    if (target?.type === "biomeFeature" && target.role === "biomeChest" && target.chestId === "desert" && !beforeBiomeChest && (questBook.biomeMissions?.chests?.desert || target.opened)) {
+      grantLegendarySword("solarKingSword", "Baú do deserto");
+    }
+    if (target?.type === "dungeonFeature" && target.role === "chest") {
+      let openedNow = false;
+      try {
+        openedNow = dungeonKind ? Boolean(questBook.eternalSystems?.dungeons?.[`chest_${dungeonKind}`]) : false;
+      } catch (error) {}
+      if (!beforeDungeonOpened && openedNow && isNightNow()) {
+        grantLegendarySword("moonShadowBlade", "Dungeon noturna");
+      }
+    }
+    if (target?.type === "npc" && target.role === "legendForge") {
+      const hasCrystalSword = player.unlockedWeapons.includes("crystalSword") || inventory.rareWeapons?.includes?.("crystalSword");
+      const hasSupreme = player.unlockedWeapons.includes("supremeCrystalSword");
+      const crystalCount = Number(inventory.caveCristalAzul || 0);
+      const celestialCount = Number(inventory.fragmentoCelestial || 0);
+
+      if (hasCrystalSword && !hasSupreme && crystalCount >= 5 && celestialCount >= 2) {
+        inventory.caveCristalAzul = crystalCount - 5;
+        inventory.fragmentoCelestial = celestialCount - 2;
+        grantLegendarySword("supremeCrystalSword", "Forja de Branor");
+        showDialogMessage("Branor: Eu evoluí sua Espada Cristalina. Agora ela é a Espada Cristalina Suprema!");
+      } else if (hasCrystalSword && !hasSupreme) {
+        showDialogMessage(`Branor: Para forjar a Espada Cristalina Suprema, traga 5 Cristais Azuis e 2 Fragmentos Celestiais. Você tem ${crystalCount}/5 cristais e ${celestialCount}/2 fragmentos.`);
+      }
+    }
+
+    return result;
+  };
+
+  const updateTimedEffectsBeforeLegendarySwords = updateTimedEffects;
+  updateTimedEffects = function updateTimedEffectsLegendarySwords(delta) {
+    updateTimedEffectsBeforeLegendarySwords(delta);
+    const state = ensureLegendarySwordState();
+    for (const key of Object.keys(state.specialCooldowns)) {
+      state.specialCooldowns[key] = Math.max(0, state.specialCooldowns[key] - delta);
+    }
+    player.seraphShieldTimer = Math.max(0, (player.seraphShieldTimer || 0) - delta);
+    player.royalCastleBuffTimer = Math.max(0, (player.royalCastleBuffTimer || 0) - delta);
+    player.crystalReflectTimer = Math.max(0, (player.crystalReflectTimer || 0) - delta);
+
+    for (const obj of getUniqueEnemies()) {
+      if (obj.legendPoisonTimer > 0) {
+        obj.legendPoisonTimer = Math.max(0, obj.legendPoisonTimer - delta);
+        obj.legendPoisonTick = Math.max(0, Number(obj.legendPoisonTick || 0) - delta);
+        if (obj.legendPoisonTick <= 0) {
+          obj.legendPoisonTick = 0.85;
+          directElementalDamage(obj, 1, "VENENO", "#9dff85");
+        }
+      }
+      if (obj.rootedTimer > 0) {
+        obj.rootedTimer = Math.max(0, obj.rootedTimer - delta);
+        obj.x = obj.x;
+        obj.y = obj.y;
+      }
+    }
+
+    for (let i = legendarySwordFx.length - 1; i >= 0; i -= 1) {
+      const fx = legendarySwordFx[i];
+      fx.timer -= delta;
+      if (fx.kind === "meteorFall") {
+        const progress = 1 - clamp(fx.timer / Math.max(0.001, fx.maxTimer), 0, 1);
+        fx.currentX = fx.targetX;
+        fx.currentY = (fx.y || (fx.targetY - 120)) + (fx.targetY - (fx.y || (fx.targetY - 120))) * progress;
+        if (!fx.hitDone && fx.timer <= 0.1) {
+          fx.hitDone = true;
+          addSwordFx({ kind: "meteorImpact", x: fx.targetX, y: fx.targetY, radius: 16, maxRadius: 70, timer: 0.4, maxTimer: 0.4, color: fx.color });
+          damageArea(fx.targetX, fx.targetY, 64, fx.damage || 6, "fogo", fx.color, 260);
+        }
+      } else if (fx.kind === "voidRift") {
+        for (const obj of findEnemiesInRadius(fx.x, fx.y, fx.radius || 90)) {
+          const ox = obj.x + obj.width / 2;
+          const oy = obj.y + obj.height / 2;
+          const dx = fx.x - ox;
+          const dy = fx.y - oy;
+          const dist = Math.max(1, Math.hypot(dx, dy));
+          obj.knockbackX = (dx / dist) * 120;
+          obj.knockbackY = (dy / dist) * 120;
+        }
+      }
+      if (fx.timer <= 0) legendarySwordFx.splice(i, 1);
+    }
+  };
+
+  const drawAttackBeforeLegendarySwords = drawAttack;
+  drawAttack = function drawAttackLegendarySwords() {
+    drawAttackBeforeLegendarySwords();
+    const weaponKey = currentMeleeAttack?.weaponKey;
+    if (!weaponKey || !LEGENDARY_SWORDS[weaponKey]) return;
+
+    const sword = LEGENDARY_SWORDS[weaponKey];
+    const theme = swordTheme(weaponKey);
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const totalTimer = Math.max(0.001, currentMeleeAttack.maxTimer || attackTimer || 0.45);
+    const progress = 1 - clamp((currentMeleeAttack.timer || 0) / totalTimer, 0, 1);
+    const angle = currentMeleeAttack.angle || 0;
+    const start = angle - currentMeleeAttack.arc / 2;
+    const end = start + currentMeleeAttack.arc * progress;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.strokeStyle = theme.main;
+    ctx.lineWidth = 8;
+    ctx.shadowBlur = 14;
+    ctx.shadowColor = theme.glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, currentMeleeAttack.range * 0.9, start, end);
+    ctx.stroke();
+
+    ctx.strokeStyle = theme.accent;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, currentMeleeAttack.range * 0.72, start + 0.06, end + 0.06);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawEquippedWeaponBeforeLegendarySwords = drawEquippedWeapon;
+  drawEquippedWeapon = function drawEquippedWeaponLegendarySwords() {
+    drawEquippedWeaponBeforeLegendarySwords();
+    const weaponKey = getCurrentLegendarySwordKey();
+    if (!weaponKey) return;
+
+    const sword = LEGENDARY_SWORDS[weaponKey];
+    const theme = swordTheme(weaponKey);
+    const cx = player.x + player.width / 2;
+    const cy = player.y + player.height / 2 - 8;
+    const pulse = 0.65 + Math.sin((performance.now ? performance.now() : Date.now()) / 180) * 0.12;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.globalAlpha = pulse * 0.55;
+    ctx.fillStyle = theme.glow;
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 15, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const drawBeforeLegendarySwordWorldFx = draw;
+  draw = function drawLegendarySwordWorldFx() {
+    drawBeforeLegendarySwordWorldFx();
+
+    ctx.save();
+    ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+
+    for (const fx of legendarySwordFx) {
+      const progress = 1 - clamp(fx.timer / Math.max(0.001, fx.maxTimer || 0.5), 0, 1);
+      if (fx.kind === "hitSpark") {
+        ctx.strokeStyle = fx.color;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 4; i += 1) {
+          const a = progress * Math.PI * 2 + i * (Math.PI / 2);
+          ctx.beginPath();
+          ctx.moveTo(fx.x, fx.y);
+          ctx.lineTo(fx.x + Math.cos(a) * (10 + progress * 8), fx.y + Math.sin(a) * (10 + progress * 8));
+          ctx.stroke();
+        }
+      } else if (fx.kind === "solarExplosion" || fx.kind === "meteorImpact" || fx.kind === "iceStorm") {
+        const radius = (fx.radius || 12) + ((fx.maxRadius || 70) - (fx.radius || 12)) * progress;
+        ctx.strokeStyle = fx.color;
+        ctx.lineWidth = 4;
+        ctx.globalAlpha = 1 - progress;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        if (fx.kind === "iceStorm") {
+          ctx.fillStyle = "rgba(233,255,255,0.8)";
+          for (let i = 0; i < 6; i += 1) {
+            const a = i * (Math.PI / 3) + progress * 1.5;
+            ctx.fillRect(fx.x + Math.cos(a) * radius * 0.65 - 2, fx.y + Math.sin(a) * radius * 0.65 - 2, 4, 8);
+          }
+        }
+      } else if (fx.kind === "shadowWave" || fx.kind === "dimensionalSlash") {
+        ctx.save();
+        ctx.translate(fx.x, fx.y);
+        ctx.rotate(fx.angle || 0);
+        ctx.strokeStyle = fx.color;
+        ctx.lineWidth = fx.kind === "dimensionalSlash" ? 10 : 8;
+        ctx.globalAlpha = 1 - progress;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(fx.length || 150, 0);
+        ctx.stroke();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo((fx.length || 150) * 0.85, 0);
+        ctx.stroke();
+        ctx.restore();
+      } else if (fx.kind === "rootsBurst") {
+        ctx.strokeStyle = fx.color;
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 1 - progress;
+        for (let i = 0; i < 7; i += 1) {
+          const a = i * (Math.PI * 2 / 7);
+          ctx.beginPath();
+          ctx.moveTo(fx.x, fx.y);
+          ctx.lineTo(fx.x + Math.cos(a) * 26, fx.y + Math.sin(a) * 18);
+          ctx.lineTo(fx.x + Math.cos(a) * 46, fx.y + Math.sin(a) * 42);
+          ctx.stroke();
+        }
+      } else if (fx.kind === "holyShield") {
+        ctx.strokeStyle = fx.color;
+        ctx.lineWidth = 4;
+        ctx.globalAlpha = 0.75;
+        ctx.beginPath();
+        ctx.arc(player.x + player.width / 2, player.y + player.height / 2, 28 + Math.sin(progress * Math.PI * 4) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (fx.kind === "meteorFall") {
+        ctx.fillStyle = fx.color;
+        ctx.beginPath();
+        ctx.arc(fx.currentX || fx.targetX, fx.currentY || fx.y, 10, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff264";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(fx.targetX - 12, (fx.currentY || fx.y) - 16);
+        ctx.lineTo(fx.targetX + 8, (fx.currentY || fx.y) + 10);
+        ctx.stroke();
+      } else if (fx.kind === "crystalCone") {
+        ctx.save();
+        ctx.translate(fx.x, fx.y);
+        ctx.rotate(fx.angle || 0);
+        ctx.globalAlpha = 1 - progress;
+        ctx.fillStyle = fx.color;
+        for (let i = 0; i < 6; i += 1) {
+          const d = 24 + i * 18;
+          ctx.beginPath();
+          ctx.moveTo(d, 0);
+          ctx.lineTo(d + 12, -6);
+          ctx.lineTo(d + 12, 6);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      } else if (fx.kind === "crystalShards") {
+        ctx.fillStyle = fx.color;
+        ctx.globalAlpha = 1 - progress;
+        for (let i = 0; i < 5; i += 1) {
+          const a = i * (Math.PI * 2 / 5) + progress * 2.1;
+          const r = 10 + progress * 24;
+          ctx.fillRect(fx.x + Math.cos(a) * r - 2, fx.y + Math.sin(a) * r - 4, 4, 8);
+        }
+      } else if (fx.kind === "solarTrail" || fx.kind === "dimensionalTrace" || fx.kind === "voidPulse") {
+        ctx.globalAlpha = 1 - progress;
+        ctx.fillStyle = fx.color;
+        ctx.beginPath();
+        ctx.arc(fx.x, fx.y, 8 + progress * 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  };
+
+  window.addEventListener("keydown", (event) => {
+    const key = event.key.toLowerCase();
+    if (key !== "r") return;
+    if (isTypingInTextField?.() || gameOver || dialogOpen || inventoryOpen || shopOpen || pauseOpen) return;
+    event.preventDefault();
+    useLegendarySwordSpecial();
+  });
+
+  const updateHudBeforeLegendarySwords = updateHud;
+  updateHud = function updateHudLegendarySwords() {
+    updateHudBeforeLegendarySwords();
+    const weaponKey = getCurrentLegendarySwordKey();
+    const state = ensureLegendarySwordState();
+    if (powerHud && weaponKey) {
+      const cd = Number(state.specialCooldowns[weaponKey] || 0);
+      const suffix = cd > 0 ? ` | R: ${LEGENDARY_SWORDS[weaponKey].specialName} ${cd.toFixed(1)}s` : ` | R: ${LEGENDARY_SWORDS[weaponKey].specialName}`;
+      powerHud.textContent = `${powerHud.textContent}${suffix}`;
+    }
+  };
+
+  registerLegendaryWeapons();
+  ensureLegendarySwordState();
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: Inventario lindo + respawn instantaneo + bosses patrulhando
+   ================================================== */
+(function eternalRiftInventoryRespawnBossRoamPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_INVENTORY_RESPAWN_BOSSROAM_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_INVENTORY_RESPAWN_BOSSROAM_PATCH = true;
+
+  function normalizeRarityKey(rarity) {
+    const raw = String(rarity || "comum").trim().toLowerCase();
+    const normalized = raw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    if (normalized === "rara") return "raro";
+    if (normalized === "epica") return "epico";
+    if (normalized === "mitica") return "mitico";
+    if (normalized === "lendaria") return "lendario";
+    if (normalized === "divina") return "divino";
+    if (normalized === "secreta") return "secreto";
+    return normalized || "comum";
+  }
+
+  function formatRarityPretty(rarity) {
+    const key = normalizeRarityKey(rarity);
+    const labelMap = {
+      comum: "Comum",
+      incomum: "Incomum",
+      raro: "Rara",
+      epico: "Épica",
+      lendario: "Lendária",
+      mitico: "Mítica",
+      divino: "Divina",
+      corrompida: "Corrompida",
+      secreto: "Secreta",
+      real: "Real"
+    };
+    return labelMap[key] || String(rarity || "Comum");
+  }
+
+  formatRarity = formatRarityPretty;
+
+  getInventoryNameHtml = function getInventoryNameHtmlLegendary(item) {
+    const rarityKey = normalizeRarityKey(item?.rarity);
+    return `
+      <span class="item-detail-icon-preview rarity-icon-${rarityKey}">${getInventoryIconHtml(item)}</span>
+      <span class="item-detail-name-text rarity-name-${rarityKey}">${item?.name || "Item"}</span>
+    `;
+  };
+
+  renderInventoryGrid = function renderInventoryGridLegendary(filteredItems, totalItems) {
+    if (!inventoryGrid) return;
+
+    const slotCount = Math.max(30, filteredItems.length);
+    const slots = [];
+    for (let index = 0; index < slotCount; index += 1) {
+      const item = filteredItems[index];
+      if (!item) {
+        slots.push(`<button class="inventory-slot is-empty" type="button" disabled aria-label="Slot vazio"></button>`);
+        continue;
+      }
+
+      const equipped = (item.weaponKey && item.weaponKey === getCurrentWeaponKey()) ||
+        (item.powerKey && item.powerKey === equippedPower);
+      const rarityKey = normalizeRarityKey(item.rarity);
+      slots.push(`
+        <button class="inventory-slot rarity-${rarityKey}${selectedInventoryItemId === item.id ? " is-selected" : ""}${equipped ? " is-equipped" : ""}" type="button" data-item-id="${item.id}" data-rarity="${rarityKey}" aria-label="${item.name}">
+          <span class="item-icon">${getInventoryIconHtml(item)}</span>
+          <span class="item-qty">${item.quantity > 1 ? item.quantity : ""}</span>
+        </button>
+      `);
+    }
+
+    inventoryGrid.innerHTML = slots.join("");
+    if (inventoryEmpty) {
+      inventoryEmpty.textContent = totalItems ? "Nada nesta aba." : "Sua bolsa está vazia.";
+      inventoryEmpty.classList.toggle("hidden", filteredItems.length > 0);
+    }
+  };
+
+  renderItemDetails = function renderItemDetailsLegendary(item) {
+    if (!itemDetailName || !itemDetailMeta || !itemDetailDescription || !itemDetailEffect || !itemDetailActions) return;
+
+    if (!item) {
+      itemDetailName.textContent = "Bolsa vazia";
+      itemDetailMeta.textContent = "Nenhum item selecionado.";
+      itemDetailDescription.textContent = "Colete moedas, poções, cristais, chaves, armas e poderes espalhados pelo mundo.";
+      itemDetailEffect.textContent = "";
+      itemDetailActions.innerHTML = "";
+      if (itemDetailName.dataset) itemDetailName.dataset.rarity = "comum";
+      return;
+    }
+
+    const rarityKey = normalizeRarityKey(item.rarity);
+    itemDetailName.innerHTML = getInventoryNameHtml(item);
+    if (itemDetailName.dataset) itemDetailName.dataset.rarity = rarityKey;
+    itemDetailMeta.textContent = `${item.typeLabel} • ${formatRarityPretty(item.rarity)} • Qtd. ${item.quantity}`;
+    itemDetailDescription.textContent = item.description || "Item desconhecido guardado com cuidado.";
+    itemDetailEffect.textContent = item.effect || "";
+    itemDetailActions.innerHTML = getInventoryActionHtml(item);
+  };
+
+  function instantRespawnEnemy(obj) {
+    if (!obj || obj.type !== "enemy") return;
+    try {
+      if (typeof normalizeEnemy === "function") normalizeEnemy(obj);
+    } catch (error) {}
+
+    obj.alive = true;
+    obj.hp = Number.isFinite(obj.maxHp) ? obj.maxHp : obj.hp;
+    obj.x = Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+    obj.y = Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+    obj.knockbackX = 0;
+    obj.knockbackY = 0;
+    obj.attackCooldown = 0.75;
+    obj.attackTimer = 0;
+    obj.invulnerableTimer = 0.7;
+    obj.respawnTimer = 0;
+    obj.respawnMaxTimer = 0;
+    obj.phase = 1;
+    obj.state = obj.boss ? "bossPatrol" : "idle";
+  }
+
+  const defeatEnemyBeforeInstantRespawn = defeatEnemy;
+  defeatEnemy = function defeatEnemyInstantRespawnPatch(obj) {
+    const wasAlive = Boolean(obj && obj.alive !== false);
+    const result = defeatEnemyBeforeInstantRespawn(obj);
+    if (wasAlive && obj?.type === "enemy") {
+      instantRespawnEnemy(obj);
+    }
+    return result;
+  };
+
+  const BOSS_PATROL_AREAS = {
+    solarPharaoh: { minX: 116, maxX: 134, minY: 8,  maxY: 22, speedMul: 0.62 },
+    iceQueen: { minX: 112, maxX: 130, minY: 56, maxY: 70, speedMul: 0.60 },
+    supremeSwampWitch: { minX: 45, maxX: 65, minY: 80, maxY: 94, speedMul: 0.58 },
+    corruptedReactor: { minX: 35, maxX: 49, minY: 22, maxY: 35, speedMul: 0.45 },
+    fallenSeraph: { minX: 33, maxX: 50, minY: 6,  maxY: 20, speedMul: 0.68 },
+    ancientCatacombLord: { minX: 18, maxX: 36, minY: 8, maxY: 16, speedMul: 0.52 }
+  };
+
+  function getActiveBossList() {
+    if (currentScene === "village" && Array.isArray(villageObjects)) return villageObjects;
+    if (Array.isArray(objects)) return objects;
+    return [];
+  }
+
+  function chooseBossPatrolTarget(obj) {
+    const cfg = BOSS_PATROL_AREAS[obj?.bossId];
+    if (!cfg) {
+      obj.patrolTargetX = Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+      obj.patrolTargetY = Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+      obj.patrolTimer = 2.4;
+      return;
+    }
+
+    const minPxX = cfg.minX * TILE + 6;
+    const maxPxX = cfg.maxX * TILE + 10;
+    const minPxY = cfg.minY * TILE + 6;
+    const maxPxY = cfg.maxY * TILE + 10;
+    let tries = 0;
+    let targetX = obj.x;
+    let targetY = obj.y;
+    do {
+      targetX = minPxX + Math.random() * Math.max(1, maxPxX - minPxX);
+      targetY = minPxY + Math.random() * Math.max(1, maxPxY - minPxY);
+      tries += 1;
+    } while (tries < 8 && Math.hypot(targetX - obj.x, targetY - obj.y) < TILE * 3);
+
+    obj.patrolTargetX = targetX;
+    obj.patrolTargetY = targetY;
+    obj.patrolTimer = 1.9 + Math.random() * 2.8;
+  }
+
+  function moveBossTowardsTarget(obj, delta) {
+    const cfg = BOSS_PATROL_AREAS[obj?.bossId] || { speedMul: 0.55 };
+    if (!Number.isFinite(obj.patrolTargetX) || !Number.isFinite(obj.patrolTargetY)) {
+      chooseBossPatrolTarget(obj);
+    }
+
+    const centerX = obj.x + obj.width / 2;
+    const centerY = obj.y + obj.height / 2;
+    const dx = obj.patrolTargetX - centerX;
+    const dy = obj.patrolTargetY - centerY;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist < 10 || obj.patrolTimer <= 0) {
+      chooseBossPatrolTarget(obj);
+      return;
+    }
+
+    const step = Math.max(12, obj.speed * cfg.speedMul) * delta;
+    const moveX = (dx / dist) * step;
+    const moveY = (dy / dist) * step;
+    const nextX = obj.x + moveX;
+    const nextY = obj.y + moveY;
+
+    let moved = false;
+    if (typeof canEntityMoveTo === "function") {
+      if (canEntityMoveTo(obj, nextX, obj.y)) {
+        obj.x = nextX;
+        moved = true;
+      }
+      if (canEntityMoveTo(obj, obj.x, nextY)) {
+        obj.y = nextY;
+        moved = true;
+      }
+    } else {
+      obj.x = nextX;
+      obj.y = nextY;
+      moved = true;
+    }
+
+    if (!moved) {
+      obj.patrolTimer = 0;
+      chooseBossPatrolTarget(obj);
+      return;
+    }
+
+    obj.direction = Math.abs(moveX) >= Math.abs(moveY)
+      ? (moveX >= 0 ? "right" : "left")
+      : (moveY >= 0 ? "down" : "up");
+    obj.state = "bossPatrol";
+  }
+
+  function updateBossBiomeRoaming(delta) {
+    const list = getActiveBossList();
+    if (!Array.isArray(list) || !list.length) return;
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    for (const obj of list) {
+      if (!obj || obj.type !== "enemy" || !obj.alive || !obj.eternalBoss) continue;
+      const distanceToPlayer = Math.hypot((obj.x + obj.width / 2) - playerCenterX, (obj.y + obj.height / 2) - playerCenterY);
+      if (distanceToPlayer < Math.max(150, obj.aggroRange * 0.78)) {
+        obj.patrolTimer = 0;
+        continue;
+      }
+
+      obj.patrolTimer = Number.isFinite(obj.patrolTimer) ? obj.patrolTimer - delta : 0;
+      if (!Number.isFinite(obj.patrolTargetX) || !Number.isFinite(obj.patrolTargetY) || obj.patrolTimer <= 0) {
+        chooseBossPatrolTarget(obj);
+      }
+      moveBossTowardsTarget(obj, delta);
+    }
+  }
+
+  const updateBeforeInventoryRespawnBossRoam = update;
+  update = function updateInventoryRespawnBossRoamPatch(delta) {
+    updateBeforeInventoryRespawnBossRoam(delta);
+    updateBossBiomeRoaming(delta);
+  };
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: icones lindos + brilho top + janela de bosses e drops
+   ================================================== */
+(function eternalRiftIconsBossDropsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ICONS_BOSS_DROPS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ICONS_BOSS_DROPS_PATCH = true;
+
+  function rarityKeyLocal(rarity) {
+    const raw = String(rarity || "comum").trim().toLowerCase();
+    const normalized = raw
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const map = { rara: "raro", epica: "epico", mitica: "mitico", lendaria: "lendario", divina: "divino", secreta: "secreto" };
+    return map[normalized] || normalized || "comum";
+  }
+
+  function iconWrap(inner, rarity = "comum", extraClass = "") {
+    const key = rarityKeyLocal(rarity);
+    return `<span class="inventory-icon-wrap icon-rarity-${key} ${extraClass}"><svg class="inventory-art" viewBox="0 0 32 32" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${inner}</svg></span>`;
+  }
+
+  function swordIcon(theme) {
+    return iconWrap(`
+      <defs>
+        <linearGradient id="blade-${theme.id}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${theme.bladeA}"/>
+          <stop offset="100%" stop-color="${theme.bladeB}"/>
+        </linearGradient>
+      </defs>
+      <path d="M20 3 28 11 15 24 11 20z" fill="url(#blade-${theme.id})" stroke="${theme.stroke}" stroke-width="1.8"/>
+      <path d="M10 20 7 23l2 2-2 2 1.5 1.5 2-2 2 2 1.5-1.5-2-2 2-2z" fill="${theme.guard}" stroke="${theme.stroke2}" stroke-width="1.3"/>
+      <path d="M19 6 25 12" stroke="${theme.glow}" stroke-width="1.5" opacity=".9"/>
+      <circle cx="11" cy="20" r="1.6" fill="${theme.glow}" opacity=".85"/>
+    `, theme.rarity, `icon-theme-${theme.id}`);
+  }
+
+  function staffIcon(theme) {
+    return iconWrap(`
+      <path d="M12 6v20" stroke="${theme.shaft}" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="12" cy="7" r="4.5" fill="${theme.core}" stroke="${theme.stroke}" stroke-width="1.8"/>
+      <path d="M18 10c4 1 6 4 7 8" stroke="${theme.glow}" stroke-width="2" opacity=".85" fill="none"/>
+      <path d="M9 7h6" stroke="#ffffff" stroke-width="1" opacity=".7"/>
+    `, theme.rarity, `icon-theme-${theme.id}`);
+  }
+
+  function orbIcon(theme) {
+    return iconWrap(`
+      <circle cx="16" cy="16" r="9.5" fill="${theme.main}" stroke="${theme.stroke}" stroke-width="2"/>
+      <circle cx="13" cy="12.5" r="4.2" fill="#ffffff" opacity=".28"/>
+      <path d="M10 21c2 1.8 10 1.8 12 0" stroke="${theme.glow}" stroke-width="2" opacity=".9"/>
+      <circle cx="20.5" cy="12" r="1.6" fill="#ffffff" opacity=".75"/>
+    `, theme.rarity, `icon-theme-${theme.id}`);
+  }
+
+  function emblemIcon(theme) {
+    return iconWrap(`
+      <path d="M16 4 25 10 22 24 16 28 10 24 7 10z" fill="${theme.main}" stroke="${theme.stroke}" stroke-width="2"/>
+      <path d="M16 8v12M10 14h12" stroke="${theme.glow}" stroke-width="2" opacity=".82"/>
+      <circle cx="16" cy="16" r="3" fill="#ffffff" opacity=".32"/>
+    `, theme.rarity, `icon-theme-${theme.id}`);
+  }
+
+  function projectileIcon(theme) {
+    return iconWrap(theme.svg, theme.rarity, `icon-theme-${theme.id}`);
+  }
+
+  const oldGetInventoryIconHtml = getInventoryIconHtml;
+  getInventoryIconHtml = function getInventoryIconHtmlUltra(item) {
+    if (!item) return oldGetInventoryIconHtml(item);
+    const rarity = item.rarity || "comum";
+    const weapon = item.weaponKey || "";
+    const power = item.powerKey || "";
+    const id = item.id || "";
+
+    const uniqueWeapons = {
+      solarKingSword: swordIcon({ id: "solar-king", rarity: "lendario", bladeA: "#fff7a0", bladeB: "#ff9c34", stroke: "#8b4d12", guard: "#ffda57", stroke2: "#7c3d11", glow: "#fff9ce" }),
+      moonShadowBlade: swordIcon({ id: "moon-shadow", rarity: "lendario", bladeA: "#f0d8ff", bladeB: "#7e42d8", stroke: "#3a255b", guard: "#c98dff", stroke2: "#2f1a4e", glow: "#f9eeff" }),
+      eternalIceSword: swordIcon({ id: "ice-eternal", rarity: "mitico", bladeA: "#e6fbff", bladeB: "#7fd6ff", stroke: "#285d8d", guard: "#b4eeff", stroke2: "#24466e", glow: "#ffffff" }),
+      dimensionalKatana: swordIcon({ id: "dim-katana", rarity: "lendario", bladeA: "#f7eaff", bladeB: "#8f49ff", stroke: "#402067", guard: "#d4abff", stroke2: "#351956", glow: "#ffffff" }),
+      swampLivingSword: swordIcon({ id: "swamp-living", rarity: "epico", bladeA: "#d8ffd1", bladeB: "#4da63e", stroke: "#2a5521", guard: "#8bdb67", stroke2: "#29471e", glow: "#f6ffea" }),
+      fallenSeraphSword: swordIcon({ id: "seraph-sword", rarity: "divino", bladeA: "#ffffff", bladeB: "#9dd6ff", stroke: "#476097", guard: "#fff0ac", stroke2: "#7f6a23", glow: "#fffdf4" }),
+      crimsonMeteorSword: swordIcon({ id: "crimson-meteor", rarity: "lendario", bladeA: "#fff0aa", bladeB: "#ff4d48", stroke: "#7f1e1e", guard: "#ff996b", stroke2: "#672020", glow: "#fff6d6" }),
+      ancientVoidSword: swordIcon({ id: "ancient-void", rarity: "secreto", bladeA: "#ded0ff", bladeB: "#2e2147", stroke: "#110d1d", guard: "#6f57be", stroke2: "#181127", glow: "#e9deff" }),
+      supremeCrystalSword: swordIcon({ id: "supreme-crystal", rarity: "mitico", bladeA: "#ffffff", bladeB: "#6df4ff", stroke: "#226a7d", guard: "#ff9ddd", stroke2: "#824780", glow: "#ffffff" }),
+      royalCastleSword: swordIcon({ id: "royal-castle", rarity: "real", bladeA: "#fff8d6", bladeB: "#f0bf65", stroke: "#73511c", guard: "#e86ca1", stroke2: "#733751", glow: "#fff4c3" }),
+      sword: swordIcon({ id: "basic-sword", rarity, bladeA: "#f1f7ff", bladeB: "#9bb4d6", stroke: "#394066", guard: "#f3d080", stroke2: "#5c413c", glow: "#ffffff" }),
+      axe: swordIcon({ id: "axe", rarity, bladeA: "#d0dee8", bladeB: "#7f9dad", stroke: "#394066", guard: "#a66b40", stroke2: "#5c413c", glow: "#ffffff" }),
+      lance: swordIcon({ id: "lance", rarity, bladeA: "#f4fbff", bladeB: "#76b9ff", stroke: "#394066", guard: "#d7a35b", stroke2: "#5c413c", glow: "#ffffff" })
+    };
+    if (uniqueWeapons[weapon]) return uniqueWeapons[weapon];
+
+    const uniquePowers = {
+      fireball: projectileIcon({ id: "power-fireball", rarity: "raro", svg: `<circle cx="16" cy="16" r="7.5" fill="#ff8f4c" stroke="#9c331b" stroke-width="2"/><path d="M17 7c3 2 5 5 4 9-2-1-5-1-7 0 0-3 1-6 3-9z" fill="#fff264" opacity=".95"/><path d="M10 21c2 4 10 4 12 0" stroke="#9b2f1b" stroke-width="2"/>` }),
+      blueRay: projectileIcon({ id: "power-blueray", rarity: "raro", svg: `<path d="M7 18 14 10 18 14 25 8" fill="none" stroke="#55e8ff" stroke-width="3.2" stroke-linecap="round"/><path d="M18 14h6l-3 7" fill="none" stroke="#e9ffff" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="#ffffff" opacity=".7"/>` }),
+      shockwave: projectileIcon({ id: "power-shockwave", rarity: "epico", svg: `<circle cx="16" cy="16" r="4" fill="#fff264" stroke="#8a5b2a" stroke-width="2"/><circle cx="16" cy="16" r="8" fill="none" stroke="#ff7ab5" stroke-width="2" opacity=".9"/><circle cx="16" cy="16" r="12" fill="none" stroke="#55c4ff" stroke-width="2" opacity=".78"/>` }),
+      heal: projectileIcon({ id: "power-heal", rarity: "incomum", svg: `<circle cx="16" cy="16" r="10" fill="#5fcf7a" stroke="#26794d" stroke-width="2"/><path d="M16 10v12M10 16h12" stroke="#fff3d6" stroke-width="3"/><circle cx="12" cy="12" r="1.5" fill="#ffffff" opacity=".7"/>` }),
+      celestialSpear: projectileIcon({ id: "power-celestial", rarity: "divino", svg: `<path d="M7 24 22 9" stroke="#ffe9a6" stroke-width="3.2"/><path d="M22 9l3-6 4 4-6 3z" fill="#ffffff" stroke="#5672b8" stroke-width="1.5"/><path d="M7 24l-2 3" stroke="#8b5a38" stroke-width="2"/><circle cx="24" cy="7" r="2" fill="#fff9dd"/>` }),
+      eternalIceExplosion: projectileIcon({ id: "power-iceburst", rarity: "mitico", svg: `<path d="M16 5v22M5 16h22M8 8l16 16M24 8 8 24" stroke="#dff8ff" stroke-width="2.5"/><circle cx="16" cy="16" r="4.5" fill="#7fd6ff" stroke="#2c6d9a" stroke-width="1.8"/>` }),
+      solarSandTornado: projectileIcon({ id: "power-sandtornado", rarity: "lendario", svg: `<path d="M8 10c4-3 12-3 16 0M10 14c3-2 9-2 12 0M11 18c2-1 8-1 10 0M13 22c2-.8 4-.8 6 0" stroke="#e8b861" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M18 8c2 2 4 5 4 8 0 4-3 7-6 9" stroke="#fff2b4" stroke-width="1.5" fill="none"/>` }),
+      venomRoots: projectileIcon({ id: "power-roots", rarity: "epico", svg: `<path d="M16 6v20" stroke="#3f7c17" stroke-width="2.8"/><path d="M16 14c-5 0-8 3-10 7M16 14c5 0 8 3 10 7M16 18c-3 0-5 2-7 5M16 18c3 0 5 2 7 5" stroke="#7cda52" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="16" cy="10" r="3" fill="#b7ff74"/>` }),
+      dimensionalSlash: projectileIcon({ id: "power-dimslash", rarity: "lendario", svg: `<path d="M7 23 25 9" stroke="#f3e6ff" stroke-width="4" stroke-linecap="round"/><path d="M6 24 24 10" stroke="#8f49ff" stroke-width="7" stroke-linecap="round" opacity=".75"/><circle cx="18" cy="14" r="2" fill="#ffffff" opacity=".65"/>` }),
+      crimsonMeteor: projectileIcon({ id: "power-meteor", rarity: "lendario", svg: `<circle cx="18" cy="14" r="6" fill="#ff5b52" stroke="#811e1a" stroke-width="2"/><path d="M8 24 13 19" stroke="#ffb271" stroke-width="3" stroke-linecap="round"/><path d="M14 10c3 1 4 4 4 7" stroke="#fff1a0" stroke-width="1.6"/>` }),
+      divineShield: projectileIcon({ id: "power-shield", rarity: "divino", svg: `<path d="M16 4 24 8v7c0 6-3 10-8 13-5-3-8-7-8-13V8z" fill="#d9efff" stroke="#3f71b4" stroke-width="2"/><path d="M16 9v10M11 14h10" stroke="#fff6b4" stroke-width="2.3"/><circle cx="16" cy="14" r="9" fill="none" stroke="#fff6b4" stroke-width="1.2" opacity=".6"/>` }),
+      shadowTeleport: projectileIcon({ id: "power-shadowtele", rarity: "epico", svg: `<path d="M8 24c4-8 8-12 16-16" stroke="#2d214d" stroke-width="3" fill="none"/><path d="M11 23c2-5 6-9 12-12" stroke="#b46dff" stroke-width="2.2" fill="none"/><circle cx="22" cy="9" r="3.5" fill="#5a35a3" stroke="#efe3ff" stroke-width="1.5"/>` })
+    };
+    if (uniquePowers[power]) return uniquePowers[power];
+
+    if (weapon === "bow") return emblemIcon({ id: "bow-emblem", rarity, main: "#c89a65", stroke: "#613a27", glow: "#f8ebd0" });
+    if (weapon === "staff") return staffIcon({ id: "staff-emblem", rarity, shaft: "#8f5a3f", core: "#61d1ff", stroke: "#273052", glow: "#c9f1ff" });
+    if (weapon === "spear") return swordIcon({ id: "spear-emblem", rarity, bladeA: "#ffffff", bladeB: "#8fd2ff", stroke: "#394066", guard: "#d7a35b", stroke2: "#5c413c", glow: "#ffffff" });
+
+    if (id === "moedas") return orbIcon({ id: "coins-orb", rarity: "comum", main: "#f6c75b", stroke: "#8a5b2a", glow: "#fff2ad" });
+    if (id === "pocoes") return staffIcon({ id: "potion-vial", rarity: "incomum", shaft: "#7f4f36", core: "#ff6b87", stroke: "#273052", glow: "#ffd7df" });
+    if (id === "cristais") return emblemIcon({ id: "crystal-emblem", rarity: "raro", main: "#55e8ff", stroke: "#2f73bf", glow: "#ecffff" });
+    if (id === "fragmentos") return emblemIcon({ id: "fragment-emblem", rarity: "epico", main: "#a46af2", stroke: "#4f2d73", glow: "#e7d3ff" });
+    if (id === "mana-orbes") return orbIcon({ id: "mana-orb", rarity: "raro", main: "#8f69ff", stroke: "#443078", glow: "#ece1ff" });
+    if (id === "chaves" || id === "chaves-raras") return emblemIcon({ id: "key-emblem", rarity: id === "chaves-raras" ? "raro" : "comum", main: "#ffeb72", stroke: "#7e5921", glow: "#fff7cb" });
+    if (String(id).startsWith("boss-")) return emblemIcon({ id: "boss-emblem", rarity: "lendario", main: "#d24c63", stroke: "#5d2031", glow: "#fff3ad" });
+
+    return oldGetInventoryIconHtml(item);
+  };
+
+  const BOSS_GUIDE_DATA = [
+    {
+      bossId: "solarPharaoh",
+      biome: "Deserto",
+      name: "Faraó Solar Maldito",
+      location: "Bioma do deserto",
+      drops: ["Espada do Rei Solar", "Tornado de Areia Solar", "Moedas", "Poção de mana", "Baú do deserto"]
+    },
+    {
+      bossId: "iceQueen",
+      biome: "Gelo",
+      name: "Rainha Glacial",
+      location: "Bioma de gelo",
+      drops: ["Espada de Gelo Eterno", "Explosão de Gelo Eterno", "Cristais azuis", "Poção de mana"]
+    },
+    {
+      bossId: "supremeSwampWitch",
+      biome: "Pântano",
+      name: "Bruxa Venenosa Suprema",
+      location: "Bioma venenoso / pântano",
+      drops: ["Espada Viva do Pântano", "Raízes Venenosas", "Minérios sombrios", "Poção de mana"]
+    },
+    {
+      bossId: "corruptedReactor",
+      biome: "Dimensão Ácida",
+      name: "Reator Vivo Corrompido",
+      location: "Centro da Dimensão Ácida",
+      drops: ["Corte Dimensional", "Cajado Ácido", "Fragmentos corrompidos", "Baú tóxico"]
+    },
+    {
+      bossId: "fallenSeraph",
+      biome: "Dimensão Celestial",
+      name: "Serafim Caído",
+      location: "Dimensão Celestial",
+      drops: ["Espada do Serafim Caído", "Lança Celestial", "Fragmento Celestial", "Baú celestial"]
+    },
+    {
+      bossId: "ancientCatacombLord",
+      biome: "Catacumbas",
+      name: "Senhor Antigo das Catacumbas",
+      location: "Dungeon final / Catacumbas",
+      drops: ["Lâmina da Lua Sombria", "Katana Dimensional", "Corte Dimensional", "Tesouros secretos"]
+    }
+  ];
+
+  const CHEST_GUIDE_DATA = [
+    { place: "Baú raro do deserto", drops: ["Espada do Rei Solar", "Moedas", "Poção de mana"] },
+    { place: "Baú lendário raro", drops: ["Espada Carmesim do Meteoro", "Meteoro Carmesim"] },
+    { place: "Baú da dimensão", drops: ["Teleporte Sombrio", "Fragmentos", "Cristais"] },
+    { place: "Baú celestial", drops: ["Escudo Divino", "Fragmento Celestial", "Moedas"] },
+    { place: "Castelo (futuro)", drops: ["Espada do Vazio Antigo", "Espada Real do Castelo"] }
+  ];
+
+  function bossIsAliveById(bossId) {
+    const lists = [];
+    if (Array.isArray(villageObjects)) lists.push(villageObjects);
+    if (Array.isArray(objects) && objects !== villageObjects) lists.push(objects);
+    for (const list of lists) {
+      for (const obj of list) {
+        if (obj?.type === "enemy" && obj?.bossId === bossId && obj?.alive) return true;
+      }
+    }
+    return false;
+  }
+
+  function bossWasDefeated(bossId) {
+    return Boolean(questBook?.eternalSystems?.defeatedBosses?.[bossId]);
+  }
+
+  function ensureBossDropsPanel() {
+    if (document.getElementById("bossDropsPanel")) return document.getElementById("bossDropsPanel");
+
+    const panel = document.createElement("div");
+    panel.id = "bossDropsPanel";
+    panel.className = "panel boss-drops-panel hidden";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Bosses e Drops");
+    panel.innerHTML = `
+      <div class="boss-drops-header">
+        <div>
+          <span class="panel-eyebrow">Guia do Mundo</span>
+          <h2>Bosses & Drops</h2>
+        </div>
+        <button id="closeBossDropsButton" class="inventory-close-button" type="button">Fechar</button>
+      </div>
+      <div class="boss-drops-layout">
+        <section>
+          <h3>Bosses dos Biomas</h3>
+          <div id="bossDropsBossList" class="boss-card-list"></div>
+        </section>
+        <section>
+          <h3>Baús e Recompensas</h3>
+          <div id="bossDropsChestList" class="boss-card-list chest-card-list"></div>
+          <div class="boss-drops-legend">
+            <h4>Legenda rápida</h4>
+            <p><strong>Vivo:</strong> o boss está disponível agora.</p>
+            <p><strong>Derrotado:</strong> você já venceu pelo menos uma vez.</p>
+            <p><strong>Não visto:</strong> ainda não foi derrotado e pode estar em outro bioma/dimensão.</p>
+          </div>
+        </section>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    panel.querySelector("#closeBossDropsButton")?.addEventListener("click", () => panel.classList.add("hidden"));
+    panel.addEventListener("pointerdown", (event) => event.stopPropagation());
+    return panel;
+  }
+
+  function renderBossDropsPanel() {
+    const panel = ensureBossDropsPanel();
+    const bossList = panel.querySelector("#bossDropsBossList");
+    const chestList = panel.querySelector("#bossDropsChestList");
+    if (!bossList || !chestList) return;
+
+    bossList.innerHTML = BOSS_GUIDE_DATA.map((boss) => {
+      const alive = bossIsAliveById(boss.bossId);
+      const defeated = bossWasDefeated(boss.bossId);
+      const statusClass = alive ? "is-alive" : defeated ? "is-defeated" : "is-unknown";
+      const statusText = alive ? "Vivo" : defeated ? "Derrotado" : "Não visto";
+      return `
+        <article class="boss-guide-card ${statusClass}">
+          <div class="boss-guide-top">
+            <span class="boss-guide-biome">${boss.biome}</span>
+            <span class="boss-guide-status ${statusClass}">${statusText}</span>
+          </div>
+          <h4>${boss.name}</h4>
+          <p class="boss-guide-location">📍 ${boss.location}</p>
+          <ul>
+            ${boss.drops.map((drop) => `<li>${drop}</li>`).join("")}
+          </ul>
+        </article>
+      `;
+    }).join("");
+
+    chestList.innerHTML = CHEST_GUIDE_DATA.map((chest) => `
+      <article class="boss-guide-card chest-guide-card">
+        <div class="boss-guide-top">
+          <span class="boss-guide-biome">Tesouro</span>
+        </div>
+        <h4>${chest.place}</h4>
+        <ul>
+          ${chest.drops.map((drop) => `<li>${drop}</li>`).join("")}
+        </ul>
+      </article>
+    `).join("");
+  }
+
+  function openBossDropsPanel() {
+    renderBossDropsPanel();
+    ensureBossDropsPanel().classList.remove("hidden");
+  }
+
+  function ensureBossDropsButton() {
+    const header = inventoryPanel?.querySelector(".inventory-header");
+    if (!header) return;
+    if (document.getElementById("openBossDropsButton")) return;
+    const btn = document.createElement("button");
+    btn.id = "openBossDropsButton";
+    btn.className = "inventory-close-button boss-drops-open-button";
+    btn.type = "button";
+    btn.textContent = "Bosses & Drops";
+    btn.addEventListener("click", openBossDropsPanel);
+
+    const rightWrap = document.createElement("div");
+    rightWrap.className = "inventory-header-actions";
+    const closeBtn = document.getElementById("closeInventoryButton");
+    if (closeBtn && closeBtn.parentElement === header) {
+      header.appendChild(rightWrap);
+      rightWrap.appendChild(btn);
+      rightWrap.appendChild(closeBtn);
+    } else {
+      header.appendChild(btn);
+    }
+  }
+
+  ensureBossDropsButton();
+  ensureBossDropsPanel();
+})();
+
+
+/* ==================================================
+   CORREÇÃO DEFINITIVA: BOSSES GRANDES E PEQUENOS SPAWNANDO
+   - revive bosses marcados como derrotados sem apagar conquistas
+   - recria boss se ele sumiu do array do mapa
+   - respawn imediato no spawn original
+   - patrulha para bosses grandes e pequenos
+   ================================================== */
+(function eternalRiftForceBossSpawnsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_FORCE_BOSS_SPAWNS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_FORCE_BOSS_SPAWNS_PATCH = true;
+
+  const BOSS_SPAWN_FIX_DATA = {
+    miniGuardiao: {
+      tileX: 35, tileY: 35, name: "Mini Guardião", className: "smallBoss",
+      roam: { minX: 31, maxX: 39, minY: 31, maxY: 38, speedMul: 0.58 }
+    },
+    reiSlime: {
+      tileX: 60, tileY: 30, name: "Rei Slime", className: "smallBoss",
+      roam: { minX: 56, maxX: 64, minY: 27, maxY: 34, speedMul: 0.54 }
+    },
+    aranhaRainha: {
+      tileX: 14, tileY: 56, name: "Aranha Rainha", className: "smallBoss",
+      roam: { minX: 8, maxX: 24, minY: 48, maxY: 58, speedMul: 0.58 }
+    },
+    golemAncestral: {
+      tileX: 69, tileY: 10, name: "Golem Ancestral", className: "smallBoss",
+      roam: { minX: 63, maxX: 74, minY: 6, maxY: 15, speedMul: 0.45 }
+    },
+    bruxoSombrio: {
+      tileX: 73, tileY: 14, name: "Bruxo Sombrio", className: "smallBoss",
+      roam: { minX: 66, maxX: 78, minY: 8, maxY: 20, speedMul: 0.50 }
+    },
+    serpenteLago: {
+      tileX: 69, tileY: 24, name: "Serpente do Lago", className: "smallBoss",
+      roam: { minX: 62, maxX: 76, minY: 20, maxY: 30, speedMul: 0.52 }
+    },
+
+    solarPharaoh: {
+      tileX: 126, tileY: 13, name: "Faraó Solar Maldito", className: "eternalBoss",
+      roam: { minX: 116, maxX: 134, minY: 8, maxY: 22, speedMul: 0.62 }
+    },
+    iceQueen: {
+      tileX: 122, tileY: 61, name: "Rainha Glacial", className: "eternalBoss",
+      roam: { minX: 112, maxX: 130, minY: 56, maxY: 70, speedMul: 0.60 }
+    },
+    supremeSwampWitch: {
+      tileX: 54, tileY: 88, name: "Bruxa Venenosa Suprema", className: "eternalBoss",
+      roam: { minX: 45, maxX: 65, minY: 80, maxY: 94, speedMul: 0.58 }
+    },
+
+    imperadorDunas: {
+      tileX: 135, tileY: 14, name: "Imperador das Dunas", className: "ultraBoss",
+      roam: { minX: 128, maxX: 142, minY: 9, maxY: 22, speedMul: 0.58 }
+    },
+    dragaoGlacialAntigo: {
+      tileX: 137, tileY: 55, name: "Dragão Glacial Antigo", className: "ultraBoss",
+      roam: { minX: 130, maxX: 145, minY: 50, maxY: 63, speedMul: 0.60 }
+    },
+    hidraVenenosa: {
+      tileX: 75, tileY: 88, name: "Hidra Venenosa", className: "ultraBoss",
+      roam: { minX: 68, maxX: 82, minY: 82, maxY: 94, speedMul: 0.56 }
+    },
+
+    corruptedReactor: {
+      tileX: 42, tileY: 29, name: "Reator Vivo Corrompido", className: "dimensionBoss",
+      scene: "acidDimension",
+      roam: { minX: 35, maxX: 49, minY: 22, maxY: 35, speedMul: 0.45 }
+    },
+    fallenSeraph: {
+      tileX: 41, tileY: 10, name: "Serafim Caído", className: "dimensionBoss",
+      scene: "celestialDimension",
+      roam: { minX: 33, maxX: 50, minY: 6, maxY: 20, speedMul: 0.68 }
+    }
+  };
+
+  const SECRET_DUNGEON_BOSS_BY_NAME = [
+    { match: /templo|soterrado|desert/i, kind: "solarPharaoh" },
+    { match: /cripta|congelada|frozen|gelo/i, kind: "iceQueen" },
+    { match: /laborat[oó]rio|t[oó]xico|toxic|pantano|pântano/i, kind: "supremeSwampWitch" },
+    { match: /torre|celestial/i, kind: "fallenSeraph" },
+    { match: /catacumba|antigos|bosses/i, kind: "ancientCatacombLord" }
+  ];
+
+  const DUNGEON_BOSS_FALLBACKS = {
+    solarPharaoh: { tileX: 27, tileY: 10, name: "Faraó Solar Maldito", className: "dungeonBoss", roam: { minX: 18, maxX: 37, minY: 7, maxY: 17, speedMul: 0.52 } },
+    iceQueen: { tileX: 27, tileY: 10, name: "Rainha Glacial", className: "dungeonBoss", roam: { minX: 18, maxX: 37, minY: 7, maxY: 17, speedMul: 0.52 } },
+    supremeSwampWitch: { tileX: 27, tileY: 10, name: "Bruxa Venenosa Suprema", className: "dungeonBoss", roam: { minX: 18, maxX: 37, minY: 7, maxY: 17, speedMul: 0.52 } },
+    fallenSeraph: { tileX: 27, tileY: 10, name: "Serafim Caído", className: "dungeonBoss", roam: { minX: 18, maxX: 37, minY: 7, maxY: 17, speedMul: 0.58 } },
+    ancientCatacombLord: { tileX: 27, tileY: 10, name: "Senhor das Catacumbas Antigas", className: "dungeonBoss", roam: { minX: 18, maxX: 37, minY: 7, maxY: 17, speedMul: 0.50 } }
+  };
+
+  function isForceSpawnBossKind(kind) {
+    return Boolean(BOSS_SPAWN_FIX_DATA[kind] || DUNGEON_BOSS_FALLBACKS[kind]);
+  }
+
+  function bossListForCurrentScene() {
+    if (currentScene === "village") return villageObjects;
+    if (Array.isArray(objects)) return objects;
+    return [];
+  }
+
+  function normalizeBossForSpawn(obj, def, kind) {
+    if (!obj) return obj;
+    const stats = getEnemyStats(kind);
+    obj.type = "enemy";
+    obj.kind = kind;
+    obj.boss = true;
+    obj.name = def.name || obj.name || kind;
+    obj.bossTitle = obj.name;
+    obj.bossId = obj.bossId || kind;
+    obj.forceBossSpawn = true;
+    obj.smallBoss = def.className === "smallBoss";
+    obj.eternalBoss = def.className === "eternalBoss" || def.className === "dimensionBoss" || def.className === "dungeonBoss" || obj.eternalBoss;
+    obj.ultraBiomeBoss = def.className === "ultraBoss" || obj.ultraBiomeBoss;
+    obj.width = Math.max(obj.width || 0, stats.width || 34);
+    obj.height = Math.max(obj.height || 0, stats.height || 34);
+    obj.maxHp = Math.max(Number(obj.maxHp || 0), Number(stats.hp || obj.hp || 1));
+    obj.hp = Math.max(1, Number(obj.hp || obj.maxHp));
+    obj.damage = Number(obj.damage || stats.damage || 1);
+    obj.speed = Number(obj.speed || stats.speed || 40);
+    obj.aggroRange = Math.max(Number(obj.aggroRange || 0), Number(stats.aggroRange || 260));
+    obj.attackRange = Math.max(Number(obj.attackRange || 0), Number(stats.attackRange || 40));
+    obj.attackDelay = Number(obj.attackDelay || stats.attackDelay || 1);
+    obj.projectileType = obj.projectileType || stats.projectileType || null;
+    obj.dropTable = obj.dropTable || stats.dropTable || {};
+    obj.xpReward = Number(obj.xpReward || stats.xpReward || stats.coinReward || 100);
+    obj.coinReward = Number(obj.coinReward || stats.coinReward || 20);
+    obj.coinsReward = obj.coinReward;
+    obj.defense = Number(obj.defense || stats.defense || 0);
+    obj.resistances = obj.resistances || stats.resistances || {};
+    obj.canFly = Boolean(obj.canFly || stats.canFly);
+    obj.canSwim = Boolean(obj.canSwim || stats.canSwim);
+    obj.spawnX = Number.isFinite(obj.spawnX) ? obj.spawnX : def.tileX * TILE + 4;
+    obj.spawnY = Number.isFinite(obj.spawnY) ? obj.spawnY : def.tileY * TILE + 4;
+    obj.alive = true;
+    obj.hp = Math.min(obj.maxHp, Math.max(1, obj.hp));
+    obj.attackCooldown = Math.max(0.45, Number(obj.attackCooldown || 0));
+    obj.attackTimer = 0;
+    obj.invulnerableTimer = Math.max(Number(obj.invulnerableTimer || 0), 0.45);
+    obj.respawnTimer = 0;
+    obj.phase = obj.hp <= obj.maxHp * 0.5 ? 2 : 1;
+    obj.state = obj.state || "bossPatrol";
+    return obj;
+  }
+
+  function createBossForSpawn(kind, def) {
+    let obj;
+    try {
+      obj = enemy(def.tileX, def.tileY, kind);
+    } catch (error) {
+      obj = {
+        type: "enemy",
+        kind,
+        x: def.tileX * TILE + 4,
+        y: def.tileY * TILE + 4,
+        width: 34,
+        height: 34,
+        hp: 20,
+        maxHp: 20,
+        alive: true
+      };
+    }
+    obj.spawnX = def.tileX * TILE + 4;
+    obj.spawnY = def.tileY * TILE + 4;
+    obj.x = obj.spawnX;
+    obj.y = obj.spawnY;
+    return normalizeBossForSpawn(obj, def, kind);
+  }
+
+  function ensureBossInList(list, kind, def) {
+    if (!Array.isArray(list)) return null;
+    let obj = list.find((candidate) =>
+      candidate?.type === "enemy" &&
+      (candidate.kind === kind || candidate.bossId === kind)
+    );
+
+    if (!obj) {
+      obj = createBossForSpawn(kind, def);
+      list.push(obj);
+    } else {
+      normalizeBossForSpawn(obj, def, kind);
+      if (!Number.isFinite(obj.spawnX)) obj.spawnX = def.tileX * TILE + 4;
+      if (!Number.isFinite(obj.spawnY)) obj.spawnY = def.tileY * TILE + 4;
+      if (!obj.alive || obj.hp <= 0) {
+        obj.x = obj.spawnX;
+        obj.y = obj.spawnY;
+        obj.hp = obj.maxHp;
+        obj.alive = true;
+      }
+    }
+
+    return obj;
+  }
+
+  function ensureVillageBossesAlways() {
+    if (!Array.isArray(villageObjects)) return;
+    const villageKinds = [
+      "miniGuardiao", "reiSlime", "aranhaRainha", "golemAncestral", "bruxoSombrio", "serpenteLago",
+      "solarPharaoh", "iceQueen", "supremeSwampWitch",
+      "imperadorDunas", "dragaoGlacialAntigo", "hidraVenenosa"
+    ];
+    for (const kind of villageKinds) {
+      ensureBossInList(villageObjects, kind, BOSS_SPAWN_FIX_DATA[kind]);
+    }
+
+    if (currentScene === "village") {
+      objects = villageObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  function ensureDimensionBossesAlways() {
+    if (currentScene === "acidDimension") {
+      ensureBossInList(objects, "corruptedReactor", BOSS_SPAWN_FIX_DATA.corruptedReactor);
+      interactables = objects.filter((obj) => obj.message);
+    }
+    if (currentScene === "celestialDimension") {
+      ensureBossInList(objects, "fallenSeraph", BOSS_SPAWN_FIX_DATA.fallenSeraph);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  function inferDungeonBossKind() {
+    let name = "";
+    try { name = getSceneName(); } catch (error) {}
+    for (const entry of SECRET_DUNGEON_BOSS_BY_NAME) {
+      if (entry.match.test(name)) return entry.kind;
+    }
+    return "ancientCatacombLord";
+  }
+
+  function ensureDungeonBossAlways() {
+    if (currentScene !== "secretDungeon") return;
+    const kind = inferDungeonBossKind();
+    const def = DUNGEON_BOSS_FALLBACKS[kind] || DUNGEON_BOSS_FALLBACKS.ancientCatacombLord;
+    ensureBossInList(objects, kind, def);
+  }
+
+  function ensureAllBossesAlwaysSpawn() {
+    ensureVillageBossesAlways();
+    ensureDimensionBossesAlways();
+    ensureDungeonBossAlways();
+  }
+
+  function reviveBossAtSpawn(obj) {
+    if (!obj || obj.type !== "enemy" || !obj.boss) return;
+    const kind = obj.bossId || obj.kind;
+    const def = BOSS_SPAWN_FIX_DATA[kind] || DUNGEON_BOSS_FALLBACKS[kind] || {
+      tileX: Math.floor((obj.spawnX ?? obj.x) / TILE),
+      tileY: Math.floor((obj.spawnY ?? obj.y) / TILE),
+      name: obj.name || kind,
+      className: "smallBoss",
+      roam: {
+        minX: Math.floor((obj.spawnX ?? obj.x) / TILE) - 4,
+        maxX: Math.floor((obj.spawnX ?? obj.x) / TILE) + 4,
+        minY: Math.floor((obj.spawnY ?? obj.y) / TILE) - 4,
+        maxY: Math.floor((obj.spawnY ?? obj.y) / TILE) + 4,
+        speedMul: 0.5
+      }
+    };
+    normalizeBossForSpawn(obj, def, kind);
+    obj.x = Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+    obj.y = Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+    obj.hp = obj.maxHp;
+    obj.alive = true;
+    obj.phase = 1;
+  }
+
+  const defeatEnemyBeforeForceBossSpawns = defeatEnemy;
+  defeatEnemy = function defeatEnemyForceBossSpawnsPatch(obj) {
+    const wasBoss = Boolean(obj?.type === "enemy" && obj.boss);
+    const result = defeatEnemyBeforeForceBossSpawns(obj);
+    if (wasBoss) {
+      reviveBossAtSpawn(obj);
+      ensureAllBossesAlwaysSpawn();
+    }
+    return result;
+  };
+
+  function bossPatrolDef(obj) {
+    const kind = obj?.bossId || obj?.kind;
+    const def = BOSS_SPAWN_FIX_DATA[kind] || DUNGEON_BOSS_FALLBACKS[kind];
+    if (def) return def;
+    if (!obj?.boss) return null;
+    const spawnTileX = Math.floor((obj.spawnX ?? obj.x) / TILE);
+    const spawnTileY = Math.floor((obj.spawnY ?? obj.y) / TILE);
+    return {
+      tileX: spawnTileX,
+      tileY: spawnTileY,
+      name: obj.name || kind,
+      className: "smallBoss",
+      roam: { minX: spawnTileX - 4, maxX: spawnTileX + 4, minY: spawnTileY - 4, maxY: spawnTileY + 4, speedMul: 0.48 }
+    };
+  }
+
+  function choosePatrolTarget(obj) {
+    const def = bossPatrolDef(obj);
+    if (!def) return;
+    const roam = def.roam;
+    const minX = roam.minX * TILE + 6;
+    const maxX = roam.maxX * TILE + 10;
+    const minY = roam.minY * TILE + 6;
+    const maxY = roam.maxY * TILE + 10;
+    obj.forcePatrolTargetX = minX + Math.random() * Math.max(1, maxX - minX);
+    obj.forcePatrolTargetY = minY + Math.random() * Math.max(1, maxY - minY);
+    obj.forcePatrolTimer = 2.2 + Math.random() * 2.8;
+  }
+
+  function updateForcedBossPatrol(delta) {
+    const list = bossListForCurrentScene();
+    if (!Array.isArray(list)) return;
+    const px = player.x + player.width / 2;
+    const py = player.y + player.height / 2;
+
+    for (const obj of list) {
+      if (!obj?.boss || !obj.alive) continue;
+      const def = bossPatrolDef(obj);
+      if (!def) continue;
+
+      const cx = obj.x + obj.width / 2;
+      const cy = obj.y + obj.height / 2;
+      const playerDist = Math.hypot(px - cx, py - cy);
+      if (playerDist < Math.max(120, (obj.aggroRange || 260) * 0.70)) {
+        obj.forcePatrolTimer = 0;
+        continue;
+      }
+
+      obj.forcePatrolTimer = Number.isFinite(obj.forcePatrolTimer) ? obj.forcePatrolTimer - delta : 0;
+      if (!Number.isFinite(obj.forcePatrolTargetX) || !Number.isFinite(obj.forcePatrolTargetY) || obj.forcePatrolTimer <= 0) {
+        choosePatrolTarget(obj);
+      }
+
+      const dx = obj.forcePatrolTargetX - cx;
+      const dy = obj.forcePatrolTargetY - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 10) {
+        choosePatrolTarget(obj);
+        continue;
+      }
+
+      const speedMul = def.roam?.speedMul || 0.5;
+      const step = Math.max(10, (obj.speed || 40) * speedMul) * delta;
+      const nx = obj.x + (dx / dist) * step;
+      const ny = obj.y + (dy / dist) * step;
+      let moved = false;
+
+      if (typeof canEntityMoveTo === "function") {
+        if (canEntityMoveTo(obj, nx, obj.y)) {
+          obj.x = nx;
+          moved = true;
+        }
+        if (canEntityMoveTo(obj, obj.x, ny)) {
+          obj.y = ny;
+          moved = true;
+        }
+      } else {
+        obj.x = nx;
+        obj.y = ny;
+        moved = true;
+      }
+
+      if (!moved) choosePatrolTarget(obj);
+      obj.direction = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? "right" : "left") : (dy >= 0 ? "down" : "up");
+      if (obj.state !== "chase" && obj.state !== "attack") obj.state = "bossPatrol";
+    }
+  }
+
+  const setActiveSceneBeforeForceBossSpawns = setActiveScene;
+  setActiveScene = function setActiveSceneForceBossSpawnsPatch(scene) {
+    const result = setActiveSceneBeforeForceBossSpawns(scene);
+    ensureAllBossesAlwaysSpawn();
+    return result;
+  };
+
+  const loadGameBeforeForceBossSpawns = loadGame;
+  loadGame = function loadGameForceBossSpawnsPatch() {
+    const result = loadGameBeforeForceBossSpawns();
+    ensureAllBossesAlwaysSpawn();
+    return result;
+  };
+
+  const resetProgressBeforeForceBossSpawns = resetProgressForNewGame;
+  resetProgressForNewGame = function resetProgressForceBossSpawnsPatch(name) {
+    const result = resetProgressBeforeForceBossSpawns(name);
+    ensureAllBossesAlwaysSpawn();
+    return result;
+  };
+
+  let bossSpawnFixTimer = 0;
+  const updateBeforeForceBossSpawns = update;
+  update = function updateForceBossSpawnsPatch(delta) {
+    updateBeforeForceBossSpawns(delta);
+    bossSpawnFixTimer -= delta;
+    if (bossSpawnFixTimer <= 0) {
+      bossSpawnFixTimer = 0.8;
+      ensureAllBossesAlwaysSpawn();
+    }
+    updateForcedBossPatrol(delta);
+  };
+
+  setTimeout(ensureAllBossesAlwaysSpawn, 250);
+  setTimeout(ensureAllBossesAlwaysSpawn, 1000);
+})();
+
+
+/* ==================================================
+   RESPAWN EM 1 MINUTO
+   - remove o respawn instantaneo
+   - mobs, inimigos e bosses reaparecem depois de 60 segundos
+   - bosses continuam garantidos, mas so voltam quando o timer acabar
+   ================================================== */
+(function eternalRiftOneMinuteRespawnPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ONE_MINUTE_RESPAWN_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ONE_MINUTE_RESPAWN_PATCH = true;
+
+  const RESPAWN_DELAY = 60;
+
+  function shouldUseOneMinuteRespawn(obj) {
+    return obj && obj.type === "enemy";
+  }
+
+  function prepareOneMinuteRespawn(obj) {
+    if (!shouldUseOneMinuteRespawn(obj)) return;
+
+    if (!Number.isFinite(obj.spawnX)) obj.spawnX = obj.x;
+    if (!Number.isFinite(obj.spawnY)) obj.spawnY = obj.y;
+
+    obj.alive = false;
+    obj.hp = 0;
+    obj.respawnTimer = RESPAWN_DELAY;
+    obj.respawnMaxTimer = RESPAWN_DELAY;
+    obj.oneMinuteRespawn = true;
+    obj.x = obj.spawnX;
+    obj.y = obj.spawnY;
+    obj.knockbackX = 0;
+    obj.knockbackY = 0;
+    obj.attackCooldown = 0;
+    obj.attackTimer = 0;
+  }
+
+  function reviveAfterOneMinute(obj) {
+    if (!shouldUseOneMinuteRespawn(obj)) return;
+
+    try {
+      if (typeof normalizeEnemy === "function") normalizeEnemy(obj);
+    } catch (error) {}
+
+    obj.alive = true;
+    obj.hp = obj.maxHp || obj.hp || 1;
+    obj.x = Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+    obj.y = Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+    obj.knockbackX = 0;
+    obj.knockbackY = 0;
+    obj.attackCooldown = 0.75;
+    obj.attackTimer = 0;
+    obj.invulnerableTimer = 0.7;
+    obj.respawnTimer = 0;
+    obj.respawnMaxTimer = 0;
+    obj.oneMinuteRespawn = false;
+    obj.phase = 1;
+    obj.state = obj.boss ? "bossPatrol" : "idle";
+
+    if (obj.boss) {
+      spawnFloatingText("Boss reapareceu!", obj.x + obj.width / 2, obj.y - 20, "#fff264");
+    }
+  }
+
+  function updateOneMinuteRespawns(delta) {
+    const lists = [];
+    try { if (Array.isArray(villageObjects)) lists.push(villageObjects); } catch (error) {}
+    try { if (Array.isArray(objects) && !lists.includes(objects)) lists.push(objects); } catch (error) {}
+    try { if (Array.isArray(crystalDimensionObjects)) lists.push(crystalDimensionObjects); } catch (error) {}
+    try { if (Array.isArray(celestialObjects)) lists.push(celestialObjects); } catch (error) {}
+    try { if (Array.isArray(acidDimensionObjects)) lists.push(acidDimensionObjects); } catch (error) {}
+
+    const seen = new Set();
+    for (const list of lists) {
+      for (const obj of list) {
+        if (!shouldUseOneMinuteRespawn(obj) || seen.has(obj)) continue;
+        seen.add(obj);
+
+        if (obj.oneMinuteRespawn || (!obj.alive && obj.respawnTimer > 0)) {
+          obj.oneMinuteRespawn = true;
+          obj.alive = false;
+          obj.respawnTimer = Math.max(0, Number(obj.respawnTimer || RESPAWN_DELAY) - delta);
+          if (obj.respawnTimer <= 0) reviveAfterOneMinute(obj);
+        }
+      }
+    }
+  }
+
+  const defeatEnemyBeforeOneMinuteRespawn = defeatEnemy;
+  defeatEnemy = function defeatEnemyOneMinuteRespawnPatch(obj) {
+    const shouldRespawn = shouldUseOneMinuteRespawn(obj);
+    const result = defeatEnemyBeforeOneMinuteRespawn(obj);
+
+    // Patches anteriores tentavam reviver instantaneamente.
+    // Aqui forçamos o estado correto: morto por 1 minuto.
+    if (shouldRespawn) {
+      prepareOneMinuteRespawn(obj);
+    }
+
+    return result;
+  };
+
+  function hideDeadRespawningBossesFromForcedSpawner() {
+    const lists = [];
+    try { if (Array.isArray(villageObjects)) lists.push(villageObjects); } catch (error) {}
+    try { if (Array.isArray(objects) && !lists.includes(objects)) lists.push(objects); } catch (error) {}
+
+    for (const list of lists) {
+      for (const obj of list) {
+        if (obj?.type === "enemy" && obj.oneMinuteRespawn && obj.respawnTimer > 0) {
+          obj.alive = false;
+          obj.hp = 0;
+        }
+      }
+    }
+  }
+
+  const updateBeforeOneMinuteRespawn = update;
+  update = function updateOneMinuteRespawnPatch(delta) {
+    updateBeforeOneMinuteRespawn(delta);
+    hideDeadRespawningBossesFromForcedSpawner();
+    updateOneMinuteRespawns(delta);
+  };
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: Mecânica original de armaduras no inventário
+   - Aba própria de armaduras/equipamentos
+   - Painel visual de equipamento (sem copiar outros jogos)
+   - Slots estilizados para armadura, botas, acessório e amuleto
+   ================================================== */
+(function eternalRiftArmorInventoryMechanicPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ARMOR_INVENTORY_MECHANIC_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ARMOR_INVENTORY_MECHANIC_PATCH = true;
+
+  const ARMOR_SLOT_META = {
+    armor: { label: "Peitoral", short: "PE", icon: "🛡" },
+    accessory: { label: "Relíquia", short: "RE", icon: "✦" },
+    boots: { label: "Botas", short: "BO", icon: "⌁" },
+    charm: { label: "Amuleto", short: "AM", icon: "✧" }
+  };
+
+  const ARMOR_PANEL_ID = "gearWardrobePanel";
+
+  function normalizeArmorName(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function ensureArmorState() {
+    if (!inventory.equippedCustomItems || typeof inventory.equippedCustomItems !== "object" || Array.isArray(inventory.equippedCustomItems)) {
+      inventory.equippedCustomItems = { armor: "", accessory: "", boots: "", charm: "" };
+    }
+  }
+
+  function isArmorTypeLabel(typeLabel) {
+    const key = normalizeArmorName(typeLabel);
+    return ["armadura", "botas", "amuleto", "anel", "acessorio", "acessorio", "pingente", "reliquia", "relíquia"].includes(key);
+  }
+
+  function inferGearSlotFromItem(item) {
+    const raw = normalizeArmorName(item?.gearSlot || item?.slot || item?.typeLabel || item?.name || "");
+    const name = normalizeArmorName(item?.name || item?.customItemName || "");
+
+    if (["armor", "armadura", "peitoral"].includes(raw) || name.includes("armadura")) return "armor";
+    if (["boots", "bota", "botas"].includes(raw) || name.includes("bota") || name.includes("asas pequenas")) return "boots";
+    if (["charm", "amuleto"].includes(raw) || name.includes("amuleto")) return "charm";
+    if (["accessory", "anel", "acessorio", "acessório", "pingente", "reliquia", "relíquia"].includes(raw) || name.includes("anel") || name.includes("pingente") || name.includes("reliquia") || name.includes("relíquia")) return "accessory";
+    return "";
+  }
+
+  function isArmorInventoryItem(item) {
+    if (!item) return false;
+    if (item.category === "armaduras") return true;
+    if (item.typeLabel && isArmorTypeLabel(item.typeLabel)) return true;
+    return Boolean(inferGearSlotFromItem(item));
+  }
+
+  function getGearSlotItem(slot) {
+    ensureArmorState();
+    const name = inventory.equippedCustomItems?.[slot] || "";
+    if (!name) return null;
+    return getInventoryItems().find((item) => normalizeArmorName(item.name) === normalizeArmorName(name)) || { name, typeLabel: ARMOR_SLOT_META[slot]?.label || "Equipamento", rarity: "comum", gearSlot: slot };
+  }
+
+  function getArmorSummaryStats() {
+    ensureArmorState();
+    const items = Object.entries(inventory.equippedCustomItems)
+      .map(([slot, name]) => ({ slot, name }))
+      .filter((entry) => entry.name);
+
+    let defense = 0;
+    let mana = 0;
+    let health = 0;
+    let speed = 0;
+
+    for (const entry of items) {
+      const key = normalizeArmorName(entry.name);
+      if (key.includes("armadura polar")) defense += 2;
+      if (key.includes("armadura de musgo")) defense += 1;
+      if (key.includes("armadura da aurora")) { defense += 3; mana += 2; }
+      if (key.includes("amuleto anti calor")) defense += 1;
+      if (key.includes("amuleto de luz")) defense += 1;
+      if (key.includes("anel de mana celestial")) mana += 2;
+      if (key.includes("pingente da aurora")) { mana += 1; speed += 8; }
+      if (key.includes("asas pequenas")) { health += 1; speed += 18; }
+      if (key.includes("botas do deserto")) speed += 18;
+      if (key.includes("botas antiderrapantes")) speed += 12;
+      if (key.includes("botas das nuvens")) speed += 20;
+    }
+
+    return { defense, mana, health, speed, total: items.length };
+  }
+
+  function getArmorPanelRoot() {
+    return document.getElementById(ARMOR_PANEL_ID);
+  }
+
+  function ensureArmorInventoryTab() {
+    if (!inventoryTabs || inventoryTabs.querySelector('[data-inventory-tab="armaduras"]')) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.inventoryTab = "armaduras";
+    button.textContent = "Armaduras";
+    inventoryTabs.insertBefore(button, inventoryTabs.querySelector('[data-inventory-tab="poderes"]') || null);
+  }
+
+  function ensureArmorPanelDom() {
+    if (!inventoryPanel) return null;
+    let panel = getArmorPanelRoot();
+    if (panel) return panel;
+
+    const inventorySide = inventoryPanel.querySelector(".inventory-side");
+    if (!inventorySide) return null;
+
+    panel = document.createElement("section");
+    panel.id = ARMOR_PANEL_ID;
+    panel.className = "gear-wardrobe-panel";
+    panel.setAttribute("aria-label", "Vestuario e equipamentos");
+    panel.innerHTML = `
+      <div class="gear-wardrobe-header">
+        <div>
+          <span class="gear-wardrobe-eyebrow">Vestuário Arcano</span>
+          <h3>Equipamentos do Herói</h3>
+        </div>
+        <p>Painel próprio do Eternal Rift</p>
+      </div>
+      <div class="gear-wardrobe-layout">
+        <div class="gear-wardrobe-stage">
+          <button class="gear-slot-card gear-slot-charm" type="button" data-gear-slot="charm"></button>
+          <button class="gear-slot-card gear-slot-accessory" type="button" data-gear-slot="accessory"></button>
+          <div class="gear-mannequin" aria-hidden="true">
+            <div class="gear-mannequin-halo"></div>
+            <div class="gear-mannequin-head"></div>
+            <div class="gear-mannequin-body"></div>
+            <div class="gear-mannequin-arms"></div>
+            <div class="gear-mannequin-legs"></div>
+          </div>
+          <button class="gear-slot-card gear-slot-armor" type="button" data-gear-slot="armor"></button>
+          <button class="gear-slot-card gear-slot-boots" type="button" data-gear-slot="boots"></button>
+        </div>
+        <div class="gear-wardrobe-summary" id="gearWardrobeSummary"></div>
+      </div>
+    `;
+
+    const equipmentBox = inventorySide.querySelector(".equipment-box");
+    inventorySide.insertBefore(panel, equipmentBox || inventorySide.firstChild);
+    return panel;
+  }
+
+  function getInventoryNameHtmlArmorSafe(item) {
+    const rarity = (typeof normalizeRarityKey === "function") ? normalizeRarityKey(item?.rarity) : "comum";
+    const iconHtml = (typeof getInventoryIconHtml === "function") ? getInventoryIconHtml(item) : `<span>${item?.icon || "?"}</span>`;
+    return `
+      <span class="item-detail-icon-preview rarity-icon-${rarity}">${iconHtml}</span>
+      <span class="item-detail-name-text rarity-name-${rarity}">${item?.name || "Item"}</span>
+    `;
+  }
+
+  function renderArmorWardrobe() {
+    ensureArmorState();
+    const panel = ensureArmorPanelDom();
+    if (!panel) return;
+
+    for (const [slot, meta] of Object.entries(ARMOR_SLOT_META)) {
+      const button = panel.querySelector(`[data-gear-slot="${slot}"]`);
+      if (!button) continue;
+      const item = getGearSlotItem(slot);
+      const rarity = (typeof normalizeRarityKey === "function") ? normalizeRarityKey(item?.rarity || "comum") : "comum";
+      button.className = `gear-slot-card gear-slot-${slot}${item ? " is-filled" : " is-empty"} rarity-${rarity}`;
+      button.setAttribute("data-rarity", rarity);
+      button.innerHTML = `
+        <span class="gear-slot-icon">${meta.icon}</span>
+        <span class="gear-slot-texts">
+          <span class="gear-slot-label">${meta.label}</span>
+          <strong class="gear-slot-value">${item ? item.name : "Vazio"}</strong>
+        </span>
+      `;
+    }
+
+    const stats = getArmorSummaryStats();
+    const summary = panel.querySelector("#gearWardrobeSummary");
+    if (summary) {
+      summary.innerHTML = `
+        <div class="gear-summary-card">
+          <span>Itens equipados</span>
+          <strong>${stats.total}/4</strong>
+        </div>
+        <div class="gear-summary-card">
+          <span>Defesa bônus</span>
+          <strong>+${stats.defense}</strong>
+        </div>
+        <div class="gear-summary-card">
+          <span>Mana bônus</span>
+          <strong>+${stats.mana}</strong>
+        </div>
+        <div class="gear-summary-card">
+          <span>Vida bônus</span>
+          <strong>+${stats.health}</strong>
+        </div>
+        <div class="gear-summary-card">
+          <span>Velocidade bônus</span>
+          <strong>+${stats.speed}</strong>
+        </div>
+      `;
+    }
+  }
+
+  function openEquippedItemInDetails(slot) {
+    const item = getGearSlotItem(slot);
+    if (!item) return;
+    const allItems = getInventoryItems();
+    const found = allItems.find((entry) => normalizeArmorName(entry.name) === normalizeArmorName(item.name));
+    if (found) selectedInventoryItemId = found.id;
+    renderInventory();
+  }
+
+  const getInventoryItemsBeforeArmorMechanic = getInventoryItems;
+  getInventoryItems = function getInventoryItemsArmorMechanicPatch() {
+    const items = getInventoryItemsBeforeArmorMechanic();
+    return items.map((item) => {
+      if (!isArmorInventoryItem(item)) return item;
+      return {
+        ...item,
+        category: "armaduras",
+        gearSlot: inferGearSlotFromItem(item)
+      };
+    });
+  };
+
+  const getFilteredInventoryItemsBeforeArmorMechanic = getFilteredInventoryItems;
+  getFilteredInventoryItems = function getFilteredInventoryItemsArmorMechanicPatch(items) {
+    if (inventoryTab === "armaduras") return items.filter(isArmorInventoryItem);
+    return getFilteredInventoryItemsBeforeArmorMechanic(items);
+  };
+
+  const getInventoryActionHtmlBeforeArmorMechanic = getInventoryActionHtml;
+  getInventoryActionHtml = function getInventoryActionHtmlArmorMechanicPatch(item) {
+    if (isArmorInventoryItem(item)) {
+      const slot = inferGearSlotFromItem(item);
+      const equipped = slot && normalizeArmorName(inventory.equippedCustomItems?.[slot]) === normalizeArmorName(item.name);
+      const base = getInventoryActionHtmlBeforeArmorMechanic(item);
+      if (equipped) {
+        return `${base}<div class="armor-action-note">Equipado no slot: <strong>${ARMOR_SLOT_META[slot]?.label || slot}</strong></div>`;
+      }
+      return `${base}<div class="armor-action-note">Vai para o slot: <strong>${ARMOR_SLOT_META[slot]?.label || "Equipamento"}</strong></div>`;
+    }
+    return getInventoryActionHtmlBeforeArmorMechanic(item);
+  };
+
+  const renderInventoryBeforeArmorMechanic = renderInventory;
+  renderInventory = function renderInventoryArmorMechanicPatch() {
+    ensureArmorInventoryTab();
+    const result = renderInventoryBeforeArmorMechanic();
+    renderArmorWardrobe();
+    return result;
+  };
+
+  const renderEquipmentSlotsBeforeArmorMechanic = renderEquipmentSlots;
+  renderEquipmentSlots = function renderEquipmentSlotsArmorMechanicPatch() {
+    renderEquipmentSlotsBeforeArmorMechanic();
+    renderArmorWardrobe();
+  };
+
+  const renderItemDetailsBeforeArmorMechanic = renderItemDetails;
+  renderItemDetails = function renderItemDetailsArmorMechanicPatch(item) {
+    renderItemDetailsBeforeArmorMechanic(item);
+    if (!item || !isArmorInventoryItem(item) || !itemDetailMeta) return;
+    const slot = inferGearSlotFromItem(item);
+    if (slot) {
+      const extra = ` • Slot ${ARMOR_SLOT_META[slot]?.label || slot}`;
+      if (!itemDetailMeta.textContent.includes(extra)) itemDetailMeta.textContent += extra;
+    }
+    if (itemDetailName && isArmorInventoryItem(item)) {
+      itemDetailName.innerHTML = getInventoryNameHtmlArmorSafe(item);
+    }
+  };
+
+  inventoryPanel?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-gear-slot]");
+    if (!button) return;
+    openEquippedItemInDetails(button.dataset.gearSlot || "");
+  });
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: Painel separado de equipamentos para mobile
+   - Corrige painel espremido na lateral
+   - Botão "Ver Equipamentos"
+   - Janela própria para armaduras no celular/telas menores
+   ================================================== */
+(function eternalRiftMobileGearPanelPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MOBILE_GEAR_PANEL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MOBILE_GEAR_PANEL_PATCH = true;
+
+  const SLOT_META = {
+    armor: { label: "Peitoral", icon: "🛡", hint: "Armadura principal" },
+    accessory: { label: "Relíquia", icon: "✦", hint: "Anel, pingente ou relíquia" },
+    boots: { label: "Botas", icon: "⌁", hint: "Movimento e exploração" },
+    charm: { label: "Amuleto", icon: "✧", hint: "Proteção especial" }
+  };
+
+  function normalizeGearText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function ensureGearState() {
+    if (!inventory.equippedCustomItems || typeof inventory.equippedCustomItems !== "object" || Array.isArray(inventory.equippedCustomItems)) {
+      inventory.equippedCustomItems = { armor: "", accessory: "", boots: "", charm: "" };
+    }
+  }
+
+  function localRarityKey(rarity) {
+    const raw = normalizeGearText(rarity || "comum")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const map = {
+      rara: "raro",
+      epica: "epico",
+      mitica: "mitico",
+      lendaria: "lendario",
+      divina: "divino",
+      secreta: "secreto"
+    };
+    return map[raw] || raw || "comum";
+  }
+
+  function localFormatRarity(rarity) {
+    const key = localRarityKey(rarity);
+    const labels = {
+      comum: "Comum",
+      incomum: "Incomum",
+      raro: "Rara",
+      epico: "Épica",
+      lendario: "Lendária",
+      mitico: "Mítica",
+      divino: "Divina",
+      corrompida: "Corrompida",
+      secreto: "Secreta",
+      real: "Real"
+    };
+    return labels[key] || String(rarity || "Comum");
+  }
+
+  function getEquippedGearItem(slot) {
+    ensureGearState();
+    const name = inventory.equippedCustomItems?.[slot] || "";
+    if (!name) return null;
+    const item = getInventoryItems().find((entry) => normalizeGearText(entry.name) === normalizeGearText(name));
+    return item || {
+      id: `equipped-${slot}`,
+      name,
+      typeLabel: SLOT_META[slot]?.label || "Equipamento",
+      rarity: "comum",
+      description: "Equipamento equipado.",
+      effect: ""
+    };
+  }
+
+  function getMobileGearStats() {
+    ensureGearState();
+    const names = Object.values(inventory.equippedCustomItems || {}).filter(Boolean).map(normalizeGearText);
+    let defense = 0;
+    let mana = 0;
+    let health = 0;
+    let speed = 0;
+
+    for (const key of names) {
+      if (key.includes("armadura polar")) defense += 2;
+      if (key.includes("armadura de musgo")) defense += 1;
+      if (key.includes("armadura da aurora")) { defense += 3; mana += 2; }
+      if (key.includes("amuleto anti calor")) defense += 1;
+      if (key.includes("amuleto de luz")) defense += 1;
+      if (key.includes("anel de mana celestial")) mana += 2;
+      if (key.includes("pingente da aurora")) { mana += 1; speed += 8; }
+      if (key.includes("asas pequenas")) { health += 1; speed += 18; }
+      if (key.includes("botas do deserto")) speed += 18;
+      if (key.includes("botas antiderrapantes")) speed += 12;
+      if (key.includes("botas das nuvens")) speed += 20;
+    }
+
+    return { defense, mana, health, speed, total: names.length };
+  }
+
+  function ensureMobileGearPanel() {
+    let panel = document.getElementById("mobileGearPanel");
+    if (panel) return panel;
+
+    panel = document.createElement("div");
+    panel.id = "mobileGearPanel";
+    panel.className = "mobile-gear-panel hidden";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Equipamentos do herói");
+    panel.innerHTML = `
+      <div class="mobile-gear-card">
+        <div class="mobile-gear-header">
+          <div>
+            <span class="mobile-gear-kicker">Vestuário Arcano</span>
+            <h2>Equipamentos</h2>
+          </div>
+          <button id="closeMobileGearPanelButton" type="button">Fechar</button>
+        </div>
+
+        <div class="mobile-gear-hero">
+          <div class="mobile-gear-hero-glow"></div>
+          <div class="mobile-gear-hero-head"></div>
+          <div class="mobile-gear-hero-body"></div>
+          <div class="mobile-gear-hero-arms"></div>
+          <div class="mobile-gear-hero-legs"></div>
+        </div>
+
+        <div id="mobileGearSlots" class="mobile-gear-slots"></div>
+
+        <div class="mobile-gear-section-title">Bônus ativos</div>
+        <div id="mobileGearStats" class="mobile-gear-stats"></div>
+
+        <p class="mobile-gear-tip">Toque em uma armadura, bota, amuleto ou relíquia no inventário para equipar.</p>
+      </div>
+    `;
+    document.body.appendChild(panel);
+
+    panel.querySelector("#closeMobileGearPanelButton")?.addEventListener("click", closeMobileGearPanel);
+    panel.addEventListener("click", (event) => {
+      if (event.target === panel) closeMobileGearPanel();
+    });
+    panel.addEventListener("pointerdown", (event) => event.stopPropagation());
+    return panel;
+  }
+
+  function renderMobileGearPanel() {
+    const panel = ensureMobileGearPanel();
+    const slotRoot = panel.querySelector("#mobileGearSlots");
+    const statsRoot = panel.querySelector("#mobileGearStats");
+    if (!slotRoot || !statsRoot) return;
+
+    ensureGearState();
+
+    slotRoot.innerHTML = Object.entries(SLOT_META).map(([slot, meta]) => {
+      const item = getEquippedGearItem(slot);
+      const rarity = localRarityKey(item?.rarity || "comum");
+      return `
+        <article class="mobile-gear-slot ${item ? "is-filled" : "is-empty"} rarity-${rarity}" data-rarity="${rarity}">
+          <div class="mobile-gear-slot-icon">${meta.icon}</div>
+          <div class="mobile-gear-slot-text">
+            <span>${meta.label}</span>
+            <strong>${item ? item.name : "Vazio"}</strong>
+            <small>${item ? `${localFormatRarity(item.rarity)} • ${item.typeLabel || meta.hint}` : meta.hint}</small>
+          </div>
+        </article>
+      `;
+    }).join("");
+
+    const stats = getMobileGearStats();
+    statsRoot.innerHTML = `
+      <article><span>Equipados</span><strong>${stats.total}/4</strong></article>
+      <article><span>Defesa</span><strong>+${stats.defense}</strong></article>
+      <article><span>Mana</span><strong>+${stats.mana}</strong></article>
+      <article><span>Vida</span><strong>+${stats.health}</strong></article>
+      <article><span>Velocidade</span><strong>+${stats.speed}</strong></article>
+    `;
+  }
+
+  function openMobileGearPanel() {
+    renderMobileGearPanel();
+    ensureMobileGearPanel().classList.remove("hidden");
+    document.body.classList.add("mobile-gear-open");
+  }
+
+  function closeMobileGearPanel() {
+    document.getElementById("mobileGearPanel")?.classList.add("hidden");
+    document.body.classList.remove("mobile-gear-open");
+  }
+
+  function ensureOpenGearButton() {
+    if (!inventoryPanel) return;
+    if (document.getElementById("openMobileGearPanelButton")) return;
+
+    const button = document.createElement("button");
+    button.id = "openMobileGearPanelButton";
+    button.type = "button";
+    button.className = "open-mobile-gear-button";
+    button.textContent = "Ver Equipamentos";
+    button.addEventListener("click", openMobileGearPanel);
+
+    const tabs = document.getElementById("inventoryTabs");
+    if (tabs && tabs.parentElement) {
+      tabs.parentElement.insertBefore(button, tabs.nextSibling);
+    } else {
+      inventoryPanel.appendChild(button);
+    }
+  }
+
+  const renderInventoryBeforeMobileGearPanel = renderInventory;
+  renderInventory = function renderInventoryMobileGearPanelPatch() {
+    ensureOpenGearButton();
+    const result = renderInventoryBeforeMobileGearPanel();
+    if (!document.getElementById("mobileGearPanel")?.classList.contains("hidden")) {
+      renderMobileGearPanel();
+    }
+    return result;
+  };
+
+  // Algumas versões do Eternal Rift não têm uma função chamada openInventory.
+  // Antes isso quebrava o jogo com "openInventory is not defined".
+  if (typeof openInventory === "function") {
+    const openInventoryBeforeMobileGearPanel = openInventory;
+    openInventory = function openInventoryMobileGearPanelPatch() {
+      ensureOpenGearButton();
+      ensureMobileGearPanel();
+      return openInventoryBeforeMobileGearPanel();
+    };
+  }
+
+  setTimeout(() => {
+    ensureOpenGearButton();
+    ensureMobileGearPanel();
+  }, 250);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: Janela separada de equipamentos para PC e Mobile
+   - Esconde o painel embutido antigo
+   - Usa somente janela separada em qualquer tela
+   ================================================== */
+(function eternalRiftUniversalGearWindowPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_UNIVERSAL_GEAR_WINDOW_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_UNIVERSAL_GEAR_WINDOW_PATCH = true;
+
+  function applyUniversalGearWindowUi() {
+    const embeddedPanel = document.getElementById('gearWardrobePanel');
+    if (embeddedPanel) embeddedPanel.style.display = 'none';
+
+    const openButton = document.getElementById('openMobileGearPanelButton');
+    if (openButton) {
+      openButton.textContent = 'Equipamentos';
+      openButton.classList.add('universal-gear-button');
+      openButton.style.display = 'block';
+    }
+  }
+
+  const renderInventoryBeforeUniversalGearWindow = renderInventory;
+  renderInventory = function renderInventoryUniversalGearWindowPatch() {
+    const result = renderInventoryBeforeUniversalGearWindow();
+    applyUniversalGearWindowUi();
+    return result;
+  };
+
+  setTimeout(applyUniversalGearWindowUi, 100);
+  setTimeout(applyUniversalGearWindowUi, 600);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: Primeira leva de armaduras
+   - adiciona conjuntos de armaduras por bioma
+   - drops iniciais em bosses
+   - integra com a janela separada de equipamentos
+   ================================================== */
+(function eternalRiftFirstArmorSetsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_FIRST_ARMOR_SETS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_FIRST_ARMOR_SETS_PATCH = true;
+
+  function normArmorText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  const EXTRA_ARMOR_DEFS = {
+    "armadura do rei solar": {
+      icon: "☼", typeLabel: "Armadura", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar armadura", actionType: "gear", slot: "armor",
+      description: "Peitoral dourado do Faraó Solar, com placas brilhantes e calor mágico.",
+      effect: "+2 defesa e +1 vida. Dropa do Faraó Solar."
+    },
+    "botas do sol escaldante": {
+      icon: "⌁", typeLabel: "Botas", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar botas", actionType: "gear", slot: "boots",
+      description: "Botas encantadas que deixam rastros quentes pela areia.",
+      effect: "+10 velocidade. Dropam do Faraó Solar."
+    },
+    "anel da duna real": {
+      icon: "◌", typeLabel: "Anel", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar anel", actionType: "gear", slot: "accessory",
+      description: "Anel lapidado com pedra do deserto e energia real.",
+      effect: "+1 defesa. Dropa do Faraó Solar."
+    },
+    "amuleto do oasis sagrado": {
+      icon: "✧", typeLabel: "Amuleto", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm",
+      description: "Amuleto fresco e luminoso, abençoado por um oásis oculto.",
+      effect: "+1 mana e +1 vida. Dropa do Faraó Solar."
+    },
+
+    "armadura da rainha glacial": {
+      icon: "❄", typeLabel: "Armadura", category: "armaduras", rarity: "mitico",
+      actionLabel: "Equipar armadura", actionType: "gear", slot: "armor",
+      description: "Armadura da Rainha Glacial, fria, espessa e coberta por cristais azuis.",
+      effect: "+3 defesa. Dropa da Rainha Glacial."
+    },
+    "botas da nevasca eterna": {
+      icon: "⌁", typeLabel: "Botas", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar botas", actionType: "gear", slot: "boots",
+      description: "Botas de gelo eterno que deslizam sem perder o controle.",
+      effect: "+8 velocidade. Dropam da Rainha Glacial."
+    },
+    "pingente do cristal azul": {
+      icon: "◇", typeLabel: "Relíquia", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar relíquia", actionType: "gear", slot: "accessory",
+      description: "Pingente lapidado com cristal azul puro.",
+      effect: "+2 mana. Dropa da Rainha Glacial."
+    },
+    "amuleto da geada ancestral": {
+      icon: "✦", typeLabel: "Amuleto", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm",
+      description: "Amuleto antigo que protege contra o frio mais cruel.",
+      effect: "+1 defesa e +1 mana. Dropa da Rainha Glacial."
+    },
+
+    "armadura do brejo vivo": {
+      icon: "☘", typeLabel: "Armadura", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar armadura", actionType: "gear", slot: "armor",
+      description: "Armadura viva com raízes, musgo e placas orgânicas do pântano.",
+      effect: "+2 defesa e +1 vida. Dropa da Bruxa Suprema do Pântano."
+    },
+    "botas da lama viva": {
+      icon: "⌁", typeLabel: "Botas", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar botas", actionType: "gear", slot: "boots",
+      description: "Botas moldadas pela lama mágica do pântano.",
+      effect: "+7 velocidade e +1 vida. Dropam da Bruxa Suprema do Pântano."
+    },
+    "anel da nevoa toxica": {
+      icon: "◌", typeLabel: "Anel", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar anel", actionType: "gear", slot: "accessory",
+      description: "Anel envenenado que fortalece quem suporta o brejo.",
+      effect: "+1 defesa. Dropa da Bruxa Suprema do Pântano."
+    },
+    "amuleto da raiz sombria": {
+      icon: "✧", typeLabel: "Amuleto", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm",
+      description: "Amuleto feito de raiz negra e essência venenosa.",
+      effect: "+2 vida. Dropa da Bruxa Suprema do Pântano."
+    },
+
+    "peitoral do nucleo corrompido": {
+      icon: "☢", typeLabel: "Armadura", category: "armaduras", rarity: "divino",
+      actionLabel: "Equipar armadura", actionType: "gear", slot: "armor",
+      description: "Peitoral pesado criado com placas do Reator Vivo Corrompido.",
+      effect: "+4 defesa. Dropa do Reator Vivo Corrompido."
+    },
+    "botas anticorrosivas": {
+      icon: "⌁", typeLabel: "Botas", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar botas", actionType: "gear", slot: "boots",
+      description: "Botas reforçadas para suportar ácido e chão corroído.",
+      effect: "+6 velocidade e +1 defesa. Dropam do Reator Vivo Corrompido."
+    },
+    "selo do reator verde": {
+      icon: "⬡", typeLabel: "Relíquia", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar relíquia", actionType: "gear", slot: "accessory",
+      description: "Selo radioativo com energia do núcleo tóxico.",
+      effect: "+2 mana. Dropa do Reator Vivo Corrompido."
+    },
+    "amuleto do acido vivo": {
+      icon: "✦", typeLabel: "Amuleto", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm",
+      description: "Amuleto de vidro e ácido pulsante.",
+      effect: "+1 defesa e +1 mana. Dropa do Reator Vivo Corrompido."
+    },
+
+    "armadura do serafim partido": {
+      icon: "✹", typeLabel: "Armadura", category: "armaduras", rarity: "divino",
+      actionLabel: "Equipar armadura", actionType: "gear", slot: "armor",
+      description: "Armadura divina quebrada, feita de luz rachada do Serafim Caído.",
+      effect: "+3 defesa e +2 mana. Dropa do Serafim Caído."
+    },
+    "botas da aurora celestial": {
+      icon: "⌁", typeLabel: "Botas", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar botas", actionType: "gear", slot: "boots",
+      description: "Botas leves que deixam rastro de aurora no chão.",
+      effect: "+12 velocidade. Dropam do Serafim Caído."
+    },
+    "halo partido": {
+      icon: "◍", typeLabel: "Relíquia", category: "armaduras", rarity: "divino",
+      actionLabel: "Equipar relíquia", actionType: "gear", slot: "accessory",
+      description: "Fragmento do halo do Serafim, ainda carregado de luz.",
+      effect: "+2 mana e +1 vida. Dropa do Serafim Caído."
+    },
+    "amuleto do ceu caido": {
+      icon: "✧", typeLabel: "Amuleto", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm",
+      description: "Amuleto celestial rachado por energia corrompida.",
+      effect: "+1 defesa e +1 mana. Dropa do Serafim Caído."
+    }
+  };
+
+  const FULL_GEAR_BONUSES = {
+    // antigos
+    "armadura polar": { defense: 2 },
+    "armadura de musgo": { defense: 1 },
+    "armadura da aurora": { defense: 3, mana: 2 },
+    "amuleto anti calor": { defense: 1 },
+    "amuleto de luz": { defense: 1 },
+    "anel de mana celestial": { mana: 2 },
+    "pingente da aurora": { mana: 1, speed: 8 },
+    "asas pequenas": { health: 1, speed: 18 },
+    "botas do deserto": { speed: 18 },
+    "botas antiderrapantes": { speed: 12 },
+    "botas das nuvens": { speed: 20 },
+    // novos
+    "armadura do rei solar": { defense: 2, health: 1 },
+    "botas do sol escaldante": { speed: 10 },
+    "anel da duna real": { defense: 1 },
+    "amuleto do oasis sagrado": { mana: 1, health: 1 },
+    "armadura da rainha glacial": { defense: 3 },
+    "botas da nevasca eterna": { speed: 8 },
+    "pingente do cristal azul": { mana: 2 },
+    "amuleto da geada ancestral": { defense: 1, mana: 1 },
+    "armadura do brejo vivo": { defense: 2, health: 1 },
+    "botas da lama viva": { speed: 7, health: 1 },
+    "anel da nevoa toxica": { defense: 1 },
+    "amuleto da raiz sombria": { health: 2 },
+    "peitoral do nucleo corrompido": { defense: 4 },
+    "botas anticorrosivas": { speed: 6, defense: 1 },
+    "selo do reator verde": { mana: 2 },
+    "amuleto do acido vivo": { defense: 1, mana: 1 },
+    "armadura do serafim partido": { defense: 3, mana: 2 },
+    "botas da aurora celestial": { speed: 12 },
+    "halo partido": { mana: 2, health: 1 },
+    "amuleto do ceu caido": { defense: 1, mana: 1 }
+  };
+
+  const ARMOR_DROP_PACKS = {
+    desert: {
+      guaranteed: ["Armadura do Rei Solar"],
+      chance: [
+        { name: "Botas do Sol Escaldante", rate: 0.75 },
+        { name: "Anel da Duna Real", rate: 0.55 },
+        { name: "Amuleto do Oasis Sagrado", rate: 0.45 }
+      ]
+    },
+    ice: {
+      guaranteed: ["Armadura da Rainha Glacial"],
+      chance: [
+        { name: "Botas da Nevasca Eterna", rate: 0.75 },
+        { name: "Pingente do Cristal Azul", rate: 0.55 },
+        { name: "Amuleto da Geada Ancestral", rate: 0.45 }
+      ]
+    },
+    swamp: {
+      guaranteed: ["Armadura do Brejo Vivo"],
+      chance: [
+        { name: "Botas da Lama Viva", rate: 0.75 },
+        { name: "Anel da Névoa Tóxica", rate: 0.55 },
+        { name: "Amuleto da Raiz Sombria", rate: 0.45 }
+      ]
+    },
+    acid: {
+      guaranteed: ["Peitoral do Núcleo Corrompido"],
+      chance: [
+        { name: "Botas Anticorrosivas", rate: 0.75 },
+        { name: "Selo do Reator Verde", rate: 0.55 },
+        { name: "Amuleto do Ácido Vivo", rate: 0.45 }
+      ]
+    },
+    celestial: {
+      guaranteed: ["Armadura do Serafim Partido"],
+      chance: [
+        { name: "Botas da Aurora Celestial", rate: 0.75 },
+        { name: "Halo Partido", rate: 0.55 },
+        { name: "Amuleto do Céu Caído", rate: 0.45 }
+      ]
+    }
+  };
+
+  const BOSS_ARMOR_FAMILY = {
+    faraoareia: "desert",
+    solarpharaoh: "desert",
+    imperadordunas: "desert",
+    yetiancestral: "ice",
+    icequeen: "ice",
+    dragaoglacialantigo: "ice",
+    bruxadopantano: "swamp",
+    supremeswampwitch: "swamp",
+    hidravenenosa: "swamp",
+    corruptedreactor: "acid",
+    serafimcorrompido: "celestial",
+    fallenseraph: "celestial",
+    guardiaocelestial: "celestial",
+    dragaoaurora: "celestial"
+  };
+
+  const getCustomItemDefBeforeFirstArmorSets = window.getCustomItemDef;
+  window.getCustomItemDef = function getCustomItemDefFirstArmorSets(name) {
+    const normalized = normArmorText(name);
+    return EXTRA_ARMOR_DEFS[normalized] || (typeof getCustomItemDefBeforeFirstArmorSets === "function" ? getCustomItemDefBeforeFirstArmorSets(name) : null);
+  };
+  getCustomItemDef = window.getCustomItemDef;
+
+  function getEquippedArmorNames() {
+    if (!inventory.equippedCustomItems || typeof inventory.equippedCustomItems !== "object") return [];
+    return Object.values(inventory.equippedCustomItems).filter(Boolean).map(normArmorText);
+  }
+
+  function getFullArmorBonuses() {
+    const result = { defense: 0, mana: 0, health: 0, speed: 0, total: 0 };
+    const names = getEquippedArmorNames();
+    result.total = names.length;
+    for (const name of names) {
+      const bonus = FULL_GEAR_BONUSES[name];
+      if (!bonus) continue;
+      result.defense += Number(bonus.defense || 0);
+      result.mana += Number(bonus.mana || 0);
+      result.health += Number(bonus.health || 0);
+      result.speed += Number(bonus.speed || 0);
+    }
+    return result;
+  }
+
+  function applyFirstArmorSetStatPatch() {
+    if (!player) return;
+    const previous = player.__firstArmorBonusApplied || { defense: 0, mana: 0, health: 0 };
+    player.defense = Math.max(0, Number(player.defense || 0) - Number(previous.defense || 0));
+    player.maxMana = Math.max(1, Number(player.maxMana || 1) - Number(previous.mana || 0));
+    player.maxHealth = Math.max(1, Number(player.maxHealth || 1) - Number(previous.health || 0));
+
+    const bonuses = getFullArmorBonuses();
+    player.defense += bonuses.defense;
+    player.maxMana += bonuses.mana;
+    player.maxHealth += bonuses.health;
+    player.mana = Math.min(player.mana, player.maxMana);
+    player.health = Math.min(player.health, player.maxHealth);
+    player.__firstArmorBonusApplied = { defense: bonuses.defense, mana: bonuses.mana, health: bonuses.health };
+  }
+
+  const getPlayerSpeedBeforeFirstArmorSets = getPlayerSpeed;
+  getPlayerSpeed = function getPlayerSpeedFirstArmorSets() {
+    const base = getPlayerSpeedBeforeFirstArmorSets();
+    return base + getFullArmorBonuses().speed;
+  };
+
+  const updateBeforeFirstArmorSets = update;
+  update = function updateFirstArmorSets(delta) {
+    const result = updateBeforeFirstArmorSets(delta);
+    applyFirstArmorSetStatPatch();
+    return result;
+  };
+
+  const loadGameBeforeFirstArmorSets = loadGame;
+  loadGame = function loadGameFirstArmorSets() {
+    const ok = loadGameBeforeFirstArmorSets();
+    applyFirstArmorSetStatPatch();
+    return ok;
+  };
+
+  function updateEquipmentPanelVisualStats() {
+    const stats = getFullArmorBonuses();
+    const desktopSummary = document.getElementById('gearWardrobeSummary');
+    if (desktopSummary) {
+      desktopSummary.innerHTML = `
+        <div class="gear-summary-card"><span>Itens equipados</span><strong>${stats.total}/4</strong></div>
+        <div class="gear-summary-card"><span>Defesa bônus</span><strong>+${stats.defense}</strong></div>
+        <div class="gear-summary-card"><span>Mana bônus</span><strong>+${stats.mana}</strong></div>
+        <div class="gear-summary-card"><span>Vida bônus</span><strong>+${stats.health}</strong></div>
+        <div class="gear-summary-card"><span>Velocidade bônus</span><strong>+${stats.speed}</strong></div>
+      `;
+    }
+
+    const mobileStats = document.getElementById('mobileGearStats');
+    if (mobileStats) {
+      mobileStats.innerHTML = `
+        <article><span>Equipados</span><strong>${stats.total}/4</strong></article>
+        <article><span>Defesa</span><strong>+${stats.defense}</strong></article>
+        <article><span>Mana</span><strong>+${stats.mana}</strong></article>
+        <article><span>Vida</span><strong>+${stats.health}</strong></article>
+        <article><span>Velocidade</span><strong>+${stats.speed}</strong></article>
+      `;
+    }
+  }
+
+  const renderInventoryBeforeFirstArmorSets = renderInventory;
+  renderInventory = function renderInventoryFirstArmorSets() {
+    const result = renderInventoryBeforeFirstArmorSets();
+    applyFirstArmorSetStatPatch();
+    updateEquipmentPanelVisualStats();
+    return result;
+  };
+
+  function grantArmorItemNow(name, x = player?.x || 0, y = player?.y || 0) {
+    if (typeof addGameItem === 'function') addGameItem(name, 1);
+    if (typeof spawnFloatingText === 'function') spawnFloatingText(name, x, y - 10, '#fff3a8');
+  }
+
+  const defeatEnemyBeforeFirstArmorSets = defeatEnemy;
+  defeatEnemy = function defeatEnemyFirstArmorSets(obj) {
+    const kind = normArmorText(obj?.kind || obj?.bossId || obj?.name || '').replace(/\s+/g, '');
+    const family = BOSS_ARMOR_FAMILY[kind] || '';
+    const x = Number(obj?.x || player?.x || 0);
+    const y = Number(obj?.y || player?.y || 0);
+    const result = defeatEnemyBeforeFirstArmorSets(obj);
+    if (!family) return result;
+    const pack = ARMOR_DROP_PACKS[family];
+    if (!pack) return result;
+
+    const granted = [];
+    for (const name of pack.guaranteed || []) {
+      grantArmorItemNow(name, x, y);
+      granted.push(name);
+    }
+    for (const entry of pack.chance || []) {
+      if (Math.random() < Number(entry.rate || 0)) {
+        grantArmorItemNow(entry.name, x + (Math.random() * 24 - 12), y);
+        granted.push(entry.name);
+      }
+    }
+    if (granted.length > 0) {
+      playSound?.('chest');
+      showHudToast?.(`Novas armaduras: ${granted.slice(0, 2).join(', ')}${granted.length > 2 ? '...' : ''}`);
+      renderInventory?.();
+      updateHud?.();
+    }
+    return result;
+  };
+
+  const getQuestMessageBeforeFirstArmorSets = getQuestMessage;
+  getQuestMessage = function getQuestMessageFirstArmorSets(target) {
+    const base = getQuestMessageBeforeFirstArmorSets(target);
+    if (target === 'branor' || target === 'blacksmith' || target === 'legendForge') {
+      return `${base}\n\nBranor agora comenta sobre armaduras raras: derrote bosses dos biomas para conseguir conjuntos poderosos.`;
+    }
+    return base;
+  };
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: Armaduras iniciais + forja do Branor + visual no personagem
+   ================================================== */
+(function eternalRiftStarterForgeArmorVisualPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_STARTER_FORGE_ARMOR_VISUAL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_STARTER_FORGE_ARMOR_VISUAL_PATCH = true;
+
+  function normArmor(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function safeCustomCount(name) {
+    if (!inventory.customItems || typeof inventory.customItems !== "object") return 0;
+    return Number(inventory.customItems[name] || 0);
+  }
+
+  function hasCustomItemOrEquipped(name) {
+    const n = normArmor(name);
+    const equipped = Object.values(inventory.equippedCustomItems || {}).some((value) => normArmor(value) === n);
+    if (equipped) return true;
+    return Object.keys(inventory.customItems || {}).some((key) => normArmor(key) === n && Number(inventory.customItems[key] || 0) > 0);
+  }
+
+  function giveArmorItem(name, amount = 1, source = "") {
+    if (typeof addGameItem === "function") {
+      addGameItem(name, amount);
+    } else {
+      if (!inventory.customItems || typeof inventory.customItems !== "object" || Array.isArray(inventory.customItems)) inventory.customItems = {};
+      inventory.customItems[name] = Number(inventory.customItems[name] || 0) + Math.max(1, Number(amount || 1));
+    }
+    if (source) showHudToast?.(`${name} obtido: ${source}`);
+    renderInventory?.();
+    updateHud?.();
+  }
+
+  const STARTER_FORGE_ARMOR_DEFS = {
+    // Armaduras iniciais comuns/raras
+    "colete de couro do aventureiro": {
+      icon: "▣", typeLabel: "Armadura", category: "armaduras", rarity: "comum",
+      actionLabel: "Equipar colete", actionType: "gear", slot: "armor",
+      description: "Colete simples de couro para aventureiros iniciantes.",
+      effect: "+1 defesa. Item inicial para o começo do jogo."
+    },
+    "botas do caminhante": {
+      icon: "⌁", typeLabel: "Botas", category: "armaduras", rarity: "comum",
+      actionLabel: "Equipar botas", actionType: "gear", slot: "boots",
+      description: "Botas leves para explorar a vila, cavernas e campos.",
+      effect: "+6 velocidade. Item inicial para exploração."
+    },
+    "anel de bronze": {
+      icon: "◌", typeLabel: "Anel", category: "armaduras", rarity: "incomum",
+      actionLabel: "Equipar anel", actionType: "gear", slot: "accessory",
+      description: "Anel simples de bronze, usado por aprendizes de combate.",
+      effect: "+1 mana. Item inicial incomum."
+    },
+    "amuleto de pano azul": {
+      icon: "✧", typeLabel: "Amuleto", category: "armaduras", rarity: "comum",
+      actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm",
+      description: "Amuleto barato feito de pano azul e pedra lisa.",
+      effect: "+1 vida. Item inicial simples."
+    },
+    "peitoral de couro reforcado": {
+      icon: "▣", typeLabel: "Armadura", category: "armaduras", rarity: "raro",
+      actionLabel: "Equipar peitoral", actionType: "gear", slot: "armor",
+      description: "Couro reforçado com pequenas placas metálicas.",
+      effect: "+2 defesa. Drop raro de inimigos iniciais."
+    },
+    "botas ligeiras": {
+      icon: "⌁", typeLabel: "Botas", category: "armaduras", rarity: "raro",
+      actionLabel: "Equipar botas", actionType: "gear", slot: "boots",
+      description: "Botas feitas para correr melhor em terreno comum.",
+      effect: "+12 velocidade. Drop raro de inimigos iniciais."
+    },
+    "amuleto do aprendiz": {
+      icon: "✦", typeLabel: "Amuleto", category: "armaduras", rarity: "raro",
+      actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm",
+      description: "Amuleto de treino usado por aprendizes de magia.",
+      effect: "+1 mana e +1 vida. Drop raro de inimigos iniciais."
+    },
+
+    // Forjáveis com Branor
+    "armadura de ferro sombrio": {
+      icon: "▣", typeLabel: "Armadura", category: "armaduras", rarity: "raro",
+      actionLabel: "Equipar armadura", actionType: "gear", slot: "armor",
+      description: "Armadura robusta feita com Ferro Sombrio da Mina Cristalina.",
+      effect: "+3 defesa. Forjável no Branor com Ferro Sombrio."
+    },
+    "armadura cristalina inicial": {
+      icon: "◇", typeLabel: "Armadura", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar armadura", actionType: "gear", slot: "armor",
+      description: "Armadura azul com cristais lapidados no peitoral e ombros.",
+      effect: "+3 defesa e +2 mana. Forjável no Branor."
+    },
+    "botas de ferro sombrio": {
+      icon: "⌁", typeLabel: "Botas", category: "armaduras", rarity: "raro",
+      actionLabel: "Equipar botas", actionType: "gear", slot: "boots",
+      description: "Botas firmes, pesadas e resistentes para mineração e combate.",
+      effect: "+1 defesa e +5 velocidade. Forjável no Branor."
+    },
+    "amuleto cristalino": {
+      icon: "✧", typeLabel: "Amuleto", category: "armaduras", rarity: "epico",
+      actionLabel: "Equipar amuleto", actionType: "gear", slot: "charm",
+      description: "Amuleto feito com cristal azul, ótimo para usuários de mana.",
+      effect: "+3 mana. Forjável no Branor."
+    },
+    "armadura celestial forjada": {
+      icon: "✹", typeLabel: "Armadura", category: "armaduras", rarity: "lendario",
+      actionLabel: "Equipar armadura", actionType: "gear", slot: "armor",
+      description: "Armadura criada por Branor usando fragmentos celestiais.",
+      effect: "+4 defesa, +2 mana e +1 vida. Forjável avançada."
+    }
+  };
+
+  const STARTER_FORGE_BONUSES = {
+    "colete de couro do aventureiro": { defense: 1 },
+    "botas do caminhante": { speed: 6 },
+    "anel de bronze": { mana: 1 },
+    "amuleto de pano azul": { health: 1 },
+    "peitoral de couro reforcado": { defense: 2 },
+    "botas ligeiras": { speed: 12 },
+    "amuleto do aprendiz": { mana: 1, health: 1 },
+    "armadura de ferro sombrio": { defense: 3 },
+    "armadura cristalina inicial": { defense: 3, mana: 2 },
+    "botas de ferro sombrio": { defense: 1, speed: 5 },
+    "amuleto cristalino": { mana: 3 },
+    "armadura celestial forjada": { defense: 4, mana: 2, health: 1 }
+  };
+
+  const getCustomItemDefBeforeStarterForgeArmor = window.getCustomItemDef;
+  window.getCustomItemDef = function getCustomItemDefStarterForgeArmor(name) {
+    const normalized = normArmor(name);
+    return STARTER_FORGE_ARMOR_DEFS[normalized] ||
+      (typeof getCustomItemDefBeforeStarterForgeArmor === "function" ? getCustomItemDefBeforeStarterForgeArmor(name) : null);
+  };
+  getCustomItemDef = window.getCustomItemDef;
+
+  function getEquippedBonusFromStarterForge() {
+    const result = { defense: 0, mana: 0, health: 0, speed: 0 };
+    const equipped = Object.values(inventory.equippedCustomItems || {}).filter(Boolean).map(normArmor);
+    for (const item of equipped) {
+      const bonus = STARTER_FORGE_BONUSES[item];
+      if (!bonus) continue;
+      result.defense += Number(bonus.defense || 0);
+      result.mana += Number(bonus.mana || 0);
+      result.health += Number(bonus.health || 0);
+      result.speed += Number(bonus.speed || 0);
+    }
+    return result;
+  }
+
+  function applyStarterForgeArmorStats() {
+    if (!player) return;
+    const previous = player.__starterForgeArmorBonusApplied || { defense: 0, mana: 0, health: 0 };
+    player.defense = Math.max(0, Number(player.defense || 0) - Number(previous.defense || 0));
+    player.maxMana = Math.max(1, Number(player.maxMana || 1) - Number(previous.mana || 0));
+    player.maxHealth = Math.max(1, Number(player.maxHealth || 1) - Number(previous.health || 0));
+
+    const bonus = getEquippedBonusFromStarterForge();
+    player.defense += bonus.defense;
+    player.maxMana += bonus.mana;
+    player.maxHealth += bonus.health;
+    player.mana = Math.min(player.mana, player.maxMana);
+    player.health = Math.min(player.health, player.maxHealth);
+    player.__starterForgeArmorBonusApplied = { defense: bonus.defense, mana: bonus.mana, health: bonus.health };
+  }
+
+  const getPlayerSpeedBeforeStarterForgeArmor = getPlayerSpeed;
+  getPlayerSpeed = function getPlayerSpeedStarterForgeArmor() {
+    return getPlayerSpeedBeforeStarterForgeArmor() + getEquippedBonusFromStarterForge().speed;
+  };
+
+  function ensureStarterArmorKit() {
+    if (!questBook.starterArmorKit) questBook.starterArmorKit = { given: false };
+    if (questBook.starterArmorKit.given) return;
+    giveArmorItem("Colete de Couro do Aventureiro", 1);
+    giveArmorItem("Botas do Caminhante", 1);
+    giveArmorItem("Anel de Bronze", 1);
+    giveArmorItem("Amuleto de Pano Azul", 1);
+    questBook.starterArmorKit.given = true;
+    showHudToast?.("Kit inicial de armaduras recebido!");
+  }
+
+  function maybeDropStarterArmorFromMob(obj) {
+    if (!obj || obj.boss || obj.type !== "enemy") return;
+    const kind = normArmor(obj.kind || "");
+    const earlyKinds = [
+      "slime", "slime azul", "morcego", "aranha", "goblin", "esqueleto",
+      "mini guardiao", "miniGuardiao", "reiSlime"
+    ];
+    const isEarly = earlyKinds.some((key) => kind.includes(normArmor(key)));
+    if (!isEarly && currentScene !== "village") return;
+
+    const roll = Math.random();
+    let item = "";
+    if (roll < 0.045) item = "Peitoral de Couro Reforçado";
+    else if (roll < 0.085) item = "Botas Ligeiras";
+    else if (roll < 0.12) item = "Amuleto do Aprendiz";
+
+    if (item) {
+      giveArmorItem(item, 1, "drop inicial");
+      spawnFloatingText?.(item, obj.x + obj.width / 2, obj.y - 12, "#9feaff");
+    }
+  }
+
+  const defeatEnemyBeforeStarterForgeArmor = defeatEnemy;
+  defeatEnemy = function defeatEnemyStarterForgeArmor(obj) {
+    const wasAlive = Boolean(obj && obj.alive !== false);
+    const result = defeatEnemyBeforeStarterForgeArmor(obj);
+    if (wasAlive) maybeDropStarterArmorFromMob(obj);
+    return result;
+  };
+
+  function tryForgeArmorWithBranor() {
+    const recipes = [
+      {
+        item: "Armadura de Ferro Sombrio",
+        need: { caveFerroSombrio: 6 },
+        message: "Branor: Forjei uma Armadura de Ferro Sombrio para você."
+      },
+      {
+        item: "Botas de Ferro Sombrio",
+        need: { caveFerroSombrio: 3, caveCristalAzul: 1 },
+        message: "Branor: Fiz Botas de Ferro Sombrio. Pesadas, mas confiáveis."
+      },
+      {
+        item: "Armadura Cristalina Inicial",
+        need: { caveFerroSombrio: 3, caveCristalAzul: 6 },
+        message: "Branor: Transformei seus cristais em uma Armadura Cristalina Inicial."
+      },
+      {
+        item: "Amuleto Cristalino",
+        need: { caveCristalAzul: 4, fragmentoCelestial: 1 },
+        message: "Branor: Criei um Amuleto Cristalino. Ele segura mana como um pequeno lago azul."
+      },
+      {
+        item: "Armadura Celestial Forjada",
+        need: { caveFerroSombrio: 4, caveCristalAzul: 4, fragmentoCelestial: 3 },
+        message: "Branor: Isso aqui já não é armadura comum. É uma Armadura Celestial Forjada."
+      }
+    ];
+
+    for (const recipe of recipes) {
+      if (hasCustomItemOrEquipped(recipe.item)) continue;
+      const canCraft = Object.entries(recipe.need).every(([key, amount]) => Number(inventory[key] || 0) >= amount);
+      if (!canCraft) continue;
+      for (const [key, amount] of Object.entries(recipe.need)) inventory[key] -= amount;
+      giveArmorItem(recipe.item, 1, "forja do Branor");
+      showDialogMessage?.(recipe.message);
+      return true;
+    }
+    return false;
+  }
+
+  const getQuestMessageBeforeStarterForgeArmor = getQuestMessage;
+  getQuestMessage = function getQuestMessageStarterForgeArmor(target) {
+    const result = getQuestMessageBeforeStarterForgeArmor(target);
+    if (target?.type === "npc" && target.role === "legendForge") {
+      const crafted = tryForgeArmorWithBranor();
+      if (!crafted) {
+        showDialogMessage?.(
+          "Branor: Também forjo armaduras. Receitas:\n" +
+          "6 Ferro Sombrio = Armadura de Ferro Sombrio\n" +
+          "3 Ferro Sombrio + 1 Cristal Azul = Botas de Ferro Sombrio\n" +
+          "3 Ferro Sombrio + 6 Cristais Azuis = Armadura Cristalina Inicial\n" +
+          "4 Cristais Azuis + 1 Fragmento Celestial = Amuleto Cristalino\n" +
+          "4 Ferro Sombrio + 4 Cristais Azuis + 3 Fragmentos Celestiais = Armadura Celestial Forjada"
+        );
+      }
+    }
+    return result;
+  };
+
+  function getEquippedArmorVisualTheme() {
+    const armor = normArmor(inventory.equippedCustomItems?.armor || "");
+    if (armor.includes("solar") || armor.includes("rei solar")) return { main: "#f3c75a", trim: "#fff264", dark: "#8a4c1b", aura: "rgba(255, 242, 100, 0.18)" };
+    if (armor.includes("glacial") || armor.includes("gelo") || armor.includes("polar")) return { main: "#8fe9ff", trim: "#ffffff", dark: "#2e71a5", aura: "rgba(143, 233, 255, 0.18)" };
+    if (armor.includes("brejo") || armor.includes("musgo")) return { main: "#68c66f", trim: "#b8ff8c", dark: "#275835", aura: "rgba(104, 198, 111, 0.16)" };
+    if (armor.includes("corrompido") || armor.includes("nucleo") || armor.includes("ácido") || armor.includes("acido")) return { main: "#75ff4f", trim: "#d9ff7a", dark: "#243b20", aura: "rgba(117, 255, 79, 0.18)" };
+    if (armor.includes("serafim") || armor.includes("celestial") || armor.includes("aurora")) return { main: "#e7f5ff", trim: "#fff3a8", dark: "#5c74b8", aura: "rgba(231, 245, 255, 0.20)" };
+    if (armor.includes("cristalina") || armor.includes("cristal")) return { main: "#80e9ff", trim: "#f5fdff", dark: "#3a6cb3", aura: "rgba(128, 233, 255, 0.16)" };
+    if (armor.includes("ferro sombrio")) return { main: "#79809a", trim: "#dfe5f2", dark: "#30384d", aura: "rgba(170, 185, 220, 0.10)" };
+    if (armor.includes("couro") || armor.includes("aventureiro")) return { main: "#9a6542", trim: "#e1b47c", dark: "#4c2e21", aura: "rgba(225, 180, 124, 0.10)" };
+    return null;
+  }
+
+  function drawEquippedArmorOverlay() {
+    const theme = getEquippedArmorVisualTheme();
+    if (!theme) return;
+
+    const x = player.x;
+    const y = player.y;
+    const cx = x + player.width / 2;
+    const cy = y + player.height / 2;
+
+    ctx.save();
+    ctx.fillStyle = theme.aura;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 7, 17, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // peitoral
+    pixelRect(x + 5, y + 12, player.width - 10, 12, theme.main);
+    pixelRect(x + 7, y + 14, player.width - 14, 8, theme.dark);
+    pixelRect(x + 9, y + 13, player.width - 18, 3, theme.trim);
+
+    // ombreiras
+    pixelRect(x + 2, y + 13, 5, 7, theme.dark);
+    pixelRect(x + player.width - 7, y + 13, 5, 7, theme.dark);
+    pixelRect(x + 2, y + 12, 5, 2, theme.trim);
+    pixelRect(x + player.width - 7, y + 12, 5, 2, theme.trim);
+
+    // botas equipadas
+    const boots = normArmor(inventory.equippedCustomItems?.boots || "");
+    if (boots) {
+      pixelRect(x + 5, y + player.height - 6, 7, 4, theme.dark);
+      pixelRect(x + player.width - 12, y + player.height - 6, 7, 4, theme.dark);
+      pixelRect(x + 5, y + player.height - 7, 7, 2, theme.trim);
+      pixelRect(x + player.width - 12, y + player.height - 7, 7, 2, theme.trim);
+    }
+
+    // amuleto/reliquia
+    const hasCharm = Boolean(inventory.equippedCustomItems?.charm || inventory.equippedCustomItems?.accessory);
+    if (hasCharm) {
+      ctx.fillStyle = theme.trim;
+      ctx.beginPath();
+      ctx.arc(cx, y + 17, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  const drawPlayerBeforeStarterForgeArmor = drawPlayer;
+  drawPlayer = function drawPlayerStarterForgeArmor() {
+    drawPlayerBeforeStarterForgeArmor();
+    drawEquippedArmorOverlay();
+  };
+
+  const renderInventoryBeforeStarterForgeArmor = renderInventory;
+  renderInventory = function renderInventoryStarterForgeArmor() {
+    const result = renderInventoryBeforeStarterForgeArmor();
+    applyStarterForgeArmorStats();
+    return result;
+  };
+
+  const updateBeforeStarterForgeArmor = update;
+  update = function updateStarterForgeArmor(delta) {
+    ensureStarterArmorKit();
+    const result = updateBeforeStarterForgeArmor(delta);
+    applyStarterForgeArmorStats();
+    return result;
+  };
+
+  const loadGameBeforeStarterForgeArmor = loadGame;
+  loadGame = function loadGameStarterForgeArmor() {
+    const ok = loadGameBeforeStarterForgeArmor();
+    ensureStarterArmorKit();
+    applyStarterForgeArmorStats();
+    return ok;
+  };
+
+  setTimeout(() => {
+    ensureStarterArmorKit();
+    applyStarterForgeArmorStats();
+  }, 500);
 })();
