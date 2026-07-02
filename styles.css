@@ -5963,3 +5963,565 @@ body.er-mobile-real-fix #inventoryPanel[data-force-closed="true"] {
     max-height: 80dvh !important;
   }
 }
+
+/* ==================================================
+   ETERNAL RIFT: HUD + BOSS MENOR 2026-07-02
+   Correção final para mobile: HUD fino e boss bar pequena.
+   ================================================== */
+body.er-mobile-real-fix .hud,
+body.mobile-controls-fixed .hud,
+body.is-mobile .hud {
+  top: max(3px, env(safe-area-inset-top)) !important;
+  left: max(4px, env(safe-area-inset-left)) !important;
+  right: max(4px, env(safe-area-inset-right)) !important;
+  display: grid !important;
+  grid-template-columns: minmax(86px, 16vw) minmax(120px, 1fr) minmax(86px, 16vw) !important;
+  grid-template-rows: repeat(3, 18px) !important;
+  gap: 2px !important;
+  align-items: stretch !important;
+  max-height: 58px !important;
+  overflow: hidden !important;
+  z-index: 120 !important;
+  pointer-events: none !important;
+}
+
+body.er-mobile-real-fix .hud > div,
+body.er-mobile-real-fix .hud button,
+body.mobile-controls-fixed .hud > div,
+body.mobile-controls-fixed .hud button,
+body.is-mobile .hud > div,
+body.is-mobile .hud button {
+  min-width: 0 !important;
+  min-height: 0 !important;
+  height: 18px !important;
+  padding: 1px 4px !important;
+  border-radius: 4px !important;
+  font-size: 9px !important;
+  line-height: 1 !important;
+  background: rgba(25, 32, 58, 0.50) !important;
+  box-shadow: 0 0 0 1px rgba(12, 17, 34, 0.62) !important;
+  backdrop-filter: blur(1px) !important;
+  -webkit-backdrop-filter: blur(1px) !important;
+  overflow: hidden !important;
+}
+
+body.er-mobile-real-fix .hud-label,
+body.mobile-controls-fixed .hud-label,
+body.is-mobile .hud-label {
+  display: none !important;
+}
+
+body.er-mobile-real-fix .hud strong,
+body.er-mobile-real-fix #questProgress,
+body.er-mobile-real-fix #powerHud,
+body.er-mobile-real-fix #playerName,
+body.mobile-controls-fixed .hud strong,
+body.mobile-controls-fixed #questProgress,
+body.mobile-controls-fixed #powerHud,
+body.mobile-controls-fixed #playerName,
+body.is-mobile .hud strong,
+body.is-mobile #questProgress,
+body.is-mobile #powerHud,
+body.is-mobile #playerName {
+  display: block !important;
+  font-size: clamp(0.48rem, 1.05vw, 0.62rem) !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+body.er-mobile-real-fix .xp-hud,
+body.mobile-controls-fixed .xp-hud,
+body.is-mobile .xp-hud {
+  display: none !important;
+}
+
+body.er-mobile-real-fix .xp-bar,
+body.er-mobile-real-fix .mana-bar,
+body.er-mobile-real-fix .oxygen-bar,
+body.er-mobile-real-fix .boss-bar,
+body.mobile-controls-fixed .xp-bar,
+body.mobile-controls-fixed .mana-bar,
+body.mobile-controls-fixed .oxygen-bar,
+body.mobile-controls-fixed .boss-bar,
+body.is-mobile .xp-bar,
+body.is-mobile .mana-bar,
+body.is-mobile .oxygen-bar,
+body.is-mobile .boss-bar {
+  height: 2px !important;
+  margin-top: 1px !important;
+  max-width: 74px !important;
+}
+
+body.er-mobile-real-fix .hud > div:nth-child(1),
+body.mobile-controls-fixed .hud > div:nth-child(1),
+body.is-mobile .hud > div:nth-child(1) {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  display: grid !important;
+}
+
+body.er-mobile-real-fix .hud > div:nth-child(4),
+body.mobile-controls-fixed .hud > div:nth-child(4),
+body.is-mobile .hud > div:nth-child(4) {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  display: grid !important;
+}
+
+body.er-mobile-real-fix .hud > div:nth-child(5),
+body.mobile-controls-fixed .hud > div:nth-child(5),
+body.is-mobile .hud > div:nth-child(5) {
+  grid-column: 1 !important;
+  grid-row: 3 !important;
+  display: grid !important;
+}
+
+body.er-mobile-real-fix .hud > div:nth-child(3),
+body.mobile-controls-fixed .hud > div:nth-child(3),
+body.is-mobile .hud > div:nth-child(3) {
+  grid-column: 2 !important;
+  grid-row: 1 / span 2 !important;
+  height: 38px !important;
+  text-align: center !important;
+  align-content: center !important;
+}
+
+body.er-mobile-real-fix .hud > div:nth-child(2),
+body.mobile-controls-fixed .hud > div:nth-child(2),
+body.is-mobile .hud > div:nth-child(2) {
+  grid-column: 3 !important;
+  grid-row: 1 !important;
+  display: grid !important;
+}
+
+body.er-mobile-real-fix .hud > div:nth-child(7),
+body.mobile-controls-fixed .hud > div:nth-child(7),
+body.is-mobile .hud > div:nth-child(7) {
+  grid-column: 3 !important;
+  grid-row: 2 !important;
+  display: grid !important;
+}
+
+body.er-mobile-real-fix .hud > div:nth-child(9),
+body.mobile-controls-fixed .hud > div:nth-child(9),
+body.is-mobile .hud > div:nth-child(9) {
+  grid-column: 3 !important;
+  grid-row: 3 !important;
+  display: grid !important;
+}
+
+body.er-mobile-real-fix .hud > div:nth-child(6),
+body.er-mobile-real-fix .hud > div:nth-child(8),
+body.er-mobile-real-fix .hud > div:nth-child(10),
+body.er-mobile-real-fix #saveButton,
+body.er-mobile-real-fix #resetButton,
+body.er-mobile-real-fix #musicToggleButton,
+body.er-mobile-real-fix .hud-menu-button,
+body.mobile-controls-fixed .hud > div:nth-child(6),
+body.mobile-controls-fixed .hud > div:nth-child(8),
+body.mobile-controls-fixed .hud > div:nth-child(10),
+body.mobile-controls-fixed #saveButton,
+body.mobile-controls-fixed #resetButton,
+body.mobile-controls-fixed #musicToggleButton,
+body.mobile-controls-fixed .hud-menu-button,
+body.is-mobile .hud > div:nth-child(6),
+body.is-mobile .hud > div:nth-child(8),
+body.is-mobile .hud > div:nth-child(10),
+body.is-mobile #saveButton,
+body.is-mobile #resetButton,
+body.is-mobile #musicToggleButton,
+body.is-mobile .hud-menu-button {
+  display: none !important;
+}
+
+body.er-mobile-real-fix .game-panel > .boss-hud,
+body.mobile-controls-fixed .game-panel > .boss-hud,
+body.is-mobile .game-panel > .boss-hud {
+  position: absolute !important;
+  left: 50% !important;
+  right: auto !important;
+  top: max(62px, calc(env(safe-area-inset-top) + 58px)) !important;
+  bottom: auto !important;
+  transform: translateX(-50%) !important;
+  width: min(34vw, 260px) !important;
+  min-width: 150px !important;
+  min-height: 16px !important;
+  padding: 2px 5px 3px !important;
+  border-radius: 5px !important;
+  background: rgba(26, 31, 61, 0.56) !important;
+  box-shadow: 0 0 0 1px rgba(255, 79, 98, 0.28) !important;
+  z-index: 118 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+
+body.er-mobile-real-fix .game-panel > .boss-hud .hud-label,
+body.mobile-controls-fixed .game-panel > .boss-hud .hud-label,
+body.is-mobile .game-panel > .boss-hud .hud-label {
+  display: none !important;
+}
+
+body.er-mobile-real-fix .game-panel > .boss-hud strong,
+body.mobile-controls-fixed .game-panel > .boss-hud strong,
+body.is-mobile .game-panel > .boss-hud strong {
+  display: block !important;
+  margin: 0 0 1px !important;
+  font-size: clamp(0.46rem, 1vw, 0.58rem) !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+body.er-mobile-real-fix .game-panel > .boss-hud .boss-bar,
+body.mobile-controls-fixed .game-panel > .boss-hud .boss-bar,
+body.is-mobile .game-panel > .boss-hud .boss-bar {
+  width: 100% !important;
+  max-width: none !important;
+  height: 3px !important;
+  margin-top: 1px !important;
+}
+
+body.er-mobile-real-fix .mobile-top-actions,
+body.mobile-controls-fixed .mobile-top-actions,
+body.is-mobile .mobile-top-actions {
+  top: max(62px, calc(env(safe-area-inset-top) + 58px)) !important;
+  right: max(5px, env(safe-area-inset-right)) !important;
+  gap: 4px !important;
+  z-index: 20030 !important;
+}
+
+body.er-mobile-real-fix .mobile-top-actions .touch-button,
+body.mobile-controls-fixed .mobile-top-actions .touch-button,
+body.is-mobile .mobile-top-actions .touch-button {
+  min-width: 48px !important;
+  min-height: 26px !important;
+  height: 26px !important;
+  padding: 2px 5px !important;
+  font-size: clamp(0.48rem, 1.2vw, 0.62rem) !important;
+  border-radius: 5px !important;
+}
+
+@media (orientation: portrait) {
+  body.er-mobile-real-fix .hud,
+  body.mobile-controls-fixed .hud,
+  body.is-mobile .hud {
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: repeat(4, 20px) !important;
+    max-height: 86px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div,
+  body.er-mobile-real-fix .hud button,
+  body.mobile-controls-fixed .hud > div,
+  body.mobile-controls-fixed .hud button,
+  body.is-mobile .hud > div,
+  body.is-mobile .hud button {
+    height: 20px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(3),
+  body.mobile-controls-fixed .hud > div:nth-child(3),
+  body.is-mobile .hud > div:nth-child(3) {
+    grid-column: 1 / span 2 !important;
+    grid-row: 4 !important;
+    height: 20px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(2),
+  body.mobile-controls-fixed .hud > div:nth-child(2),
+  body.is-mobile .hud > div:nth-child(2) {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(7),
+  body.mobile-controls-fixed .hud > div:nth-child(7),
+  body.is-mobile .hud > div:nth-child(7) {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(9),
+  body.mobile-controls-fixed .hud > div:nth-child(9),
+  body.is-mobile .hud > div:nth-child(9) {
+    grid-column: 2 !important;
+    grid-row: 3 !important;
+  }
+
+  body.er-mobile-real-fix .game-panel > .boss-hud,
+  body.mobile-controls-fixed .game-panel > .boss-hud,
+  body.is-mobile .game-panel > .boss-hud {
+    top: max(90px, calc(env(safe-area-inset-top) + 86px)) !important;
+    width: min(54vw, 260px) !important;
+  }
+}
+
+/* ==========================================================
+   Eternal Rift - Editor de HUD estilo Free Fire
+   Permite mover, redimensionar e esconder HUD/controles.
+   ========================================================== */
+body.hud-editor-open {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
+body.hud-editor-open .game-panel,
+body.hud-editor-open #gameCanvas {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.hud-editor-panel {
+  position: fixed;
+  left: max(10px, env(safe-area-inset-left));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 50050;
+  width: min(360px, calc(100vw - 20px));
+  max-height: min(82dvh, 520px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 2px solid rgba(245, 206, 121, 0.86);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(36, 45, 82, 0.98), rgba(14, 18, 40, 0.98));
+  color: #fff3d6;
+  padding: 10px;
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.34), 0 0 28px rgba(85, 232, 255, 0.16);
+  font-family: "Trebuchet MS", Arial, sans-serif;
+  pointer-events: auto;
+}
+
+.hud-editor-panel.hidden {
+  display: none !important;
+}
+
+.hud-editor-panel h2 {
+  margin: 0 0 6px;
+  color: #fff264;
+  font-size: clamp(0.9rem, 2.8vw, 1.2rem);
+  line-height: 1.08;
+}
+
+.hud-editor-panel p {
+  margin: 0 0 8px;
+  color: #c8dbff;
+  font-size: clamp(0.68rem, 2vw, 0.82rem);
+  line-height: 1.25;
+}
+
+.hud-editor-row {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.hud-editor-row label {
+  display: grid;
+  gap: 4px;
+  color: #fff3d6;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.hud-editor-row select,
+.hud-editor-row input[type="range"] {
+  width: 100%;
+}
+
+.hud-editor-row select {
+  min-height: 34px;
+  border: 2px solid #1a1f3d;
+  border-radius: 8px;
+  background: #394066;
+  color: #fff3d6;
+  font-weight: 900;
+  padding: 5px 8px;
+}
+
+.hud-editor-check {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 8px !important;
+  user-select: none;
+}
+
+.hud-editor-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: #fff264;
+}
+
+.hud-editor-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.hud-editor-actions button,
+.hud-editor-mini-actions button {
+  min-height: 34px;
+  border: 2px solid #1a1f3d;
+  border-radius: 8px;
+  background: #fff264;
+  color: #273052;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 0.76rem;
+  padding: 5px 7px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.32);
+}
+
+.hud-editor-actions button:active,
+.hud-editor-mini-actions button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
+}
+
+.hud-editor-mini-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.hud-editor-target {
+  outline: 2px dashed rgba(85, 232, 255, 0.68) !important;
+  outline-offset: 2px !important;
+  cursor: grab !important;
+  will-change: transform !important;
+}
+
+.hud-editor-target::after {
+  content: attr(data-hud-editor-label);
+  position: absolute;
+  left: 50%;
+  top: -18px;
+  transform: translateX(-50%);
+  z-index: 50060;
+  min-width: max-content;
+  max-width: 180px;
+  border: 1px solid rgba(245, 206, 121, 0.86);
+  border-radius: 999px;
+  background: rgba(14, 18, 40, 0.92);
+  color: #fff264;
+  padding: 2px 6px;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.hud-editor-target.hud-editor-selected {
+  outline: 3px solid #fff264 !important;
+  box-shadow: 0 0 0 4px rgba(85, 232, 255, 0.25), 0 0 20px rgba(255, 242, 100, 0.28) !important;
+  cursor: grabbing !important;
+  opacity: 1 !important;
+}
+
+.hud-editor-target.hud-editor-hidden-preview {
+  opacity: 0.35 !important;
+  filter: grayscale(0.45) !important;
+}
+
+body.hud-editor-open .hud,
+body.hud-editor-open .hud > div,
+body.hud-editor-open .hud button,
+body.hud-editor-open .boss-hud,
+body.hud-editor-open .mini-map,
+body.hud-editor-open .touch-controls,
+body.hud-editor-open .touch-actions,
+body.hud-editor-open .touch-actions .touch-button,
+body.hud-editor-open .joystick-base,
+body.hud-editor-open .mobile-top-actions,
+body.hud-editor-open .mobile-top-actions .touch-button {
+  pointer-events: auto !important;
+}
+
+body.hud-editor-open .hud-editor-target,
+body.hud-editor-open .hud-editor-target * {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+body.hud-editor-open .hidden.hud-editor-target,
+body.hud-editor-open .hud-editor-force-show {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 0.45 !important;
+}
+
+body.hud-editor-open .boss-hud.hud-editor-force-show {
+  display: grid !important;
+}
+
+body.hud-editor-open .hud-editor-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 50000;
+  background: rgba(5, 8, 20, 0.12);
+  pointer-events: none;
+}
+
+body.hud-editor-open #pausePanel,
+body.hud-editor-open #inventoryPanel,
+body.hud-editor-open #missionsPanel,
+body.hud-editor-open #statusPanel,
+body.hud-editor-open #infoPanel {
+  pointer-events: none !important;
+}
+
+@media (pointer: coarse) and (orientation: landscape) {
+  .hud-editor-panel {
+    left: max(6px, env(safe-area-inset-left));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    width: min(306px, 42vw);
+    max-height: min(92dvh, 340px);
+    padding: 7px;
+  }
+
+  .hud-editor-panel h2 {
+    font-size: 0.86rem;
+    margin-bottom: 3px;
+  }
+
+  .hud-editor-panel p,
+  .hud-editor-row label {
+    font-size: 0.66rem;
+  }
+
+  .hud-editor-row {
+    gap: 4px;
+    margin-top: 5px;
+  }
+
+  .hud-editor-row select {
+    min-height: 28px;
+    font-size: 0.7rem;
+  }
+
+  .hud-editor-actions button,
+  .hud-editor-mini-actions button {
+    min-height: 28px;
+    font-size: 0.64rem;
+    padding: 3px 5px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  .hud-editor-panel {
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: auto;
+    max-height: 45dvh;
+  }
+}

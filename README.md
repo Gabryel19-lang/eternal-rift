@@ -395,3 +395,22 @@ Trava final do inventário mobile: o botão Fechar agora usa fechamento direto p
 - Botão `Ação` chama interação sem ser bloqueado por pause falso.
 - CSS final força controles acima do canvas e inventário acima dos controles.
 - `node --check app.js` passou sem erros.
+
+
+## Correção HUD/Boss menor - 2026-07-02
+- HUD mobile compactado para ocupar uma faixa fina no topo.
+- Botão de música, salvar, reset e blocos extras ocultados no mobile para liberar visão do mapa.
+- Barra de boss reduzida em largura, altura, fonte e padding.
+- Botões Tela cheia/Pausa reduzidos para não parecerem parte de um HUD gigante.
+- Cache-busting atualizado no index.html para forçar o celular a carregar o CSS novo.
+
+## Atualizacao extra - Editor de HUD estilo Free Fire
+- Adicionado botao `Editar HUD` no menu de pausa.
+- O jogador pode arrastar elementos do HUD e controles pela tela.
+- O jogador pode alterar o tamanho de cada elemento.
+- O jogador pode esconder itens nao essenciais do HUD.
+- Layout fica salvo no `localStorage` e volta igual ao recarregar o jogo.
+- Adicionado preset `HUD pequeno` para mobile.
+- Adicionado reset geral e reset por item.
+- A barra de boss pode ser reposicionada e redimensionada usando uma previa no editor.
+- `node --check app.js` passou sem erro.

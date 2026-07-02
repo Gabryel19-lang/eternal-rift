@@ -38040,3 +38040,555 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     } catch (error) {}
   }, 900);
 })();
+
+// ==========================================================
+// Eternal Rift - Editor de HUD estilo Free Fire
+// Permite arrastar, redimensionar e esconder elementos do HUD.
+// ==========================================================
+(function setupHudEditorFreeFire20260702() {
+  const STORAGE_KEY = "eternal-rift-hud-layout-freefire-v1";
+  const PANEL_ID = "hudEditorPanel";
+  const SELECT_ID = "hudEditorSelect";
+  const SCALE_ID = "hudEditorScale";
+  const HIDDEN_ID = "hudEditorHidden";
+  const SCALE_TEXT_ID = "hudEditorScaleValue";
+
+  const doc = document;
+  const body = doc.body;
+  const byId = (id) => doc.getElementById(id);
+  const one = (selector) => doc.querySelector(selector);
+  const all = (selector) => Array.from(doc.querySelectorAll(selector));
+
+  let editing = false;
+  let selectedId = "";
+  let drag = null;
+  let targets = [];
+  let layout = loadLayout();
+  let bossWasHiddenBeforeEdit = true;
+  let openedFromPause = false;
+
+  function safeJsonParse(text, fallback) {
+    try { return JSON.parse(text); } catch (error) { return fallback; }
+  }
+
+  function loadLayout() {
+    return safeJsonParse(localStorage.getItem(STORAGE_KEY) || "{}", {});
+  }
+
+  function saveLayout() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(layout)); } catch (error) {}
+  }
+
+  function getPanelRect() {
+    const panel = one(".game-panel") || byId("gameCanvas")?.parentElement || body;
+    const rect = panel.getBoundingClientRect();
+    return {
+      left: rect.left || 0,
+      top: rect.top || 0,
+      width: Math.max(1, rect.width || window.innerWidth || 1),
+      height: Math.max(1, rect.height || window.innerHeight || 1)
+    };
+  }
+
+  function elementDisplayFor(def) {
+    if (def.display) return def.display;
+    const el = def.el;
+    if (!el) return "block";
+    if (el.tagName === "BUTTON") return "grid";
+    if (el.tagName === "CANVAS") return "block";
+    if (el.classList.contains("mobile-top-actions")) return "flex";
+    if (el.classList.contains("touch-actions")) return "grid";
+    if (el.classList.contains("hud-wide") || el.closest?.(".hud")) return "grid";
+    return "block";
+  }
+
+  function getHudChild(index) {
+    const hud = one(".hud");
+    if (!hud) return null;
+    return Array.from(hud.children).filter(Boolean)[index] || null;
+  }
+
+  function addTarget(list, id, label, el, options = {}) {
+    if (!el || list.some((target) => target.id === id)) return;
+    const def = {
+      id,
+      label,
+      el,
+      canHide: options.canHide !== false,
+      display: options.display || "",
+      kind: options.kind || "normal"
+    };
+    if (!el.dataset.hudEditorBaseTransform) {
+      const inlineTransform = el.style.transform || "";
+      const computedTransform = getComputedStyle(el).transform;
+      el.dataset.hudEditorBaseTransform = inlineTransform || (computedTransform && computedTransform !== "none" ? computedTransform : "");
+    }
+    el.dataset.hudEditorId = id;
+    el.dataset.hudEditorLabel = label;
+    list.push(def);
+  }
+
+  function collectTargets() {
+    const list = [];
+    addTarget(list, "hudHero", "Heroi", getHudChild(0), { display: "grid" });
+    addTarget(list, "hudArea", "Area", getHudChild(1), { display: "grid" });
+    addTarget(list, "hudMission", "Missao", getHudChild(2), { display: "grid" });
+    addTarget(list, "hudHealth", "Vida", getHudChild(3), { display: "grid" });
+    addTarget(list, "hudMana", "Mana", getHudChild(4), { display: "grid" });
+    addTarget(list, "hudCoins", "Moedas", getHudChild(5), { display: "grid" });
+    addTarget(list, "hudWeapon", "Arma", getHudChild(6), { display: "grid" });
+    addTarget(list, "hudOxygen", "Oxigenio", getHudChild(7), { display: "grid" });
+    addTarget(list, "hudPower", "Poder", getHudChild(8), { display: "grid" });
+
+    addTarget(list, "bossHud", "Barra Boss", byId("bossHud"), { canHide: false, display: "grid", kind: "boss" });
+    addTarget(list, "miniMap", "Minimapa", byId("miniMapCanvas"), { display: "block" });
+
+    addTarget(list, "saveButton", "Salvar", byId("saveButton"), { display: "grid" });
+    addTarget(list, "resetButton", "Reset", byId("resetButton"), { display: "grid" });
+    addTarget(list, "musicButton", "Musica", byId("musicToggleButton"), { display: "grid" });
+    addTarget(list, "menuButton", "Menu", byId("hudMenuButton"), { canHide: false, display: "grid" });
+
+    addTarget(list, "joystick", "Joystick", byId("joystickBase"), { canHide: false, display: "block" });
+    addTarget(list, "mobileTop", "Topo Mobile", one(".mobile-top-actions"), { canHide: false, display: "flex" });
+    addTarget(list, "mobileFullscreen", "Tela cheia", byId("mobileFullscreenButton"), { display: "grid" });
+    addTarget(list, "mobilePause", "Pausa", byId("mobilePauseButton"), { canHide: false, display: "grid" });
+
+    addTarget(list, "touchAttack", "Ataque", byId("touchAttackButton"), { canHide: false, display: "grid" });
+    addTarget(list, "touchAction", "Interagir", byId("touchActionButton"), { display: "grid" });
+    addTarget(list, "touchInventory", "Inventario", byId("touchInventoryButton"), { canHide: false, display: "grid" });
+    addTarget(list, "touchPotion", "Pocao", byId("touchPotionButton"), { display: "grid" });
+    addTarget(list, "touchWeapon", "Armas", byId("touchWeaponButton"), { display: "grid" });
+    addTarget(list, "touchPower", "Poder", byId("touchPowerButton"), { display: "grid" });
+    addTarget(list, "touchDash", "Dash", byId("touchDashButton"), { display: "grid" });
+    addTarget(list, "touchFireball", "Bola fogo", byId("touchFireballButton"), { display: "grid" });
+    addTarget(list, "touchShockwave", "Onda", byId("touchShockwaveButton"), { display: "grid" });
+    addTarget(list, "touchHeal", "Cura", byId("touchHealButton"), { display: "grid" });
+    addTarget(list, "touchPower1", "Slot 1", byId("touchPower1Button"), { display: "grid" });
+    addTarget(list, "touchPower2", "Slot 2", byId("touchPower2Button"), { display: "grid" });
+    addTarget(list, "touchPower3", "Slot 3", byId("touchPower3Button"), { display: "grid" });
+    addTarget(list, "touchPower4", "Slot 4", byId("touchPower4Button"), { display: "grid" });
+
+    targets = list;
+    return targets;
+  }
+
+  function getTarget(id) {
+    return targets.find((target) => target.id === id) || null;
+  }
+
+  function getItem(id) {
+    if (!layout[id]) layout[id] = { x: 0, y: 0, scale: 1, hidden: false };
+    const item = layout[id];
+    item.x = Number.isFinite(Number(item.x)) ? Number(item.x) : 0;
+    item.y = Number.isFinite(Number(item.y)) ? Number(item.y) : 0;
+    item.scale = Number.isFinite(Number(item.scale)) ? Number(item.scale) : 1;
+    item.hidden = Boolean(item.hidden);
+    return item;
+  }
+
+  function getTransformFor(def, item) {
+    const rect = getPanelRect();
+    const x = item.x * rect.width;
+    const y = item.y * rect.height;
+    const scale = Math.max(0.45, Math.min(2.2, Number(item.scale) || 1));
+    const base = def.el.dataset.hudEditorBaseTransform || "";
+    return `${base ? base + " " : ""}translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${scale.toFixed(3)})`;
+  }
+
+  function applyTarget(def) {
+    const el = def.el;
+    const item = getItem(def.id);
+    el.style.setProperty("transform", getTransformFor(def, item), "important");
+    el.style.setProperty("transform-origin", "center center", "important");
+    el.style.setProperty("will-change", "transform", "important");
+
+    if (def.kind === "boss") {
+      if (editing && bossWasHiddenBeforeEdit) {
+        el.classList.remove("hidden");
+        el.classList.add("hud-editor-force-show");
+      } else {
+        el.classList.remove("hud-editor-force-show");
+      }
+      return;
+    }
+
+    if (editing) {
+      el.style.setProperty("display", elementDisplayFor(def), "important");
+      el.style.setProperty("visibility", "visible", "important");
+      el.classList.toggle("hud-editor-hidden-preview", Boolean(item.hidden));
+      return;
+    }
+
+    el.classList.remove("hud-editor-hidden-preview");
+    if (item.hidden && def.canHide) {
+      el.style.setProperty("display", "none", "important");
+      return;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(layout, def.id)) {
+      // Quando o jogador escolhe mostrar algo, isto vence as regras mobile antigas que escondiam blocos demais.
+      el.style.setProperty("display", elementDisplayFor(def), "important");
+      el.style.setProperty("visibility", "visible", "important");
+    }
+  }
+
+  function applyLayout() {
+    collectTargets();
+    targets.forEach(applyTarget);
+  }
+
+  function clearTargetStyles(def) {
+    const el = def.el;
+    el.classList.remove("hud-editor-target", "hud-editor-selected", "hud-editor-hidden-preview", "hud-editor-force-show");
+    el.style.removeProperty("transform");
+    el.style.removeProperty("transform-origin");
+    el.style.removeProperty("will-change");
+    el.style.removeProperty("visibility");
+    el.style.removeProperty("display");
+    el.style.removeProperty("z-index");
+  }
+
+  function populateSelect() {
+    const select = byId(SELECT_ID);
+    if (!select) return;
+    select.innerHTML = "";
+    targets.forEach((target) => {
+      const option = doc.createElement("option");
+      option.value = target.id;
+      option.textContent = target.label;
+      select.appendChild(option);
+    });
+    if (!selectedId || !getTarget(selectedId)) selectedId = targets[0]?.id || "";
+    select.value = selectedId;
+  }
+
+  function updatePanelFields() {
+    const def = getTarget(selectedId);
+    const item = def ? getItem(def.id) : null;
+    const scale = byId(SCALE_ID);
+    const hidden = byId(HIDDEN_ID);
+    const scaleText = byId(SCALE_TEXT_ID);
+    if (!def || !item) return;
+    if (scale) scale.value = String(Math.round((item.scale || 1) * 100));
+    if (scaleText) scaleText.textContent = `${Math.round((item.scale || 1) * 100)}%`;
+    if (hidden) {
+      hidden.checked = Boolean(item.hidden && def.canHide);
+      hidden.disabled = !def.canHide;
+      hidden.closest?.("label")?.classList.toggle("is-disabled", !def.canHide);
+    }
+  }
+
+  function selectTarget(id) {
+    selectedId = id;
+    targets.forEach((target) => target.el.classList.toggle("hud-editor-selected", target.id === selectedId));
+    const select = byId(SELECT_ID);
+    if (select && select.value !== selectedId) select.value = selectedId;
+    updatePanelFields();
+  }
+
+  function buildPanel() {
+    if (byId(PANEL_ID)) return;
+    const panel = doc.createElement("div");
+    panel.id = PANEL_ID;
+    panel.className = "hud-editor-panel hidden";
+    panel.innerHTML = `
+      <h2>Editor de HUD</h2>
+      <p>Arraste os itens pela tela. Escolha um item na lista para mudar tamanho ou esconder.</p>
+      <div class="hud-editor-row">
+        <label>Item
+          <select id="${SELECT_ID}"></select>
+        </label>
+      </div>
+      <div class="hud-editor-row">
+        <label>Tamanho <strong id="${SCALE_TEXT_ID}">100%</strong>
+          <input id="${SCALE_ID}" type="range" min="55" max="170" step="5" value="100">
+        </label>
+      </div>
+      <div class="hud-editor-row">
+        <label class="hud-editor-check">
+          <input id="${HIDDEN_ID}" type="checkbox">
+          Esconder este item
+        </label>
+      </div>
+      <div class="hud-editor-mini-actions">
+        <button id="hudEditorResetSelected" type="button">Reset item</button>
+        <button id="hudEditorSmallPreset" type="button">HUD pequeno</button>
+      </div>
+      <div class="hud-editor-actions">
+        <button id="hudEditorSave" type="button">Salvar</button>
+        <button id="hudEditorResetAll" type="button">Resetar</button>
+        <button id="hudEditorClose" type="button">Fechar</button>
+      </div>
+    `;
+    body.appendChild(panel);
+
+    byId(SELECT_ID)?.addEventListener("change", (event) => selectTarget(event.target.value));
+    byId(SCALE_ID)?.addEventListener("input", (event) => {
+      const def = getTarget(selectedId);
+      if (!def) return;
+      const item = getItem(def.id);
+      item.scale = Math.max(0.55, Math.min(1.7, Number(event.target.value || 100) / 100));
+      applyTarget(def);
+      updatePanelFields();
+      saveLayout();
+    });
+    byId(HIDDEN_ID)?.addEventListener("change", (event) => {
+      const def = getTarget(selectedId);
+      if (!def || !def.canHide) return;
+      const item = getItem(def.id);
+      item.hidden = Boolean(event.target.checked);
+      applyTarget(def);
+      updatePanelFields();
+      saveLayout();
+    });
+    byId("hudEditorSave")?.addEventListener("click", () => {
+      saveLayout();
+      showEditorToast("HUD salvo.");
+      closeEditor();
+    });
+    byId("hudEditorClose")?.addEventListener("click", () => {
+      saveLayout();
+      closeEditor();
+    });
+    byId("hudEditorResetAll")?.addEventListener("click", () => {
+      resetAllLayout();
+      showEditorToast("HUD resetado.");
+    });
+    byId("hudEditorResetSelected")?.addEventListener("click", resetSelectedLayout);
+    byId("hudEditorSmallPreset")?.addEventListener("click", applySmallPreset);
+  }
+
+  function showEditorToast(text) {
+    try { showHudToast?.(text, 1.8); } catch (error) {}
+  }
+
+  function resetSelectedLayout() {
+    const def = getTarget(selectedId);
+    if (!def) return;
+    delete layout[def.id];
+    def.el.style.removeProperty("transform");
+    def.el.style.removeProperty("display");
+    def.el.style.removeProperty("visibility");
+    def.el.classList.remove("hud-editor-hidden-preview");
+    saveLayout();
+    applyTarget(def);
+    updatePanelFields();
+    showEditorToast("Item resetado.");
+  }
+
+  function resetAllLayout() {
+    localStorage.removeItem(STORAGE_KEY);
+    layout = {};
+    collectTargets().forEach(clearTargetStyles);
+    if (editing) {
+      collectTargets().forEach((target) => target.el.classList.add("hud-editor-target"));
+      populateSelect();
+      applyLayout();
+      selectTarget(targets[0]?.id || "");
+    } else {
+      applyLayout();
+    }
+  }
+
+  function applySmallPreset() {
+    const smallIds = [
+      "hudHero", "hudArea", "hudMission", "hudHealth", "hudMana", "hudWeapon", "hudPower", "bossHud",
+      "miniMap", "joystick", "mobileTop", "touchAttack", "touchAction", "touchInventory", "touchPotion",
+      "touchWeapon", "touchPower", "touchDash", "touchFireball", "touchShockwave", "touchHeal",
+      "touchPower1", "touchPower2", "touchPower3", "touchPower4"
+    ];
+    smallIds.forEach((id) => {
+      const item = getItem(id);
+      item.scale = id === "bossHud" ? 0.75 : id === "joystick" ? 0.82 : 0.86;
+    });
+    ["hudCoins", "hudOxygen", "saveButton", "resetButton", "musicButton"].forEach((id) => {
+      const item = getItem(id);
+      item.hidden = true;
+    });
+    saveLayout();
+    applyLayout();
+    updatePanelFields();
+    showEditorToast("Preset pequeno aplicado.");
+  }
+
+  function markTargetsForEditing() {
+    collectTargets();
+    targets.forEach((target) => {
+      const item = getItem(target.id);
+      target.el.classList.add("hud-editor-target");
+      target.el.dataset.hudEditorLabel = target.label;
+      target.el.style.setProperty("z-index", target.id === selectedId ? "50045" : "50035", "important");
+      if (editing && item.hidden && target.canHide) target.el.classList.add("hud-editor-hidden-preview");
+      else target.el.classList.remove("hud-editor-hidden-preview");
+    });
+  }
+
+  function unmarkTargetsForEditing() {
+    targets.forEach((target) => {
+      target.el.classList.remove("hud-editor-target", "hud-editor-selected", "hud-editor-hidden-preview");
+      target.el.style.removeProperty("z-index");
+      if (target.kind === "boss") {
+        target.el.classList.remove("hud-editor-force-show");
+        if (bossWasHiddenBeforeEdit) target.el.classList.add("hidden");
+      }
+    });
+  }
+
+  function openEditor(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    buildPanel();
+    collectTargets();
+    bossWasHiddenBeforeEdit = Boolean(byId("bossHud")?.classList.contains("hidden"));
+    openedFromPause = Boolean(typeof pauseOpen !== "undefined" && pauseOpen);
+
+    editing = true;
+    body.classList.add("hud-editor-open");
+    byId(PANEL_ID)?.classList.remove("hidden");
+    byId("pausePanel")?.classList.add("hidden");
+    try { keys?.clear?.(); } catch (error) {}
+    try { resetJoystick?.(); } catch (error) {}
+    try { joystick.active = false; } catch (error) {}
+    try { pauseOpen = true; } catch (error) {}
+
+    markTargetsForEditing();
+    populateSelect();
+    applyLayout();
+    selectTarget(selectedId || targets[0]?.id || "");
+    showEditorToast("Editor de HUD aberto. Arraste os itens.");
+  }
+
+  function closeEditor() {
+    if (!editing) return;
+    editing = false;
+    saveLayout();
+    body.classList.remove("hud-editor-open");
+    byId(PANEL_ID)?.classList.add("hidden");
+    unmarkTargetsForEditing();
+    applyLayout();
+    try { keys?.clear?.(); } catch (error) {}
+    try { resetJoystick?.(); } catch (error) {}
+    try { joystick.active = false; } catch (error) {}
+    try { pauseOpen = false; } catch (error) {}
+    openedFromPause = false;
+  }
+
+  function beginDrag(event, targetEl) {
+    const id = targetEl?.dataset?.hudEditorId;
+    const def = getTarget(id);
+    if (!def) return;
+    selectTarget(id);
+    const item = getItem(id);
+    drag = {
+      id,
+      startX: event.clientX,
+      startY: event.clientY,
+      itemX: item.x || 0,
+      itemY: item.y || 0
+    };
+    targets.forEach((target) => target.el.style.setProperty("z-index", target.id === id ? "50045" : "50035", "important"));
+  }
+
+  function moveDrag(event) {
+    if (!drag) return;
+    const def = getTarget(drag.id);
+    if (!def) return;
+    const item = getItem(drag.id);
+    const rect = getPanelRect();
+    item.x = drag.itemX + ((event.clientX - drag.startX) / rect.width);
+    item.y = drag.itemY + ((event.clientY - drag.startY) / rect.height);
+    applyTarget(def);
+  }
+
+  function endDrag() {
+    if (!drag) return;
+    drag = null;
+    saveLayout();
+  }
+
+  function captureEditorPointer(event) {
+    if (!editing) return;
+    if (byId(PANEL_ID)?.contains(event.target)) return;
+    const targetEl = event.target?.closest?.(".hud-editor-target");
+    if (targetEl) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      beginDrag(event, targetEl);
+      return;
+    }
+    if (event.target?.closest?.(".game-panel, #gameCanvas, .touch-controls, .mobile-top-actions")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }
+
+  function captureEditorMove(event) {
+    if (!editing || !drag) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    moveDrag(event);
+  }
+
+  function captureEditorEnd(event) {
+    if (!editing || !drag) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    endDrag();
+  }
+
+  function captureEditorClick(event) {
+    if (!editing) return;
+    if (byId(PANEL_ID)?.contains(event.target)) return;
+    if (event.target?.closest?.(".hud-editor-target, .game-panel, #gameCanvas, .touch-controls, .mobile-top-actions")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }
+
+  function ensurePauseButton() {
+    const pauseMenu = one(".pause-menu");
+    if (!pauseMenu) return;
+    let button = byId("pauseHudEditorButton");
+    if (!button) {
+      button = doc.createElement("button");
+      button.id = "pauseHudEditorButton";
+      button.type = "button";
+      button.textContent = "Editar HUD";
+      const reference = byId("pauseInventoryButton") || byId("pauseMenuButton");
+      pauseMenu.insertBefore(button, reference || null);
+    }
+    if (button.dataset.hudEditorBound === "true") return;
+    button.dataset.hudEditorBound = "true";
+    button.addEventListener("click", openEditor, true);
+  }
+
+  function boot() {
+    ensurePauseButton();
+    buildPanel();
+    applyLayout();
+  }
+
+  doc.addEventListener("pointerdown", captureEditorPointer, true);
+  doc.addEventListener("pointermove", captureEditorMove, true);
+  doc.addEventListener("pointerup", captureEditorEnd, true);
+  doc.addEventListener("pointercancel", captureEditorEnd, true);
+  doc.addEventListener("click", captureEditorClick, true);
+  doc.addEventListener("keydown", (event) => {
+    if (!editing) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeEditor();
+    }
+  }, true);
+
+  window.addEventListener("resize", () => setTimeout(applyLayout, 80), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(applyLayout, 180), { passive: true });
+
+  window.openEternalRiftHudEditor = openEditor;
+  window.resetEternalRiftHudEditor = resetAllLayout;
+
+  boot();
+  setTimeout(boot, 350);
+  setTimeout(boot, 1200);
+})();
