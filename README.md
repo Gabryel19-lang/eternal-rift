@@ -384,3 +384,14 @@ Trava final do inventário mobile: o botão Fechar agora usa fechamento direto p
 - Removida a pausa automática causada por blur falso no celular, que bloqueava movimento e ataque.
 - CSS final força controles visíveis e clicáveis no mobile.
 - `node --check app.js` passou sem erro.
+
+## Correção mobile real 2026-07-01
+- Adicionado cache-busting no `index.html` para `styles.css` e `app.js`, evitando o celular carregar JavaScript antigo do navegador.
+- Recriados os controles `.touch-controls` no boot mobile para remover listeners antigos conflitantes.
+- Joystick mobile substituído por um listener único com Pointer Events em `window`, permitindo arrastar fora do círculo sem perder movimento.
+- `getMovementInput` agora usa o vetor do joystick final no mobile e ignora pausa fantasma.
+- Botão `Inv` abre e fecha o inventário diretamente, sem depender de patches antigos de `toggleInventory`.
+- Botão `Ataque` chama o ataque atual do jogo e prepara a direção pelo joystick.
+- Botão `Ação` chama interação sem ser bloqueado por pause falso.
+- CSS final força controles acima do canvas e inventário acima dos controles.
+- `node --check app.js` passou sem erros.

@@ -37651,3 +37651,392 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     } catch (error) {}
   }, 700);
 })();
+
+/* ==================================================
+   ETERNAL RIFT: MOBILE REAL FIX 2026-07-01
+   Este patch fica POR ÚLTIMO e substitui os listeners antigos dos botões mobile.
+   Corrige: joystick, inventário e ataque no celular.
+   ================================================== */
+(function eternalRiftMobileRealFix20260701() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MOBILE_REAL_FIX_20260701) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MOBILE_REAL_FIX_20260701 = true;
+
+  const MOBILE_QUERY = "(pointer: coarse), (hover: none), (max-width: 920px), (max-height: 560px)";
+  const state = {
+    mobile: false,
+    moveActive: false,
+    pointerId: null,
+    x: 0,
+    y: 0,
+    strength: 0,
+    centerX: 0,
+    centerY: 0,
+    lastInputAt: 0,
+    lastActionAt: Object.create(null),
+    manualPauseOpen: false
+  };
+
+  function nowRealFix() {
+    return (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  }
+
+  function q(id) {
+    return document.getElementById(id);
+  }
+
+  function isMobileRealFix() {
+    return Boolean(window.matchMedia?.(MOBILE_QUERY)?.matches || document.body?.classList.contains("is-mobile"));
+  }
+
+  function preventRealFix(event) {
+    try { event?.preventDefault?.(); } catch (error) {}
+    try { event?.stopPropagation?.(); } catch (error) {}
+    try { event?.stopImmediatePropagation?.(); } catch (error) {}
+  }
+
+  function markMobileRealFix() {
+    state.mobile = isMobileRealFix();
+    document.body?.classList.toggle("is-mobile", state.mobile);
+    document.body?.classList.toggle("mobile-controls-fixed", state.mobile);
+    document.body?.classList.toggle("er-mobile-real-fix", state.mobile);
+    document.body?.classList.toggle("mobile-portrait", state.mobile && window.innerHeight >= window.innerWidth);
+    document.body?.classList.toggle("mobile-landscape", state.mobile && window.innerWidth > window.innerHeight);
+  }
+
+  // Remove todos os listeners velhos dos controles touch recriando apenas a caixa de controles.
+  // Isso evita botão Inv/Attack sendo cancelado por patches antigos.
+  function rebuildTouchControlsRealFix() {
+    const controls = document.querySelector(".touch-controls");
+    if (!controls || controls.dataset.realFixRebuilt === "true") return;
+    const clone = controls.cloneNode(true);
+    clone.dataset.realFixRebuilt = "true";
+    controls.replaceWith(clone);
+  }
+
+  function clearFalseMobilePauseRealFix() {
+    if (!state.mobile) return;
+    if (state.manualPauseOpen) return;
+    if (typeof pauseOpen !== "undefined") pauseOpen = false;
+    q("pausePanel")?.classList.add("hidden");
+  }
+
+  function setMoveVectorRealFix(x, y, strength) {
+    state.x = Number.isFinite(x) ? x : 0;
+    state.y = Number.isFinite(y) ? y : 0;
+    state.strength = clamp(Number(strength) || 0, 0, 1);
+    state.moveActive = state.strength > 0.02;
+    state.lastInputAt = nowRealFix();
+
+    try {
+      if (typeof joystick === "object" && joystick) {
+        joystick.active = state.moveActive;
+        joystick.pointerId = state.pointerId;
+        joystick.x = state.x;
+        joystick.y = state.y;
+        joystick.strength = state.strength;
+      }
+    } catch (error) {}
+  }
+
+  function resetMoveRealFix() {
+    state.moveActive = false;
+    state.pointerId = null;
+    setMoveVectorRealFix(0, 0, 0);
+    const stick = q("joystickStick");
+    if (stick) stick.style.transform = "translate(-50%, -50%)";
+  }
+
+  function updateJoystickRealFix(clientX, clientY) {
+    const base = q("joystickBase");
+    const stick = q("joystickStick");
+    if (!base || !stick) return;
+
+    const rect = base.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const dx = Number(clientX) - centerX;
+    const dy = Number(clientY) - centerY;
+    const distance = Math.hypot(dx, dy);
+    const radius = Math.max(32, rect.width * 0.42);
+    const deadzone = Math.max(4, rect.width * 0.035);
+    const strength = distance > deadzone ? clamp(distance / radius, 0, 1) : 0;
+    const x = strength > 0 ? dx / Math.max(distance, 1) : 0;
+    const y = strength > 0 ? dy / Math.max(distance, 1) : 0;
+    const clampedDistance = Math.min(distance, radius);
+    const angle = Math.atan2(dy, dx);
+    const stickX = Math.cos(angle) * clampedDistance;
+    const stickY = Math.sin(angle) * clampedDistance;
+
+    setMoveVectorRealFix(x, y, strength);
+    stick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+    clearFalseMobilePauseRealFix();
+  }
+
+  function bindJoystickRealFix() {
+    const base = q("joystickBase");
+    if (!base || base.dataset.realFixJoystick === "true") return;
+    base.dataset.realFixJoystick = "true";
+    base.style.touchAction = "none";
+
+    base.addEventListener("pointerdown", (event) => {
+      if (!state.mobile) return;
+      preventRealFix(event);
+      state.pointerId = event.pointerId;
+      try { base.setPointerCapture(event.pointerId); } catch (error) {}
+      updateJoystickRealFix(event.clientX, event.clientY);
+    }, true);
+
+    window.addEventListener("pointermove", (event) => {
+      if (!state.mobile || state.pointerId === null || event.pointerId !== state.pointerId) return;
+      preventRealFix(event);
+      updateJoystickRealFix(event.clientX, event.clientY);
+    }, true);
+
+    const release = (event) => {
+      if (state.pointerId === null || event.pointerId !== state.pointerId) return;
+      preventRealFix(event);
+      resetMoveRealFix();
+    };
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
+  }
+
+  function movementBlockedRealFix() {
+    return Boolean(
+      !gameStarted ||
+      gameOver ||
+      inventoryOpen ||
+      shopOpen ||
+      dialogOpen ||
+      (pauseOpen && state.manualPauseOpen) ||
+      isTypingInTextField?.()
+    );
+  }
+
+  const getMovementInputBeforeMobileRealFix = typeof getMovementInput === "function" ? getMovementInput : null;
+  getMovementInput = function getMovementInputMobileRealFix20260701() {
+    if (state.mobile) {
+      if (movementBlockedRealFix()) return { x: 0, y: 0, strength: 0 };
+      if (state.moveActive || state.strength > 0.03 || nowRealFix() - state.lastInputAt < 60) {
+        return { x: state.x, y: state.y, strength: clamp(state.strength, 0, 1) };
+      }
+    }
+    return getMovementInputBeforeMobileRealFix ? getMovementInputBeforeMobileRealFix() : { x: 0, y: 0, strength: 0 };
+  };
+
+  const setPauseBeforeMobileRealFix = typeof setPause === "function" ? setPause : null;
+  setPause = function setPauseMobileRealFix20260701(open) {
+    if (state.mobile && open === true && !state.manualPauseOpen) {
+      // Bloqueia pausa fantasma de blur/focus no celular.
+      return false;
+    }
+    return setPauseBeforeMobileRealFix ? setPauseBeforeMobileRealFix(open) : undefined;
+  };
+
+  function openPauseRealFix(event) {
+    preventRealFix(event);
+    state.manualPauseOpen = true;
+    resetMoveRealFix();
+    if (typeof pauseOpen !== "undefined") pauseOpen = true;
+    q("pausePanel")?.classList.remove("hidden");
+    if (inventoryOpen) closeInventoryRealFix();
+  }
+
+  function closePauseRealFix() {
+    state.manualPauseOpen = false;
+    if (typeof pauseOpen !== "undefined") pauseOpen = false;
+    q("pausePanel")?.classList.add("hidden");
+  }
+
+  function openInventoryRealFix(event) {
+    preventRealFix(event);
+    if (!q("inventoryPanel")) return false;
+    if (!gameStarted || gameOver) return false;
+
+    closePauseRealFix();
+    resetMoveRealFix();
+    try { closeShop?.(); } catch (error) {}
+    try { closeOverlayPanels?.(); } catch (error) {}
+
+    const panel = q("inventoryPanel");
+    inventoryOpen = true;
+    panel.classList.remove("hidden", "force-closed-inventory");
+    panel.removeAttribute("data-force-closed");
+    panel.removeAttribute("aria-hidden");
+    panel.classList.add("real-mobile-inventory", "mobile-view-items");
+    panel.classList.remove("mobile-view-equipment", "mobile-view-details");
+    panel.style.setProperty("display", "block", "important");
+    panel.style.setProperty("visibility", "visible", "important");
+    panel.style.setProperty("opacity", "1", "important");
+    panel.style.setProperty("pointer-events", "auto", "important");
+    document.body?.classList.add("real-mobile-inventory-active");
+
+    try { renderInventory?.(); } catch (error) { showErrorMessage?.(error); }
+
+    // Renderizadores antigos podem recolocar classe de fechado, então garantimos de novo.
+    inventoryOpen = true;
+    panel.classList.remove("hidden", "force-closed-inventory");
+    panel.removeAttribute("data-force-closed");
+    panel.removeAttribute("aria-hidden");
+    panel.style.setProperty("display", "block", "important");
+    panel.style.setProperty("visibility", "visible", "important");
+    panel.style.setProperty("opacity", "1", "important");
+    panel.style.setProperty("pointer-events", "auto", "important");
+    try { updateHud?.(true); } catch (error) {}
+    try { playSound?.("inventoryOpen"); } catch (error) {}
+    return true;
+  }
+
+  function closeInventoryRealFix(event) {
+    preventRealFix(event);
+    const panel = q("inventoryPanel");
+    inventoryOpen = false;
+    if (panel) {
+      panel.classList.add("hidden", "force-closed-inventory");
+      panel.setAttribute("data-force-closed", "true");
+      panel.setAttribute("aria-hidden", "true");
+      panel.style.setProperty("display", "none", "important");
+      panel.style.setProperty("visibility", "hidden", "important");
+      panel.style.setProperty("opacity", "0", "important");
+      panel.style.setProperty("pointer-events", "none", "important");
+    }
+    document.body?.classList.remove("real-mobile-inventory-active");
+    try { updateHud?.(true); } catch (error) {}
+    return false;
+  }
+
+  toggleInventory = function toggleInventoryMobileRealFix20260701(force) {
+    const nextOpen = typeof force === "boolean" ? force : !inventoryOpen;
+    return nextOpen ? openInventoryRealFix() : closeInventoryRealFix();
+  };
+  window.forceCloseInventoryPanel = closeInventoryRealFix;
+
+  function runActionRealFix(id, event, action, cooldownMs) {
+    if (!state.mobile) return;
+    preventRealFix(event);
+    const now = nowRealFix();
+    const cooldown = cooldownMs ?? 180;
+    if (now - Number(state.lastActionAt[id] || 0) < cooldown) return;
+    state.lastActionAt[id] = now;
+    clearFalseMobilePauseRealFix();
+    try { action(); } catch (error) { showErrorMessage?.(error); }
+  }
+
+  function bindButtonRealFix(id, action, cooldownMs) {
+    const button = q(id);
+    if (!button || button.dataset.realFixButton === "true") return;
+    button.dataset.realFixButton = "true";
+    button.style.touchAction = "none";
+
+    button.addEventListener("pointerdown", (event) => {
+      runActionRealFix(id, event, () => {
+        button.classList.add("is-pressed");
+        action(event);
+      }, cooldownMs);
+    }, true);
+
+    const up = (event) => {
+      if (!state.mobile) return;
+      preventRealFix(event);
+      button.classList.remove("is-pressed");
+    };
+    button.addEventListener("pointerup", up, true);
+    button.addEventListener("pointercancel", up, true);
+    button.addEventListener("click", (event) => {
+      if (!state.mobile) return;
+      preventRealFix(event);
+    }, true);
+  }
+
+  function ensureWeaponRealFix() {
+    try {
+      const key = getCurrentWeaponKey?.();
+      if (key && key !== "unarmed") return;
+      const preferred = ["sword", "spear", "bow", "staff"].find((weaponKey) => weapons?.[weaponKey] && player?.unlockedWeapons?.includes?.(weaponKey));
+      if (preferred) {
+        player.equippedWeaponKey = preferred;
+        currentWeaponIndex = Math.max(0, player.unlockedWeapons.indexOf(preferred));
+      }
+    } catch (error) {}
+  }
+
+  function prepareAttackDirectionRealFix() {
+    try {
+      const absX = Math.abs(state.x);
+      const absY = Math.abs(state.y);
+      if (state.strength > 0.05 && (absX > 0.05 || absY > 0.05)) {
+        if (absX > absY) player.direction = state.x > 0 ? "right" : "left";
+        else player.direction = state.y > 0 ? "down" : "up";
+        if (typeof attackDirection !== "undefined") attackDirection = player.direction;
+      }
+    } catch (error) {}
+  }
+
+  function bindAllButtonsRealFix() {
+    bindButtonRealFix("touchInventoryButton", () => inventoryOpen ? closeInventoryRealFix() : openInventoryRealFix(), 220);
+    bindButtonRealFix("touchAttackButton", () => {
+      if (!gameStarted || gameOver || inventoryOpen || shopOpen || dialogOpen || (pauseOpen && state.manualPauseOpen)) return;
+      ensureWeaponRealFix();
+      prepareAttackDirectionRealFix();
+      try { triggerPrimaryAttack?.(); } catch (error) { triggerAttack?.(); }
+    }, 110);
+    bindButtonRealFix("touchActionButton", () => {
+      if (!gameStarted || gameOver || inventoryOpen || shopOpen || dialogOpen || (pauseOpen && state.manualPauseOpen)) return;
+      toggleInteraction?.();
+    }, 140);
+    bindButtonRealFix("touchPotionButton", () => usePotion?.(), 240);
+    bindButtonRealFix("touchWeaponButton", () => cycleWeapon?.(), 240);
+    bindButtonRealFix("touchPowerButton", () => useEquippedPower?.(), 130);
+    bindButtonRealFix("touchDashButton", () => dodgeDash?.(), 220);
+    bindButtonRealFix("touchFireballButton", () => { equipPower?.(0); useEquippedPower?.(); }, 170);
+    bindButtonRealFix("touchShockwaveButton", () => { equipPower?.(2); useEquippedPower?.(); }, 200);
+    bindButtonRealFix("touchHealButton", () => { equipPower?.(3); useEquippedPower?.(); }, 220);
+    bindButtonRealFix("touchPower1Button", () => equipPower?.(0), 160);
+    bindButtonRealFix("touchPower2Button", () => equipPower?.(1), 160);
+    bindButtonRealFix("touchPower3Button", () => equipPower?.(2), 160);
+    bindButtonRealFix("touchPower4Button", () => equipPower?.(3), 160);
+    bindButtonRealFix("mobilePauseButton", openPauseRealFix, 240);
+    bindButtonRealFix("hudMenuButton", openPauseRealFix, 240);
+    bindButtonRealFix("mobileFullscreenButton", () => requestGameFullscreen?.(), 500);
+    bindButtonRealFix("startFullscreenButton", () => requestGameFullscreen?.(), 500);
+    bindButtonRealFix("closeInventoryButton", closeInventoryRealFix, 100);
+    bindButtonRealFix("pauseContinueButton", closePauseRealFix, 100);
+  }
+
+  document.addEventListener("touchmove", (event) => {
+    if (!state.mobile) return;
+    const target = event.target;
+    if (target?.closest?.("#inventoryPanel, #pausePanel, #missionsPanel, #statusPanel, #infoPanel")) return;
+    if (target?.closest?.(".game-panel, #gameCanvas, .touch-controls, .mobile-top-actions")) preventRealFix(event);
+  }, { capture: true, passive: false });
+
+  document.addEventListener("keydown", (event) => {
+    if (inventoryOpen && (event.key === "Escape" || event.key === "i" || event.key === "I")) closeInventoryRealFix(event);
+  }, true);
+
+  window.addEventListener("blur", () => {
+    if (state.mobile) resetMoveRealFix();
+  }, { passive: true });
+
+  function bootRealFix() {
+    markMobileRealFix();
+    rebuildTouchControlsRealFix();
+    bindJoystickRealFix();
+    bindAllButtonsRealFix();
+    if (state.mobile && !inventoryOpen) closeInventoryRealFix();
+    try { ensureCanvasSize?.(true); } catch (error) {}
+  }
+
+  window.addEventListener("resize", () => setTimeout(bootRealFix, 80), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(bootRealFix, 180), { passive: true });
+
+  bootRealFix();
+  setTimeout(bootRealFix, 300);
+  setTimeout(() => {
+    bootRealFix();
+    try {
+      updateHud?.(true);
+      if (state.mobile) showHudToast?.("Mobile corrigido: joystick, Inv e Ataque ativos.", 2.2);
+    } catch (error) {}
+  }, 900);
+})();
