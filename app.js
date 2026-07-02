@@ -42690,8 +42690,14 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
   let onlineRoomId = "sala1";
   let lastSendAt = 0;
   let lastCleanAt = 0;
+  let onlineShotPulse = 0;
+  let onlineShotAngle = 0;
+  let onlineShotKind = "";
+  let onlineShotWeaponKey = "sword";
+  let onlineShotAt = 0;
 
   const onlinePlayers = new Map();
+  const onlineProjectiles = [];
   const onlineStatusPanel = document.getElementById("onlineStatusPanel");
   const onlineStatusText = document.getElementById("onlineStatusText");
 
@@ -42966,6 +42972,151 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     return false;
   }
 
+  function directionToAngle(dir) {
+    if (dir === "up") return -Math.PI / 2;
+    if (dir === "down") return Math.PI / 2;
+    if (dir === "left") return Math.PI;
+    return 0;
+  }
+
+  function onlineProjectileTheme(kind, weaponKey, color) {
+    const rawKind = String(kind || '').toLowerCase();
+    const rawWeapon = String(weaponKey || '').toLowerCase();
+    if (rawKind.includes('arrow') || rawWeapon.includes('bow') || rawWeapon.includes('arco')) {
+      return { family: 'arrow', speed: 420, life: 0.95, width: 14, height: 4, primary: '#fff3d6', secondary: color || '#55e8ff' };
+    }
+    if (rawKind.includes('acid')) {
+      return { family: 'orb', speed: 350, life: 1.0, width: 10, height: 10, primary: '#a9ff59', secondary: '#4fbe1c' };
+    }
+    if (rawKind.includes('poison')) {
+      return { family: 'orb', speed: 340, life: 1.0, width: 10, height: 10, primary: '#8bff68', secondary: '#2f8f2f' };
+    }
+    if (rawKind.includes('ice')) {
+      return { family: 'shard', speed: 360, life: 1.0, width: 12, height: 12, primary: '#e7fbff', secondary: '#69cfff' };
+    }
+    if (rawKind.includes('light') || rawKind.includes('sun') || rawKind.includes('star') || rawKind.includes('celestial')) {
+      return { family: 'orb', speed: 390, life: 1.0, width: 10, height: 10, primary: '#fff6b4', secondary: '#88dcff' };
+    }
+    if (rawKind.includes('sand')) {
+      return { family: 'orb', speed: 350, life: 1.0, width: 10, height: 10, primary: '#f5d18d', secondary: '#d39b43' };
+    }
+    if (rawKind.includes('shadow') || rawKind.includes('void') || rawKind.includes('dark')) {
+      return { family: 'orb', speed: 360, life: 1.0, width: 10, height: 10, primary: '#d8b6ff', secondary: '#7d4cff' };
+    }
+    if (rawWeapon.includes('staff') || rawWeapon.includes('cajado') || rawWeapon.includes('wand') || rawWeapon.includes('orb')) {
+      return { family: 'orb', speed: 340, life: 1.0, width: 10, height: 10, primary: '#d9f5ff', secondary: color || '#55e8ff' };
+    }
+    return { family: 'orb', speed: 360, life: 1.0, width: 10, height: 10, primary: '#ffffff', secondary: color || '#55e8ff' };
+  }
+
+  function spawnOnlineProjectileFromState(state) {
+    if (!state || state.scene !== currentScene) return;
+    const theme = onlineProjectileTheme(state.shotKind || state.weaponKey, state.shotWeaponKey || state.weaponKey, state.color);
+    const angle = Number.isFinite(Number(state.shotAngle)) ? Number(state.shotAngle) : directionToAngle(state.direction);
+    const cx = Number(state.x || 0) + Number(state.width || 22) / 2;
+    const cy = Number(state.y || 0) + Number(state.height || 26) / 2 - 1;
+    onlineProjectiles.push({
+      ownerId: state.id,
+      scene: String(state.scene || currentScene),
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * theme.speed,
+      vy: Math.sin(angle) * theme.speed,
+      life: theme.life,
+      maxLife: theme.life,
+      width: theme.width,
+      height: theme.height,
+      family: theme.family,
+      primary: theme.primary,
+      secondary: theme.secondary,
+      angle,
+      trailSeed: Math.random() * 9999
+    });
+    if (onlineProjectiles.length > 80) onlineProjectiles.splice(0, onlineProjectiles.length - 80);
+  }
+
+  function updateOnlineProjectiles(delta) {
+    for (let i = onlineProjectiles.length - 1; i >= 0; i--) {
+      const obj = onlineProjectiles[i];
+      obj.life -= delta;
+      obj.x += obj.vx * delta;
+      obj.y += obj.vy * delta;
+      if (obj.life <= 0 || obj.scene !== currentScene) onlineProjectiles.splice(i, 1);
+    }
+  }
+
+  function drawOnlineProjectile(obj) {
+    const alpha = Math.max(0, Math.min(1, obj.life / Math.max(0.001, obj.maxLife || 1)));
+    ctx.save();
+    ctx.globalAlpha = Math.max(0.45, alpha);
+    if (typeof drawProjectileTrail === 'function') {
+      drawProjectileTrail({ x: obj.x - obj.width / 2, y: obj.y - obj.height / 2, width: obj.width, height: obj.height, vx: obj.vx, vy: obj.vy }, obj.secondary.replace(')', ', 0.34)').replace('rgb', 'rgba'), 20);
+    }
+    ctx.translate(obj.x, obj.y);
+    ctx.rotate(obj.angle || 0);
+    if (obj.family === 'arrow') {
+      ctx.fillStyle = obj.secondary;
+      ctx.fillRect(-7, -1, 10, 2);
+      ctx.beginPath();
+      ctx.moveTo(3, -3);
+      ctx.lineTo(8, 0);
+      ctx.lineTo(3, 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = obj.primary;
+      ctx.fillRect(-2, -2, 4, 4);
+      ctx.fillRect(-8, -2, 2, 4);
+    } else if (obj.family === 'shard') {
+      ctx.fillStyle = obj.secondary;
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(5, 0);
+      ctx.lineTo(0, 6);
+      ctx.lineTo(-4, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = obj.primary;
+      ctx.fillRect(-1, -3, 2, 6);
+    } else {
+      ctx.fillStyle = obj.secondary;
+      ctx.beginPath();
+      ctx.arc(0, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = obj.primary;
+      ctx.beginPath();
+      ctx.arc(-1, -1, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawOnlineProjectilesWorld() {
+    if (!onlineReady || !onlineProjectiles.length) return;
+    for (const obj of onlineProjectiles) {
+      if (obj.scene !== currentScene) continue;
+      const hitbox = { x: obj.x - obj.width / 2, y: obj.y - obj.height / 2, width: obj.width, height: obj.height };
+      if (typeof isOnCamera === 'function' && !isOnCamera(hitbox, 120)) continue;
+      drawOnlineProjectile(obj);
+    }
+  }
+
+  if (typeof window !== 'undefined' && !window.ETERNAL_RIFT_ONLINE_PROJECTILE_SYNC_PATCH) {
+    window.ETERNAL_RIFT_ONLINE_PROJECTILE_SYNC_PATCH = true;
+    const fireWeaponProjectileBeforeOnlineSync = fireWeaponProjectile;
+    fireWeaponProjectile = function fireWeaponProjectileOnlineSync(weapon, aim) {
+      const result = fireWeaponProjectileBeforeOnlineSync(weapon, aim);
+      try {
+        const safeWeapon = weapon || (typeof weapons === 'object' ? weapons[onlineWeaponKey()] : null) || null;
+        onlineShotPulse += 1;
+        onlineShotAngle = Number.isFinite(Number(aim?.angle)) ? Number(aim.angle) : directionToAngle(player?.direction || 'right');
+        onlineShotKind = String(safeWeapon?.projectile || safeWeapon?.kind || 'projectile');
+        onlineShotWeaponKey = String(onlineWeaponKey() || safeWeapon?.name || 'staff');
+        onlineShotAt = Date.now();
+      } catch (error) {}
+      return result;
+    };
+  }
+
   async function initOnlineMode() {
     if (onlineStarted && onlineReady) return onlineReady;
     if (onlineStarted && !onlineReady) {
@@ -43017,7 +43168,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
           const name = String(data.name || "Jogador").slice(0, 18);
           const appearance = existing.appearance || onlineAppearance(id, name);
 
-          onlinePlayers.set(id, {
+          const nextState = {
             id,
             name,
             x,
@@ -43030,16 +43181,29 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
             scene: String(data.scene || "village"),
             health: Number(data.health || 0),
             maxHealth: Number(data.maxHealth || 1),
+            mana: Number(data.mana || 0),
+            maxMana: Number(data.maxMana || 1),
             level: Number(data.level || 1),
             moving: Boolean(data.moving),
             weaponKey: String(data.weaponKey || existing.weaponKey || "sword"),
             attacking: Boolean(data.attacking),
             attackDuration: Number(data.attackDuration || existing.attackDuration || 280),
             attackUntil: Number(data.attackUntil || existing.attackUntil || 0),
+            shotPulse: Number(data.shotPulse || 0),
+            shotAngle: Number(data.shotAngle || 0),
+            shotKind: String(data.shotKind || existing.shotKind || ""),
+            shotWeaponKey: String(data.shotWeaponKey || data.weaponKey || existing.shotWeaponKey || "sword"),
+            shotAt: Number(data.shotAt || 0),
             updatedAt,
             color: existing.color || onlineColor(id),
             appearance
-          });
+          };
+
+          if (nextState.shotPulse && nextState.shotPulse !== Number(existing.shotPulse || 0)) {
+            spawnOnlineProjectileFromState(nextState);
+          }
+
+          onlinePlayers.set(id, nextState);
         });
 
         for (const id of Array.from(onlinePlayers.keys())) {
@@ -43087,12 +43251,19 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       scene: String(currentScene || "village"),
       health: Number(player.health || 0),
       maxHealth: Number(player.maxHealth || 1),
+      mana: Number(player.mana || 0),
+      maxMana: Number(player.maxMana || 1),
       level: Number(player.level || 1),
       moving: Boolean(player.moving),
       weaponKey: onlineWeaponKey(),
       attacking: Boolean(attackState.active),
       attackDuration: Number(attackState.duration || 280),
       attackUntil: Number(attackState.until || 0),
+      shotPulse: Number(onlineShotPulse || 0),
+      shotAngle: Number(onlineShotAngle || 0),
+      shotKind: String(onlineShotKind || ""),
+      shotWeaponKey: String(onlineShotWeaponKey || onlineWeaponKey()),
+      shotAt: Number(onlineShotAt || 0),
       updatedAt: now
     };
 
@@ -43128,43 +43299,80 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       p.drawX = Number(p.drawX || p.x) + (Number(p.x || 0) - Number(p.drawX || p.x)) * amount;
       p.drawY = Number(p.drawY || p.y) + (Number(p.y || 0) - Number(p.drawY || p.y)) * amount;
     }
+    updateOnlineProjectiles(Number(delta || 0.016));
   }
 
   function drawOnlineName(p, x, y) {
-    const name = `${p.name || "Jogador"} Nv.${p.level || 1}`;
+    const name = `${p.name || "Jogador"} • Nv.${p.level || 1}`;
     ctx.save();
-    ctx.font = "800 10px Trebuchet MS, Arial, sans-serif";
-    const width = Math.max(56, ctx.measureText(name).width + 12);
+    ctx.font = "900 10px Trebuchet MS, Arial, sans-serif";
+    const width = Math.max(92, ctx.measureText(name).width + 18);
+    const badgeW = 42;
     const tagX = x + p.width / 2 - width / 2;
-    const tagY = y - 22;
+    const tagY = y - 36;
 
-    ctx.fillStyle = "rgba(12, 16, 34, 0.78)";
+    ctx.shadowColor = p.color || '#55e8ff';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = 'rgba(10, 14, 28, 0.94)';
     ctx.fillRect(tagX, tagY, width, 16);
-    ctx.strokeStyle = p.color || "#55e8ff";
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = p.color || '#55e8ff';
     ctx.lineWidth = 2;
     ctx.strokeRect(tagX, tagY, width, 16);
-    ctx.fillStyle = "#fff3d6";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+
+    ctx.fillStyle = p.color || '#55e8ff';
+    ctx.fillRect(tagX + 2, tagY - 9, badgeW, 9);
+    ctx.fillStyle = '#10172c';
+    ctx.font = '900 7px Trebuchet MS, Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PLAYER', tagX + 2 + badgeW / 2, tagY - 4.5);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 10px Trebuchet MS, Arial, sans-serif';
     ctx.fillText(name, x + p.width / 2, tagY + 8);
     ctx.restore();
   }
 
   function drawOnlineHealth(p, x, y) {
-    const max = Math.max(1, Number(p.maxHealth || 1));
-    const hp = Math.max(0, Math.min(max, Number(p.health || 0)));
-    const w = 30;
-    const h = 4;
-    const bx = x + p.width / 2 - w / 2;
-    const by = y - 6;
+    const maxHp = Math.max(1, Number(p.maxHealth || 1));
+    const hp = Math.max(0, Math.min(maxHp, Number(p.health || 0)));
+    const maxMana = Math.max(1, Number(p.maxMana || 1));
+    const mana = Math.max(0, Math.min(maxMana, Number(p.mana || 0)));
+    const w = 38;
+    const panelH = 14;
+    const bx = x + p.width / 2 - w / 2 - 2;
+    const by = y - 17;
 
-    ctx.fillStyle = "rgba(12, 16, 34, 0.78)";
-    ctx.fillRect(bx, by, w, h);
-    ctx.fillStyle = "#5ac36b";
-    ctx.fillRect(bx, by, w * (hp / max), h);
-    ctx.strokeStyle = "#1a1f3d";
+    ctx.save();
+    ctx.fillStyle = 'rgba(10, 14, 28, 0.88)';
+    ctx.fillRect(bx, by, w + 4, panelH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(bx, by, w, h);
+    ctx.strokeRect(bx, by, w + 4, panelH);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '900 6px Trebuchet MS, Arial';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText('HP', bx + 2, by + 4);
+    ctx.fillText('MP', bx + 2, by + 10);
+
+    ctx.fillStyle = 'rgba(28, 35, 60, 0.95)';
+    ctx.fillRect(bx + 10, by + 2, w - 8, 4);
+    ctx.fillRect(bx + 10, by + 8, w - 8, 4);
+
+    const hpColor = hp / maxHp > 0.5 ? '#67d972' : (hp / maxHp > 0.25 ? '#ffd25d' : '#ff6b6b');
+    ctx.fillStyle = hpColor;
+    ctx.fillRect(bx + 10, by + 2, (w - 8) * (hp / maxHp), 4);
+    ctx.fillStyle = '#55d8ff';
+    ctx.fillRect(bx + 10, by + 8, (w - 8) * (mana / maxMana), 4);
+
+    ctx.strokeStyle = p.color || '#55e8ff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx + 10, by + 2, w - 8, 4);
+    ctx.strokeRect(bx + 10, by + 8, w - 8, 4);
+    ctx.restore();
   }
 
   function drawOnlinePlayer(p) {
@@ -43325,6 +43533,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     try {
       ctx.save();
       ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+      drawOnlineProjectilesWorld();
       drawOnlinePlayersWorld();
       ctx.restore();
     } catch (error) {
@@ -43353,6 +43562,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     get room() { return onlineRoomId; },
     get id() { return onlinePlayerId; },
     get players() { return Array.from(onlinePlayers.values()); },
+    get projectiles() { return onlineProjectiles.slice(); },
     reconnect: initOnlineMode
   };
 })();

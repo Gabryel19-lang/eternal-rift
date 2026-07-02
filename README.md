@@ -585,3 +585,10 @@ Regras recomendadas para teste no Realtime Database:
 - A arma equipada aparece no multiplayer.
 - Melhor animação de caminhada.
 - Melhor animação de ataque, com efeito visual conforme o tipo da arma.
+
+
+## Upgrade online visual 2
+- versão: `multiplayer-tags-hp-mana-projectile-20260702-2130`
+- nomes de jogadores agora têm cores bem visíveis e selo PLAYER.
+- HUD online mostra HP e Mana mais bonitos.
+- projéteis dos jogadores agora aparecem para os outros jogadores.
