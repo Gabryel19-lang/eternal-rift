@@ -50,6 +50,8 @@ const shopMessage = document.getElementById("shopMessage");
 const buyPotionButton = document.getElementById("buyPotionButton");
 const gameOverScreen = document.getElementById("gameOverScreen");
 const gameOverResetButton = document.getElementById("gameOverResetButton");
+const gameOverMessageEl = document.getElementById("gameOverMessage");
+const gameOverAreaEl = document.getElementById("gameOverArea");
 const saveButton = document.getElementById("saveButton");
 const infoPanel = document.getElementById("infoPanel");
 const infoTitle = document.getElementById("infoTitle");
@@ -600,6 +602,70 @@ const villageObjects = [
   rareChest(67, 49)
 ];
 
+function installVillageSanctuaryBarrier() {
+  const topY = 6;
+  const bottomY = 40;
+  const leftX = 17;
+  const rightX = 56;
+  const northGateX = 30;
+  const southGateX = 30;
+  const westGateY = 22;
+  const eastGateY = 22;
+
+  villageObjects.push(
+    villageBarrier(leftX, topY, northGateX - leftX, "horizontal", "north"),
+    villageBarrier(northGateX + 4, topY, rightX - (northGateX + 4) + 1, "horizontal", "north"),
+    villageBarrier(leftX, bottomY, southGateX - leftX, "horizontal", "south"),
+    villageBarrier(southGateX + 4, bottomY, rightX - (southGateX + 4) + 1, "horizontal", "south"),
+
+    villageBarrier(leftX, topY, westGateY - topY, "vertical", "west"),
+    villageBarrier(leftX, westGateY + 4, bottomY - (westGateY + 4) + 1, "vertical", "west"),
+    villageBarrier(rightX, topY, eastGateY - topY, "vertical", "east"),
+    villageBarrier(rightX, eastGateY + 4, bottomY - (eastGateY + 4) + 1, "vertical", "east"),
+
+    villageGate(northGateX, topY, 4, "horizontal", "north"),
+    villageGate(southGateX, bottomY, 4, "horizontal", "south"),
+    villageGate(leftX, westGateY, 4, "vertical", "west"),
+    villageGate(rightX, eastGateY, 4, "vertical", "east"),
+
+    villageWard(northGateX, topY, 4, "horizontal"),
+    villageWard(southGateX, bottomY, 4, "horizontal"),
+    villageWard(leftX, westGateY, 4, "vertical"),
+    villageWard(rightX, eastGateY, 4, "vertical")
+  );
+
+  const protectedZone = {
+    x1: leftX * TILE,
+    y1: topY * TILE,
+    x2: (rightX + 1) * TILE,
+    y2: (bottomY + 1) * TILE
+  };
+
+  const relocationTiles = [
+    { x: 20, y: 44 }, { x: 26, y: 45 }, { x: 32, y: 46 }, { x: 38, y: 46 },
+    { x: 44, y: 45 }, { x: 50, y: 44 }, { x: 59, y: 18 }, { x: 60, y: 42 }
+  ];
+  let relocationIndex = 0;
+
+  for (const obj of villageObjects) {
+    if (obj?.type !== "enemy" || !obj.alive) continue;
+    const centerX = obj.x + obj.width / 2;
+    const centerY = obj.y + obj.height / 2;
+    const insideProtectedZone = centerX > protectedZone.x1 && centerX < protectedZone.x2 && centerY > protectedZone.y1 && centerY < protectedZone.y2;
+    if (!insideProtectedZone) continue;
+
+    const fallback = relocationTiles[Math.min(relocationIndex, relocationTiles.length - 1)];
+    relocationIndex += 1;
+    obj.x = fallback.x * TILE + 4;
+    obj.y = fallback.y * TILE + 4;
+    obj.spawnX = obj.x;
+    obj.spawnY = obj.y;
+    obj.moveTimer = 0;
+  }
+}
+
+installVillageSanctuaryBarrier();
+
 const homeObjects = [
   block(0, 0, HOME_COLS, 1),
   block(0, 0, 1, HOME_ROWS),
@@ -754,6 +820,46 @@ function fence(tileX, tileY, length, direction) {
     height: direction === "horizontal" ? TILE : TILE * length,
     direction,
     solid: true
+  };
+}
+
+
+function villageBarrier(tileX, tileY, length, direction, face = null) {
+  return {
+    type: "villageBarrier",
+    x: tileX * TILE,
+    y: tileY * TILE,
+    width: direction === "horizontal" ? TILE * length : TILE,
+    height: direction === "horizontal" ? TILE : TILE * length,
+    direction,
+    face,
+    solid: true
+  };
+}
+
+function villageGate(tileX, tileY, span, direction, face = null) {
+  return {
+    type: "villageGate",
+    x: tileX * TILE,
+    y: tileY * TILE,
+    width: direction === "horizontal" ? TILE * span : TILE,
+    height: direction === "horizontal" ? TILE : TILE * span,
+    direction,
+    face,
+    solid: false
+  };
+}
+
+function villageWard(tileX, tileY, span, direction) {
+  return {
+    type: "villageWard",
+    x: direction === "horizontal" ? tileX * TILE + 6 : tileX * TILE + 4,
+    y: direction === "horizontal" ? tileY * TILE + 6 : tileY * TILE + 6,
+    width: direction === "horizontal" ? TILE * span - 12 : TILE - 8,
+    height: direction === "horizontal" ? TILE - 12 : TILE * span - 12,
+    direction,
+    solid: true,
+    wardOnlyForEnemies: true
   };
 }
 
@@ -1443,8 +1549,9 @@ function canEntityMoveTo(entity, nextX, nextY) {
 }
 
 function entityIgnoresCollider(entity, obj) {
+  if (obj.type === "villageWard" && entity.type !== "enemy") return true;
   if (entity.canFly && ["tree", "fence", "rock", "well", "bench"].includes(obj.type)) return true;
-  if (entity.kind === "fantasma" && !["block", "house", "playerHouse", "shop", "cave"].includes(obj.type)) return true;
+  if (entity.kind === "fantasma" && !["block", "house", "playerHouse", "shop", "cave", "villageBarrier"].includes(obj.type)) return true;
   return false;
 }
 
@@ -5271,6 +5378,7 @@ function loadGame() {
     normalizeRuntimeState();
     if (characterNameInput) characterNameInput.value = getPlayerDisplayName();
     gameOver = player.health <= 0;
+    if (gameOver) updateGameOverScreen();
     gameOverScreen.classList.toggle("hidden", !gameOver);
     updateQuestProgress();
     updateHud();
@@ -6138,7 +6246,24 @@ function takeDamage(amount, sourceX = player.x, sourceY = player.y) {
   updateHud();
   if (player.health <= 0) {
     gameOver = true;
+    updateGameOverScreen();
     gameOverScreen.classList.remove("hidden");
+  }
+}
+
+function updateGameOverScreen() {
+  const playerName = typeof getPlayerDisplayName === "function" ? getPlayerDisplayName() : (player?.name || "O heroi");
+  if (gameOverMessageEl) {
+    gameOverMessageEl.textContent = `${playerName} desmaiou. Reuna forcas e tente novamente.`;
+  }
+
+  if (gameOverAreaEl) {
+    const activeBoss = typeof getActiveBoss === "function" ? getActiveBoss() : null;
+    if (activeBoss && typeof getEnemyDisplayName === "function") {
+      gameOverAreaEl.textContent = `Derrotado por ${getEnemyDisplayName(activeBoss.kind)} • ${getAreaName()}`;
+    } else {
+      gameOverAreaEl.textContent = `Local: ${getAreaName()}`;
+    }
   }
 }
 
@@ -7005,6 +7130,9 @@ function drawObject(obj) {
   if (obj.type === "shop") return drawShop(obj);
   if (obj.type === "tree") return drawTree(obj);
   if (obj.type === "fence") return drawFence(obj);
+  if (obj.type === "villageBarrier") return drawVillageBarrier(obj);
+  if (obj.type === "villageGate") return drawVillageGate(obj);
+  if (obj.type === "villageWard") return drawVillageWard(obj);
   if (obj.type === "sign") return drawSign(obj);
   if (obj.type === "well") return drawWell(obj);
   if (obj.type === "bench") return drawBench(obj);
@@ -7172,6 +7300,152 @@ function drawFence(obj) {
     }
     pixelRect(obj.x + 13, obj.y, 7, obj.height, wood, dark);
   }
+}
+
+
+function drawVillageBarrierRoof(obj) {
+  const roofDark = "#5a3141";
+  const roofMain = "#8f3f56";
+  const roofLight = "#c45c75";
+  const trim = "#f5ce79";
+  const beam = "#7b4b38";
+  const face = obj.face || null;
+
+  if (obj.direction === "horizontal") {
+    // O telhado agora fica voltado para o lado de DENTRO da vila.
+    const topY = face === "north" ? obj.y + obj.height - 2 : obj.y - 16;
+    drawSoftShadow(obj.x + 6, topY + 16, obj.width - 12, 6, 0.14);
+    pixelRect(obj.x + 4, topY + 8, obj.width - 8, 8, roofMain, "#273052");
+    pixelRect(obj.x + 10, topY + 4, obj.width - 20, 5, roofLight, "#273052");
+    pixelRect(obj.x + 16, topY, obj.width - 32, 5, trim, "#273052");
+    ctx.fillStyle = roofDark;
+    for (let x = obj.x + 6; x < obj.x + obj.width - 8; x += 10) {
+      ctx.fillRect(x, topY + 12, 6, 2);
+    }
+    ctx.fillStyle = beam;
+    ctx.fillRect(obj.x + 8, topY + 14, obj.width - 16, 2);
+  } else {
+    // Nas laterais, o telhado tambem aponta para dentro da vila.
+    const roofX = face === "west" ? obj.x + obj.width - 2 : obj.x - 16;
+    drawSoftShadow(roofX + 16, obj.y + 6, 6, obj.height - 12, 0.14);
+    pixelRect(roofX + 8, obj.y + 4, 8, obj.height - 8, roofMain, "#273052");
+    pixelRect(roofX + 4, obj.y + 10, 5, obj.height - 20, roofLight, "#273052");
+    pixelRect(roofX, obj.y + 16, 5, obj.height - 32, trim, "#273052");
+    ctx.fillStyle = roofDark;
+    for (let y = obj.y + 6; y < obj.y + obj.height - 8; y += 10) {
+      ctx.fillRect(roofX + 12, y, 2, 6);
+    }
+    ctx.fillStyle = beam;
+    ctx.fillRect(roofX + 14, obj.y + 8, 2, obj.height - 16);
+  }
+}
+
+function drawVillageBarrier(obj) {
+  const stone = "#9fa9c1";
+  const stoneDark = "#465071";
+  const stoneLight = "#d9e3f6";
+  const gold = "#f5ce79";
+  const banner = "#5aa4ff";
+  const ivy = "#6ccf6b";
+
+  drawVillageBarrierRoof(obj);
+
+  if (obj.direction === "horizontal") {
+    drawSoftShadow(obj.x + 2, obj.y + 24, obj.width - 4, 6, 0.18);
+    pixelRect(obj.x, obj.y + 19, obj.width, 8, stoneDark, "#273052");
+    pixelRect(obj.x, obj.y + 12, obj.width, 8, stone, "#273052");
+    pixelRect(obj.x, obj.y + 6, obj.width, 6, stoneLight, "#273052");
+    pixelRect(obj.x, obj.y + 3, obj.width, 3, gold, "#273052");
+    for (let x = obj.x; x < obj.x + obj.width; x += TILE * 2) {
+      pixelRect(x + 3, obj.y + 1, 10, 23, stone, "#273052");
+      pixelRect(x + 17, obj.y + 1, 10, 23, stone, "#273052");
+      ctx.fillStyle = stoneLight;
+      ctx.fillRect(x + 5, obj.y + 4, 4, 4);
+      ctx.fillRect(x + 19, obj.y + 4, 4, 4);
+      pixelRect(x + 10, obj.y - 4, 10, 8, banner, "#273052");
+      ctx.fillStyle = gold;
+      ctx.fillRect(x + 13, obj.y - 2, 4, 4);
+      ctx.fillStyle = ivy;
+      ctx.fillRect(x + 1, obj.y + 20, 3, 4);
+      ctx.fillRect(x + TILE + 5, obj.y + 21, 4, 3);
+    }
+  } else {
+    drawSoftShadow(obj.x + 23, obj.y + 2, 6, obj.height - 4, 0.18);
+    pixelRect(obj.x + 19, obj.y, 8, obj.height, stoneDark, "#273052");
+    pixelRect(obj.x + 12, obj.y, 8, obj.height, stone, "#273052");
+    pixelRect(obj.x + 6, obj.y, 6, obj.height, stoneLight, "#273052");
+    pixelRect(obj.x + 3, obj.y, 3, obj.height, gold, "#273052");
+    for (let y = obj.y; y < obj.y + obj.height; y += TILE * 2) {
+      pixelRect(obj.x + 1, y + 3, 23, 10, stone, "#273052");
+      pixelRect(obj.x + 1, y + 17, 23, 10, stone, "#273052");
+      ctx.fillStyle = stoneLight;
+      ctx.fillRect(obj.x + 4, y + 5, 4, 4);
+      ctx.fillRect(obj.x + 4, y + 19, 4, 4);
+      pixelRect(obj.x - 4, y + 10, 8, 10, banner, "#273052");
+      ctx.fillStyle = gold;
+      ctx.fillRect(obj.x - 2, y + 13, 4, 4);
+      ctx.fillStyle = ivy;
+      ctx.fillRect(obj.x + 20, y + 1, 4, 3);
+      ctx.fillRect(obj.x + 20, y + TILE + 7, 3, 4);
+    }
+  }
+}
+
+function drawVillageGate(obj) {
+  const stone = "#c2cbe0";
+  const stoneDark = "#4b5579";
+  const gold = "#f5ce79";
+  const blue = "#5aa4ff";
+  const blueGlow = "rgba(85, 232, 255, 0.55)";
+  const shadowAlpha = 0.22;
+
+  drawVillageBarrierRoof(obj);
+
+  if (obj.direction === "horizontal") {
+    drawSoftShadow(obj.x + 10, obj.y + 22, obj.width - 20, 8, shadowAlpha);
+    pixelRect(obj.x + 6, obj.y + 2, 18, 28, stone, "#273052");
+    pixelRect(obj.x + obj.width - 24, obj.y + 2, 18, 28, stone, "#273052");
+    pixelRect(obj.x + 20, obj.y, obj.width - 40, 10, stoneDark, "#273052");
+    pixelRect(obj.x + 28, obj.y + 3, obj.width - 56, 5, gold, "#273052");
+    pixelRect(obj.x + obj.width / 2 - 11, obj.y + 7, 22, 10, blue, "#273052");
+    ctx.fillStyle = gold;
+    ctx.fillRect(obj.x + obj.width / 2 - 3, obj.y + 9, 6, 6);
+    ctx.fillStyle = blueGlow;
+    ctx.fillRect(obj.x + 28, obj.y + 11, obj.width - 56, 12);
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.fillRect(obj.x + 32, obj.y + 13, obj.width - 64, 2);
+  } else {
+    drawSoftShadow(obj.x + 20, obj.y + 10, 8, obj.height - 20, shadowAlpha);
+    pixelRect(obj.x + 2, obj.y + 6, 28, 18, stone, "#273052");
+    pixelRect(obj.x + 2, obj.y + obj.height - 24, 28, 18, stone, "#273052");
+    pixelRect(obj.x, obj.y + 20, 10, obj.height - 40, stoneDark, "#273052");
+    pixelRect(obj.x + 3, obj.y + 28, 5, obj.height - 56, gold, "#273052");
+    pixelRect(obj.x + 7, obj.y + obj.height / 2 - 11, 10, 22, blue, "#273052");
+    ctx.fillStyle = gold;
+    ctx.fillRect(obj.x + 9, obj.y + obj.height / 2 - 3, 6, 6);
+    ctx.fillStyle = blueGlow;
+    ctx.fillRect(obj.x + 11, obj.y + 28, 12, obj.height - 56);
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.fillRect(obj.x + 13, obj.y + 32, 2, obj.height - 64);
+  }
+}
+
+function drawVillageWard(obj) {
+  const pulse = 0.55 + Math.sin((Date.now() || performance.now()) / 220) * 0.12;
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  const gradient = obj.direction === "horizontal"
+    ? ctx.createLinearGradient(obj.x, obj.y, obj.x, obj.y + obj.height)
+    : ctx.createLinearGradient(obj.x, obj.y, obj.x + obj.width, obj.y);
+  gradient.addColorStop(0, "rgba(85, 232, 255, 0.05)");
+  gradient.addColorStop(0.5, `rgba(85, 232, 255, ${0.18 + pulse * 0.2})`);
+  gradient.addColorStop(1, "rgba(85, 232, 255, 0.05)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+  ctx.strokeStyle = `rgba(188, 244, 255, ${0.25 + pulse * 0.35})`;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(obj.x + 1, obj.y + 1, obj.width - 2, obj.height - 2);
+  ctx.restore();
 }
 
 function drawSign(obj) {
@@ -20918,6 +21192,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       npc(48, 33, "Luma", "Luma: Os cristais daqui cantam baixinho. Preciso estudar alguns fragmentos.", "caveScholarQuest"),
       npc(96, 30, "Teo", "Teo: A rota do fundo esta perigosa. Afaste os monstros da Mina Cristalina.", "caveGuardQuest"),
 
+      // Jazidas antigas mantidas.
       caveOre(20, 37, "blue"),
       caveOre(32, 35, "iron"),
       caveOre(42, 17, "amethyst"),
@@ -20927,6 +21202,27 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       caveOre(80, 16, "amethyst"),
       caveOre(100, 18, "iron"),
       caveOre(108, 32, "gold"),
+
+      // Mais jazidas usando SOMENTE os minerios que ja existem.
+      // A mina agora tem veios espalhados pela entrada, corredores e saloes fundos.
+      caveOre(9, 38, "iron"),
+      caveOre(14, 42, "blue"),
+      caveOre(24, 32, "iron"),
+      caveOre(29, 28, "blue"),
+      caveOre(36, 37, "iron"),
+      caveOre(47, 35, "gold"),
+      caveOre(50, 20, "blue"),
+      caveOre(58, 18, "amethyst"),
+      caveOre(53, 9, "blue"),
+      caveOre(60, 10, "iron"),
+      caveOre(65, 8, "amethyst"),
+      caveOre(66, 34, "iron"),
+      caveOre(74, 31, "gold"),
+      caveOre(82, 36, "blue"),
+      caveOre(90, 33, "iron"),
+      caveOre(99, 22, "amethyst"),
+      caveOre(105, 34, "blue"),
+      caveOre(111, 30, "gold"),
 
       makeCaveEnemy(25, 31, "morcego", { coinReward: 5, xpReward: 45 }),
       makeCaveEnemy(39, 34, "slimeAzul", { coinReward: 7, xpReward: 55 }),
@@ -22864,6 +23160,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     npc(50, 53, "Vekra", "Vekra: Quero estudar o altar, o reator e o ouro corrosivo desta dimensão.", "acidAlchemistQuest"),
     npc(44, 44, "Dorian", "Dorian: As criaturas ácidas estão se multiplicando. Preciso de ajuda na patrulha.", "acidGuardQuest"),
 
+    // Jazidas antigas mantidas.
     acidOre(31, 29, "necrita"),
     acidOre(35, 37, "necrita"),
     acidOre(55, 29, "necrita"),
@@ -22875,6 +23172,31 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     acidOre(41, 21, "corrosiveGold"),
     acidOre(48, 21, "corrosiveGold"),
     acidOre(44, 39, "corrosiveGold"),
+
+    // Mais jazidas usando SOMENTE os minerios acidos que ja existem.
+    // Nada de tipos novos: apenas mais Necrita, Cristal Caustico e Ouro Corrosivo.
+    acidOre(20, 30, "necrita"),
+    acidOre(24, 37, "necrita"),
+    acidOre(28, 52, "necrita"),
+    acidOre(36, 45, "necrita"),
+    acidOre(52, 35, "necrita"),
+    acidOre(58, 52, "necrita"),
+    acidOre(67, 33, "necrita"),
+    acidOre(74, 50, "necrita"),
+    acidOre(16, 34, "caustic"),
+    acidOre(21, 45, "caustic"),
+    acidOre(30, 20, "caustic"),
+    acidOre(38, 25, "caustic"),
+    acidOre(49, 18, "caustic"),
+    acidOre(59, 25, "caustic"),
+    acidOre(67, 42, "caustic"),
+    acidOre(72, 31, "caustic"),
+    acidOre(33, 18, "corrosiveGold"),
+    acidOre(38, 39, "corrosiveGold"),
+    acidOre(44, 48, "corrosiveGold"),
+    acidOre(53, 40, "corrosiveGold"),
+    acidOre(57, 18, "corrosiveGold"),
+    acidOre(66, 21, "corrosiveGold"),
 
     makeAcidEnemy(28, 31, "slimeToxico", "slime-east-1"),
     makeAcidEnemy(59, 31, "slimeToxico", "slime-west-1"),
@@ -38145,7 +38467,6 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
 
     addTarget(list, "saveButton", "Salvar", byId("saveButton"), { display: "grid" });
     addTarget(list, "resetButton", "Reset", byId("resetButton"), { display: "grid" });
-    addTarget(list, "musicButton", "Musica", byId("musicToggleButton"), { display: "grid" });
     addTarget(list, "menuButton", "Menu", byId("hudMenuButton"), { canHide: false, display: "grid" });
 
     addTarget(list, "joystick", "Joystick", byId("joystickBase"), { canHide: false, display: "block" });
@@ -38401,7 +38722,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       const item = getItem(id);
       item.scale = id === "bossHud" ? 0.75 : id === "joystick" ? 0.82 : 0.86;
     });
-    ["hudCoins", "hudOxygen", "saveButton", "resetButton", "musicButton"].forEach((id) => {
+    ["hudCoins", "hudOxygen", "saveButton", "resetButton"].forEach((id) => {
       const item = getItem(id);
       item.hidden = true;
     });
@@ -38591,4 +38912,4157 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
   boot();
   setTimeout(boot, 350);
   setTimeout(boot, 1200);
+})();
+
+/* ==================================================
+   PATCH: Poção Arcana salva na hora + minérios respawn 5 min
+   - Usar Poção Arcana agora força autosave imediato da mana máxima.
+   - Jazidas da Mina Cristalina e da Dimensão Ácida voltam depois de 5 minutos.
+   - Os timers ficam no questBook, então continuam contando mesmo se sair do jogo.
+   ================================================== */
+(function eternalRiftArcanePotionAndOreRespawnPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ARCANE_POTION_ORE_RESPAWN_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ARCANE_POTION_ORE_RESPAWN_PATCH = true;
+
+  const ORE_RESPAWN_MS = 5 * 60 * 1000;
+
+  function forceSilentSave(reason = "important-change") {
+    try {
+      if (typeof window !== "undefined" && typeof window.ETERNAL_RIFT_FORCE_AUTOSAVE === "function") {
+        window.ETERNAL_RIFT_FORCE_AUTOSAVE(reason);
+        return true;
+      }
+    } catch (error) {}
+
+    try {
+      if (typeof saveGame === "function") {
+        saveGame();
+        return true;
+      }
+    } catch (error) {}
+
+    return false;
+  }
+
+  function ensureCaveOreRespawnState() {
+    if (!questBook.caveAdvanced || typeof questBook.caveAdvanced !== "object") questBook.caveAdvanced = {};
+    const state = questBook.caveAdvanced;
+    if (!state.oresMined || typeof state.oresMined !== "object") state.oresMined = {};
+    if (!state.oreRespawnAt || typeof state.oreRespawnAt !== "object") state.oreRespawnAt = {};
+    return state;
+  }
+
+  function ensureAcidOreRespawnState() {
+    if (!questBook.acidContent || typeof questBook.acidContent !== "object") questBook.acidContent = {};
+    const state = questBook.acidContent;
+    if (!state.oresMined || typeof state.oresMined !== "object") state.oresMined = {};
+    if (!state.oreRespawnAt || typeof state.oreRespawnAt !== "object") state.oreRespawnAt = {};
+    return state;
+  }
+
+  function getCaveOreRespawnKey(obj) {
+    try {
+      if (typeof getSaveObjectKey === "function") return getSaveObjectKey(obj);
+    } catch (error) {}
+    return `${obj.type || "caveOre"}:${obj.oreType || obj.kind || "ore"}:${Math.round(obj.x || 0)}:${Math.round(obj.y || 0)}`;
+  }
+
+  function getAcidOreRespawnKey(obj) {
+    return `${obj.oreKey || "necrita"}:${Math.round(obj.x || 0)}:${Math.round(obj.y || 0)}`;
+  }
+
+  function getOreStateAndKey(obj) {
+    if (!obj) return null;
+    if (obj.type === "caveOre") return { state: ensureCaveOreRespawnState(), key: getCaveOreRespawnKey(obj), label: "jazida cristalina" };
+    if (obj.type === "acidOre") return { state: ensureAcidOreRespawnState(), key: getAcidOreRespawnKey(obj), label: "jazida ácida" };
+    return null;
+  }
+
+  function refreshOreObjectState(obj, now = Date.now()) {
+    const data = getOreStateAndKey(obj);
+    if (!data) return false;
+
+    const { state, key } = data;
+    const mined = Boolean(state.oresMined[key]);
+
+    if (!mined) {
+      if (obj.depleted) obj.depleted = false;
+      if (state.oreRespawnAt[key]) delete state.oreRespawnAt[key];
+      return false;
+    }
+
+    const respawnAt = Number(state.oreRespawnAt[key] || 0);
+
+    // Saves antigos não tinham timer. Ao carregar pela primeira vez com este patch,
+    // a contagem começa naquele momento em vez de deixar a jazida presa para sempre.
+    if (!Number.isFinite(respawnAt) || respawnAt <= 0) {
+      state.oreRespawnAt[key] = now + ORE_RESPAWN_MS;
+      obj.depleted = true;
+      return false;
+    }
+
+    if (now >= respawnAt) {
+      delete state.oresMined[key];
+      delete state.oreRespawnAt[key];
+      obj.depleted = false;
+      try {
+        if (typeof spawnFloatingText === "function") {
+          const text = obj.type === "acidOre" ? "Minério ácido voltou" : "Minério voltou";
+          spawnFloatingText(text, obj.x, obj.y - 16, obj.type === "acidOre" ? "#9cff55" : "#55e8ff");
+        }
+      } catch (error) {}
+      return true;
+    }
+
+    obj.depleted = true;
+    return false;
+  }
+
+  function scheduleOreRespawnIfMined(obj) {
+    const data = getOreStateAndKey(obj);
+    if (!data) return false;
+
+    const { state, key } = data;
+    if (!state.oresMined[key] && !obj.depleted) return false;
+
+    if (!Number.isFinite(Number(state.oreRespawnAt[key])) || Number(state.oreRespawnAt[key]) <= 0) {
+      state.oreRespawnAt[key] = Date.now() + ORE_RESPAWN_MS;
+      return true;
+    }
+
+    return false;
+  }
+
+  function updateOreRespawns() {
+    if (!Array.isArray(objects)) return;
+    const now = Date.now();
+    let changed = false;
+
+    for (const obj of objects) {
+      if (obj?.type === "caveOre" || obj?.type === "acidOre") {
+        if (refreshOreObjectState(obj, now)) changed = true;
+      }
+    }
+
+    if (changed) {
+      try { if (typeof renderInventory === "function") renderInventory(); } catch (error) {}
+      try { if (typeof updateInteractionHint === "function") updateInteractionHint(); } catch (error) {}
+      forceSilentSave("ore-respawned");
+    }
+  }
+
+  const getQuestMessageBeforeOreRespawn = getQuestMessage;
+  getQuestMessage = function getQuestMessageOreRespawnPatch(target) {
+    const isOre = target?.type === "caveOre" || target?.type === "acidOre";
+    let beforeMined = false;
+    let beforeRespawnAt = 0;
+    let data = null;
+
+    if (isOre) {
+      data = getOreStateAndKey(target);
+      refreshOreObjectState(target);
+      beforeMined = Boolean(data?.state?.oresMined?.[data.key]) || Boolean(target.depleted);
+      beforeRespawnAt = Number(data?.state?.oreRespawnAt?.[data.key] || 0);
+    }
+
+    const result = getQuestMessageBeforeOreRespawn(target);
+
+    if (isOre && data) {
+      const afterMined = Boolean(data.state.oresMined[data.key]) || Boolean(target.depleted);
+      if (!beforeMined && afterMined) {
+        data.state.oreRespawnAt[data.key] = Date.now() + ORE_RESPAWN_MS;
+        try {
+          if (typeof spawnFloatingText === "function") spawnFloatingText("Volta em 5 min", target.x, target.y - 32, "#fff264");
+        } catch (error) {}
+        forceSilentSave("ore-mined");
+      } else if (afterMined && (!Number.isFinite(beforeRespawnAt) || beforeRespawnAt <= 0)) {
+        scheduleOreRespawnIfMined(target);
+        forceSilentSave("ore-respawn-timer-created");
+      }
+    }
+
+    return result;
+  };
+
+  const handleInventoryActionBeforeArcanePotionSave = handleInventoryAction;
+  handleInventoryAction = function handleInventoryActionArcanePotionSavePatch(actionButton) {
+    const action = actionButton?.dataset?.inventoryAction || "";
+    const isArcanePotion = action === "useManaMaxPotion";
+    const beforeMaxMana = Number(player.maxMana || 0);
+    const beforePotionCount = Number(inventory.manaMaxPotions || 0);
+
+    const result = handleInventoryActionBeforeArcanePotionSave(actionButton);
+
+    if (isArcanePotion) {
+      const afterMaxMana = Number(player.maxMana || 0);
+      const afterPotionCount = Number(inventory.manaMaxPotions || 0);
+      const potionWasUsed = afterMaxMana > beforeMaxMana || afterPotionCount < beforePotionCount;
+
+      if (potionWasUsed) {
+        forceSilentSave("arcane-potion-used");
+        try { showHudToast(`Mana máxima salva: ${afterMaxMana}`); } catch (error) {}
+        try { if (typeof updateHud === "function") updateHud(); } catch (error) {}
+        try { if (typeof renderInventory === "function") renderInventory(); } catch (error) {}
+      }
+    }
+
+    return result;
+  };
+
+  const updateBeforeOreRespawnPatch = update;
+  update = function updateOreRespawnPatch(delta) {
+    updateBeforeOreRespawnPatch(delta);
+    updateOreRespawns();
+  };
+
+  const normalizeRuntimeStateBeforeOreRespawn = normalizeRuntimeState;
+  normalizeRuntimeState = function normalizeRuntimeStateOreRespawnPatch() {
+    normalizeRuntimeStateBeforeOreRespawn();
+    ensureCaveOreRespawnState();
+    ensureAcidOreRespawnState();
+    updateOreRespawns();
+  };
+
+  const resetProgressBeforeOreRespawn = resetProgressForNewGame;
+  resetProgressForNewGame = function resetProgressOreRespawnPatch(name) {
+    resetProgressBeforeOreRespawn(name);
+    if (questBook.caveAdvanced) {
+      questBook.caveAdvanced.oresMined = {};
+      questBook.caveAdvanced.oreRespawnAt = {};
+    }
+    if (questBook.acidContent) {
+      questBook.acidContent.oresMined = {};
+      questBook.acidContent.oreRespawnAt = {};
+    }
+  };
+
+  ensureCaveOreRespawnState();
+  ensureAcidOreRespawnState();
+  window.setTimeout(updateOreRespawns, 250);
+})();
+
+
+// === Barreira real da vila para separar os monstros ===
+const VILLAGE_SANCTUARY_BOUNDS = {
+  left: 17 * TILE,
+  top: 6 * TILE,
+  right: 57 * TILE,
+  bottom: 41 * TILE
+};
+
+function enemyInsideVillageSanctuary(obj) {
+  if (!obj || obj.type !== "enemy" || !obj.alive || currentScene !== "village") return false;
+  const cx = obj.x + obj.width / 2;
+  const cy = obj.y + obj.height / 2;
+  return cx > VILLAGE_SANCTUARY_BOUNDS.left && cx < VILLAGE_SANCTUARY_BOUNDS.right && cy > VILLAGE_SANCTUARY_BOUNDS.top && cy < VILLAGE_SANCTUARY_BOUNDS.bottom;
+}
+
+function sanctuaryFallbackPosition(index = 0) {
+  const positions = [
+    { x: 20, y: 44 }, { x: 26, y: 45 }, { x: 32, y: 46 }, { x: 38, y: 46 },
+    { x: 44, y: 45 }, { x: 50, y: 44 }, { x: 59, y: 18 }, { x: 60, y: 42 },
+    { x: 12, y: 49 }, { x: 68, y: 39 }
+  ];
+  return positions[index % positions.length];
+}
+
+function enforceVillageSanctuaryThreatBoundary() {
+  if (currentScene !== "village") return;
+  let moved = 0;
+  for (const obj of villageObjects) {
+    if (!enemyInsideVillageSanctuary(obj)) continue;
+    const fallback = sanctuaryFallbackPosition(moved++);
+    obj.x = fallback.x * TILE + 4;
+    obj.y = fallback.y * TILE + 4;
+    obj.spawnX = obj.x;
+    obj.spawnY = obj.y;
+    obj.state = obj.boss ? "bossIdle" : "idle";
+    obj.moveTimer = 0;
+    obj.attackCooldown = 0;
+    obj.attackTimer = 0;
+  }
+}
+
+const updateEnemiesBeforeVillageSanctuaryBarrier = updateEnemies;
+updateEnemies = function updateEnemiesVillageSanctuaryBarrier(delta) {
+  updateEnemiesBeforeVillageSanctuaryBarrier(delta);
+  enforceVillageSanctuaryThreatBoundary();
+};
+
+
+// === Correção: jogador atravessa as entradas da barreira, monstros não ===
+const canMoveToBeforeVillageGateExitFix = canMoveTo;
+canMoveTo = function canMoveToVillageGateExitFix(nextX, nextY) {
+  if (currentScene !== "village") return canMoveToBeforeVillageGateExitFix(nextX, nextY);
+
+  const rect = getPlayerRect(nextX, nextY);
+  if (gameOver) return false;
+
+  const sceneWidth = getSceneWidth();
+  const sceneHeight = getSceneHeight();
+  if (
+    rect.x < 0 ||
+    rect.y < 0 ||
+    rect.x + rect.width > sceneWidth ||
+    rect.y + rect.height > sceneHeight
+  ) {
+    return false;
+  }
+
+  return !colliders.some((obj) => (
+    obj?.type !== "villageWard" &&
+    isColliderActive(obj) &&
+    rectsOverlap(rect, obj)
+  ));
+};
+
+
+/* ==================================================
+   Patch: personagem, armas, ataques e armaduras muito mais bonitos
+   ================================================== */
+(function eternalRiftHeroBeautyPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEAUTY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEAUTY_PATCH = true;
+
+  function normName(value) {
+    return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function getGearName(slot) {
+    return inventory?.equippedCustomItems?.[slot] || "";
+  }
+
+  function getHeroVisualTheme() {
+    const armorName = normName(getGearName("armor"));
+    const accessoryName = normName(getGearName("accessory"));
+    const bootsName = normName(getGearName("boots"));
+    const charmName = normName(getGearName("charm"));
+
+    const theme = {
+      armorMain: "#395cab",
+      armorLight: "#5ba7ff",
+      armorDark: "#23366a",
+      trim: "#f5ce79",
+      cloth: "#314880",
+      cape: "#2b315d",
+      capeLight: "#4a5fab",
+      hair: "#273052",
+      hairLight: "#55e8ff",
+      skin: "#f0c39a",
+      eye: "#e9ffff",
+      boots: "#273052",
+      bootsLight: "#49537a",
+      aura: "rgba(85,232,255,0.09)",
+      auraSpark: "#55e8ff",
+      accessory: "#f5ce79",
+      emblem: "#fff3d6",
+      wing: null,
+      crown: false
+    };
+
+    if (armorName.includes("aurora")) {
+      Object.assign(theme, {
+        armorMain: "#3f78ff",
+        armorLight: "#8fd2ff",
+        armorDark: "#23366a",
+        trim: "#ffe08f",
+        cloth: "#3a4db3",
+        cape: "#3349a6",
+        capeLight: "#6fd4ff",
+        aura: "rgba(85,232,255,0.24)",
+        auraSpark: "#fff3d6",
+        emblem: "#fff7d1"
+      });
+    } else if (armorName.includes("polar") || armorName.includes("gelo") || armorName.includes("frost")) {
+      Object.assign(theme, {
+        armorMain: "#c9efff",
+        armorLight: "#ffffff",
+        armorDark: "#5f86ab",
+        trim: "#9fe7ff",
+        cloth: "#80c8ff",
+        cape: "#86b8ff",
+        capeLight: "#e9ffff",
+        hairLight: "#e9ffff",
+        aura: "rgba(201,239,255,0.22)",
+        auraSpark: "#e9ffff"
+      });
+    } else if (armorName.includes("musgo") || armorName.includes("pantano") || armorName.includes("veneno")) {
+      Object.assign(theme, {
+        armorMain: "#5b8d3b",
+        armorLight: "#9bd667",
+        armorDark: "#2d5a24",
+        trim: "#d6c27a",
+        cloth: "#436333",
+        cape: "#354e2b",
+        capeLight: "#6bcf6b",
+        aura: "rgba(123, 222, 90, 0.16)",
+        auraSpark: "#b7ff74"
+      });
+    } else if (armorName.includes("sagrado") || armorName.includes("celestial") || armorName.includes("anjo")) {
+      Object.assign(theme, {
+        armorMain: "#f2f7ff",
+        armorLight: "#ffffff",
+        armorDark: "#7b9ace",
+        trim: "#ffe9a6",
+        cloth: "#cedfff",
+        cape: "#91aef3",
+        capeLight: "#fff2bf",
+        aura: "rgba(255,240,186,0.11)",
+        auraSpark: "#ffffff",
+        wing: "#fff7dc"
+      });
+    } else if (armorName.includes("deserto") || armorName.includes("solar") || armorName.includes("rei")) {
+      Object.assign(theme, {
+        armorMain: "#c98a53",
+        armorLight: "#f1ba6c",
+        armorDark: "#7f4f36",
+        trim: "#fff1a0",
+        cloth: "#9b613f",
+        cape: "#8f3f56",
+        capeLight: "#ffb271",
+        aura: "rgba(255,177,113,0.10)",
+        auraSpark: "#fff1a0"
+      });
+    } else if (armorName) {
+      Object.assign(theme, {
+        armorMain: "#9aa7c2",
+        armorLight: "#d9e3f6",
+        armorDark: "#506080",
+        trim: "#f5ce79",
+        cloth: "#677aa7",
+        cape: "#475274",
+        capeLight: "#8391bc"
+      });
+    }
+
+    if (bootsName.includes("deserto")) {
+      theme.boots = "#7f4f36";
+      theme.bootsLight = "#d99b67";
+    } else if (bootsName.includes("nuv")) {
+      theme.boots = "#5f86ab";
+      theme.bootsLight = "#dff8ff";
+    } else if (bootsName.includes("gelo") || bootsName.includes("anti")) {
+      theme.boots = "#4d6087";
+      theme.bootsLight = "#a4d7ff";
+    }
+
+    if (accessoryName.includes("aurora") || accessoryName.includes("coroa")) theme.crown = true;
+    if (accessoryName.includes("asa") || charmName.includes("asa")) theme.wing = theme.wing || "#dfe9ff";
+    if (accessoryName.includes("anel") || charmName.includes("pingente") || charmName.includes("amuleto")) {
+      theme.accessory = theme.trim;
+    }
+
+    if (charmName.includes("sombra")) {
+      theme.aura = "rgba(180,122,255,0.10)";
+      theme.auraSpark = "#d39cff";
+    }
+
+    return theme;
+  }
+
+  function getWeaponBeautyTheme() {
+    const key = String(getCurrentWeaponKey?.() || "sword");
+    const lower = key.toLowerCase();
+    const theme = {
+      bladeA: "#e9ffff",
+      bladeB: "#8fd2ff",
+      edge: "#ffffff",
+      core: "#55e8ff",
+      gold: "#f5ce79",
+      wood: "#8f5a3f",
+      woodDark: "#5c413c",
+      gem: "#55e8ff",
+      glow: "rgba(85,232,255,0.24)",
+      string: "#fff3d6"
+    };
+
+    if (lower.includes("celestial") || lower.includes("holy") || lower.includes("aurora")) {
+      Object.assign(theme, {
+        bladeA: "#ffffff",
+        bladeB: "#d9efff",
+        core: "#fff6c1",
+        gold: "#ffe08f",
+        gem: "#fff3d6",
+        glow: "rgba(255,240,186,0.28)",
+        string: "#fff7de"
+      });
+    } else if (lower.includes("ice") || lower.includes("frost") || lower.includes("gelo")) {
+      Object.assign(theme, {
+        bladeA: "#dff8ff",
+        bladeB: "#7fd6ff",
+        core: "#e9ffff",
+        gold: "#9fe7ff",
+        gem: "#e9ffff",
+        glow: "rgba(159,231,255,0.25)",
+        string: "#dff8ff"
+      });
+    } else if (lower.includes("fire") || lower.includes("solar") || lower.includes("sand")) {
+      Object.assign(theme, {
+        bladeA: "#fff1a0",
+        bladeB: "#ff8f4c",
+        core: "#fff3d6",
+        gold: "#f5ce79",
+        gem: "#ffb271",
+        glow: "rgba(255,143,76,0.22)",
+        string: "#ffe7b3"
+      });
+    } else if (lower.includes("poison") || lower.includes("veneno") || lower.includes("swamp")) {
+      Object.assign(theme, {
+        bladeA: "#d8ffc0",
+        bladeB: "#7cda52",
+        core: "#b7ff74",
+        gold: "#c7de75",
+        gem: "#96ff6a",
+        glow: "rgba(124,218,82,0.24)",
+        string: "#e6ffd1"
+      });
+    }
+    return theme;
+  }
+
+  function drawPixelRing(x, y, r, color, alpha) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawHeroBeautyOverlay() {
+    if (!player || gameOver) return;
+
+    const x = player.x;
+    const y = player.y;
+    const w = player.width || 28;
+    const h = player.height || 32;
+    const leg = player.moving ? [0, 2, 0, -2][player.frame % 4] : 0;
+    const blink = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 70) % 2 === 0;
+    const pulse = 0.5 + Math.sin(performance.now() / 180) * 0.5;
+    const theme = getHeroVisualTheme();
+    const facing = player.direction || "down";
+    const isAttacking = attackTimer > 0 || (currentMeleeAttack && currentMeleeAttack.timer > 0) || weaponCooldownTimer > 0;
+
+    ctx.save();
+    if (blink) ctx.globalAlpha = 0.55;
+
+    // Aura and shadow
+    if (player.levelGlowTimer > 0 || isAttacking || theme.wing) {
+      ctx.fillStyle = theme.aura;
+      ctx.fillRect(x - 6, y - 5, w + 12, h + 12);
+      if (theme.wing) {
+        ctx.fillStyle = theme.auraSpark + "66";
+        ctx.fillRect(x - 10, y + 8, 8, 14);
+        ctx.fillRect(x + w + 2, y + 8, 8, 14);
+      }
+    }
+    drawSoftShadow(x + 3, y + h - 7, w - 2, 6, 0.22);
+
+    // Cape behind hero
+    ctx.fillStyle = theme.cape;
+    ctx.fillRect(x + 6, y + 12, w - 12, h - 10);
+    ctx.fillStyle = theme.capeLight;
+    ctx.fillRect(x + 8, y + 14, w - 16, h - 20);
+
+    // Legs and boots
+    ctx.fillStyle = theme.boots;
+    ctx.fillRect(x + 8, y + h - 8 + leg, 5, 8);
+    ctx.fillRect(x + w - 13, y + h - 8 - leg, 5, 8);
+    ctx.fillStyle = theme.bootsLight;
+    ctx.fillRect(x + 8, y + h - 4 + leg, 5, 2);
+    ctx.fillRect(x + w - 13, y + h - 4 - leg, 5, 2);
+    ctx.fillStyle = theme.cloth;
+    ctx.fillRect(x + 10, y + 24, w - 20, 6);
+
+    // Torso armor
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 6, y + 12, w - 12, 15);
+    ctx.fillStyle = theme.armorMain;
+    ctx.fillRect(x + 7, y + 13, w - 14, 13);
+    ctx.fillStyle = theme.armorLight;
+    ctx.fillRect(x + 10, y + 15, w - 20, 4);
+    ctx.fillStyle = theme.trim;
+    ctx.fillRect(x + 11, y + 20, w - 22, 2);
+    ctx.fillRect(x + w / 2 - 2, y + 13, 4, 12);
+    ctx.fillStyle = theme.armorDark;
+    ctx.fillRect(x + 4, y + 14, 4, 7);
+    ctx.fillRect(x + w - 8, y + 14, 4, 7);
+    ctx.fillStyle = theme.trim;
+    ctx.fillRect(x + 4, y + 13, 4, 2);
+    ctx.fillRect(x + w - 8, y + 13, 4, 2);
+    ctx.fillStyle = theme.emblem;
+    ctx.fillRect(x + w / 2 - 1, y + 17, 2, 2);
+
+    // Arms
+    ctx.fillStyle = theme.skin;
+    ctx.fillRect(x + 3, y + 16, 4, 7);
+    ctx.fillRect(x + w - 7, y + 16, 4, 7);
+    ctx.fillStyle = theme.armorDark;
+    ctx.fillRect(x + 2, y + 14, 5, 3);
+    ctx.fillRect(x + w - 7, y + 14, 5, 3);
+
+    // Head and hair
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 7, y + 2, w - 14, 13);
+    ctx.fillStyle = theme.skin;
+    ctx.fillRect(x + 8, y + 5, w - 16, 9);
+    ctx.fillStyle = theme.hair;
+    ctx.fillRect(x + 7, y + 1, w - 14, 5);
+    ctx.fillRect(x + 6, y + 4, 4, 6);
+    ctx.fillRect(x + w - 10, y + 4, 4, 6);
+    ctx.fillStyle = theme.hairLight;
+    ctx.fillRect(x + 10, y + 2, w - 20, 2);
+
+    // Face based on direction
+    if (facing === "up") {
+      ctx.fillStyle = theme.hair;
+      ctx.fillRect(x + 10, y + 9, w - 20, 2);
+    } else if (facing === "left") {
+      ctx.fillStyle = theme.eye;
+      ctx.fillRect(x + 11, y + 9, 2, 2);
+      ctx.fillStyle = "#d28e7a";
+      ctx.fillRect(x + 9, y + 11, 2, 1);
+    } else if (facing === "right") {
+      ctx.fillStyle = theme.eye;
+      ctx.fillRect(x + w - 13, y + 9, 2, 2);
+      ctx.fillStyle = "#d28e7a";
+      ctx.fillRect(x + w - 11, y + 11, 2, 1);
+    } else {
+      ctx.fillStyle = theme.eye;
+      ctx.fillRect(x + 11, y + 9, 2, 2);
+      ctx.fillRect(x + w - 13, y + 9, 2, 2);
+      ctx.fillStyle = "#d28e7a";
+      ctx.fillRect(x + w / 2 - 1, y + 11, 2, 1);
+    }
+
+    // Accessory / crown
+    if (theme.crown) {
+      ctx.fillStyle = theme.trim;
+      ctx.fillRect(x + 9, y - 1, w - 18, 3);
+      ctx.fillRect(x + 10, y - 3, 2, 2);
+      ctx.fillRect(x + w / 2 - 1, y - 4, 2, 3);
+      ctx.fillRect(x + w - 12, y - 3, 2, 2);
+    }
+
+    // Pendant / charm glow
+    ctx.fillStyle = theme.accessory;
+    ctx.fillRect(x + w / 2 - 1, y + 24, 2, 3);
+    if (theme.wing) {
+      ctx.fillStyle = theme.wing;
+      ctx.fillRect(x - 4, y + 12, 3, 10);
+      ctx.fillRect(x + w + 1, y + 12, 3, 10);
+      ctx.fillStyle = theme.auraSpark + "88";
+      ctx.fillRect(x - 6, y + 16, 2, 4);
+      ctx.fillRect(x + w + 4, y + 16, 2, 4);
+    }
+
+    // Attack aura
+    if (isAttacking) {
+      ctx.fillStyle = theme.auraSpark + "55";
+      if (facing === "left") ctx.fillRect(x - 8, y + 12, 8, 10);
+      else if (facing === "right") ctx.fillRect(x + w, y + 12, 8, 10);
+      else if (facing === "up") ctx.fillRect(x + 8, y - 6, 10, 8);
+      else ctx.fillRect(x + 8, y + h - 4, 10, 8);
+      drawPixelRing(x + w / 2, y + h / 2, 11 + pulse * 2, theme.auraSpark, 0.14);
+    }
+
+    ctx.restore();
+  }
+
+  const drawPlayerBeforeHeroBeautyPatch = drawPlayer;
+  drawPlayer = function drawPlayerHeroBeautyPatch() {
+    drawPlayerBeforeHeroBeautyPatch();
+    drawHeroBeautyOverlay();
+  };
+
+  function drawFancyHandle(x, y, length, wood, woodDark, gold) {
+    ctx.fillStyle = woodDark;
+    ctx.fillRect(x - 1, y - 3, length + 3, 7);
+    ctx.fillStyle = wood;
+    ctx.fillRect(x, y - 2, length, 5);
+    ctx.fillStyle = gold;
+    ctx.fillRect(x + length - 1, y - 3, 3, 7);
+  }
+
+  drawSwordInHand = function drawSwordInHandBeauty(progress) {
+    const t = Math.sin(Math.min(1, Math.max(0, progress || 0)) * Math.PI);
+    const th = getWeaponBeautyTheme();
+    const thrust = t * 8;
+    ctx.translate(9 + thrust, 0);
+    drawFancyHandle(-8, 0, 10, th.wood, th.woodDark, th.gold);
+    ctx.fillStyle = th.gold;
+    ctx.fillRect(-1, -6, 5, 12);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(3, -2, 4, 4);
+    ctx.fillStyle = th.bladeB;
+    ctx.beginPath();
+    ctx.moveTo(5, -6);
+    ctx.lineTo(29, 0);
+    ctx.lineTo(5, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.bladeA;
+    ctx.beginPath();
+    ctx.moveTo(7, -4);
+    ctx.lineTo(28, 0);
+    ctx.lineTo(7, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(11, -1, 13, 2);
+    ctx.fillStyle = th.gem;
+    ctx.fillRect(-2, -2, 3, 3);
+    if (progress > 0) {
+      ctx.fillStyle = th.glow;
+      ctx.fillRect(18, -6, 18, 12);
+      ctx.fillStyle = th.edge;
+      ctx.fillRect(28, -2, 12, 3);
+    }
+  };
+
+  drawSpearInHand = function drawSpearInHandBeauty(progress) {
+    const t = Math.sin(Math.min(1, Math.max(0, progress || 0)) * Math.PI);
+    const th = getWeaponBeautyTheme();
+    const thrust = t * 18;
+    ctx.translate(6 + thrust, 0);
+    ctx.fillStyle = th.woodDark;
+    ctx.fillRect(-10, -3, 45, 6);
+    ctx.fillStyle = th.wood;
+    ctx.fillRect(-9, -2, 42, 4);
+    ctx.fillStyle = th.gold;
+    ctx.fillRect(-1, -4, 3, 8);
+    ctx.fillStyle = th.bladeB;
+    ctx.beginPath();
+    ctx.moveTo(31, -9);
+    ctx.lineTo(46, 0);
+    ctx.lineTo(31, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.bladeA;
+    ctx.beginPath();
+    ctx.moveTo(34, -6);
+    ctx.lineTo(45, 0);
+    ctx.lineTo(34, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(36, -1, 8, 2);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(29, -8, 20, 16);
+    if (progress > 0) {
+      ctx.fillStyle = th.edge;
+      ctx.fillRect(45, -2, 12, 4);
+    }
+  };
+
+  drawBowInHand = function drawBowInHandBeauty(progress) {
+    const t = Math.sin(Math.min(1, Math.max(0, progress || 0)) * Math.PI);
+    const th = getWeaponBeautyTheme();
+    const pull = t * 7;
+    ctx.translate(7, 0);
+    ctx.strokeStyle = th.woodDark;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, -1.16, 1.16);
+    ctx.stroke();
+    ctx.strokeStyle = th.wood;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, -1.12, 1.12);
+    ctx.stroke();
+    ctx.strokeStyle = th.string;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(6, -13);
+    ctx.lineTo(-8 - pull, 0);
+    ctx.lineTo(6, 13);
+    ctx.stroke();
+    ctx.fillStyle = th.gold;
+    ctx.fillRect(-3, -3, 4, 6);
+    if (progress > 0) {
+      ctx.fillStyle = th.woodDark;
+      ctx.fillRect(-6 - pull, -2, 30 + pull, 4);
+      ctx.fillStyle = th.wood;
+      ctx.fillRect(-5 - pull, -1, 24 + pull, 2);
+      ctx.fillStyle = th.edge;
+      ctx.beginPath();
+      ctx.moveTo(20 + pull, -5);
+      ctx.lineTo(30 + pull, 0);
+      ctx.lineTo(20 + pull, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = th.glow;
+      ctx.fillRect(10 + pull, -5, 22, 10);
+    }
+  };
+
+  drawStaffInHand = function drawStaffInHandBeauty(progress) {
+    const t = Math.sin(Math.min(1, Math.max(0, progress || 0)) * Math.PI);
+    const th = getWeaponBeautyTheme();
+    const glowAlpha = 0.22 + t * 0.45;
+    ctx.translate(8, 0);
+    ctx.fillStyle = th.woodDark;
+    ctx.fillRect(-8, -3, 30, 6);
+    ctx.fillStyle = th.wood;
+    ctx.fillRect(-7, -2, 27, 4);
+    ctx.fillStyle = th.gold;
+    ctx.fillRect(12, -4, 4, 8);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(15, -13, 22, 26);
+    ctx.fillStyle = "rgba(39,48,82," + (0.65 + t * 0.18) + ")";
+    ctx.fillRect(20, -8, 12, 16);
+    ctx.fillStyle = th.gem;
+    ctx.fillRect(22, -6, 8, 12);
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(24, -2, 4, 5);
+    if (progress > 0) {
+      ctx.fillStyle = "rgba(255,255,255," + glowAlpha + ")";
+      ctx.fillRect(31, -4, 16, 8);
+      ctx.fillStyle = th.gem;
+      ctx.fillRect(36, -2, 12, 4);
+    }
+  };
+
+  drawSwordSwingEffect = function drawSwordSwingEffectBeauty(attack, progress) {
+    const th = getWeaponBeautyTheme();
+    const range = attack.range || 50;
+    const arc = attack.arc || Math.PI * 0.74;
+    const sweep = -arc / 2 + arc * progress;
+    ctx.strokeStyle = th.edge + "d0";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, range, sweep - 0.38, sweep + 0.38);
+    ctx.stroke();
+    ctx.strokeStyle = th.bladeB + "88";
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.arc(0, 0, range - 3, sweep - 0.20, sweep + 0.20);
+    ctx.stroke();
+    ctx.strokeStyle = th.glow.replace('0.24', '0.40');
+    ctx.lineWidth = 16;
+    ctx.beginPath();
+    ctx.arc(0, 0, range - 7, sweep - 0.10, sweep + 0.10);
+    ctx.stroke();
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(Math.cos(sweep) * range - 2, Math.sin(sweep) * range - 2, 4, 4);
+  };
+
+  drawSpearThrustEffect = function drawSpearThrustEffectBeauty(attack, progress) {
+    const th = getWeaponBeautyTheme();
+    const range = attack.range || 72;
+    const reach = 18 + range * (0.70 + Math.sin(progress * Math.PI) * 0.24);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(10, -8, reach, 16);
+    ctx.fillStyle = th.bladeB + "aa";
+    ctx.fillRect(14, -4, reach - 8, 8);
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(18, -1, reach - 6, 2);
+    ctx.fillStyle = th.bladeA;
+    ctx.beginPath();
+    ctx.moveTo(14 + reach, -8);
+    ctx.lineTo(28 + reach, 0);
+    ctx.lineTo(14 + reach, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(26 + reach, -2, 10, 4);
+  };
+
+  drawArrowProjectile = function drawArrowProjectileBeauty(obj) {
+    const th = getWeaponBeautyTheme();
+    drawProjectileTrail(obj, th.glow, 24);
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    ctx.save();
+    ctx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+    ctx.rotate(angle);
+    ctx.fillStyle = th.woodDark;
+    ctx.fillRect(-12, -3, 22, 6);
+    ctx.fillStyle = th.wood;
+    ctx.fillRect(-11, -2, 19, 4);
+    ctx.fillStyle = th.bladeA;
+    ctx.beginPath();
+    ctx.moveTo(8, -5);
+    ctx.lineTo(18, 0);
+    ctx.lineTo(8, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.string;
+    ctx.fillRect(-14, -4, 5, 2);
+    ctx.fillRect(-14, 2, 5, 2);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(-5, -4, 18, 8);
+    ctx.restore();
+  };
+
+  drawMagicProjectile = function drawMagicProjectileBeauty(obj) {
+    const type = String(obj?.type || "magic");
+    let glow = "rgba(155,95,199,0.42)";
+    let main = "#9b5fc7";
+    let core = "#e9ffff";
+    if (["fireball", "fire", "crimsonMeteor", "sandBolt", "sandLance"].includes(type)) {
+      glow = "rgba(255,143,76,0.34)";
+      main = "#ff8f4c";
+      core = "#fff264";
+    } else if (["blueRay", "blueMagic", "lightBolt", "starShot", "sunRay", "light"].includes(type)) {
+      glow = "rgba(85,232,255,0.40)";
+      main = "#55e8ff";
+      core = "#ffffff";
+    } else if (["poison", "poisonOrb", "acid", "acidBolt"].includes(type)) {
+      glow = "rgba(124,218,82,0.34)";
+      main = "#7cda52";
+      core = "#e6ffd1";
+    } else if (["ice", "iceShard", "iceArrow"].includes(type)) {
+      glow = "rgba(159,231,255,0.38)";
+      main = "#7fd6ff";
+      core = "#ffffff";
+    }
+    drawProjectileTrail(obj, glow, 22);
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - 12, cy - 12, 24, 24);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(cx - 7, cy - 7, 14, 14);
+    ctx.fillStyle = main;
+    ctx.fillRect(cx - 6, cy - 6, 12, 12);
+    ctx.fillStyle = core;
+    ctx.fillRect(cx - 2, cy - 2, 4, 4);
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillRect(cx - 1, cy - 9, 2, 4);
+    ctx.fillRect(cx - 9, cy - 1, 4, 2);
+    ctx.fillRect(cx + 5, cy - 1, 4, 2);
+    ctx.fillRect(cx - 1, cy + 5, 2, 4);
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA: personagem ainda mais epico, bonito e fluido
+   ================================================== */
+(function eternalRiftHeroEpicPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_EPIC_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_EPIC_PATCH = true;
+
+  function normalizeBeautyName(value) {
+    return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function getEquippedBeautyItem(slot) {
+    return inventory?.equippedCustomItems?.[slot] || "";
+  }
+
+  function getHeroEpicTheme() {
+    const armor = normalizeBeautyName(getEquippedBeautyItem("armor"));
+    const boots = normalizeBeautyName(getEquippedBeautyItem("boots"));
+    const accessory = normalizeBeautyName(getEquippedBeautyItem("accessory"));
+    const charm = normalizeBeautyName(getEquippedBeautyItem("charm"));
+
+    const theme = {
+      id: armor ? "armored" : "base",
+      armorMain: "#3557a7",
+      armorMid: "#487dd7",
+      armorLight: "#91c8ff",
+      armorDark: "#1f3369",
+      trim: "#f5ce79",
+      trimBright: "#fff0b8",
+      clothMain: "#3a4989",
+      clothDark: "#273052",
+      capeMain: "#314880",
+      capeDark: "#22325f",
+      capeGlow: "rgba(85,232,255,0.14)",
+      skin: "#f0c39a",
+      skinShade: "#d89e80",
+      hairMain: "#273052",
+      hairLight: "#58c6ff",
+      eye: "#e9ffff",
+      bootsMain: "#263358",
+      bootsLight: "#4c5a88",
+      aura: "rgba(85,232,255,0.09)",
+      spark: "#55e8ff",
+      emblem: "#fff3d6",
+      shoulders: "plate",
+      coat: false,
+      fur: false,
+      scarf: false,
+      vines: false,
+      halo: false,
+      crown: false,
+      wings: false,
+      spikes: false,
+      horns: false,
+      bootTrim: "#9db8ef"
+    };
+
+    if (!armor) {
+      Object.assign(theme, {
+        id: "base",
+        clothMain: "#4661bb",
+        clothDark: "#273052",
+        capeMain: "#4059a5",
+        capeDark: "#293b73",
+        armorMain: "#5678d1",
+        armorMid: "#6a96f0",
+        armorLight: "#9fcbff",
+        shoulders: "light",
+        scarf: true
+      });
+    }
+
+    if (armor.includes("aurora") || armor.includes("estrela") || armor.includes("constela")) {
+      Object.assign(theme, {
+        id: "aurora",
+        armorMain: "#3c72ff",
+        armorMid: "#6ea9ff",
+        armorLight: "#d7f1ff",
+        armorDark: "#243b88",
+        trim: "#ffe08f",
+        trimBright: "#fff7cd",
+        clothMain: "#3a4db3",
+        clothDark: "#27337a",
+        capeMain: "#6b59ff",
+        capeDark: "#2d3274",
+        capeGlow: "rgba(165,132,255,0.16)",
+        hairLight: "#dffcff",
+        aura: "rgba(120,190,255,0.11)",
+        spark: "#dffcff",
+        emblem: "#fff7d1",
+        shoulders: "royal",
+        halo: true,
+        crown: true
+      });
+    } else if (armor.includes("polar") || armor.includes("gelo") || armor.includes("frost") || armor.includes("glacial")) {
+      Object.assign(theme, {
+        id: "frost",
+        armorMain: "#cceeff",
+        armorMid: "#9fdcff",
+        armorLight: "#ffffff",
+        armorDark: "#6489b4",
+        trim: "#9fe7ff",
+        trimBright: "#ffffff",
+        clothMain: "#9bbcff",
+        clothDark: "#607ab0",
+        capeMain: "#dff8ff",
+        capeDark: "#85b5e7",
+        capeGlow: "rgba(210,245,255,0.20)",
+        hairLight: "#ffffff",
+        aura: "rgba(159,231,255,0.12)",
+        spark: "#ffffff",
+        shoulders: "ice",
+        fur: true,
+        bootTrim: "#dff8ff"
+      });
+    } else if (armor.includes("musgo") || armor.includes("pantano") || armor.includes("veneno") || armor.includes("brejo")) {
+      Object.assign(theme, {
+        id: "swamp",
+        armorMain: "#618f3c",
+        armorMid: "#7db94a",
+        armorLight: "#b7df7d",
+        armorDark: "#2d5225",
+        trim: "#d6c27a",
+        trimBright: "#f6efb5",
+        clothMain: "#446534",
+        clothDark: "#243a23",
+        capeMain: "#3b522c",
+        capeDark: "#21331d",
+        capeGlow: "rgba(124,218,82,0.14)",
+        aura: "rgba(124,218,82,0.10)",
+        spark: "#b7ff74",
+        shoulders: "thorn",
+        vines: true,
+        coat: true,
+        bootTrim: "#96c863"
+      });
+    } else if (armor.includes("celestial") || armor.includes("sagrado") || armor.includes("angel") || armor.includes("anjo")) {
+      Object.assign(theme, {
+        id: "celestial",
+        armorMain: "#f8fbff",
+        armorMid: "#d9e6ff",
+        armorLight: "#ffffff",
+        armorDark: "#8096c9",
+        trim: "#ffe7a2",
+        trimBright: "#fff7d7",
+        clothMain: "#dbe3ff",
+        clothDark: "#8ca7df",
+        capeMain: "#9eb9ff",
+        capeDark: "#6b8fd5",
+        capeGlow: "rgba(255,240,186,0.22)",
+        aura: "rgba(255,240,186,0.11)",
+        spark: "#fff7d7",
+        shoulders: "holy",
+        halo: true,
+        wings: true,
+        crown: true,
+        bootTrim: "#ffe7a2"
+      });
+    } else if (armor.includes("deserto") || armor.includes("solar") || armor.includes("rei") || armor.includes("ouro")) {
+      Object.assign(theme, {
+        id: "solar",
+        armorMain: "#d89559",
+        armorMid: "#f2b36b",
+        armorLight: "#ffe1ad",
+        armorDark: "#824d2e",
+        trim: "#fff1a0",
+        trimBright: "#fff7c9",
+        clothMain: "#965b3a",
+        clothDark: "#563621",
+        capeMain: "#8f3f56",
+        capeDark: "#5c2237",
+        capeGlow: "rgba(255,177,113,0.20)",
+        aura: "rgba(255,177,113,0.10)",
+        spark: "#fff1a0",
+        shoulders: "royal",
+        scarf: true,
+        crown: accessory.includes("rei") || accessory.includes("coroa")
+      });
+    } else if (armor.includes("sombra") || armor.includes("noturno") || armor.includes("trevas") || armor.includes("corrompido")) {
+      Object.assign(theme, {
+        id: "shadow",
+        armorMain: "#5a537d",
+        armorMid: "#7967b1",
+        armorLight: "#b9abf0",
+        armorDark: "#261f3f",
+        trim: "#d5b4ff",
+        trimBright: "#efe2ff",
+        clothMain: "#43355d",
+        clothDark: "#21182f",
+        capeMain: "#3b245d",
+        capeDark: "#1c1230",
+        capeGlow: "rgba(211,156,255,0.18)",
+        aura: "rgba(180,122,255,0.10)",
+        spark: "#d39cff",
+        shoulders: "spike",
+        spikes: true,
+        horns: accessory.includes("diabo") || charm.includes("trevas")
+      });
+    }
+
+    if (boots.includes("deserto") || boots.includes("areia")) {
+      theme.bootsMain = "#7e4f31";
+      theme.bootsLight = "#d99b67";
+    } else if (boots.includes("nuv") || boots.includes("vento") || boots.includes("aurora")) {
+      theme.bootsMain = "#516ebd";
+      theme.bootsLight = "#dff8ff";
+    } else if (boots.includes("gelo") || boots.includes("frost") || boots.includes("polar")) {
+      theme.bootsMain = "#5f7fa8";
+      theme.bootsLight = "#dff8ff";
+    }
+
+    if (accessory.includes("asa") || charm.includes("asa")) theme.wings = true;
+    if (accessory.includes("coroa") || accessory.includes("rei") || charm.includes("rei")) theme.crown = true;
+    if (charm.includes("sombra")) {
+      theme.aura = "rgba(180,122,255,0.10)";
+      theme.spark = "#d39cff";
+    } else if (charm.includes("luz") || charm.includes("sol")) {
+      theme.aura = "rgba(255,240,186,0.11)";
+      theme.spark = "#fff7d7";
+    }
+
+    return theme;
+  }
+
+  function getEpicWeaponTheme() {
+    const key = String(getCurrentWeaponKey?.() || "sword").toLowerCase();
+    const theme = {
+      main: "#dff8ff",
+      secondary: "#7fc4ff",
+      shadow: "#35528a",
+      edge: "#ffffff",
+      core: "#55e8ff",
+      gold: "#f5ce79",
+      goldBright: "#fff0b8",
+      grip: "#8f5a3f",
+      gripDark: "#5c413c",
+      ribbon: "#fff3d6",
+      glow: "rgba(85,232,255,0.24)",
+      spark: "#55e8ff",
+      element: "arcane"
+    };
+
+    if (key.includes("celestial") || key.includes("holy") || key.includes("aurora") || key.includes("star")) {
+      Object.assign(theme, {
+        main: "#ffffff",
+        secondary: "#d9efff",
+        shadow: "#7aa5ef",
+        edge: "#fff7d7",
+        core: "#fff3d6",
+        gold: "#ffe08f",
+        goldBright: "#fff7d7",
+        glow: "rgba(255,240,186,0.28)",
+        spark: "#fff7d7",
+        element: "holy"
+      });
+    } else if (key.includes("ice") || key.includes("frost") || key.includes("gelo")) {
+      Object.assign(theme, {
+        main: "#dff8ff",
+        secondary: "#9fe7ff",
+        shadow: "#5f96d8",
+        edge: "#ffffff",
+        core: "#e9ffff",
+        gold: "#a8e8ff",
+        goldBright: "#ffffff",
+        glow: "rgba(159,231,255,0.28)",
+        spark: "#ffffff",
+        element: "ice"
+      });
+    } else if (key.includes("fire") || key.includes("solar") || key.includes("sand") || key.includes("desert")) {
+      Object.assign(theme, {
+        main: "#ffe1ad",
+        secondary: "#ff9d57",
+        shadow: "#a64e2e",
+        edge: "#fff7c9",
+        core: "#fff1a0",
+        gold: "#ffcf73",
+        goldBright: "#fff7c9",
+        glow: "rgba(255,143,76,0.26)",
+        spark: "#fff1a0",
+        element: "fire"
+      });
+    } else if (key.includes("poison") || key.includes("veneno") || key.includes("swamp") || key.includes("acid")) {
+      Object.assign(theme, {
+        main: "#e6ffd1",
+        secondary: "#84df57",
+        shadow: "#407a2e",
+        edge: "#f7ffd8",
+        core: "#b7ff74",
+        gold: "#b6d865",
+        goldBright: "#f6ffd4",
+        glow: "rgba(124,218,82,0.26)",
+        spark: "#d8ff96",
+        element: "poison"
+      });
+    } else if (key.includes("shadow") || key.includes("dark") || key.includes("night") || key.includes("abyss")) {
+      Object.assign(theme, {
+        main: "#d7c7ff",
+        secondary: "#926fe6",
+        shadow: "#4a317d",
+        edge: "#f4eaff",
+        core: "#d39cff",
+        gold: "#b48aff",
+        goldBright: "#efe2ff",
+        glow: "rgba(180,122,255,0.28)",
+        spark: "#efe2ff",
+        element: "shadow"
+      });
+    }
+    return theme;
+  }
+
+  function drawEpicPixelSpark(cx, cy, color, dx, dy) {
+    ctx.fillStyle = color;
+    ctx.fillRect(cx + dx, cy + dy, 2, 2);
+  }
+
+  function drawEpicRays(cx, cy, color, size) {
+    ctx.fillStyle = color;
+    ctx.fillRect(cx - 1, cy - size, 2, 4);
+    ctx.fillRect(cx - 1, cy + size - 4, 2, 4);
+    ctx.fillRect(cx - size, cy - 1, 4, 2);
+    ctx.fillRect(cx + size - 4, cy - 1, 4, 2);
+  }
+
+  function drawHeroEpicOverlay() {
+    if (!player || gameOver) return;
+
+    const x = player.x;
+    const y = player.y;
+    const w = player.width || 28;
+    const h = player.height || 32;
+    const now = performance.now();
+    const moveWave = player.moving ? Math.sin(now / 90) : 0;
+    const idleWave = Math.sin(now / 280);
+    const breath = Math.sin(now / 320) * 0.5;
+    const bob = player.moving ? Math.sin(now / 120) * 1.2 : Math.sin(now / 400) * 0.45;
+    const attackPulse = (attackTimer > 0 || (currentMeleeAttack && currentMeleeAttack.timer > 0)) ? 1 : 0;
+    const facing = player.direction || "down";
+    const theme = getHeroEpicTheme();
+    const pulse = 0.5 + Math.sin(now / 160) * 0.5;
+    const blink = playerInvulnerableTimer > 0 && Math.floor(now / 60) % 2 === 0;
+    const shoulderLift = player.moving ? (player.frame % 2 === 0 ? 0 : 1) : 0;
+    const scarfWave = Math.round(Math.sin(now / 130) * 2);
+    const capeWave = Math.round(Math.sin(now / 180) * 2 + moveWave * 2);
+
+    ctx.save();
+    if (blink) ctx.globalAlpha = 0.55;
+
+    // Presence aura / heroic ground glow
+    drawSoftShadow(x + 2, y + h - 5, w, 7, 0.22);
+    ctx.fillStyle = theme.aura;
+    ctx.fillRect(x - 3, y - 2, w + 6, h + 6);
+    if (attackPulse || player.levelGlowTimer > 0) {
+      ctx.fillStyle = theme.capeGlow;
+      ctx.fillRect(x - 5, y - 5, w + 10, h + 10);
+      drawEpicRays(x + w / 2, y + h / 2, theme.spark + "44", 13);
+    }
+
+    // Wings / halo behind body
+    if (theme.wings) {
+      ctx.fillStyle = theme.trimBright;
+      ctx.fillRect(x - 7, y + 8, 4, 12);
+      ctx.fillRect(x + w + 3, y + 8, 4, 12);
+      ctx.fillStyle = theme.armorLight;
+      ctx.fillRect(x - 10, y + 12, 4, 7);
+      ctx.fillRect(x + w + 6, y + 12, 4, 7);
+    }
+    if (theme.halo) {
+      ctx.fillStyle = theme.trim;
+      ctx.fillRect(x + 8, y - 4, w - 16, 2);
+      ctx.fillStyle = theme.trimBright;
+      ctx.fillRect(x + 10, y - 5, w - 20, 1);
+    }
+
+    // Cape behind
+    ctx.fillStyle = theme.capeDark;
+    ctx.fillRect(x + 5, y + 12, w - 10, h - 6);
+    ctx.fillStyle = theme.capeMain;
+    ctx.fillRect(x + 7, y + 13, w - 14, h - 13 + capeWave);
+    ctx.fillStyle = theme.capeGlow;
+    ctx.fillRect(x + 9, y + 16, w - 18, h - 22 + Math.max(0, capeWave));
+    if (theme.coat) {
+      ctx.fillStyle = theme.armorDark;
+      ctx.fillRect(x + 9, y + 17, 4, h - 15);
+      ctx.fillRect(x + w - 13, y + 17, 4, h - 15);
+    }
+
+    // Legs and boots
+    const leftLegY = y + h - 9 + Math.round(moveWave * 1.5);
+    const rightLegY = y + h - 9 - Math.round(moveWave * 1.5);
+    ctx.fillStyle = theme.clothDark;
+    ctx.fillRect(x + 9, y + 23, 4, 7);
+    ctx.fillRect(x + w - 13, y + 23, 4, 7);
+    ctx.fillStyle = theme.bootsMain;
+    ctx.fillRect(x + 8, leftLegY, 5, 8);
+    ctx.fillRect(x + w - 13, rightLegY, 5, 8);
+    ctx.fillStyle = theme.bootsLight;
+    ctx.fillRect(x + 8, leftLegY + 5, 5, 2);
+    ctx.fillRect(x + w - 13, rightLegY + 5, 5, 2);
+    ctx.fillStyle = theme.bootTrim;
+    ctx.fillRect(x + 9, leftLegY + 1, 3, 1);
+    ctx.fillRect(x + w - 12, rightLegY + 1, 3, 1);
+
+    // Waist / sash
+    ctx.fillStyle = theme.clothMain;
+    ctx.fillRect(x + 8, y + 23, w - 16, 7);
+    ctx.fillStyle = theme.trim;
+    ctx.fillRect(x + 9, y + 24, w - 18, 2);
+    ctx.fillStyle = theme.trimBright;
+    ctx.fillRect(x + w / 2 - 1, y + 23, 2, 7);
+    if (theme.scarf) {
+      ctx.fillStyle = theme.trim;
+      ctx.fillRect(x + w / 2 + 2, y + 24, 2, 6 + scarfWave);
+    }
+
+    // Body core
+    ctx.fillStyle = theme.armorDark;
+    ctx.fillRect(x + 6, y + 12 + breath, w - 12, 15);
+    ctx.fillStyle = theme.armorMain;
+    ctx.fillRect(x + 7, y + 13 + breath, w - 14, 13);
+    ctx.fillStyle = theme.armorMid;
+    ctx.fillRect(x + 9, y + 15 + breath, w - 18, 4);
+    ctx.fillStyle = theme.armorLight;
+    ctx.fillRect(x + 10, y + 16 + breath, w - 20, 2);
+    ctx.fillStyle = theme.trim;
+    ctx.fillRect(x + 10, y + 20 + breath, w - 20, 2);
+    ctx.fillStyle = theme.trimBright;
+    ctx.fillRect(x + w / 2 - 1, y + 15 + breath, 2, 8);
+    ctx.fillStyle = theme.emblem;
+    ctx.fillRect(x + w / 2 - 1, y + 18 + breath, 2, 2);
+    ctx.fillRect(x + w / 2 - 4, y + 19 + breath, 1, 1);
+    ctx.fillRect(x + w / 2 + 3, y + 19 + breath, 1, 1);
+
+    // Shoulder identity
+    if (theme.shoulders === "royal") {
+      ctx.fillStyle = theme.trim;
+      ctx.fillRect(x + 2, y + 12 - shoulderLift, 7, 5);
+      ctx.fillRect(x + w - 9, y + 12 - shoulderLift, 7, 5);
+      ctx.fillStyle = theme.armorLight;
+      ctx.fillRect(x + 3, y + 13 - shoulderLift, 5, 2);
+      ctx.fillRect(x + w - 8, y + 13 - shoulderLift, 5, 2);
+    } else if (theme.shoulders === "ice") {
+      ctx.fillStyle = theme.armorLight;
+      ctx.fillRect(x + 2, y + 12 - shoulderLift, 6, 6);
+      ctx.fillRect(x + w - 8, y + 12 - shoulderLift, 6, 6);
+      ctx.fillStyle = theme.trim;
+      ctx.fillRect(x + 3, y + 12 - shoulderLift, 4, 2);
+      ctx.fillRect(x + w - 7, y + 12 - shoulderLift, 4, 2);
+    } else if (theme.shoulders === "thorn") {
+      ctx.fillStyle = theme.armorDark;
+      ctx.fillRect(x + 2, y + 13 - shoulderLift, 6, 4);
+      ctx.fillRect(x + w - 8, y + 13 - shoulderLift, 6, 4);
+      ctx.fillStyle = theme.spark;
+      ctx.fillRect(x + 1, y + 12 - shoulderLift, 2, 2);
+      ctx.fillRect(x + w - 3, y + 12 - shoulderLift, 2, 2);
+    } else if (theme.shoulders === "holy") {
+      ctx.fillStyle = theme.trimBright;
+      ctx.fillRect(x + 2, y + 12 - shoulderLift, 6, 5);
+      ctx.fillRect(x + w - 8, y + 12 - shoulderLift, 6, 5);
+      ctx.fillStyle = theme.trim;
+      ctx.fillRect(x + 3, y + 13 - shoulderLift, 4, 2);
+      ctx.fillRect(x + w - 7, y + 13 - shoulderLift, 4, 2);
+    } else if (theme.shoulders === "spike") {
+      ctx.fillStyle = theme.armorMain;
+      ctx.fillRect(x + 2, y + 13 - shoulderLift, 6, 4);
+      ctx.fillRect(x + w - 8, y + 13 - shoulderLift, 6, 4);
+      ctx.fillStyle = theme.spark;
+      ctx.fillRect(x + 1, y + 12 - shoulderLift, 1, 3);
+      ctx.fillRect(x + w - 2, y + 12 - shoulderLift, 1, 3);
+    } else {
+      ctx.fillStyle = theme.armorDark;
+      ctx.fillRect(x + 3, y + 14 - shoulderLift, 5, 4);
+      ctx.fillRect(x + w - 8, y + 14 - shoulderLift, 5, 4);
+      ctx.fillStyle = theme.trim;
+      ctx.fillRect(x + 4, y + 13 - shoulderLift, 3, 1);
+      ctx.fillRect(x + w - 7, y + 13 - shoulderLift, 3, 1);
+    }
+
+    // Arms / gloves
+    const armLift = attackPulse ? 2 : 0;
+    ctx.fillStyle = theme.skin;
+    ctx.fillRect(x + 3, y + 16 - armLift, 4, 7);
+    ctx.fillRect(x + w - 7, y + 16 + (facing === "left" ? 1 : 0), 4, 7);
+    ctx.fillStyle = theme.armorDark;
+    ctx.fillRect(x + 2, y + 14 - armLift, 5, 3);
+    ctx.fillRect(x + w - 7, y + 14, 5, 3);
+    ctx.fillStyle = theme.trim;
+    ctx.fillRect(x + 2, y + 17 - armLift, 5, 1);
+    ctx.fillRect(x + w - 7, y + 17, 5, 1);
+
+    // Head / face / hair
+    const headY = y + 2 + bob * 0.5;
+    ctx.fillStyle = theme.hairMain;
+    ctx.fillRect(x + 7, headY, w - 14, 6);
+    ctx.fillRect(x + 6, headY + 3, 4, 6);
+    ctx.fillRect(x + w - 10, headY + 3, 4, 6);
+    ctx.fillStyle = theme.skin;
+    ctx.fillRect(x + 8, headY + 5, w - 16, 9);
+    ctx.fillStyle = theme.skinShade;
+    ctx.fillRect(x + 9, headY + 11, w - 18, 2);
+    ctx.fillStyle = theme.hairLight;
+    ctx.fillRect(x + 10, headY + 1, w - 20, 2);
+    if (theme.fur) {
+      ctx.fillStyle = theme.trimBright;
+      ctx.fillRect(x + 8, headY + 13, w - 16, 2);
+    }
+
+    if (theme.crown) {
+      ctx.fillStyle = theme.trim;
+      ctx.fillRect(x + 9, headY - 2, w - 18, 3);
+      ctx.fillRect(x + 10, headY - 4, 2, 2);
+      ctx.fillRect(x + w / 2 - 1, headY - 5, 2, 3);
+      ctx.fillRect(x + w - 12, headY - 4, 2, 2);
+      ctx.fillStyle = theme.trimBright;
+      ctx.fillRect(x + w / 2 - 1, headY - 3, 2, 1);
+    }
+    if (theme.horns) {
+      ctx.fillStyle = theme.spark;
+      ctx.fillRect(x + 7, headY - 3, 2, 4);
+      ctx.fillRect(x + w - 9, headY - 3, 2, 4);
+    }
+
+    if (facing === "up") {
+      ctx.fillStyle = theme.hairMain;
+      ctx.fillRect(x + 10, headY + 9, w - 20, 2);
+    } else if (facing === "left") {
+      ctx.fillStyle = theme.eye;
+      ctx.fillRect(x + 11, headY + 9, 2, 2);
+      ctx.fillStyle = theme.skinShade;
+      ctx.fillRect(x + 9, headY + 10, 2, 1);
+    } else if (facing === "right") {
+      ctx.fillStyle = theme.eye;
+      ctx.fillRect(x + w - 13, headY + 9, 2, 2);
+      ctx.fillStyle = theme.skinShade;
+      ctx.fillRect(x + w - 11, headY + 10, 2, 1);
+    } else {
+      ctx.fillStyle = theme.eye;
+      ctx.fillRect(x + 11, headY + 9, 2, 2);
+      ctx.fillRect(x + w - 13, headY + 9, 2, 2);
+      ctx.fillStyle = theme.skinShade;
+      ctx.fillRect(x + w / 2 - 1, headY + 11, 2, 1);
+    }
+
+    if (theme.vines) {
+      ctx.fillStyle = theme.spark;
+      ctx.fillRect(x + 5, y + 22, 2, 6);
+      ctx.fillRect(x + w - 7, y + 18, 2, 7);
+    }
+    if (theme.spikes) {
+      ctx.fillStyle = theme.spark;
+      ctx.fillRect(x + 6, y + 11, 2, 2);
+      ctx.fillRect(x + w - 8, y + 11, 2, 2);
+    }
+
+    // Pendant / chest glow / power feel
+    ctx.fillStyle = theme.trimBright;
+    ctx.fillRect(x + w / 2 - 1, y + 25, 2, 2);
+    if (attackPulse || player.moving) {
+      drawEpicPixelSpark(x + w / 2, y + 19, theme.spark, -5, -3);
+      drawEpicPixelSpark(x + w / 2, y + 19, theme.spark, 5, -1);
+      drawEpicPixelSpark(x + w / 2, y + 19, theme.spark, -3, 6);
+      drawEpicPixelSpark(x + w / 2, y + 19, theme.spark, 4, 5);
+    }
+    if (player.moving) {
+      drawEpicPixelSpark(x + 2, y + h - 4, theme.spark, 0, 0);
+      drawEpicPixelSpark(x + w - 4, y + h - 2, theme.spark, 0, 0);
+    }
+    if (attackPulse) {
+      drawEpicRays(x + w / 2, y + h / 2, theme.spark + "55", 15 + pulse * 2);
+    }
+
+    ctx.restore();
+  }
+
+  const drawPlayerBeforeHeroEpicPatch = drawPlayer;
+  drawPlayer = function drawPlayerHeroEpicPatch() {
+    drawPlayerBeforeHeroEpicPatch();
+    drawHeroEpicOverlay();
+  };
+
+  function drawEpicTrail(color, startX, startY, length, width, horizontal = true) {
+    ctx.fillStyle = color;
+    if (horizontal) ctx.fillRect(startX, startY, length, width);
+    else ctx.fillRect(startX, startY, width, length);
+  }
+
+  drawSwordInHand = function drawSwordInHandEpic(progress) {
+    const t = Math.sin(Math.min(1, Math.max(0, progress || 0)) * Math.PI);
+    const th = getEpicWeaponTheme();
+    const thrust = 6 + t * 12;
+    ctx.translate(thrust, -1 + Math.sin(t * Math.PI) * 1.5);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(-9, -11, 40, 22);
+    ctx.fillStyle = th.gripDark;
+    ctx.fillRect(-10, -3, 10, 7);
+    ctx.fillStyle = th.grip;
+    ctx.fillRect(-9, -2, 8, 5);
+    ctx.fillStyle = th.gold;
+    ctx.fillRect(-2, -7, 4, 15);
+    ctx.fillStyle = th.goldBright;
+    ctx.fillRect(-5, -4, 10, 2);
+    ctx.fillRect(-5, 2, 10, 2);
+    ctx.fillStyle = th.secondary;
+    ctx.beginPath();
+    ctx.moveTo(1, -8);
+    ctx.lineTo(30, 0);
+    ctx.lineTo(1, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.main;
+    ctx.beginPath();
+    ctx.moveTo(3, -5);
+    ctx.lineTo(28, 0);
+    ctx.lineTo(3, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(7, -1, 17, 2);
+    ctx.fillStyle = th.core;
+    ctx.fillRect(-1, -2, 3, 3);
+    ctx.fillRect(15, -4, 3, 2);
+    ctx.fillStyle = th.spark;
+    ctx.fillRect(26, -2, 8, 4);
+    ctx.fillRect(32, -1, 10 + t * 8, 2);
+  };
+
+  drawSpearInHand = function drawSpearInHandEpic(progress) {
+    const t = Math.sin(Math.min(1, Math.max(0, progress || 0)) * Math.PI);
+    const th = getEpicWeaponTheme();
+    const thrust = 10 + t * 18;
+    ctx.translate(thrust, 0);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(-10, -11, 56, 22);
+    ctx.fillStyle = th.gripDark;
+    ctx.fillRect(-12, -3, 45, 6);
+    ctx.fillStyle = th.grip;
+    ctx.fillRect(-11, -2, 42, 4);
+    ctx.fillStyle = th.gold;
+    ctx.fillRect(5, -4, 3, 8);
+    ctx.fillStyle = th.secondary;
+    ctx.beginPath();
+    ctx.moveTo(31, -10);
+    ctx.lineTo(48, 0);
+    ctx.lineTo(31, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.main;
+    ctx.beginPath();
+    ctx.moveTo(34, -7);
+    ctx.lineTo(47, 0);
+    ctx.lineTo(34, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(36, -1, 10, 2);
+    ctx.fillStyle = th.spark;
+    ctx.fillRect(44, -2, 11 + t * 10, 4);
+    ctx.fillStyle = th.goldBright;
+    ctx.fillRect(30, -1, 4, 2);
+  };
+
+  drawBowInHand = function drawBowInHandEpic(progress) {
+    const t = Math.sin(Math.min(1, Math.max(0, progress || 0)) * Math.PI);
+    const th = getEpicWeaponTheme();
+    const pull = t * 10;
+    ctx.translate(7, -1);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(-18, -18, 44, 36);
+    ctx.strokeStyle = th.gripDark;
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, -1.2, 1.2);
+    ctx.stroke();
+    ctx.strokeStyle = th.gold;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 15, -1.15, 1.15);
+    ctx.stroke();
+    ctx.strokeStyle = th.ribbon;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(6, -14);
+    ctx.lineTo(-10 - pull, 0);
+    ctx.lineTo(6, 14);
+    ctx.stroke();
+    ctx.fillStyle = th.goldBright;
+    ctx.fillRect(-2, -4, 3, 8);
+    ctx.fillStyle = th.secondary;
+    ctx.fillRect(-6 - pull, -2, 24 + pull, 4);
+    ctx.fillStyle = th.main;
+    ctx.fillRect(7 + pull, -1, 10, 2);
+    ctx.fillStyle = th.edge;
+    ctx.beginPath();
+    ctx.moveTo(17 + pull, -5);
+    ctx.lineTo(29 + pull, 0);
+    ctx.lineTo(17 + pull, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.spark;
+    ctx.fillRect(24 + pull, -1, 9, 2);
+  };
+
+  drawStaffInHand = function drawStaffInHandEpic(progress) {
+    const t = Math.sin(Math.min(1, Math.max(0, progress || 0)) * Math.PI);
+    const th = getEpicWeaponTheme();
+    const topGlow = 0.22 + t * 0.30;
+    ctx.translate(8, 0);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(-9, -19, 48, 38);
+    ctx.fillStyle = th.gripDark;
+    ctx.fillRect(-8, -3, 30, 6);
+    ctx.fillStyle = th.grip;
+    ctx.fillRect(-7, -2, 27, 4);
+    ctx.fillStyle = th.gold;
+    ctx.fillRect(13, -5, 4, 10);
+    ctx.fillStyle = th.shadow;
+    ctx.fillRect(20, -12, 12, 24);
+    ctx.fillStyle = th.secondary;
+    ctx.fillRect(21, -11, 10, 22);
+    ctx.fillStyle = th.main;
+    ctx.fillRect(23, -8, 6, 16);
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(24, -3, 4, 6);
+    ctx.fillStyle = `rgba(255,255,255,${topGlow})`;
+    ctx.fillRect(18, -14, 18, 28);
+    ctx.fillStyle = th.spark;
+    ctx.fillRect(33, -2, 12 + t * 8, 4);
+    drawEpicPixelSpark(26, 0, th.spark, -11, -11);
+    drawEpicPixelSpark(26, 0, th.spark, 11, -7);
+    drawEpicPixelSpark(26, 0, th.spark, 8, 10);
+  };
+
+  drawSwordSwingEffect = function drawSwordSwingEffectEpic(attack, progress) {
+    const th = getEpicWeaponTheme();
+    const range = (attack.range || 50) + 4;
+    const arc = attack.arc || Math.PI * 0.82;
+    const sweep = -arc / 2 + arc * progress;
+    ctx.strokeStyle = th.glow.replace('0.24', '0.48');
+    ctx.lineWidth = 18;
+    ctx.beginPath();
+    ctx.arc(0, 0, range - 5, sweep - 0.20, sweep + 0.20);
+    ctx.stroke();
+    ctx.strokeStyle = th.secondary + "aa";
+    ctx.lineWidth = 9;
+    ctx.beginPath();
+    ctx.arc(0, 0, range, sweep - 0.28, sweep + 0.28);
+    ctx.stroke();
+    ctx.strokeStyle = th.edge;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, range + 1, sweep - 0.34, sweep + 0.34);
+    ctx.stroke();
+    const tipX = Math.cos(sweep) * range;
+    const tipY = Math.sin(sweep) * range;
+    ctx.fillStyle = th.spark;
+    ctx.fillRect(tipX - 4, tipY - 2, 8, 4);
+    drawEpicPixelSpark(tipX, tipY, th.edge, -8, -5);
+    drawEpicPixelSpark(tipX, tipY, th.edge, 7, 4);
+  };
+
+  drawSpearThrustEffect = function drawSpearThrustEffectEpic(attack, progress) {
+    const th = getEpicWeaponTheme();
+    const range = attack.range || 72;
+    const reach = 16 + range * (0.70 + Math.sin(progress * Math.PI) * 0.26);
+    ctx.fillStyle = th.glow.replace('0.24', '0.40');
+    ctx.fillRect(9, -10, reach + 20, 20);
+    ctx.fillStyle = th.secondary + "aa";
+    ctx.fillRect(13, -4, reach, 8);
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(18, -1, reach - 2, 2);
+    ctx.fillStyle = th.main;
+    ctx.beginPath();
+    ctx.moveTo(14 + reach, -10);
+    ctx.lineTo(31 + reach, 0);
+    ctx.lineTo(14 + reach, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.spark;
+    ctx.fillRect(28 + reach, -2, 12, 4);
+  };
+
+  drawArrowProjectile = function drawArrowProjectileEpic(obj) {
+    const th = getEpicWeaponTheme();
+    drawProjectileTrail(obj, th.glow.replace('0.24', '0.34'), 28);
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    ctx.save();
+    ctx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+    ctx.rotate(angle);
+    ctx.fillStyle = th.glow;
+    ctx.fillRect(-16, -8, 36, 16);
+    ctx.fillStyle = th.gripDark;
+    ctx.fillRect(-12, -3, 22, 6);
+    ctx.fillStyle = th.grip;
+    ctx.fillRect(-11, -2, 19, 4);
+    ctx.fillStyle = th.main;
+    ctx.beginPath();
+    ctx.moveTo(7, -6);
+    ctx.lineTo(19, 0);
+    ctx.lineTo(7, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = th.edge;
+    ctx.fillRect(9, -1, 8, 2);
+    ctx.fillStyle = th.ribbon;
+    ctx.fillRect(-15, -5, 5, 2);
+    ctx.fillRect(-15, 3, 5, 2);
+    ctx.fillStyle = th.spark;
+    ctx.fillRect(-3, -3, 16, 6);
+    ctx.restore();
+  };
+
+  drawMagicProjectile = function drawMagicProjectileEpic(obj) {
+    const type = String(obj?.type || "magic");
+    let glow = "rgba(155,95,199,0.46)";
+    let main = "#9b5fc7";
+    let core = "#e9ffff";
+    let spark = "#d39cff";
+    if (["fireball", "fire", "crimsonMeteor", "sandBolt", "sandLance"].includes(type)) {
+      glow = "rgba(255,143,76,0.40)";
+      main = "#ff8f4c";
+      core = "#fff264";
+      spark = "#fff7c9";
+    } else if (["blueRay", "blueMagic", "lightBolt", "starShot", "sunRay", "light"].includes(type)) {
+      glow = "rgba(85,232,255,0.44)";
+      main = "#55e8ff";
+      core = "#ffffff";
+      spark = "#dffcff";
+    } else if (["poison", "poisonOrb", "acid", "acidBolt"].includes(type)) {
+      glow = "rgba(124,218,82,0.40)";
+      main = "#7cda52";
+      core = "#e6ffd1";
+      spark = "#d8ff96";
+    } else if (["ice", "iceShard", "iceArrow"].includes(type)) {
+      glow = "rgba(159,231,255,0.42)";
+      main = "#7fd6ff";
+      core = "#ffffff";
+      spark = "#ffffff";
+    }
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    drawProjectileTrail(obj, glow, 26);
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - 14, cy - 14, 28, 28);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(cx - 8, cy - 8, 16, 16);
+    ctx.fillStyle = main;
+    ctx.fillRect(cx - 7, cy - 7, 14, 14);
+    ctx.fillStyle = core;
+    ctx.fillRect(cx - 3, cy - 3, 6, 6);
+    ctx.fillStyle = spark;
+    ctx.fillRect(cx - 1, cy - 12, 2, 5);
+    ctx.fillRect(cx - 12, cy - 1, 5, 2);
+    ctx.fillRect(cx + 7, cy - 1, 5, 2);
+    ctx.fillRect(cx - 1, cy + 7, 2, 5);
+    drawEpicPixelSpark(cx, cy, spark, -10, -7);
+    drawEpicPixelSpark(cx, cy, spark, 8, -9);
+    drawEpicPixelSpark(cx, cy, spark, 9, 8);
+    drawEpicPixelSpark(cx, cy, spark, -8, 9);
+  };
+})();
+
+
+/* ==================================================
+   Patch: hitbox muito bonita + contador de dano
+   ================================================== */
+(function eternalRiftBeautifulHitboxAndDamageCounterPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HITBOX_DAMAGE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HITBOX_DAMAGE_PATCH = true;
+
+  const damageCounterPopups = [];
+
+  function hitboxThemeForWeapon(weaponKey) {
+    const key = String(weaponKey || getCurrentWeaponKey?.() || "sword").toLowerCase();
+    const theme = {
+      edge: "#fff8d6",
+      core: "#55e8ff",
+      glow: "rgba(85,232,255,0.18)",
+      trail: "rgba(85,232,255,0.32)",
+      spark: "#e9ffff"
+    };
+    if (key.includes("ice") || key.includes("frost") || key.includes("gelo")) {
+      theme.edge = "#ffffff";
+      theme.core = "#9fe7ff";
+      theme.glow = "rgba(159,231,255,0.18)";
+      theme.trail = "rgba(159,231,255,0.30)";
+      theme.spark = "#ffffff";
+    } else if (key.includes("fire") || key.includes("solar") || key.includes("desert") || key.includes("sand")) {
+      theme.edge = "#fff2bd";
+      theme.core = "#ff9d57";
+      theme.glow = "rgba(255,157,87,0.18)";
+      theme.trail = "rgba(255,157,87,0.32)";
+      theme.spark = "#fff7d6";
+    } else if (key.includes("poison") || key.includes("acid") || key.includes("veneno") || key.includes("swamp")) {
+      theme.edge = "#f5ffd4";
+      theme.core = "#84df57";
+      theme.glow = "rgba(132,223,87,0.17)";
+      theme.trail = "rgba(132,223,87,0.30)";
+      theme.spark = "#d8ff96";
+    } else if (key.includes("shadow") || key.includes("dark") || key.includes("abyss") || key.includes("night")) {
+      theme.edge = "#f1e4ff";
+      theme.core = "#b38aff";
+      theme.glow = "rgba(179,138,255,0.18)";
+      theme.trail = "rgba(179,138,255,0.28)";
+      theme.spark = "#efe2ff";
+    } else if (key.includes("holy") || key.includes("celestial") || key.includes("aurora") || key.includes("star")) {
+      theme.edge = "#ffffff";
+      theme.core = "#ffe08f";
+      theme.glow = "rgba(255,224,143,0.16)";
+      theme.trail = "rgba(255,224,143,0.28)";
+      theme.spark = "#fff7d7";
+    }
+    return theme;
+  }
+
+  function registerDamageCounter(target, amount, critical = false, damageType = "fisico") {
+    if (!target) return;
+    const color = critical ? "#ff6a78" : damageType === "gelo" ? "#baf1ff" : damageType === "veneno" ? "#c8ff88" : damageType === "fogo" ? "#ffd18f" : "#fff4ac";
+    const centerX = target.x + (target.width || 24) / 2;
+    const centerY = target.y + (target.height || 24) / 2;
+
+    damageCounterPopups.push({
+      text: critical ? `CRIT ${amount}` : String(amount),
+      x: centerX + (Math.random() * 12 - 6),
+      y: centerY - 8,
+      color,
+      outline: critical ? "#6e1120" : "#273052",
+      timer: critical ? 0.95 : 0.82,
+      maxTimer: critical ? 0.95 : 0.82,
+      vy: critical ? -32 : -26,
+      scale: critical ? 1.22 : 1,
+      kind: critical ? "crit" : "damage"
+    });
+
+    target.recentDamageCounter = target.recentDamageCounter || { total: 0, hits: 0, timer: 0, maxTimer: 0.95, crit: false };
+    target.recentDamageCounter.total += amount;
+    target.recentDamageCounter.hits += 1;
+    target.recentDamageCounter.timer = 0.95;
+    target.recentDamageCounter.maxTimer = 0.95;
+    target.recentDamageCounter.crit = target.recentDamageCounter.crit || critical;
+  }
+
+  const updateFloatingTextsBeforeDamageCounter = updateFloatingTexts;
+  updateFloatingTexts = function updateFloatingTextsDamageCounter(delta) {
+    updateFloatingTextsBeforeDamageCounter(delta);
+
+    for (let i = damageCounterPopups.length - 1; i >= 0; i--) {
+      const obj = damageCounterPopups[i];
+      obj.timer -= delta;
+      obj.y += obj.vy * delta;
+      if (obj.kind === "crit") obj.x += Math.sin((obj.maxTimer - obj.timer) * 26) * 0.35;
+      if (obj.timer <= 0) damageCounterPopups.splice(i, 1);
+    }
+
+    for (const obj of objects) {
+      if (!obj || !obj.recentDamageCounter) continue;
+      obj.recentDamageCounter.timer -= delta;
+      if (obj.recentDamageCounter.timer <= 0 || !obj.alive) obj.recentDamageCounter = null;
+    }
+  };
+
+  function drawDamageCounterPopups() {
+    ctx.textAlign = "center";
+    for (const obj of damageCounterPopups) {
+      const progress = 1 - obj.timer / obj.maxTimer;
+      const alpha = Math.max(0, obj.timer / obj.maxTimer);
+      const scale = obj.scale + Math.sin(progress * Math.PI) * 0.14;
+      ctx.save();
+      ctx.translate(obj.x, obj.y);
+      ctx.scale(scale, scale);
+      ctx.font = obj.kind === "crit" ? "bold 15px Trebuchet MS, Arial" : "bold 13px Trebuchet MS, Arial";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = `rgba(39,48,82,${0.92 * alpha})`;
+      ctx.strokeText(obj.text, 0, 0);
+      ctx.fillStyle = obj.kind === "crit" ? `rgba(255,106,120,${alpha})` : `rgba(255,244,172,${alpha})`;
+      if (obj.color) ctx.fillStyle = obj.color.replace('rgb', 'rgba');
+      ctx.fillStyle = obj.color;
+      ctx.globalAlpha = alpha;
+      ctx.fillText(obj.text, 0, 0);
+      if (obj.kind === "crit") {
+        ctx.globalAlpha = alpha * 0.55;
+        ctx.fillStyle = "#fff7d6";
+        ctx.fillRect(-18, -8, 5, 2);
+        ctx.fillRect(13, -8, 5, 2);
+      }
+      ctx.restore();
+    }
+    ctx.textAlign = "start";
+  }
+
+  function drawEnemyDamageStacks() {
+    ctx.textAlign = "center";
+    for (const obj of objects) {
+      if (!obj?.recentDamageCounter || !obj.alive || !isOnCamera(obj, 64)) continue;
+      const data = obj.recentDamageCounter;
+      const alpha = clamp(data.timer / data.maxTimer, 0, 1);
+      const baseX = obj.x + obj.width / 2;
+      const baseY = obj.y - 20 - (1 - alpha) * 8;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = "bold 12px Trebuchet MS, Arial";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(39,48,82,0.95)";
+      const mainText = `DANO ${data.total}`;
+      ctx.strokeText(mainText, baseX, baseY);
+      ctx.fillStyle = data.crit ? "#ffd7de" : "#fff4ac";
+      ctx.fillText(mainText, baseX, baseY);
+      ctx.font = "bold 10px Trebuchet MS, Arial";
+      const comboText = `${data.hits} hit${data.hits > 1 ? 's' : ''}`;
+      ctx.strokeText(comboText, baseX, baseY + 11);
+      ctx.fillStyle = "#9fe7ff";
+      ctx.fillText(comboText, baseX, baseY + 11);
+      ctx.restore();
+    }
+    ctx.textAlign = "start";
+  }
+
+  const drawFloatingTextsBeforeDamageCounter = drawFloatingTexts;
+  drawFloatingTexts = function drawFloatingTextsDamageCounter() {
+    drawFloatingTextsBeforeDamageCounter();
+    drawDamageCounterPopups();
+    drawEnemyDamageStacks();
+  };
+
+  // Reescreve o dano base dos inimigos para incluir contador de dano.
+  damageEnemy = function damageEnemyBeautifulCounter(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = "fisico") {
+    if (!obj.alive || obj.invulnerableTimer > 0) return false;
+
+    const critical = Math.random() < player.critChance;
+    const resistance = obj.resistances?.[damageType] ?? 1;
+    const rawDamage = (critical ? amount * 2 : amount) * resistance - (obj.defense || 0);
+    const damage = Math.max(1, Math.round(rawDamage));
+    obj.hp -= damage;
+    obj.invulnerableTimer = 0.28;
+
+    const centerX = obj.x + obj.width / 2;
+    const centerY = obj.y + obj.height / 2;
+    const dx = centerX - sourceX;
+    const dy = centerY - sourceY;
+    const length = Math.hypot(dx, dy) || 1;
+    obj.knockbackX = (dx / length) * knockbackPower;
+    obj.knockbackY = (dy / length) * knockbackPower;
+
+    spawnFloatingText(critical ? `CRITICO -${damage}` : `-${damage}`, obj.x + obj.width / 2, obj.y - 8, critical ? "#ff6a78" : "#fff264");
+    registerDamageCounter(obj, damage, critical, damageType);
+    playSound("hitEnemy");
+    hitstopTimer = 0.055;
+
+    if (obj.hp <= 0) defeatEnemy(obj);
+    return true;
+  };
+
+  function drawBeautifulAttackCone(current, progress, preparing = false) {
+    const theme = hitboxThemeForWeapon(current.weaponKey);
+    const fullArc = (current.arc || Math.PI * 0.72) * 0.82;
+    const range = Math.max(26, (current.range || 52) * 0.78);
+    const visualRange = range * (0.78 + progress * 0.16);
+    const start = -fullArc / 2;
+    const end = start + fullArc * (0.30 + progress * 0.70);
+    const alpha = preparing ? 0.10 : 0.15;
+
+    ctx.fillStyle = theme.glow.replace(/0\.\d+\)/, `${alpha})`);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, visualRange, start, end);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = theme.trail;
+    ctx.lineWidth = preparing ? 2 : 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, visualRange, start, end);
+    ctx.stroke();
+
+    ctx.strokeStyle = theme.edge;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, visualRange * 0.78, start + 0.03, end - 0.03);
+    ctx.stroke();
+
+    const tipAngle = end;
+    const tipX = Math.cos(tipAngle) * visualRange;
+    const tipY = Math.sin(tipAngle) * visualRange;
+    ctx.fillStyle = theme.spark;
+    ctx.fillRect(tipX - 2, tipY - 2, 4, 4);
+    ctx.fillStyle = theme.core;
+    ctx.fillRect(tipX - 6, tipY - 1, 3, 2);
+  }
+
+  function drawBeautifulSpearHitbox(current, progress, preparing = false) {
+    const theme = hitboxThemeForWeapon(current.weaponKey);
+    const length = Math.max(34, (current.range || 72) * (0.68 + progress * 0.20));
+    const width = preparing ? 8 : 10;
+
+    ctx.fillStyle = theme.glow.replace(/0\.\d+\)/, `${preparing ? 0.10 : 0.14})`);
+    ctx.fillRect(8, -width, length + 10, width * 2);
+    ctx.fillStyle = theme.trail;
+    ctx.fillRect(10, -4, length, 8);
+    ctx.fillStyle = theme.edge;
+    ctx.fillRect(14, -1, length - 4, 2);
+    ctx.fillStyle = theme.core;
+    ctx.beginPath();
+    ctx.moveTo(length + 14, -8);
+    ctx.lineTo(length + 28, 0);
+    ctx.lineTo(length + 14, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = theme.spark;
+    ctx.fillRect(length + 24, -2, 8, 4);
+  }
+
+  const drawAttackBeforeBeautifulHitbox = drawAttack;
+  drawAttack = function drawAttackBeautifulHitbox() {
+    if (attackTimer <= 0 || !currentMeleeAttack) return;
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const totalTimer = Math.max(0.001, currentMeleeAttack.maxTimer || attackTimer || 0.45);
+    const progress = 1 - clamp((currentMeleeAttack.timer || 0) / totalTimer, 0, 1);
+    const preparing = attackWindupTimer > 0;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(currentMeleeAttack.angle || 0);
+    if (currentMeleeAttack.weaponKey === "spear") drawBeautifulSpearHitbox(currentMeleeAttack, progress, preparing);
+    else drawBeautifulAttackCone(currentMeleeAttack, progress, preparing);
+    ctx.restore();
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA: hitbox epica, bonita e muito mais caprichada
+   ================================================== */
+(function eternalRiftEpicHitboxPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EPIC_HITBOX_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EPIC_HITBOX_PATCH = true;
+
+  function getEpicHitboxStyle(weaponKey) {
+    const key = String(weaponKey || getCurrentWeaponKey?.() || "sword").toLowerCase();
+    const style = {
+      core: '#55e8ff',
+      edge: '#ffffff',
+      glow: 'rgba(85,232,255,0.16)',
+      trail: 'rgba(85,232,255,0.34)',
+      pulse: 'rgba(233,255,255,0.85)',
+      shadow: 'rgba(39,48,82,0.35)'
+    };
+    if (key.includes('fire') || key.includes('solar') || key.includes('sand') || key.includes('desert')) {
+      Object.assign(style, {
+        core: '#ff9d57', edge: '#fff2bd', glow: 'rgba(255,157,87,0.16)', trail: 'rgba(255,157,87,0.34)', pulse: 'rgba(255,247,214,0.90)'
+      });
+    } else if (key.includes('ice') || key.includes('frost') || key.includes('gelo')) {
+      Object.assign(style, {
+        core: '#9fe7ff', edge: '#ffffff', glow: 'rgba(159,231,255,0.16)', trail: 'rgba(159,231,255,0.34)', pulse: 'rgba(255,255,255,0.92)'
+      });
+    } else if (key.includes('poison') || key.includes('veneno') || key.includes('acid') || key.includes('swamp')) {
+      Object.assign(style, {
+        core: '#84df57', edge: '#f6ffd4', glow: 'rgba(132,223,87,0.16)', trail: 'rgba(132,223,87,0.32)', pulse: 'rgba(216,255,150,0.90)'
+      });
+    } else if (key.includes('shadow') || key.includes('night') || key.includes('dark') || key.includes('abyss')) {
+      Object.assign(style, {
+        core: '#b38aff', edge: '#efe2ff', glow: 'rgba(179,138,255,0.16)', trail: 'rgba(179,138,255,0.30)', pulse: 'rgba(239,226,255,0.90)'
+      });
+    } else if (key.includes('holy') || key.includes('celestial') || key.includes('aurora') || key.includes('star')) {
+      Object.assign(style, {
+        core: '#ffe08f', edge: '#ffffff', glow: 'rgba(255,224,143,0.14)', trail: 'rgba(255,224,143,0.30)', pulse: 'rgba(255,247,215,0.92)'
+      });
+    }
+    return style;
+  }
+
+  function drawArcBand(radius, start, end, width, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, start, end);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawConeFill(radiusOuter, radiusInner, start, end, fillStyle, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = fillStyle;
+    ctx.beginPath();
+    ctx.arc(0, 0, radiusOuter, start, end);
+    ctx.arc(0, 0, radiusInner, end, start, true);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTipSpark(x, y, style, scale = 1) {
+    ctx.save();
+    ctx.fillStyle = style.pulse;
+    ctx.fillRect(x - 3 * scale, y - 1, 6 * scale, 2);
+    ctx.fillRect(x - 1, y - 3 * scale, 2, 6 * scale);
+    ctx.fillStyle = style.edge;
+    ctx.fillRect(x - 1, y - 1, 2, 2);
+    ctx.restore();
+  }
+
+  function drawSlashRibbon(current, progress, preparing = false) {
+    const style = getEpicHitboxStyle(current.weaponKey);
+    const baseArc = (current.arc || Math.PI * 0.76);
+    const arc = baseArc * (preparing ? 0.70 : 0.84);
+    const range = Math.max(28, (current.range || 52) * (preparing ? 0.62 : 0.82));
+    const sweepProgress = preparing ? (0.16 + progress * 0.34) : (0.28 + progress * 0.72);
+    const start = -arc / 2;
+    const end = start + arc * sweepProgress;
+    const outerR = range + 6;
+    const innerR = Math.max(12, range - (preparing ? 16 : 12));
+
+    drawConeFill(outerR, innerR, start, end, style.glow, preparing ? 0.65 : 0.95);
+    drawArcBand(range + 1, start, end, preparing ? 6 : 9, style.trail, preparing ? 0.85 : 1);
+    drawArcBand(range - 5, start + 0.025, end - 0.025, preparing ? 3 : 4, style.edge, 1);
+    drawArcBand(range - 9, start + 0.05, end - 0.05, 2, style.core, 0.9);
+
+    // layered slash feathers for richer look
+    const steps = 4;
+    for (let i = 0; i < steps; i++) {
+      const t = end - (arc * 0.14) * (i / steps);
+      const r = range - i * 4;
+      const x = Math.cos(t) * r;
+      const y = Math.sin(t) * r;
+      ctx.save();
+      ctx.globalAlpha = preparing ? 0.18 : 0.28 - i * 0.04;
+      ctx.fillStyle = style.core;
+      ctx.translate(x, y);
+      ctx.rotate(t);
+      ctx.fillRect(-10 + i, -2, 12, 4);
+      ctx.restore();
+    }
+
+    const tipX = Math.cos(end) * (range + 1);
+    const tipY = Math.sin(end) * (range + 1);
+    drawTipSpark(tipX, tipY, style, preparing ? 0.8 : 1);
+
+    // close-range impact ring
+    drawArcBand(Math.max(12, innerR - 7), start + 0.02, end - 0.02, 2, style.pulse, preparing ? 0.35 : 0.5);
+  }
+
+  function drawLanceStrike(current, progress, preparing = false) {
+    const style = getEpicHitboxStyle(current.weaponKey);
+    const length = Math.max(36, (current.range || 72) * (preparing ? 0.60 : 0.84 + progress * 0.10));
+    const shaftW = preparing ? 7 : 9;
+    const outerW = shaftW + 6;
+    const pointLen = preparing ? 12 : 18;
+
+    ctx.save();
+    ctx.globalAlpha = preparing ? 0.60 : 0.95;
+    ctx.fillStyle = style.glow;
+    ctx.beginPath();
+    ctx.moveTo(7, -outerW);
+    ctx.lineTo(length + pointLen, 0);
+    ctx.lineTo(7, outerW);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = style.trail;
+    ctx.beginPath();
+    ctx.moveTo(10, -shaftW);
+    ctx.lineTo(length + pointLen - 5, 0);
+    ctx.lineTo(10, shaftW);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = style.edge;
+    ctx.fillRect(14, -2, Math.max(10, length - 8), 4);
+    ctx.fillStyle = style.core;
+    ctx.fillRect(14, -1, Math.max(8, length - 16), 2);
+
+    ctx.fillStyle = style.edge;
+    ctx.beginPath();
+    ctx.moveTo(length - 4, -9);
+    ctx.lineTo(length + pointLen, 0);
+    ctx.lineTo(length - 4, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = style.core;
+    ctx.beginPath();
+    ctx.moveTo(length - 1, -6);
+    ctx.lineTo(length + pointLen - 2, 0);
+    ctx.lineTo(length - 1, 6);
+    ctx.closePath();
+    ctx.fill();
+
+    for (let i = 0; i < 4; i++) {
+      const tx = 16 + i * (length / 5);
+      ctx.save();
+      ctx.globalAlpha = 0.18 - i * 0.03;
+      ctx.fillStyle = style.pulse;
+      ctx.fillRect(tx - 8, -5, 11, 10);
+      ctx.restore();
+    }
+
+    drawTipSpark(length + pointLen - 1, 0, style, preparing ? 0.85 : 1.1);
+  }
+
+  const drawAttackBeforeEpicHitboxPatch = drawAttack;
+  drawAttack = function drawAttackEpicHitboxPatch() {
+    if (attackTimer <= 0 || !currentMeleeAttack) return;
+
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const totalTimer = Math.max(0.001, currentMeleeAttack.maxTimer || attackTimer || 0.45);
+    const progress = 1 - clamp((currentMeleeAttack.timer || 0) / totalTimer, 0, 1);
+    const preparing = attackWindupTimer > 0;
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(currentMeleeAttack.angle || 0);
+
+    if (currentMeleeAttack.weaponKey === 'spear') {
+      drawLanceStrike(currentMeleeAttack, progress, preparing);
+    } else {
+      drawSlashRibbon(currentMeleeAttack, progress, preparing);
+    }
+
+    ctx.restore();
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA: contador de dano mais visivel
+   ================================================== */
+(function eternalRiftVisibleDamageCounterPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_VISIBLE_DAMAGE_COUNTER_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_VISIBLE_DAMAGE_COUNTER_PATCH = true;
+
+  function drawRoundedDamagePanel(x, y, w, h, fill, stroke, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = fill;
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    ctx.restore();
+  }
+
+  drawDamageCounterPopups = function drawDamageCounterPopupsVisible() {
+    ctx.textAlign = "center";
+    for (const obj of damageCounterPopups) {
+      const progress = 1 - obj.timer / obj.maxTimer;
+      const alpha = Math.max(0, obj.timer / obj.maxTimer);
+      const scale = obj.scale + Math.sin(progress * Math.PI) * (obj.kind === "crit" ? 0.22 : 0.16);
+      const textWidth = obj.text.length * (obj.kind === "crit" ? 9.5 : 8.2);
+      const panelW = textWidth + 20;
+      const panelH = obj.kind === "crit" ? 22 : 19;
+      ctx.save();
+      ctx.translate(obj.x, obj.y - (obj.kind === "crit" ? 1 : 0));
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = alpha;
+
+      drawRoundedDamagePanel(-panelW / 2, -15, panelW, panelH, obj.kind === "crit" ? "rgba(95,20,34,0.86)" : "rgba(39,48,82,0.82)", obj.kind === "crit" ? "rgba(255,180,190,0.95)" : "rgba(255,244,172,0.90)", alpha);
+
+      ctx.font = obj.kind === "crit" ? "bold 16px Trebuchet MS, Arial" : "bold 14px Trebuchet MS, Arial";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = obj.kind === "crit" ? `rgba(60,8,18,${0.95 * alpha})` : `rgba(18,24,45,${0.96 * alpha})`;
+      ctx.strokeText(obj.text, 0, 0);
+      ctx.fillStyle = obj.kind === "crit" ? "#ff95a0" : (obj.color || "#fff4ac");
+      ctx.fillText(obj.text, 0, 0);
+
+      if (obj.kind === "crit") {
+        ctx.fillStyle = "rgba(255,240,214,0.95)";
+        ctx.fillRect(-panelW / 2 + 6, -8, 6, 2);
+        ctx.fillRect(panelW / 2 - 12, -8, 6, 2);
+        ctx.fillRect(-panelW / 2 + 9, -11, 2, 8);
+        ctx.fillRect(panelW / 2 - 11, -11, 2, 8);
+      }
+      ctx.restore();
+    }
+    ctx.textAlign = "start";
+  };
+
+  drawEnemyDamageStacks = function drawEnemyDamageStacksVisible() {
+    ctx.textAlign = "center";
+    for (const obj of objects) {
+      if (!obj?.recentDamageCounter || !obj.alive || !isOnCamera(obj, 64)) continue;
+      const data = obj.recentDamageCounter;
+      const alpha = clamp(data.timer / data.maxTimer, 0, 1);
+      const baseX = obj.x + obj.width / 2;
+      const baseY = obj.y - 28 - (1 - alpha) * 10;
+      const panelW = 74;
+      const panelH = 28;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      drawRoundedDamagePanel(baseX - panelW / 2, baseY - 14, panelW, panelH, "rgba(26,33,56,0.84)", data.crit ? "rgba(255,190,210,0.92)" : "rgba(255,244,172,0.88)", alpha);
+
+      ctx.font = "bold 13px Trebuchet MS, Arial";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(14,18,35,0.96)";
+      const mainText = `${data.total}`;
+      ctx.strokeText(mainText, baseX, baseY - 1);
+      ctx.fillStyle = data.crit ? "#ffd7de" : "#fff4ac";
+      ctx.fillText(mainText, baseX, baseY - 1);
+
+      ctx.font = "bold 9px Trebuchet MS, Arial";
+      ctx.fillStyle = "#9fe7ff";
+      ctx.strokeText(`DANO • ${data.hits} HIT${data.hits > 1 ? 'S' : ''}`, baseX, baseY + 10);
+      ctx.fillText(`DANO • ${data.hits} HIT${data.hits > 1 ? 'S' : ''}`, baseX, baseY + 10);
+      ctx.restore();
+    }
+    ctx.textAlign = "start";
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA: efeitos elementais nas armas
+   ================================================== */
+(function eternalRiftWeaponElementEffectsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_WEAPON_ELEMENT_EFFECTS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_WEAPON_ELEMENT_EFFECTS_PATCH = true;
+
+  function identifyWeaponElement(damageType) {
+    const key = String(damageType || "").toLowerCase();
+    if (!key) return null;
+    if (key.includes("fire") || key.includes("fogo") || key.includes("flame") || key.includes("burn") || key.includes("solar")) return "fire";
+    if (key.includes("ice") || key.includes("gelo") || key.includes("frost") || key.includes("glacial") || key.includes("frozen")) return "ice";
+    if (key.includes("poison") || key.includes("veneno") || key.includes("acid") || key.includes("tox")) return "poison";
+    if (key.includes("storm") || key.includes("thunder") || key.includes("lightning") || key.includes("raio") || key.includes("shock")) return "storm";
+    if (key.includes("shadow") || key.includes("dark") || key.includes("sombra") || key.includes("abyss") || key.includes("trevas")) return "shadow";
+    if (key.includes("holy") || key.includes("light") || key.includes("sagrado") || key.includes("celestial") || key.includes("aurora") || key.includes("sun")) return "holy";
+    return null;
+  }
+
+  function elementalStatusColor(element) {
+    if (element === "fire") return "#ff9d57";
+    if (element === "ice") return "#baf1ff";
+    if (element === "poison") return "#c8ff88";
+    if (element === "storm") return "#ffe08f";
+    if (element === "shadow") return "#d8b7ff";
+    if (element === "holy") return "#fff3c1";
+    return "#fff4ac";
+  }
+
+  function addElementalStatusFx(kind, x, y, color, radius, core) {
+    if (typeof addElementalEffect === 'function') {
+      addElementalEffect(kind, x, y, color, core || '#fff3d6', radius || 36);
+    }
+  }
+
+  function applyWeaponElementAilment(target, damageType, amount) {
+    if (!target || !target.alive) return;
+    const element = identifyWeaponElement(damageType);
+    if (!element) return;
+    const cx = target.x + target.width / 2;
+    const cy = target.y + target.height / 2;
+
+    if (element === 'fire') {
+      target.weaponBurnTimer = Math.max(Number(target.weaponBurnTimer || 0), 3.2);
+      target.weaponBurnTick = Math.min(Number(target.weaponBurnTick || 0), 0.1);
+      target.weaponElementSource = 'fire';
+      addElementalStatusFx('fire', cx, cy, '#ff7a45', 44, '#fff264');
+      spawnFloatingText('QUEIMANDO', cx, target.y - 16, '#ffd18f');
+      return;
+    }
+
+    if (element === 'ice') {
+      target.weaponFreezeTimer = Math.max(Number(target.weaponFreezeTimer || 0), 1.35);
+      target.weaponChillTimer = Math.max(Number(target.weaponChillTimer || 0), 3.0);
+      target.weaponElementSource = 'ice';
+      addElementalStatusFx('ice', cx, cy, '#8fdcff', 40, '#ffffff');
+      spawnFloatingText('CONGELADO', cx, target.y - 16, '#e9ffff');
+      return;
+    }
+
+    if (element === 'poison') {
+      target.weaponPoisonTimer = Math.max(Number(target.weaponPoisonTimer || 0), 4.2);
+      target.weaponPoisonTick = Math.min(Number(target.weaponPoisonTick || 0), 0.1);
+      target.weaponElementSource = 'poison';
+      addElementalStatusFx('shadow', cx, cy, '#84df57', 36, '#d8ff96');
+      spawnFloatingText('ENVENENADO', cx, target.y - 16, '#c8ff88');
+      return;
+    }
+
+    if (element === 'storm') {
+      target.weaponShockTimer = Math.max(Number(target.weaponShockTimer || 0), 1.0);
+      target.weaponShockTick = Math.min(Number(target.weaponShockTick || 0), 0.12);
+      target.weaponElementSource = 'storm';
+      addElementalStatusFx('storm', cx, cy, '#ffe08f', 42, '#fff7d7');
+      spawnFloatingText('ELETRIZADO', cx, target.y - 16, '#fff3c1');
+      return;
+    }
+
+    if (element === 'shadow') {
+      target.weaponShadowCurseTimer = Math.max(Number(target.weaponShadowCurseTimer || 0), 3.4);
+      target.weaponElementSource = 'shadow';
+      addElementalStatusFx('shadow', cx, cy, '#9b5fc7', 40, '#e7d0ff');
+      spawnFloatingText('AMALDICOADO', cx, target.y - 16, '#e7d0ff');
+      return;
+    }
+
+    if (element === 'holy') {
+      target.weaponHolyMarkTimer = Math.max(Number(target.weaponHolyMarkTimer || 0), 3.0);
+      target.weaponElementSource = 'holy';
+      addElementalStatusFx('storm', cx, cy, '#ffe08f', 38, '#fff7d7');
+      spawnFloatingText('PURIFICADO', cx, target.y - 16, '#fff7d7');
+      if (target.alive) directElementalDamage(target, 1, 'LUZ', '#fff3c1');
+      return;
+    }
+  }
+
+  const damageEnemyBeforeWeaponElementEffects = damageEnemy;
+  damageEnemy = function damageEnemyWeaponElementEffects(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = 'fisico') {
+    const hit = damageEnemyBeforeWeaponElementEffects(obj, amount, sourceX, sourceY, knockbackPower, damageType);
+    if (hit && obj?.alive) applyWeaponElementAilment(obj, damageType, amount);
+    return hit;
+  };
+
+  const updateEnemiesBeforeWeaponElementEffects = updateEnemies;
+  updateEnemies = function updateEnemiesWeaponElementEffects(delta) {
+    for (const obj of villageObjects) {
+      if (!obj || obj.type !== 'enemy' || !obj.alive) continue;
+
+      obj.weaponFreezeTimer = Math.max(0, Number(obj.weaponFreezeTimer || 0) - delta);
+      obj.weaponChillTimer = Math.max(0, Number(obj.weaponChillTimer || 0) - delta);
+      obj.weaponPoisonTimer = Math.max(0, Number(obj.weaponPoisonTimer || 0) - delta);
+      obj.weaponShockTimer = Math.max(0, Number(obj.weaponShockTimer || 0) - delta);
+      obj.weaponShadowCurseTimer = Math.max(0, Number(obj.weaponShadowCurseTimer || 0) - delta);
+      obj.weaponHolyMarkTimer = Math.max(0, Number(obj.weaponHolyMarkTimer || 0) - delta);
+      obj.weaponBurnTimer = Math.max(0, Number(obj.weaponBurnTimer || 0) - delta);
+
+      if (obj.weaponBurnTimer > 0) {
+        obj.weaponBurnTick = Math.max(0, Number(obj.weaponBurnTick || 0) - delta);
+        if (obj.weaponBurnTick <= 0) {
+          obj.weaponBurnTick = 0.7;
+          directElementalDamage(obj, 1, 'QUEIMA', '#ff8d4a');
+        }
+      }
+
+      if (obj.weaponPoisonTimer > 0) {
+        obj.weaponPoisonTick = Math.max(0, Number(obj.weaponPoisonTick || 0) - delta);
+        if (obj.weaponPoisonTick <= 0) {
+          obj.weaponPoisonTick = 0.8;
+          directElementalDamage(obj, 1, 'VENENO', '#9fe96f');
+        }
+      }
+
+      if (obj.weaponShockTimer > 0) {
+        obj.weaponShockTick = Math.max(0, Number(obj.weaponShockTick || 0) - delta);
+        if (obj.weaponShockTick <= 0) {
+          obj.weaponShockTick = 0.45;
+          directElementalDamage(obj, 1, 'CHOQUE', '#ffe08f');
+        }
+      }
+
+      if (obj.weaponHolyMarkTimer > 0 && !obj.weaponHolyPulseApplied) {
+        obj.weaponHolyPulseApplied = true;
+        directElementalDamage(obj, 1, 'SAGRADO', '#fff3c1');
+      }
+      if (obj.weaponHolyMarkTimer <= 0) obj.weaponHolyPulseApplied = false;
+    }
+
+    updateEnemiesBeforeWeaponElementEffects(delta);
+  };
+
+  const moveEnemyTowardBeforeWeaponElementEffects = moveEnemyToward;
+  moveEnemyToward = function moveEnemyTowardWeaponElementEffects(obj, dx, dy, delta, speedMultiplier = 1) {
+    if (obj?.weaponFreezeTimer > 0) return;
+    let multi = speedMultiplier;
+    if (obj?.weaponChillTimer > 0) multi *= 0.35;
+    if (obj?.weaponPoisonTimer > 0) multi *= 0.82;
+    if (obj?.weaponShockTimer > 0) multi *= 0.58;
+    if (obj?.weaponShadowCurseTimer > 0) multi *= 0.72;
+    if (obj?.weaponHolyMarkTimer > 0) multi *= 0.88;
+    return moveEnemyTowardBeforeWeaponElementEffects(obj, dx, dy, delta, multi);
+  };
+
+  function drawWeaponElementEnemyStatus(obj) {
+    if (!obj || obj.type !== 'enemy' || !obj.alive) return;
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+
+    if (obj.weaponFreezeTimer > 0 || obj.weaponChillTimer > 0) {
+      ctx.save();
+      ctx.strokeStyle = obj.weaponFreezeTimer > 0 ? 'rgba(255,255,255,0.90)' : 'rgba(186,241,255,0.80)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x - 4, y - 5, w + 8, h + 10);
+      ctx.fillStyle = 'rgba(159,231,255,0.18)';
+      ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+      ctx.fillStyle = '#e9ffff';
+      ctx.fillRect(cx - 1, y - 9, 2, 6);
+      ctx.fillRect(cx - 5, y - 5, 10, 2);
+      ctx.restore();
+    }
+
+    if (obj.weaponBurnTimer > 0) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,122,69,0.70)';
+      ctx.fillRect(cx - 5, y - 8, 4, 8);
+      ctx.fillRect(cx + 1, y - 6, 4, 6);
+      ctx.fillStyle = 'rgba(255,242,100,0.82)';
+      ctx.fillRect(cx - 4, y - 11, 2, 4);
+      ctx.fillRect(cx + 2, y - 8, 2, 3);
+      ctx.restore();
+    }
+
+    if (obj.weaponPoisonTimer > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(132,223,87,0.85)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(w, h) / 2 + 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(200,255,136,0.85)';
+      ctx.fillRect(cx - 8, y - 8, 3, 3);
+      ctx.fillRect(cx + 5, y - 11, 3, 3);
+      ctx.restore();
+    }
+
+    if (obj.weaponShockTimer > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,224,143,0.88)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - 8, y - 6);
+      ctx.lineTo(cx - 2, y - 1);
+      ctx.lineTo(cx - 5, y + 4);
+      ctx.lineTo(cx + 2, y + 1);
+      ctx.lineTo(cx + 7, y + 7);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (obj.weaponShadowCurseTimer > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(216,183,255,0.90)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(w, h) / 2 + 7, Math.PI * 0.2, Math.PI * 1.8);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(216,183,255,0.22)';
+      ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+      ctx.restore();
+    }
+
+    if (obj.weaponHolyMarkTimer > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,243,193,0.92)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(w, h) / 2 + 7, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,243,193,0.80)';
+      ctx.fillRect(cx - 1, y - 10, 2, 8);
+      ctx.fillRect(cx - 5, y - 6, 10, 2);
+      ctx.restore();
+    }
+  }
+
+  const drawEnemyBeforeWeaponElementEffects = drawEnemy;
+  drawEnemy = function drawEnemyWeaponElementEffects(obj) {
+    drawEnemyBeforeWeaponElementEffects(obj);
+    drawWeaponElementEnemyStatus(obj);
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA: efeitos elementais MUITO mais bonitos
+   ================================================== */
+(function eternalRiftBeautifulElementFXPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BEAUTIFUL_ELEMENT_FX_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BEAUTIFUL_ELEMENT_FX_PATCH = true;
+
+  const elementalAilmentParticles = [];
+
+  function detectElementFromTimers(obj) {
+    if (!obj) return null;
+    if (obj.weaponBurnTimer > 0) return 'fire';
+    if (obj.weaponFreezeTimer > 0 || obj.weaponChillTimer > 0) return 'ice';
+    if (obj.weaponPoisonTimer > 0) return 'poison';
+    if (obj.weaponShockTimer > 0) return 'storm';
+    if (obj.weaponShadowCurseTimer > 0) return 'shadow';
+    if (obj.weaponHolyMarkTimer > 0) return 'holy';
+    return null;
+  }
+
+  function elementPalette(element) {
+    switch (element) {
+      case 'fire':
+        return { main: '#ff8a4d', core: '#fff264', soft: 'rgba(255,138,77,0.24)', glow: 'rgba(255,99,53,0.18)' };
+      case 'ice':
+        return { main: '#8fdcff', core: '#ffffff', soft: 'rgba(143,220,255,0.24)', glow: 'rgba(201,245,255,0.18)' };
+      case 'poison':
+        return { main: '#84df57', core: '#efffbe', soft: 'rgba(132,223,87,0.24)', glow: 'rgba(176,255,114,0.18)' };
+      case 'storm':
+        return { main: '#ffe08f', core: '#fff7d7', soft: 'rgba(255,224,143,0.22)', glow: 'rgba(255,243,193,0.18)' };
+      case 'shadow':
+        return { main: '#b48aff', core: '#efe2ff', soft: 'rgba(180,138,255,0.24)', glow: 'rgba(216,183,255,0.18)' };
+      case 'holy':
+        return { main: '#fff3c1', core: '#ffffff', soft: 'rgba(255,243,193,0.22)', glow: 'rgba(255,251,228,0.18)' };
+      default:
+        return { main: '#55e8ff', core: '#ffffff', soft: 'rgba(85,232,255,0.22)', glow: 'rgba(223,252,255,0.18)' };
+    }
+  }
+
+  function pushElementParticle(x, y, element, options = {}) {
+    const pal = elementPalette(element);
+    elementalAilmentParticles.push({
+      x, y,
+      vx: options.vx ?? ((Math.random() - 0.5) * 34),
+      vy: options.vy ?? (-10 - Math.random() * 36),
+      size: options.size ?? (options.big ? 4 + Math.random() * 3 : 2 + Math.random() * 2),
+      life: options.life ?? (options.big ? 0.65 + Math.random() * 0.30 : 0.34 + Math.random() * 0.22),
+      maxLife: options.life ?? (options.big ? 0.65 + Math.random() * 0.30 : 0.34 + Math.random() * 0.22),
+      main: pal.main,
+      core: pal.core,
+      soft: pal.soft,
+      glow: pal.glow,
+      element,
+      shape: options.shape || null,
+      orbitAngle: options.orbitAngle ?? (Math.random() * Math.PI * 2),
+      orbitRadius: options.orbitRadius ?? (options.big ? 12 + Math.random() * 18 : 0),
+      attached: options.attached || null,
+      boss: Boolean(options.boss)
+    });
+  }
+
+  function spawnElementBurstOnEnemy(obj, element, burstSize = 8) {
+    if (!obj || !obj.alive || !element) return;
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const bossBoost = obj.boss ? 1.65 : 1;
+    for (let i = 0; i < burstSize * bossBoost; i++) {
+      const angle = (Math.PI * 2 * i) / Math.max(1, burstSize * bossBoost) + Math.random() * 0.4;
+      const speed = 14 + Math.random() * 22;
+      pushElementParticle(
+        cx + Math.cos(angle) * (4 + Math.random() * 8),
+        cy + Math.sin(angle) * (4 + Math.random() * 8),
+        element,
+        {
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 14,
+          big: true,
+          boss: obj.boss,
+          life: 0.45 + Math.random() * 0.35
+        }
+      );
+    }
+  }
+
+  function updateElementParticles(delta) {
+    for (let i = elementalAilmentParticles.length - 1; i >= 0; i--) {
+      const p = elementalAilmentParticles[i];
+      p.life -= delta;
+      if (p.life <= 0) {
+        elementalAilmentParticles.splice(i, 1);
+        continue;
+      }
+
+      if (p.attached && p.attached.alive) {
+        const cx = p.attached.x + p.attached.width / 2;
+        const cy = p.attached.y + p.attached.height / 2;
+        p.orbitAngle += delta * (p.boss ? 3.8 : 2.6);
+        p.x = cx + Math.cos(p.orbitAngle) * p.orbitRadius;
+        p.y = cy + Math.sin(p.orbitAngle) * (p.orbitRadius * 0.68) - 4;
+      } else {
+        p.x += p.vx * delta;
+        p.y += p.vy * delta;
+        p.vy += 22 * delta;
+      }
+    }
+  }
+
+  function drawElementParticleShape(p, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(p.x, p.y);
+
+    if (p.element === 'fire') {
+      ctx.fillStyle = p.soft;
+      ctx.fillRect(-p.size - 3, -p.size - 3, (p.size + 3) * 2, (p.size + 3) * 2);
+      ctx.fillStyle = p.main;
+      ctx.fillRect(-p.size / 2, -p.size - 1, p.size, p.size + 2);
+      ctx.fillRect(-p.size, -1, p.size * 0.8, p.size);
+      ctx.fillStyle = p.core;
+      ctx.fillRect(-1, -p.size + 1, 2, Math.max(2, p.size - 1));
+    } else if (p.element === 'ice') {
+      ctx.strokeStyle = p.main;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-p.size, 0); ctx.lineTo(p.size, 0);
+      ctx.moveTo(0, -p.size); ctx.lineTo(0, p.size);
+      ctx.moveTo(-p.size * 0.7, -p.size * 0.7); ctx.lineTo(p.size * 0.7, p.size * 0.7);
+      ctx.moveTo(-p.size * 0.7, p.size * 0.7); ctx.lineTo(p.size * 0.7, -p.size * 0.7);
+      ctx.stroke();
+      ctx.fillStyle = p.core;
+      ctx.fillRect(-1, -1, 2, 2);
+    } else if (p.element === 'poison') {
+      ctx.fillStyle = p.soft;
+      ctx.fillRect(-p.size - 4, -p.size - 4, (p.size + 4) * 2, (p.size + 4) * 2);
+      ctx.fillStyle = p.main;
+      ctx.fillRect(-p.size, -p.size, p.size * 2, p.size * 2);
+      ctx.fillStyle = p.core;
+      ctx.fillRect(-1, -1, 2, 2);
+    } else if (p.element === 'storm') {
+      ctx.strokeStyle = p.main;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-p.size, -p.size * 0.8);
+      ctx.lineTo(-1, -1);
+      ctx.lineTo(-p.size * 0.35, p.size * 0.15);
+      ctx.lineTo(p.size, p.size * 0.9);
+      ctx.stroke();
+      ctx.fillStyle = p.core;
+      ctx.fillRect(-1, -1, 2, 2);
+    } else if (p.element === 'shadow') {
+      ctx.fillStyle = p.soft;
+      ctx.fillRect(-p.size - 4, -p.size - 4, (p.size + 4) * 2, (p.size + 4) * 2);
+      ctx.fillStyle = p.main;
+      ctx.fillRect(-p.size, -p.size, p.size * 2, p.size * 2);
+      ctx.fillStyle = p.core;
+      ctx.fillRect(-p.size * 0.5, -1, p.size, 2);
+    } else if (p.element === 'holy') {
+      ctx.fillStyle = p.main;
+      ctx.fillRect(-1, -p.size, 2, p.size * 2);
+      ctx.fillRect(-p.size, -1, p.size * 2, 2);
+      ctx.fillStyle = p.core;
+      ctx.fillRect(-1, -1, 2, 2);
+    } else {
+      ctx.fillStyle = p.main;
+      ctx.fillRect(-p.size, -p.size, p.size * 2, p.size * 2);
+    }
+    ctx.restore();
+  }
+
+  function drawElementParticles() {
+    for (const p of elementalAilmentParticles) {
+      const alpha = Math.max(0, p.life / Math.max(0.001, p.maxLife));
+      drawElementParticleShape(p, alpha);
+    }
+  }
+
+  function drawBossElementalAura(obj, element) {
+    if (!obj?.boss || !element || !obj.alive) return;
+    const pal = elementPalette(element);
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const r = Math.max(obj.width, obj.height) / 2 + 10;
+    const t = performance.now() / 1000;
+
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.strokeStyle = pal.main;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, t * 1.2, t * 1.2 + Math.PI * 1.45);
+    ctx.stroke();
+    ctx.strokeStyle = pal.core;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 5, -t * 1.5, -t * 1.5 + Math.PI * 1.15);
+    ctx.stroke();
+    ctx.fillStyle = pal.glow;
+    ctx.fillRect(obj.x - 5, obj.y - 5, obj.width + 10, obj.height + 10);
+
+    if (element === 'fire') {
+      ctx.fillStyle = 'rgba(255,138,77,0.35)';
+      ctx.fillRect(cx - 14, obj.y - 10, 8, 14);
+      ctx.fillRect(cx + 5, obj.y - 14, 8, 18);
+    } else if (element === 'ice') {
+      ctx.strokeStyle = pal.core;
+      ctx.strokeRect(obj.x - 6, obj.y - 6, obj.width + 12, obj.height + 12);
+    } else if (element === 'storm') {
+      ctx.strokeStyle = pal.main;
+      ctx.beginPath();
+      ctx.moveTo(cx - 12, obj.y - 8);
+      ctx.lineTo(cx - 2, obj.y + 2);
+      ctx.lineTo(cx - 7, obj.y + 8);
+      ctx.lineTo(cx + 7, obj.y + 16);
+      ctx.stroke();
+    } else if (element === 'holy') {
+      ctx.fillStyle = pal.core;
+      ctx.fillRect(cx - 1, obj.y - 14, 2, 12);
+      ctx.fillRect(cx - 7, obj.y - 8, 14, 2);
+    } else if (element === 'shadow') {
+      ctx.fillStyle = 'rgba(216,183,255,0.16)';
+      ctx.fillRect(obj.x - 7, obj.y - 7, obj.width + 14, obj.height + 14);
+    } else if (element === 'poison') {
+      ctx.strokeStyle = pal.main;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 7, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const damageEnemyBeforeBeautifulElementFX = damageEnemy;
+  damageEnemy = function damageEnemyBeautifulElementFX(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = 'fisico') {
+    const hit = damageEnemyBeforeBeautifulElementFX(obj, amount, sourceX, sourceY, knockbackPower, damageType);
+    const element = (function(key) {
+      key = String(key || '').toLowerCase();
+      if (key.includes('fire') || key.includes('fogo') || key.includes('flame') || key.includes('burn') || key.includes('solar')) return 'fire';
+      if (key.includes('ice') || key.includes('gelo') || key.includes('frost') || key.includes('glacial') || key.includes('frozen')) return 'ice';
+      if (key.includes('poison') || key.includes('veneno') || key.includes('acid') || key.includes('tox')) return 'poison';
+      if (key.includes('storm') || key.includes('thunder') || key.includes('lightning') || key.includes('raio') || key.includes('shock')) return 'storm';
+      if (key.includes('shadow') || key.includes('dark') || key.includes('sombra') || key.includes('abyss') || key.includes('trevas')) return 'shadow';
+      if (key.includes('holy') || key.includes('light') || key.includes('sagrado') || key.includes('celestial') || key.includes('aurora') || key.includes('sun')) return 'holy';
+      return null;
+    })(damageType);
+    if (hit && obj?.alive && element) {
+      spawnElementBurstOnEnemy(obj, element, obj.boss ? 14 : 8);
+      obj.elementVisualFx = element;
+    }
+    return hit;
+  };
+
+  const updateEnemiesBeforeBeautifulElementFX = updateEnemies;
+  updateEnemies = function updateEnemiesBeautifulElementFX(delta) {
+    for (const obj of villageObjects) {
+      if (!obj || obj.type !== 'enemy' || !obj.alive) continue;
+      const currentElement = detectElementFromTimers(obj);
+      if (currentElement) {
+        obj.elementVisualFx = currentElement;
+        obj.elementParticleTick = Math.max(0, Number(obj.elementParticleTick || 0) - delta);
+        if (obj.elementParticleTick <= 0) {
+          obj.elementParticleTick = obj.boss ? 0.06 : 0.12;
+          const cx = obj.x + obj.width / 2;
+          const cy = obj.y + obj.height / 2;
+          pushElementParticle(cx + (Math.random() - 0.5) * obj.width, cy + (Math.random() - 0.5) * obj.height, currentElement, {
+            attached: obj,
+            orbitRadius: (obj.boss ? 16 : 9) + Math.random() * (obj.boss ? 16 : 8),
+            orbitAngle: Math.random() * Math.PI * 2,
+            big: obj.boss,
+            boss: obj.boss,
+            life: obj.boss ? 0.9 : 0.55
+          });
+        }
+      } else {
+        obj.elementVisualFx = null;
+      }
+    }
+
+    updateElementParticles(delta);
+    updateEnemiesBeforeBeautifulElementFX(delta);
+  };
+
+  const drawEnemyBeforeBeautifulElementFX = drawEnemy;
+  drawEnemy = function drawEnemyBeautifulElementFX(obj) {
+    drawEnemyBeforeBeautifulElementFX(obj);
+    const currentElement = detectElementFromTimers(obj) || obj?.elementVisualFx;
+    if (!obj?.alive || !currentElement) return;
+
+    const pal = elementPalette(currentElement);
+    ctx.save();
+    ctx.fillStyle = pal.glow;
+    ctx.fillRect(obj.x - 3, obj.y - 3, obj.width + 6, obj.height + 6);
+    if (obj.boss) drawBossElementalAura(obj, currentElement);
+    ctx.restore();
+  };
+
+  const drawBeforeBeautifulElementFX = draw;
+  draw = function drawBeautifulElementFX() {
+    drawBeforeBeautifulElementFX();
+    try {
+      ctx.save();
+      ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+      drawElementParticles();
+      ctx.restore();
+    } catch (error) {
+      console.error('Erro ao desenhar particulas elementais bonitas:', error);
+    }
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA: interior da barreira / vila MUITO mais bonito
+   ================================================== */
+(function eternalRiftBeautifulVillageInteriorPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BEAUTIFUL_VILLAGE_INTERIOR_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BEAUTIFUL_VILLAGE_INTERIOR_PATCH = true;
+
+  const VILLAGE_INNER_ZONE = { left: 17 * TILE, right: 56 * TILE, top: 6 * TILE, bottom: 40 * TILE };
+
+  function isVillageDecoVisible(x, y, margin = 64) {
+    return !(x < camera.x - margin || x > camera.x + canvas.width + margin || y < camera.y - margin || y > camera.y + canvas.height + margin);
+  }
+
+  function drawFancyPlanter(x, y, w = 24, h = 12, bloom = '#ff7ab5', bloom2 = '#fff264') {
+    if (!isVillageDecoVisible(x, y)) return;
+    fillPixelV2(x, y + h - 3, w, 4, '#674535');
+    fillPixelV2(x + 2, y + h - 8, w - 4, 6, '#8f5d40');
+    fillPixelV2(x + 3, y + h - 11, 5, 5, bloom);
+    fillPixelV2(x + 9, y + h - 14, 5, 6, bloom2);
+    fillPixelV2(x + 15, y + h - 12, 5, 5, '#6ddc77');
+    fillPixelV2(x + 20, y + h - 10, 4, 4, '#55c4ff');
+    fillPixelV2(x + 4, y + h - 6, 2, 3, '#26794d');
+    fillPixelV2(x + 11, y + h - 6, 2, 4, '#26794d');
+    fillPixelV2(x + 17, y + h - 6, 2, 4, '#26794d');
+    fillPixelV2(x + 21, y + h - 5, 2, 3, '#26794d');
+  }
+
+  function drawFancyLantern(x, y) {
+    if (!isVillageDecoVisible(x, y)) return;
+    fillPixelV2(x + 13, y + 10, 6, 20, '#394066');
+    fillPixelV2(x + 10, y + 6, 12, 4, '#f5ce79');
+    fillPixelV2(x + 9, y + 4, 14, 3, '#273052');
+    fillPixelV2(x + 11, y + 11, 10, 8, 'rgba(255, 230, 145, 0.55)');
+    fillPixelV2(x + 8, y + 18, 16, 3, '#273052');
+    fillPixelV2(x + 7, y + 28, 18, 3, '#273052');
+    fillPixelV2(x + 12, y + 0, 8, 3, '#273052');
+    fillPixelV2(x + 14, y + 2, 4, 2, '#f5ce79');
+  }
+
+  function drawRoyalBanner(x, y, color = '#3e82de') {
+    if (!isVillageDecoVisible(x, y)) return;
+    fillPixelV2(x + 6, y, 3, 26, '#394066');
+    fillPixelV2(x + 9, y + 3, 14, 4, '#f5ce79');
+    fillPixelV2(x + 20, y + 6, 3, 21, '#f5ce79');
+    fillPixelV2(x + 11, y + 7, 10, 16, color);
+    fillPixelV2(x + 13, y + 10, 6, 3, 'rgba(255,255,255,0.28)');
+    fillPixelV2(x + 14, y + 17, 4, 4, '#fff3d6');
+  }
+
+  function drawLowHedge(x, y, w = 30) {
+    if (!isVillageDecoVisible(x, y)) return;
+    fillPixelV2(x, y + 8, w, 7, '#236f48');
+    fillPixelV2(x + 2, y + 4, w - 4, 6, '#3fa164');
+    fillPixelV2(x + 4, y + 2, w - 8, 4, '#7ed26a');
+  }
+
+  function drawStoneMedallion(x, y) {
+    if (!isVillageDecoVisible(x, y)) return;
+    fillPixelV2(x + 7, y + 7, 18, 18, 'rgba(73, 78, 89, 0.20)');
+    fillPixelV2(x + 9, y + 9, 14, 14, '#cdbb94');
+    fillPixelV2(x + 11, y + 11, 10, 10, '#e5d5ae');
+    fillPixelV2(x + 14, y + 8, 4, 18, 'rgba(39,48,82,0.16)');
+    fillPixelV2(x + 8, y + 14, 18, 4, 'rgba(39,48,82,0.16)');
+    fillPixelV2(x + 14, y + 14, 4, 4, '#55c4ff');
+  }
+
+  function drawRoyalPlazaTrim(x, y, wTiles, hTiles) {
+    const w = wTiles * TILE;
+    const h = hTiles * TILE;
+    if (!isVillageDecoVisible(x, y, 120)) return;
+    // Outer subtle border
+    fillPixelV2(x, y, w, 2, 'rgba(53, 123, 219, 0.24)');
+    fillPixelV2(x, y + h - 2, w, 2, 'rgba(53, 123, 219, 0.16)');
+    fillPixelV2(x, y, 2, h, 'rgba(53, 123, 219, 0.16)');
+    fillPixelV2(x + w - 2, y, 2, h, 'rgba(53, 123, 219, 0.16)');
+    // Corner ornaments
+    for (const [ox, oy] of [[4,4], [w-14,4], [4,h-14], [w-14,h-14]]) {
+      fillPixelV2(x + ox, y + oy, 8, 8, '#f5ce79');
+      fillPixelV2(x + ox + 2, y + oy + 2, 4, 4, '#357bdb');
+    }
+  }
+
+  function drawPortalGardenAccent(centerX, centerY) {
+    const gx = centerX - TILE * 2.5;
+    const gy = centerY - TILE * 2.5;
+    drawRoyalPlazaTrim(gx, gy, 5, 5);
+    drawFancyPlanter(centerX - 60, centerY - 72, 24, 12, '#55c4ff', '#fff264');
+    drawFancyPlanter(centerX + 36, centerY - 72, 24, 12, '#ff7ab5', '#fff264');
+    drawFancyPlanter(centerX - 60, centerY + 58, 24, 12, '#ff7ab5', '#6ddc77');
+    drawFancyPlanter(centerX + 36, centerY + 58, 24, 12, '#55c4ff', '#6ddc77');
+    drawFancyLantern(centerX - 76, centerY - 18);
+    drawFancyLantern(centerX + 44, centerY - 18);
+    drawFancyLantern(centerX - 76, centerY + 38);
+    drawFancyLantern(centerX + 44, centerY + 38);
+    drawStoneMedallion(centerX - 16, centerY - 16);
+  }
+
+  function drawHouseFrontGarden(obj) {
+    if (!obj || !['house','playerHouse','shop'].includes(obj.type)) return;
+    const x = obj.x;
+    const y = obj.y;
+    const baseY = y + obj.height - 2;
+    const centerX = x + obj.width / 2;
+
+    // stepping stones in front of the house/door
+    fillPixelV2(centerX - 8, baseY + 2, 16, 4, 'rgba(108, 104, 101, 0.24)');
+    fillPixelV2(centerX - 11, baseY + 8, 22, 4, '#c8c0b2');
+    fillPixelV2(centerX - 9, baseY + 10, 18, 2, '#9fa4ad');
+
+    drawFancyPlanter(x + 6, baseY + 4, 26, 12, '#ff7ab5', '#fff264');
+    drawFancyPlanter(x + obj.width - 32, baseY + 4, 26, 12, '#55c4ff', '#6ddc77');
+
+    if (obj.type === 'playerHouse') {
+      drawRoyalBanner(x + obj.width - 18, y + 24, '#357bdb');
+      drawLowHedge(x + 10, baseY + 20, obj.width - 20);
+    } else if (obj.type === 'shop') {
+      drawRoyalBanner(x + 8, y + 21, '#d04d57');
+      drawFancyPlanter(x + 18, y + obj.height + 24, 28, 12, '#fff264', '#55c4ff');
+    } else {
+      drawLowHedge(x + 12, baseY + 20, obj.width - 24);
+    }
+  }
+
+  function drawVillageWaterfrontBeauty() {
+    const deco = [
+      [57.8, 8.4, 'reed'], [60.3, 8.8, 'reed'], [63.5, 10.2, 'lily'],
+      [60.5, 12.4, 'flowerBlue'], [64.0, 14.2, 'flowerPink'], [58.1, 17.1, 'reed'],
+      [65.4, 18.0, 'lily'], [61.2, 20.0, 'flowerYellow']
+    ];
+    for (const [tx, ty, kind] of deco) {
+      const x = tx * TILE, y = ty * TILE;
+      if (kind === 'reed') drawReedsV2(x, y);
+      if (kind === 'lily') drawWaterLilyV2(x, y);
+      if (kind === 'flowerBlue') drawTinyFlowerPatchV2(x, y, '#55c4ff');
+      if (kind === 'flowerPink') drawTinyFlowerPatchV2(x, y, '#ff7ab5');
+      if (kind === 'flowerYellow') drawTinyFlowerPatchV2(x, y, '#fff264');
+    }
+    drawFancyLantern(61 * TILE, 10 * TILE);
+    drawFancyPlanter(58 * TILE + 6, 15 * TILE + 12, 24, 12, '#55c4ff', '#ff7ab5');
+  }
+
+  const previousDrawVillageGroundDetails = drawVillageGroundDetailsV2;
+  drawVillageGroundDetailsV2 = function drawVillageGroundDetailsBeautifulVillageInterior() {
+    previousDrawVillageGroundDetails();
+
+    // richer details scattered through the inner village
+    const extraDetails = [
+      [18.2, 10.8, 'flowerPink'], [20.1, 13.3, 'flowerBlue'], [24.0, 14.8, 'flowerYellow'],
+      [30.4, 9.8, 'stoneBits'], [36.8, 10.2, 'flowerPink'], [44.3, 9.7, 'flowerBlue'],
+      [49.5, 12.8, 'flowerYellow'], [22.0, 18.5, 'grassPatch'], [26.2, 19.4, 'flowerBlue'],
+      [40.8, 18.8, 'flowerPink'], [46.1, 19.5, 'stoneBits'], [20.8, 26.5, 'flowerYellow'],
+      [48.5, 26.2, 'flowerBlue'], [18.8, 35.0, 'flowerPink'], [29.2, 36.2, 'grassPatch'],
+      [44.7, 35.6, 'flowerYellow'], [53.0, 34.8, 'grassPatch']
+    ];
+
+    for (const [tx, ty, kind] of extraDetails) {
+      const x = tx * TILE;
+      const y = ty * TILE;
+      if (!isVillageDecoVisible(x, y)) continue;
+      if (kind === 'flowerBlue') drawTinyFlowerPatchV2(x, y, '#55c4ff');
+      if (kind === 'flowerPink') drawTinyFlowerPatchV2(x, y, '#ff7ab5');
+      if (kind === 'flowerYellow') drawTinyFlowerPatchV2(x, y, '#fff264');
+      if (kind === 'stoneBits') drawStoneBitsV2(x, y);
+      if (kind === 'grassPatch') drawGrassPatchV2(x, y);
+    }
+
+    // beautify central plaza / portal sanctuary
+    const portalObj = villageObjects.find((obj) => obj?.type === 'portal');
+    if (portalObj) {
+      drawPortalGardenAccent(portalObj.x + portalObj.width / 2 - 16, portalObj.y + portalObj.height / 2 - 10);
+    } else {
+      drawPortalGardenAccent(34 * TILE, 24 * TILE);
+    }
+
+    // medallions on important cross paths
+    drawStoneMedallion(30 * TILE, 18 * TILE);
+    drawStoneMedallion(36 * TILE, 18 * TILE);
+    drawStoneMedallion(30 * TILE, 31 * TILE);
+    drawStoneMedallion(36 * TILE, 31 * TILE);
+
+    // edge hedges and lanterns near the inner fence / barrier
+    for (const [tx, ty, kind] of [
+      [18, 8, 'lantern'], [54, 8, 'lantern'], [18, 37, 'lantern'], [54, 37, 'lantern'],
+      [23, 8, 'hedge'], [45, 8, 'hedge'], [23, 38, 'hedge'], [45, 38, 'hedge'],
+      [18, 16, 'banner'], [54, 16, 'banner'], [18, 26, 'banner'], [54, 26, 'banner']
+    ]) {
+      const x = tx * TILE, y = ty * TILE;
+      if (kind === 'lantern') drawFancyLantern(x, y);
+      if (kind === 'hedge') drawLowHedge(x, y, 62);
+      if (kind === 'banner') drawRoyalBanner(x + 2, y, tx < 30 ? '#357bdb' : '#d04d57');
+    }
+
+    // house and shop frontage beautification
+    for (const obj of villageObjects) {
+      if (!obj || !['house', 'playerHouse', 'shop'].includes(obj.type)) continue;
+      if (obj.x < VILLAGE_INNER_ZONE.left - TILE || obj.x > VILLAGE_INNER_ZONE.right + TILE) continue;
+      if (obj.y < VILLAGE_INNER_ZONE.top - TILE || obj.y > VILLAGE_INNER_ZONE.bottom + TILE) continue;
+      drawHouseFrontGarden(obj);
+    }
+
+    // lake-side and water area details inside the village barrier
+    drawVillageWaterfrontBeauty();
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA FORTE: interior da barreira / vila muito mais bonito
+   praça, chão, caminho, árvores de cerejeira e iluminação
+   ================================================== */
+(function eternalRiftVillageLuxuryOverhaulPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_VILLAGE_LUXURY_OVERHAUL_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_VILLAGE_LUXURY_OVERHAUL_PATCH = true;
+
+  const INNER_VILLAGE = { left: 17, right: 56, top: 6, bottom: 40 };
+
+  function inInnerVillageTile(tileX, tileY) {
+    return currentScene === 'village' && tileX >= INNER_VILLAGE.left && tileX <= INNER_VILLAGE.right && tileY >= INNER_VILLAGE.top && tileY <= INNER_VILLAGE.bottom;
+  }
+
+  function inInnerVillagePx(x, y) {
+    return currentScene === 'village' && x >= INNER_VILLAGE.left * TILE && x <= (INNER_VILLAGE.right + 1) * TILE && y >= INNER_VILLAGE.top * TILE && y <= (INNER_VILLAGE.bottom + 1) * TILE;
+  }
+
+  function luxuryFlower(x, y, colorA, colorB = '#fff3d6') {
+    fillPixelV2(x + 5, y + 14, 2, 6, '#26794d');
+    fillPixelV2(x + 11, y + 10, 2, 7, '#26794d');
+    fillPixelV2(x + 17, y + 16, 2, 5, '#26794d');
+    fillPixelV2(x + 3, y + 11, 5, 4, colorA);
+    fillPixelV2(x + 9, y + 7, 6, 5, colorB);
+    fillPixelV2(x + 15, y + 13, 5, 4, colorA);
+  }
+
+  function drawRoyalGrassTile(x, y, tileX, tileY) {
+    const base = (tileX + tileY) % 2 === 0 ? '#8ed960' : '#81cf57';
+    const base2 = (tileX + tileY) % 2 === 0 ? '#76bf4e' : '#6fb44a';
+    fillPixelV2(x, y, TILE, TILE, base);
+    fillPixelV2(x, y + 23, TILE, 9, 'rgba(33,92,40,0.12)');
+    fillPixelV2(x + 2, y + 2, TILE - 6, 3, 'rgba(230,255,190,0.18)');
+    fillPixelV2(x + 3, y + 9, 10, 2, 'rgba(255,255,255,0.06)');
+    fillPixelV2(x + 19, y + 13, 8, 2, 'rgba(255,255,255,0.05)');
+    fillPixelV2(x + 6, y + 18, 3, 8, '#2e8746');
+    fillPixelV2(x + 10, y + 15, 2, 9, '#3b9d55');
+    fillPixelV2(x + 22, y + 11, 3, 9, base2);
+    fillPixelV2(x + 24, y + 9, 2, 5, '#2e8746');
+    if ((tileX * 3 + tileY * 5) % 5 === 0) fillPixelV2(x + 13, y + 19, 3, 3, '#fff0d6');
+    if ((tileX + tileY) % 4 === 0) fillPixelV2(x + 18, y + 7, 3, 3, '#ffb7db');
+    if ((tileX * 2 + tileY) % 6 === 0) fillPixelV2(x + 7, y + 8, 2, 2, '#55c4ff');
+  }
+
+  function drawRoyalPathTile(x, y, tileX, tileY) {
+    const base = (tileX + tileY) % 2 === 0 ? '#a66a3c' : '#9a6036';
+    fillPixelV2(x, y, TILE, TILE, base);
+    fillPixelV2(x, y + 24, TILE, 8, 'rgba(64,35,19,0.14)');
+    fillPixelV2(x + 2, y + 3, TILE - 5, 2, 'rgba(230,191,136,0.18)');
+    fillPixelV2(x + 5, y + 7, 7, 4, '#d7c4af');
+    fillPixelV2(x + 19, y + 18, 8, 4, '#c8b49b');
+    fillPixelV2(x + 13, y + 12, 5, 3, '#f0e2c1');
+    fillPixelV2(x + 7, y + 19, 4, 3, '#7f5330');
+    fillPixelV2(x + 21, y + 9, 3, 2, '#ead7b2');
+    if ((tileX + tileY) % 2 === 0) {
+      fillPixelV2(x, y, 2, TILE, 'rgba(245,219,164,0.12)');
+      fillPixelV2(x + TILE - 2, y, 2, TILE, 'rgba(68,46,27,0.10)');
+    }
+  }
+
+  function drawRoyalPlazaTile(x, y, tileX, tileY) {
+    const light = (tileX + tileY) % 2 === 0 ? '#ead9b4' : '#e0cd9f';
+    const dark = (tileX + tileY) % 2 === 0 ? '#d0bb8b' : '#c5af80';
+    fillPixelV2(x, y, TILE, TILE, light);
+    fillPixelV2(x + 1, y + 1, TILE - 2, TILE - 2, light);
+    ctx.strokeStyle = 'rgba(107,88,68,0.55)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+    fillPixelV2(x + 3, y + 3, TILE - 6, 2, 'rgba(255,248,226,0.22)');
+    fillPixelV2(x + 3, y + TILE - 5, TILE - 6, 2, 'rgba(103,87,68,0.16)');
+    fillPixelV2(x + 6, y + 14, 20, 3, dark);
+    fillPixelV2(x + 14, y + 6, 3, 20, dark);
+    fillPixelV2(x + 12, y + 12, 8, 8, '#357bdb');
+    fillPixelV2(x + 14, y + 14, 4, 4, '#fff3d6');
+    if ((tileX + tileY) % 3 === 0) {
+      fillPixelV2(x + 4, y + 4, 5, 5, '#f5ce79');
+      fillPixelV2(x + 23, y + 23, 5, 5, '#f5ce79');
+    }
+  }
+
+  const previousDrawGrassLuxuryPatch = drawGrass;
+  drawGrass = function drawGrassVillageLuxury(x, y, tileX, tileY) {
+    if (inInnerVillageTile(tileX, tileY)) return drawRoyalGrassTile(x, y, tileX, tileY);
+    return previousDrawGrassLuxuryPatch(x, y, tileX, tileY);
+  };
+
+  const previousDrawDirtLuxuryPatch = drawDirt;
+  drawDirt = function drawDirtVillageLuxury(x, y, tileX, tileY) {
+    if (inInnerVillageTile(tileX, tileY)) return drawRoyalPathTile(x, y, tileX, tileY);
+    return previousDrawDirtLuxuryPatch(x, y, tileX, tileY);
+  };
+
+  const previousDrawPlazaLuxuryPatch = drawPlaza;
+  drawPlaza = function drawPlazaVillageLuxury(x, y, tileX, tileY) {
+    if (inInnerVillageTile(tileX, tileY)) return drawRoyalPlazaTile(x, y, tileX, tileY);
+    return previousDrawPlazaLuxuryPatch(x, y, tileX, tileY);
+  };
+
+  function drawCherryPuff(x, y, main, light, deep) {
+    fillPixelV2(x + 6, y + 4, 18, 10, main);
+    fillPixelV2(x + 2, y + 10, 16, 10, light);
+    fillPixelV2(x + 16, y + 12, 14, 9, main);
+    fillPixelV2(x + 8, y + 17, 18, 9, deep);
+    fillPixelV2(x + 10, y + 8, 5, 4, '#fff3f8');
+    fillPixelV2(x + 20, y + 15, 4, 3, '#ffe7f3');
+  }
+
+  function drawLuxuryCherryTreeAt(x, y, decorative = false) {
+    drawSoftShadow(x - 6, y + 57, 48, 9, 0.20);
+    outlinePixelV2(x + 12, y + 32, 10, 30, '#8e5b46', '#4e2f25');
+    fillPixelV2(x + 15, y + 35, 4, 24, '#c38c6c');
+    fillPixelV2(x + 11, y + 43, 3, 7, '#a56f55');
+    fillPixelV2(x + 20, y + 40, 3, 8, '#a56f55');
+    drawCherryPuff(x - 14, y - 4, '#f5a4cf', '#ffd5ec', '#dc80b4');
+    drawCherryPuff(x + 0, y - 18, '#f3a2cc', '#ffd9ef', '#d97ab1');
+    drawCherryPuff(x + 15, y + 0, '#ee93c1', '#ffdaef', '#d774a6');
+    if (!decorative) {
+      fillPixelV2(x + 26, y + 22, 3, 3, '#ffd9ef');
+      fillPixelV2(x + 4, y + 18, 3, 3, '#ffebf5');
+    }
+  }
+
+  const previousDrawTreeLuxuryPatch = drawTree;
+  drawTree = function drawTreeVillageLuxury(obj) {
+    if (currentScene === 'village') {
+      return drawLuxuryCherryTreeAt(obj.x, obj.y, false);
+    }
+    return previousDrawTreeLuxuryPatch(obj);
+  };
+
+  function drawCherryOrnamentRow() {
+    const decorativeTrees = [
+      [19, 9], [22, 11], [49, 10], [52, 12], [21, 24], [50, 25], [26, 36], [44, 36], [59, 20]
+    ];
+    for (const [tx, ty] of decorativeTrees) {
+      const x = tx * TILE;
+      const y = ty * TILE;
+      if (!inInnerVillagePx(x, y)) continue;
+      if (x < camera.x - 80 || x > camera.x + canvas.width + 80 || y < camera.y - 100 || y > camera.y + canvas.height + 80) continue;
+      drawLuxuryCherryTreeAt(x, y, true);
+    }
+  }
+
+  function drawVillageLuxuryDecor() {
+    const flowerSpots = [
+      [20, 10], [24, 9], [29, 9], [39, 10], [44, 9], [49, 10],
+      [21, 18], [25, 20], [43, 19], [47, 20], [24, 27], [46, 27],
+      [23, 34], [29, 36], [37, 36], [44, 34], [52, 30]
+    ];
+    for (const [tx, ty] of flowerSpots) {
+      const x = tx * TILE, y = ty * TILE;
+      if (x < camera.x - 40 || x > camera.x + canvas.width + 40 || y < camera.y - 40 || y > camera.y + canvas.height + 40) continue;
+      luxuryFlower(x, y, (tx + ty) % 2 === 0 ? '#ff9fd2' : '#55c4ff', (tx + ty) % 3 === 0 ? '#fff264' : '#fff3d6');
+    }
+
+    const hedges = [
+      [25, 8, 4], [39, 8, 4], [25, 38, 4], [39, 38, 4], [19, 22, 3], [52, 22, 3]
+    ];
+    for (const [tx, ty, len] of hedges) {
+      const x = tx * TILE, y = ty * TILE;
+      fillPixelV2(x, y + 10, len * TILE, 7, '#236f48');
+      fillPixelV2(x + 2, y + 6, len * TILE - 4, 7, '#3fa164');
+      fillPixelV2(x + 6, y + 2, len * TILE - 12, 5, '#89d96a');
+    }
+
+    // central plaza ornaments / richer square
+    const ornaments = [
+      [29, 20], [39, 20], [29, 29], [39, 29]
+    ];
+    for (const [tx, ty] of ornaments) {
+      const x = tx * TILE, y = ty * TILE;
+      fillPixelV2(x + 7, y + 7, 18, 18, '#cdbb94');
+      fillPixelV2(x + 10, y + 10, 12, 12, '#ead9b4');
+      fillPixelV2(x + 14, y + 14, 4, 4, '#357bdb');
+    }
+
+    drawCherryOrnamentRow();
+  }
+
+  const previousDrawVillageGroundLuxuryPatch = drawVillageGroundDetailsV2;
+  drawVillageGroundDetailsV2 = function drawVillageGroundDetailsLuxury() {
+    previousDrawVillageGroundLuxuryPatch();
+    if (currentScene !== 'village') return;
+    drawVillageLuxuryDecor();
+  };
+
+  function luxuryLight(cx, cy, radius, inner, outer) {
+    if (cx < camera.x - radius || cx > camera.x + canvas.width + radius || cy < camera.y - radius || cy > camera.y + canvas.height + radius) return;
+    radialGlow(cx, cy, radius, inner, outer);
+  }
+
+  function drawVillageLuxuryLighting() {
+    if (currentScene !== 'village') return;
+    // main path and plaza illumination
+    const lampPoints = [
+      [31.5, 9.0, 48], [40.5, 9.0, 48],
+      [31.2, 20.2, 46], [40.8, 20.2, 46],
+      [31.0, 28.8, 46], [40.6, 28.8, 46],
+      [28.2, 24.0, 58], [43.5, 24.0, 58],
+      [27.5, 36.0, 50], [42.5, 36.0, 50],
+      [60.2, 14.6, 56]
+    ];
+    for (const [tx, ty, r] of lampPoints) {
+      luxuryLight(tx * TILE, ty * TILE, r, 'rgba(255,235,175,0.24)', 'rgba(255,195,110,0.10)');
+      fillPixelV2(tx * TILE - 2, ty * TILE - 2, 4, 4, '#fff3d6');
+    }
+    // soft blue royal glow around central plaza/portal
+    luxuryLight(34 * TILE + 16, 24 * TILE + 16, 92, 'rgba(85,196,255,0.14)', 'rgba(53,123,219,0.05)');
+    luxuryLight(55 * TILE + 16, 32 * TILE + 16, 74, 'rgba(85,232,255,0.13)', 'rgba(130,220,255,0.05)');
+  }
+
+  const previousDrawLuxuryPatch = draw;
+  draw = function drawVillageLuxuryOverhaul() {
+    previousDrawLuxuryPatch();
+    if (currentScene !== 'village') return;
+    ctx.save();
+    ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    drawVillageLuxuryLighting();
+    ctx.restore();
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA: sem grama na parte interior da vila
+   deixar grama apenas perto das cerejeiras
+   ================================================== */
+(function eternalRiftVillageNoGrassInteriorPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_VILLAGE_NO_GRASS_INTERIOR_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_VILLAGE_NO_GRASS_INTERIOR_PATCH = true;
+
+  const INNER_VILLAGE_NO_GRASS = { left: 17, right: 56, top: 6, bottom: 40 };
+  const CHERRY_ZONES = [
+    [19, 9], [22, 11], [49, 10], [52, 12], [21, 24], [50, 25], [26, 36], [44, 36], [59, 20],
+    [3, 4], [6, 3], [10, 6], [13, 8], [4, 11], [8, 14], [12, 20], [5, 25], [10, 30], [6, 35],
+    [2, 40], [13, 39], [50, 4], [55, 5], [60, 7], [51, 26], [58, 28], [53, 34], [60, 38], [48, 40],
+    [19, 40], [25, 41], [33, 40], [43, 39], [3, 7], [6, 7], [9, 7], [12, 7], [14, 9], [14, 12], [3, 14], [6, 15], [9, 15]
+  ];
+
+  function inInnerVillageNoGrass(tileX, tileY) {
+    return currentScene === 'village' && tileX >= INNER_VILLAGE_NO_GRASS.left && tileX <= INNER_VILLAGE_NO_GRASS.right && tileY >= INNER_VILLAGE_NO_GRASS.top && tileY <= INNER_VILLAGE_NO_GRASS.bottom;
+  }
+
+  function nearCherryZone(tileX, tileY) {
+    for (const [cx, cy] of CHERRY_ZONES) {
+      if (Math.abs(tileX - cx) <= 1 && Math.abs(tileY - cy) <= 1) return true;
+      if (Math.abs(tileX - cx) <= 2 && Math.abs(tileY - cy) <= 2 && ((tileX + tileY + cx + cy) % 2 === 0)) return true;
+    }
+    return false;
+  }
+
+  function drawRoyalCourtyardTile(x, y, tileX, tileY) {
+    const base = (tileX + tileY) % 2 === 0 ? '#d9caa5' : '#cfbe97';
+    const dark = (tileX + tileY) % 2 === 0 ? '#bfad86' : '#b39f79';
+    const line = '#8b775e';
+    fillPixelV2(x, y, TILE, TILE, base);
+    ctx.strokeStyle = 'rgba(108,93,71,0.48)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+    fillPixelV2(x + 2, y + 2, TILE - 4, 2, 'rgba(255,245,216,0.18)');
+    fillPixelV2(x + 2, y + TILE - 4, TILE - 4, 2, 'rgba(80,62,40,0.12)');
+    fillPixelV2(x + 5, y + 5, 8, 5, dark);
+    fillPixelV2(x + 18, y + 18, 9, 5, dark);
+    fillPixelV2(x + 15, y + 8, 4, 3, '#f4e7c3');
+    fillPixelV2(x + 9, y + 20, 4, 3, '#f4e7c3');
+    if ((tileX + tileY) % 3 === 0) {
+      fillPixelV2(x + 13, y + 13, 6, 6, '#357bdb');
+      fillPixelV2(x + 15, y + 15, 2, 2, '#fff3d6');
+    }
+    if ((tileX * 2 + tileY) % 4 === 0) {
+      fillPixelV2(x, y + 15, TILE, 2, 'rgba(120,102,78,0.10)');
+      fillPixelV2(x + 15, y, 2, TILE, 'rgba(120,102,78,0.10)');
+    }
+  }
+
+  const previousNoGrassDrawGrass = drawGrass;
+  drawGrass = function drawGrassNoGrassVillageInterior(x, y, tileX, tileY) {
+    if (inInnerVillageNoGrass(tileX, tileY)) {
+      if (nearCherryZone(tileX, tileY)) return previousNoGrassDrawGrass(x, y, tileX, tileY);
+      return drawRoyalCourtyardTile(x, y, tileX, tileY);
+    }
+    return previousNoGrassDrawGrass(x, y, tileX, tileY);
+  };
+})();
+
+
+/* ==================================================
+   Hotfix: radialGlow global para iluminação da vila
+   ================================================== */
+function radialGlow(x, y, radius, innerColor, outerColor) {
+  if (typeof ctx === 'undefined' || !ctx || typeof ctx.createRadialGradient !== 'function') return;
+  const safeRadius = Math.max(2, Number(radius) || 2);
+  const grad = ctx.createRadialGradient(x, y, 2, x, y, safeRadius);
+  grad.addColorStop(0, innerColor || 'rgba(255,255,255,0.18)');
+  grad.addColorStop(0.58, outerColor || 'rgba(255,255,255,0.06)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(x - safeRadius, y - safeRadius, safeRadius * 2, safeRadius * 2);
+}
+
+
+/* ==================================================
+   Patch EXTRA FORTE: Dimensao Tranquila da Vila
+   - muito mais bonita, mais expandida e mais viva
+   - agua com brilho/reflexo
+   - caminhos elegantes
+   - praca especial
+   - cerejeiras e petalas caindo
+   - lanternas suaves e cristais brilhando
+   - bancos, flores, fontes e ilhas melhores
+   ================================================== */
+(function eternalRiftPeacefulVillageDimensionPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_PEACEFUL_VILLAGE_DIMENSION_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_PEACEFUL_VILLAGE_DIMENSION_PATCH = true;
+
+  function setCrystalTile(tx, ty, tile) {
+    if (ty >= 0 && ty < CRYSTAL_ROWS && tx >= 0 && tx < CRYSTAL_COLS) {
+      crystalDimensionMap[ty][tx] = tile;
+    }
+  }
+
+  function rectCrystal(tx, ty, w, h, tile) {
+    for (let y = ty; y < ty + h; y++) {
+      for (let x = tx; x < tx + w; x++) setCrystalTile(x, y, tile);
+    }
+  }
+
+  function ellipseCrystal(cx, cy, rx, ry, tile) {
+    for (let y = cy - ry; y <= cy + ry; y++) {
+      for (let x = cx - rx; x <= cx + rx; x++) {
+        const dx = (x - cx) / rx;
+        const dy = (y - cy) / ry;
+        if (dx * dx + dy * dy <= 1) setCrystalTile(x, y, tile);
+      }
+    }
+  }
+
+  function reworkCrystalDimensionMap() {
+    // base area already exists; this section refines and expands the refuge.
+    rectCrystal(18, 4, 10, 10, 'Q');        // northern sanctuary / chest avenue
+    rectCrystal(16, 8, 14, 4, 'Q');         // upper plaza shoulders
+    rectCrystal(21, 3, 4, 29, 'Q');         // central royal boulevard
+
+    rectCrystal(11, 17, 24, 8, 'Q');        // main cross plaza
+    rectCrystal(14, 24, 18, 5, 'Q');        // lower sanctuary square
+    rectCrystal(8, 28, 30, 5, 'Q');         // expanded lower promenade
+    rectCrystal(12, 30, 22, 3, 'Q');        // southern expansion for openness
+
+    // Elegant side bridges / connectors.
+    rectCrystal(13, 19, 4, 2, 'Q');
+    rectCrystal(30, 19, 4, 2, 'Q');
+    rectCrystal(12, 25, 4, 2, 'Q');
+    rectCrystal(30, 25, 4, 2, 'Q');
+    rectCrystal(18, 13, 10, 2, 'Q');
+
+    // More sculpted tranquil water zones.
+    ellipseCrystal(8, 10, 6, 4, 'M');
+    ellipseCrystal(37, 10, 6, 4, 'M');
+    ellipseCrystal(7, 24, 7, 5, 'M');
+    ellipseCrystal(38, 24, 7, 5, 'M');
+    ellipseCrystal(8, 29, 4, 3, 'M');
+    ellipseCrystal(37, 30, 5, 3, 'M');
+
+    // Islands and paths restored over the lakes.
+    rectCrystal(7, 9, 3, 3, 'C');
+    rectCrystal(36, 9, 3, 3, 'C');
+    rectCrystal(7, 23, 3, 3, 'C');
+    rectCrystal(37, 23, 3, 3, 'C');
+    rectCrystal(9, 29, 2, 2, 'C');
+    rectCrystal(35, 30, 2, 2, 'C');
+
+    // Small elegant docks / edges near islands.
+    rectCrystal(10, 11, 2, 1, 'Q');
+    rectCrystal(34, 11, 2, 1, 'Q');
+    rectCrystal(10, 26, 2, 1, 'Q');
+    rectCrystal(34, 26, 2, 1, 'Q');
+  }
+  reworkCrystalDimensionMap();
+
+  function ensurePeacefulDimObject(matchFn, createFn) {
+    if (!crystalDimensionObjects.some(matchFn)) crystalDimensionObjects.push(createFn());
+  }
+
+  // More benches, flowers, and fountains to make the refuge feel alive.
+  ensurePeacefulDimObject((o) => o.type === 'bench' && o.x === 10 * TILE + 2 && o.y === 18 * TILE + 10, () => bench(10, 18, 'horizontal'));
+  ensurePeacefulDimObject((o) => o.type === 'bench' && o.x === 33 * TILE + 2 && o.y === 18 * TILE + 10, () => bench(33, 18, 'horizontal'));
+  ensurePeacefulDimObject((o) => o.type === 'bench' && o.x === 12 * TILE + 2 && o.y === 29 * TILE + 10, () => bench(12, 29, 'horizontal'));
+  ensurePeacefulDimObject((o) => o.type === 'bench' && o.x === 27 * TILE + 2 && o.y === 29 * TILE + 10, () => bench(27, 29, 'horizontal'));
+  ensurePeacefulDimObject((o) => o.type === 'magicFountain' && o.x === 9 * TILE, () => magicFountain(9, 9, 'Fonte serena: a agua clara acalma a mente.'));
+  ensurePeacefulDimObject((o) => o.type === 'magicFountain' && o.x === 33 * TILE, () => magicFountain(33, 9, 'Fonte serena: o brilho das aguas tranquiliza o coracao.'));
+  ensurePeacefulDimObject((o) => o.type === 'flower' && o.x === 18 * TILE + 8 && o.y === 27 * TILE + 8, () => flower(18, 27, 'pink'));
+  ensurePeacefulDimObject((o) => o.type === 'flower' && o.x === 26 * TILE + 8 && o.y === 27 * TILE + 8, () => flower(26, 27, 'blue'));
+  ensurePeacefulDimObject((o) => o.type === 'flower' && o.x === 8 * TILE + 8 && o.y === 9 * TILE + 8, () => flower(8, 9, 'yellow'));
+  ensurePeacefulDimObject((o) => o.type === 'flower' && o.x === 37 * TILE + 8 && o.y === 9 * TILE + 8, () => flower(37, 9, 'pink'));
+  ensurePeacefulDimObject((o) => o.type === 'flower' && o.x === 9 * TILE + 8 && o.y === 24 * TILE + 8, () => flower(9, 24, 'blue'));
+  ensurePeacefulDimObject((o) => o.type === 'flower' && o.x === 37 * TILE + 8 && o.y === 24 * TILE + 8, () => flower(37, 24, 'yellow'));
+  ensurePeacefulDimObject((o) => o.type === 'strangeTree' && o.x === 11 * TILE && o.y === 6 * TILE - 8, () => strangeTree(11, 6));
+  ensurePeacefulDimObject((o) => o.type === 'strangeTree' && o.x === 31 * TILE && o.y === 6 * TILE - 8, () => strangeTree(31, 6));
+  ensurePeacefulDimObject((o) => o.type === 'strangeTree' && o.x === 8 * TILE && o.y === 21 * TILE - 8, () => strangeTree(8, 21));
+  ensurePeacefulDimObject((o) => o.type === 'strangeTree' && o.x === 37 * TILE && o.y === 21 * TILE - 8, () => strangeTree(37, 21));
+
+  if (currentScene === 'crystalDimension') {
+    objects = crystalDimensionObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  // Better, calmer tiles for the sanctuary.
+  drawCrystalFloor = function drawCrystalFloorPeacefulVillage(x, y, tileX, tileY) {
+    const base = (tileX + tileY) % 2 === 0 ? '#95d47a' : '#88cb72';
+    const deep = (tileX + tileY) % 2 === 0 ? '#78bb63' : '#71b55f';
+    fillPixelV2(x, y, TILE, TILE, base);
+    fillPixelV2(x, y + 23, TILE, 9, 'rgba(34,95,47,0.09)');
+    fillPixelV2(x + 2, y + 2, TILE - 5, 2, 'rgba(244,255,221,0.18)');
+    fillPixelV2(x + 4, y + 9, 6, 7, '#4ea85f');
+    fillPixelV2(x + 12, y + 13, 3, 9, '#2f8b60');
+    fillPixelV2(x + 22, y + 10, 4, 8, deep);
+    if ((tileX * 3 + tileY * 5) % 8 === 0) fillPixelV2(x + 18, y + 6, 3, 3, '#ffeef7');
+    if ((tileX + tileY) % 6 === 0) fillPixelV2(x + 8, y + 20, 2, 2, '#55c4ff');
+  };
+
+  drawCrystalPath = function drawCrystalPathPeacefulVillage(x, y, tileX, tileY) {
+    const light = (tileX + tileY) % 2 === 0 ? '#dacaa0' : '#d2c193';
+    const dark = (tileX + tileY) % 2 === 0 ? '#c4b07d' : '#bca872';
+    fillPixelV2(x, y, TILE, TILE, light);
+    ctx.strokeStyle = 'rgba(108, 92, 69, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+    fillPixelV2(x + 2, y + 2, TILE - 4, 2, 'rgba(255,251,234,0.20)');
+    fillPixelV2(x + 3, y + TILE - 4, TILE - 6, 2, 'rgba(104,88,67,0.12)');
+    fillPixelV2(x + 6, y + 6, 8, 4, dark);
+    fillPixelV2(x + 18, y + 18, 8, 4, dark);
+    fillPixelV2(x + 13, y + 13, 6, 6, '#f5df8c');
+    fillPixelV2(x + 15, y + 15, 2, 2, '#fff3d6');
+    if ((tileX + tileY) % 3 === 0) {
+      fillPixelV2(x, y + 15, TILE, 2, 'rgba(183,165,120,0.15)');
+      fillPixelV2(x + 15, y, 2, TILE, 'rgba(183,165,120,0.15)');
+    }
+  };
+
+  drawMagicWater = function drawMagicWaterPeacefulVillage(x, y, tileX, tileY) {
+    const time = performance.now() / 850;
+    const wave = Math.sin(time + tileX * 0.9 + tileY * 0.35) * 2;
+    const sparkle = Math.cos(time * 1.3 + tileX * 0.5 - tileY * 0.4) * 1.5;
+    fillPixelV2(x, y, TILE, TILE, (tileX + tileY) % 2 === 0 ? '#66b8ee' : '#59ace4');
+    fillPixelV2(x, y + 24, TILE, 8, 'rgba(28, 93, 153, 0.22)');
+    fillPixelV2(x + 4, y + 8 + wave, 11, 3, 'rgba(233,252,255,0.88)');
+    fillPixelV2(x + 17, y + 18 - wave, 10, 3, 'rgba(151,241,255,0.85)');
+    fillPixelV2(x + 8, y + 22, 8, 2, 'rgba(127,255,223,0.40)');
+    fillPixelV2(x + 18, y + 7, 5, 2, 'rgba(255,255,255,0.35)');
+    if ((tileX + tileY) % 4 === 0) {
+      fillPixelV2(x + 12 + sparkle, y + 13, 4, 4, '#ffffff');
+      fillPixelV2(x + 10, y + 17, 10, 2, 'rgba(85,228,255,0.50)');
+    }
+    if ((tileX * 5 + tileY * 7) % 11 === 0) {
+      fillPixelV2(x + 6, y + 27, 20, 2, 'rgba(204,255,244,0.28)');
+    }
+  };
+
+  const previousBridgeDrawPeaceful = drawCrystalBridge;
+  drawCrystalBridge = function drawCrystalBridgePeacefulVillage() {
+    const x = 21 * TILE;
+    const y = 13 * TILE;
+    const width = 5 * TILE;
+    const height = 2 * TILE;
+    radialGlow(x + width / 2, y + height / 2 + 4, 70, 'rgba(255,244,188,0.18)', 'rgba(85,228,255,0.04)');
+    fillPixelV2(x - 2, y + 4, width + 4, height - 8, 'rgba(255,255,220,0.15)');
+    pixelRect(x, y + 6, width, height - 12, '#d7c58e', '#3c3350');
+    fillPixelV2(x + 6, y + 11, width - 12, 5, '#f4e7ba');
+    fillPixelV2(x + 6, y + 23, width - 12, 2, 'rgba(91,70,44,0.16)');
+    for (let ix = x + 10; ix < x + width - 8; ix += 18) {
+      fillPixelV2(ix, y + 8, 3, height - 16, '#6eeeff');
+      fillPixelV2(ix + 1, y + 8, 1, height - 16, '#fff7c8');
+    }
+  };
+
+  drawMagicFountain = function drawMagicFountainPeacefulVillage(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const pulse = Math.sin(performance.now() / 600 + x * 0.04) * 1.6;
+    drawSoftShadow(x + 6, y + 44, 52, 9, 0.22);
+    pixelRect(x + 4, y + 24, obj.width - 8, 24, '#887d8f', '#2a2440');
+    pixelRect(x + 12, y + 14, obj.width - 24, 14, '#b8c2d1', '#2a2440');
+    fillPixelV2(x + 18, y + 4, 28, 10, '#dce7f1');
+    fillPixelV2(x + 24, y - 4, 16, 8, '#f6e8a2');
+    fillPixelV2(x + 26, y + 10 + pulse, 12, 18, '#7fe3ff');
+    fillPixelV2(x + 18, y + 28, 28, 9, '#52a8e3');
+    fillPixelV2(x + 16, y + 31, 32, 8, 'rgba(200,255,255,0.38)');
+    fillPixelV2(x + 20, y + 34, 24, 2, 'rgba(255,255,255,0.35)');
+  };
+
+  drawLargeCrystal = function drawLargeCrystalPeacefulVillage(obj) {
+    const pulse = Math.sin(performance.now() / 340 + obj.x * 0.04) * 2;
+    radialGlow(obj.x + 14, obj.y + 24, 44, 'rgba(85,228,255,0.12)', 'rgba(255,255,210,0.03)');
+    fillPixelV2(obj.x - 4, obj.y + 8, obj.width + 8, obj.height, 'rgba(129,239,255,0.16)');
+    fillPixelV2(obj.x + 11, obj.y, 6, 6, '#40385d');
+    fillPixelV2(obj.x + 5, obj.y + 6, 18, 18, '#2a2440');
+    fillPixelV2(obj.x + 1, obj.y + 24, 26, 16, '#2a2440');
+    fillPixelV2(obj.x + 8, obj.y + 7 + pulse, 12, 18, '#7fd8ff');
+    fillPixelV2(obj.x + 11, obj.y + 11 + pulse, 6, 14, '#ffffff');
+    fillPixelV2(obj.x + 7, obj.y + 27 + pulse, 14, 11, '#7cebc4');
+    fillPixelV2(obj.x + 10, obj.y + 31 + pulse, 7, 5, '#fff6be');
+  };
+
+  function drawCherryPuffPeaceful(x, y, base, light, deep) {
+    fillPixelV2(x + 6, y + 3, 18, 10, base);
+    fillPixelV2(x + 1, y + 9, 16, 10, light);
+    fillPixelV2(x + 16, y + 11, 14, 10, base);
+    fillPixelV2(x + 8, y + 17, 18, 9, deep);
+    fillPixelV2(x + 9, y + 8, 4, 4, '#fff4f8');
+    fillPixelV2(x + 20, y + 14, 4, 3, '#ffe6f3');
+  }
+
+  drawStrangeTree = function drawStrangeTreePeacefulVillage(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    drawSoftShadow(x - 4, y + 58, 42, 8, 0.18);
+    fillPixelV2(x + 11, y + 36, 10, 28, '#8d5f48');
+    fillPixelV2(x + 14, y + 38, 4, 23, '#c39277');
+    fillPixelV2(x + 8, y + 43, 3, 7, '#a97257');
+    fillPixelV2(x + 20, y + 40, 3, 8, '#a97257');
+    drawCherryPuffPeaceful(x - 14, y - 4, '#f5a5d0', '#ffd6eb', '#d97db4');
+    drawCherryPuffPeaceful(x, y - 16, '#f3a0ca', '#ffe0f1', '#d878aa');
+    drawCherryPuffPeaceful(x + 14, y + 0, '#ee93c1', '#ffd7eb', '#cf70a1');
+  };
+
+  const dimensionLanterns = [
+    [18.6, 9.8], [27.4, 9.8], [14.4, 18.8], [31.7, 18.8], [18.6, 27.2], [27.3, 27.2], [22.8, 22.0]
+  ];
+  const extraCrystalLights = [
+    [12.7, 20.2], [34.7, 20.2], [23.7, 16.2], [7.8, 17.4], [39.8, 17.4]
+  ];
+
+  const dimensionPetals = Array.from({ length: 30 }, (_, i) => ({
+    x: 3 * TILE + (i * 43) % (CRYSTAL_WIDTH - 6 * TILE),
+    y: 2 * TILE + (i * 61) % (CRYSTAL_HEIGHT - 6 * TILE),
+    speed: 10 + (i % 5) * 2.5,
+    drift: 8 + (i % 4) * 2,
+    phase: i * 0.6,
+    tone: i % 3
+  }));
+
+  const previousDimensionAmbientPeaceful = drawDimensionAmbient;
+  drawDimensionAmbient = function drawDimensionAmbientPeacefulVillage() {
+    if (typeof previousDimensionAmbientPeaceful === 'function') previousDimensionAmbientPeaceful();
+    if (currentScene !== 'crystalDimension') return;
+
+    const time = performance.now() / 1000;
+
+    // Gentle global veil to make the dimension calmer and softer.
+    fillPixelV2(camera.x, camera.y, canvas.width, canvas.height, 'rgba(218, 250, 236, 0.04)');
+
+    // Soft lanterns.
+    for (const [tx, ty] of dimensionLanterns) {
+      const px = tx * TILE;
+      const py = ty * TILE;
+      if (px < camera.x - 80 || px > camera.x + canvas.width + 80 || py < camera.y - 80 || py > camera.y + canvas.height + 80) continue;
+      radialGlow(px, py, 42, 'rgba(255,241,176,0.18)', 'rgba(255,190,120,0.04)');
+      fillPixelV2(px - 2, py - 2, 4, 4, '#fff3d6');
+    }
+
+    // Crystals and fountains feel more magical.
+    for (const [tx, ty] of extraCrystalLights) {
+      const px = tx * TILE;
+      const py = ty * TILE;
+      if (px < camera.x - 80 || px > camera.x + canvas.width + 80 || py < camera.y - 80 || py > camera.y + canvas.height + 80) continue;
+      radialGlow(px, py, 55, 'rgba(85,228,255,0.14)', 'rgba(85,228,255,0.03)');
+    }
+
+    // Water-edge glimmers to reinforce the peaceful mood.
+    for (let i = 0; i < 10; i++) {
+      const px = 6 * TILE + ((i * 111) % (CRYSTAL_WIDTH - 12 * TILE));
+      const py = 7 * TILE + ((i * 73) % (CRYSTAL_HEIGHT - 12 * TILE));
+      if (px < camera.x - 60 || px > camera.x + canvas.width + 60 || py < camera.y - 60 || py > camera.y + canvas.height + 60) continue;
+      if (((i + Math.floor(time * 2)) % 2) === 0) {
+        fillPixelV2(px, py, 3, 3, 'rgba(255,255,255,0.40)');
+        fillPixelV2(px + 2, py + 2, 2, 2, 'rgba(85,228,255,0.40)');
+      }
+    }
+
+    // Falling cherry blossom petals.
+    const petalStep = isMobile ? 2 : 1;
+    for (let i = 0; i < dimensionPetals.length; i += petalStep) {
+      const p = dimensionPetals[i];
+      const px = p.x + Math.sin(time * 0.8 + p.phase) * p.drift;
+      const py = ((p.y + time * p.speed * 12) % (CRYSTAL_HEIGHT + 24)) - 12;
+      if (px < camera.x - 10 || px > camera.x + canvas.width + 10 || py < camera.y - 10 || py > camera.y + canvas.height + 10) continue;
+      const color = p.tone === 0 ? '#ffd9ed' : p.tone === 1 ? '#f7aed4' : '#fff0f8';
+      fillPixelV2(px, py, 3, 2, color);
+      fillPixelV2(px + 1, py + 2, 2, 1, 'rgba(233,153,192,0.65)');
+    }
+  };
+})();
+
+
+/* ==================================================
+   Patch EXTRA: tirar a agua de dentro da vila
+   - remove lagos/agua da area interna da vila
+   - substitui por piso de praca para combinar com a vila
+   ================================================== */
+(function eternalRiftVillageRemoveWaterPatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_VILLAGE_REMOVE_WATER_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_VILLAGE_REMOVE_WATER_PATCH = true;
+
+  function replaceVillageWaterWithPlaza() {
+    for (let y = 6; y <= 40; y++) {
+      for (let x = 17; x <= 63; x++) {
+        if (worldMap[y] && worldMap[y][x] === 'W') {
+          worldMap[y][x] = 'P';
+        }
+      }
+    }
+  }
+
+  replaceVillageWaterWithPlaza();
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: Multiplayer básico com Firebase Realtime Database
+   Versão 1:
+   - sala por URL: ?room=sala1 ou ?sala=sala1
+   - sincroniza nome, posição, direção, vida, nível e cena
+   - desenha outros jogadores no mapa
+   - continua offline se Firebase não carregar
+   ================================================== */
+(function eternalRiftFirebaseMultiplayerUserFilesPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_FIREBASE_MULTIPLAYER_USER_FILES_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_FIREBASE_MULTIPLAYER_USER_FILES_PATCH = true;
+
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyArUsfzNjYI5XnC9xQ25cIoDXfMnzPIokM",
+    authDomain: "eternal-rift.firebaseapp.com",
+    databaseURL: "https://eternal-rift-default-rtdb.firebaseio.com/",
+    projectId: "eternal-rift",
+    storageBucket: "eternal-rift.firebasestorage.app",
+    messagingSenderId: "672958161076",
+    appId: "1:672958161076:web:5eec55cf81a26809d3b7e1",
+    measurementId: "G-HWSV8GZD14"
+  };
+
+  const SEND_INTERVAL_MS = 110;
+  const PLAYER_TIMEOUT_MS = 14000;
+  const CLEAN_INTERVAL_MS = 6500;
+
+  let onlineReady = false;
+  let onlineStarted = false;
+  let onlineErrorShown = false;
+  let onlineDb = null;
+  let onlineRoomRef = null;
+  let onlineSelfRef = null;
+  let onlinePlayerId = "";
+  let onlineRoomId = "sala1";
+  let lastSendAt = 0;
+  let lastCleanAt = 0;
+
+  const onlinePlayers = new Map();
+  const onlineStatusPanel = document.getElementById("onlineStatusPanel");
+  const onlineStatusText = document.getElementById("onlineStatusText");
+
+  function setOnlineStatus(text, visible = true) {
+    if (onlineStatusText) onlineStatusText.textContent = text;
+    if (onlineStatusPanel) onlineStatusPanel.classList.toggle("hidden", !visible);
+    try {
+      if (typeof showHudToast === "function" && visible) showHudToast(text);
+    } catch (error) {}
+  }
+
+  function safeRoomId() {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      const raw = params.get("room") || params.get("sala") || "sala1";
+      return String(raw).toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32) || "sala1";
+    } catch (error) {
+      return "sala1";
+    }
+  }
+
+  function getOrCreateOnlinePlayerId() {
+    try {
+      const key = "eternalRiftFirebaseOnlinePlayerId";
+      let id = localStorage.getItem(key);
+      if (!id) {
+        id = "p_" + Math.random().toString(36).slice(2, 10) + "_" + Date.now().toString(36);
+        localStorage.setItem(key, id);
+      }
+      return id;
+    } catch (error) {
+      return "p_" + Math.random().toString(36).slice(2, 10);
+    }
+  }
+
+  function onlineName() {
+    const typedName = String(characterNameInput?.value || "").trim();
+    const playerName = String(player?.name || "").trim();
+    const name = playerName && playerName !== "Lia" ? playerName : typedName;
+    return (name || "Jogador").slice(0, 18);
+  }
+
+  function onlineColor(id) {
+    let hash = 0;
+    for (let i = 0; i < String(id).length; i++) {
+      hash = ((hash << 5) - hash + String(id).charCodeAt(i)) | 0;
+    }
+    const colors = ["#55e8ff", "#fff264", "#b96cff", "#5ac36b", "#ff8a5c", "#d9f5ff", "#ff6ccf", "#73ffb8"];
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      const existing = Array.from(document.scripts || []).find((script) => script.src === src);
+      if (existing) {
+        if (existing.dataset.loaded === "true") return resolve();
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Falha ao carregar " + src)), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = src;
+      script.async = false;
+      script.dataset.firebaseDynamicLoader = "true";
+      script.addEventListener("load", () => {
+        script.dataset.loaded = "true";
+        resolve();
+      }, { once: true });
+      script.addEventListener("error", () => reject(new Error("Falha ao carregar " + src)), { once: true });
+      document.head.appendChild(script);
+    });
+  }
+
+  async function ensureFirebaseSdkLoaded() {
+    if (typeof window.firebase !== "undefined" && window.firebase?.initializeApp && window.firebase?.database) return true;
+
+    const versions = ["10.12.5", "9.23.0", "8.10.1"];
+    for (const version of versions) {
+      try {
+        await loadScriptOnce(`https://www.gstatic.com/firebasejs/${version}/firebase-app-compat.js`);
+        await loadScriptOnce(`https://www.gstatic.com/firebasejs/${version}/firebase-database-compat.js`);
+        if (typeof window.firebase !== "undefined" && window.firebase?.initializeApp && window.firebase?.database) return true;
+      } catch (error) {
+        console.warn("[Eternal Rift Online] Tentativa de carregar Firebase falhou:", version, error);
+      }
+    }
+
+    return false;
+  }
+
+  async function initOnlineMode() {
+    if (onlineStarted && onlineReady) return onlineReady;
+    if (onlineStarted && !onlineReady) {
+      // Permite tentar de novo se a primeira tentativa aconteceu antes dos scripts carregarem.
+      onlineStarted = false;
+    }
+    onlineStarted = true;
+
+    try {
+      onlineRoomId = safeRoomId();
+      onlinePlayerId = getOrCreateOnlinePlayerId();
+
+      setOnlineStatus("Online: carregando Firebase...", true);
+      const sdkLoaded = await ensureFirebaseSdkLoaded();
+
+      if (!sdkLoaded || typeof window.firebase === "undefined" || !window.firebase?.initializeApp || !window.firebase?.database) {
+        console.warn("[Eternal Rift Online] Firebase SDK não carregou. O jogo continua offline.");
+        setOnlineStatus("Offline: Firebase não carregou. Verifique internet/CDN.", true);
+        return false;
+      }
+
+      if (!window.firebase.apps || !window.firebase.apps.length) {
+        window.firebase.initializeApp(FIREBASE_CONFIG);
+      }
+
+      onlineDb = window.firebase.database();
+      onlineRoomRef = onlineDb.ref("rooms/" + onlineRoomId + "/players");
+      onlineSelfRef = onlineRoomRef.child(onlinePlayerId);
+      onlineSelfRef.onDisconnect().remove();
+
+      onlineRoomRef.on("value", (snapshot) => {
+        const now = Date.now();
+        const value = snapshot.val() || {};
+
+        Object.entries(value).forEach(([id, data]) => {
+          if (id === onlinePlayerId) return;
+          if (!data || typeof data !== "object") return;
+
+          const updatedAt = Number(data.updatedAt || 0);
+          if (now - updatedAt > PLAYER_TIMEOUT_MS) {
+            onlinePlayers.delete(id);
+            return;
+          }
+
+          const existing = onlinePlayers.get(id) || {};
+          const x = Number(data.x || 0);
+          const y = Number(data.y || 0);
+
+          onlinePlayers.set(id, {
+            id,
+            name: String(data.name || "Jogador").slice(0, 18),
+            x,
+            y,
+            drawX: Number.isFinite(existing.drawX) ? existing.drawX : x,
+            drawY: Number.isFinite(existing.drawY) ? existing.drawY : y,
+            width: Number(data.width || 22),
+            height: Number(data.height || 26),
+            direction: String(data.direction || "down"),
+            scene: String(data.scene || "village"),
+            health: Number(data.health || 0),
+            maxHealth: Number(data.maxHealth || 1),
+            level: Number(data.level || 1),
+            moving: Boolean(data.moving),
+            updatedAt,
+            color: existing.color || onlineColor(id)
+          });
+        });
+
+        for (const id of Array.from(onlinePlayers.keys())) {
+          if (!value[id]) onlinePlayers.delete(id);
+        }
+
+        if (onlineReady) {
+          const count = Array.from(onlinePlayers.values()).filter((p) => p.scene === currentScene).length;
+          if (onlineStatusText) onlineStatusText.textContent = `Sala ${onlineRoomId} • ${count + 1} online`;
+        }
+      }, (error) => {
+        console.warn("[Eternal Rift Online] Erro ao ler sala:", error);
+        if (!onlineErrorShown) {
+          onlineErrorShown = true;
+          setOnlineStatus("Online bloqueado: veja as regras", true);
+        }
+      });
+
+      onlineReady = true;
+      setOnlineStatus("Online ligado: sala " + onlineRoomId, true);
+      return true;
+    } catch (error) {
+      console.warn("[Eternal Rift Online] Falha ao iniciar:", error);
+      setOnlineStatus("Offline: erro no Firebase", true);
+      return false;
+    }
+  }
+
+  function publishSelfOnline() {
+    if (!onlineReady || !onlineSelfRef || !player) return;
+    if (!gameStarted || gameOver) return;
+
+    const now = Date.now();
+    if (now - lastSendAt < SEND_INTERVAL_MS) return;
+    lastSendAt = now;
+
+    const payload = {
+      name: onlineName(),
+      x: Math.round(Number(player.x || 0)),
+      y: Math.round(Number(player.y || 0)),
+      width: Number(player.width || 22),
+      height: Number(player.height || 26),
+      direction: String(player.direction || "down"),
+      scene: String(currentScene || "village"),
+      health: Number(player.health || 0),
+      maxHealth: Number(player.maxHealth || 1),
+      level: Number(player.level || 1),
+      moving: Boolean(player.moving),
+      updatedAt: now
+    };
+
+    onlineSelfRef.set(payload).catch((error) => {
+      console.warn("[Eternal Rift Online] Erro ao enviar jogador:", error);
+      if (!onlineErrorShown) {
+        onlineErrorShown = true;
+        setOnlineStatus("Sem permissão no Firebase", true);
+      }
+    });
+  }
+
+  function cleanOldOnlinePlayers() {
+    if (!onlineReady || !onlineRoomRef) return;
+    const now = Date.now();
+    if (now - lastCleanAt < CLEAN_INTERVAL_MS) return;
+    lastCleanAt = now;
+
+    onlineRoomRef.once("value").then((snapshot) => {
+      const value = snapshot.val() || {};
+      Object.entries(value).forEach(([id, data]) => {
+        if (id === onlinePlayerId) return;
+        if (now - Number(data?.updatedAt || 0) > PLAYER_TIMEOUT_MS) {
+          onlineRoomRef.child(id).remove().catch(() => {});
+        }
+      });
+    }).catch(() => {});
+  }
+
+  function updateOnlineInterpolation(delta) {
+    const amount = Math.min(1, Math.max(0.10, Number(delta || 0.016) * 10));
+    for (const p of onlinePlayers.values()) {
+      p.drawX = Number(p.drawX || p.x) + (Number(p.x || 0) - Number(p.drawX || p.x)) * amount;
+      p.drawY = Number(p.drawY || p.y) + (Number(p.y || 0) - Number(p.drawY || p.y)) * amount;
+    }
+  }
+
+  function drawOnlineName(p, x, y) {
+    const name = `${p.name || "Jogador"} Nv.${p.level || 1}`;
+    ctx.save();
+    ctx.font = "800 10px Trebuchet MS, Arial, sans-serif";
+    const width = Math.max(56, ctx.measureText(name).width + 12);
+    const tagX = x + p.width / 2 - width / 2;
+    const tagY = y - 22;
+
+    ctx.fillStyle = "rgba(12, 16, 34, 0.78)";
+    ctx.fillRect(tagX, tagY, width, 16);
+    ctx.strokeStyle = p.color || "#55e8ff";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(tagX, tagY, width, 16);
+    ctx.fillStyle = "#fff3d6";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(name, x + p.width / 2, tagY + 8);
+    ctx.restore();
+  }
+
+  function drawOnlineHealth(p, x, y) {
+    const max = Math.max(1, Number(p.maxHealth || 1));
+    const hp = Math.max(0, Math.min(max, Number(p.health || 0)));
+    const w = 30;
+    const h = 4;
+    const bx = x + p.width / 2 - w / 2;
+    const by = y - 6;
+
+    ctx.fillStyle = "rgba(12, 16, 34, 0.78)";
+    ctx.fillRect(bx, by, w, h);
+    ctx.fillStyle = "#5ac36b";
+    ctx.fillRect(bx, by, w * (hp / max), h);
+    ctx.strokeStyle = "#1a1f3d";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx, by, w, h);
+  }
+
+  function drawOnlinePlayer(p) {
+    if (!p || p.scene !== currentScene) return;
+    if (Date.now() - Number(p.updatedAt || 0) > PLAYER_TIMEOUT_MS) return;
+
+    const obj = { x: p.drawX, y: p.drawY, width: p.width, height: p.height };
+    if (typeof isOnCamera === "function" && !isOnCamera(obj, 90)) return;
+
+    const x = Math.round(Number(p.drawX || p.x));
+    const y = Math.round(Number(p.drawY || p.y));
+    const w = Number(p.width || 22);
+    const h = Number(p.height || 26);
+    const color = p.color || "#55e8ff";
+
+    ctx.save();
+    ctx.globalAlpha = 0.94;
+
+    // sombra
+    ctx.fillStyle = "rgba(10, 13, 28, 0.35)";
+    ctx.fillRect(x + 3, y + h - 2, w - 1, 5);
+
+    // aura online
+    ctx.fillStyle = color + "33";
+    ctx.fillRect(x - 2, y + 6, w + 4, h - 2);
+
+    // corpo pixel
+    ctx.fillStyle = "#11142e";
+    ctx.fillRect(x + 5, y + 8, w - 10, h - 7);
+    ctx.fillStyle = color;
+    ctx.fillRect(x + 7, y + 10, w - 14, h - 11);
+
+    // cabeça
+    ctx.fillStyle = "#fff3d6";
+    ctx.fillRect(x + 6, y + 1, w - 12, 10);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 9, y + 4, 3, 3);
+    ctx.fillRect(x + w - 12, y + 4, 3, 3);
+
+    // indicador de direção
+    ctx.fillStyle = "#fff264";
+    if (p.direction === "left") ctx.fillRect(x + 1, y + 13, 5, 5);
+    else if (p.direction === "right") ctx.fillRect(x + w - 6, y + 13, 5, 5);
+    else if (p.direction === "up") ctx.fillRect(x + w / 2 - 2, y + 7, 4, 4);
+    else ctx.fillRect(x + w / 2 - 2, y + h - 7, 4, 4);
+
+    drawOnlineHealth(p, x, y);
+    drawOnlineName(p, x, y);
+    ctx.restore();
+  }
+
+  function drawOnlinePlayersWorld() {
+    if (!onlineReady || onlinePlayers.size === 0) return;
+    const players = Array.from(onlinePlayers.values())
+      .filter((p) => p.scene === currentScene)
+      .sort((a, b) => (Number(a.drawY || a.y) + Number(a.height || 26)) - (Number(b.drawY || b.y) + Number(b.height || 26)));
+
+    for (const p of players) drawOnlinePlayer(p);
+  }
+
+  // Publica posição no update real do jogo
+  const updateBeforeOnline = update;
+  update = function updateOnlinePatch(delta) {
+    const result = updateBeforeOnline(delta);
+    updateOnlineInterpolation(delta || 0.016);
+    publishSelfOnline();
+    cleanOldOnlinePlayers();
+    return result;
+  };
+
+  // Desenha os jogadores online dentro do mundo antes do minimapa.
+  // drawMiniMap é chamado no fim do draw(), depois do ctx.restore(), então recriamos o translate da câmera.
+  const drawMiniMapBeforeOnline = drawMiniMap;
+  drawMiniMap = function drawMiniMapOnlinePatch() {
+    try {
+      ctx.save();
+      ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+      drawOnlinePlayersWorld();
+      ctx.restore();
+    } catch (error) {
+      console.warn("[Eternal Rift Online] Erro ao desenhar jogadores online:", error);
+    }
+    return drawMiniMapBeforeOnline();
+  };
+
+  window.addEventListener("beforeunload", () => {
+    try {
+      if (onlineSelfRef) onlineSelfRef.remove();
+    } catch (error) {}
+  });
+
+  // Inicia um pouco depois para garantir que o jogo e o Firebase SDK já carregaram.
+
+  onlineStatusPanel?.addEventListener("click", () => {
+    onlineStarted = false;
+    initOnlineMode();
+  });
+
+  setTimeout(initOnlineMode, 900);
+
+  window.eternalRiftOnline = {
+    get connected() { return onlineReady; },
+    get room() { return onlineRoomId; },
+    get id() { return onlinePlayerId; },
+    get players() { return Array.from(onlinePlayers.values()); },
+    reconnect: initOnlineMode
+  };
 })();

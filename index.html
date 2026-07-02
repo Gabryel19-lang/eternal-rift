@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <title>Eternal Rift</title>
-  <link rel="stylesheet" href="styles.css?v=hud-editavel-freefire-20260702">
+  <link rel="stylesheet" href="styles.css?v=multiplayer-firebase-loader-fix">
+  <link rel="icon" href="favicon.png?v=multiplayer-firebase-loader-fix" sizes="any">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=multiplayer-firebase-loader-fix">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=multiplayer-firebase-loader-fix">
+  <meta name="theme-color" content="#11142e">
 </head>
 <body>
   <main class="game-shell">
@@ -89,7 +93,6 @@
         </div>
         <button id="saveButton" type="button">Salvar Jogo</button>
         <button id="resetButton" type="button">Reiniciar posicao</button>
-        <button id="musicToggleButton" type="button">Musica: Ligada</button>
         <button id="hudMenuButton" class="hud-menu-button" type="button">Menu</button>
       </div>
 
@@ -101,6 +104,12 @@
         <button id="mobileFullscreenButton" class="touch-button" type="button">Tela cheia</button>
         <button id="mobilePauseButton" class="touch-button" type="button">Pausa</button>
         <button id="mobileDebugButton" class="touch-button debug-toggle hidden" type="button">Debug</button>
+      </div>
+
+
+      <div id="onlineStatusPanel" class="online-status-panel hidden" aria-live="polite">
+        <strong>Online</strong>
+        <span id="onlineStatusText">Conectando...</span>
       </div>
 
       <div class="touch-controls" aria-label="Controles touch">
@@ -202,9 +211,16 @@
       </div>
 
       <div id="gameOverScreen" class="game-over hidden">
-        <h2>Game Over</h2>
-        <p>Lia desmaiou. Reinicie a posicao para tentar de novo.</p>
-        <button id="gameOverResetButton" type="button">Tentar novamente</button>
+        <div class="game-over-card">
+          <div class="game-over-crown" aria-hidden="true">✦</div>
+          <p class="game-over-kicker">A jornada ainda nao acabou</p>
+          <h2>Game Over</h2>
+          <p id="gameOverArea" class="game-over-area">Local: Vila</p>
+          <p id="gameOverMessage" class="game-over-message">Lia desmaiou. Reuna forcas e tente novamente.</p>
+          <div class="game-over-actions">
+            <button id="gameOverResetButton" type="button">Tentar novamente</button>
+          </div>
+        </div>
       </div>
 
       <div id="infoPanel" class="info-panel hidden">
@@ -217,6 +233,7 @@
         <div class="pause-menu">
           <h2>Menu</h2>
           <button id="pauseContinueButton" type="button">Continuar</button>
+          <button id="musicToggleButton" type="button">Musica: Ligada</button>
           <button id="pauseSaveButton" type="button">Salvar jogo</button>
           <button id="pauseResetButton" type="button">Reiniciar posicao</button>
           <button id="pauseHowToButton" type="button">Como jogar</button>
@@ -265,6 +282,8 @@
     </aside>
   </main>
 
-  <script src="app.js?v=hud-editavel-freefire-20260702"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="app.js?v=favicon-er-20260702"></script>
 </body>
 </html>

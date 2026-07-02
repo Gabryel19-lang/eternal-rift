@@ -414,3 +414,141 @@ Trava final do inventário mobile: o botão Fechar agora usa fechamento direto p
 - Adicionado reset geral e reset por item.
 - A barra de boss pode ser reposicionada e redimensionada usando uma previa no editor.
 - `node --check app.js` passou sem erro.
+
+
+## Atualização - Mais jazidas de minérios existentes
+- A Mina Cristalina recebeu várias novas jazidas espalhadas pela entrada, corredores e salas profundas.
+- A Dimensão Ácida recebeu várias novas jazidas raras pelo mapa.
+- Não foram criados tipos novos de minério. Foram usados apenas os minérios que já existiam:
+  - Ferro Sombrio
+  - Cristal Azul
+  - Ametista Lunar
+  - Ouro Antigo
+  - Necrita Verde
+  - Cristal Cáustico
+  - Ouro Corrosivo
+- As novas jazidas usam o mesmo sistema de mineração, inventário, save e interação por E/toque.
+- O cache do HTML foi atualizado para `mais-minerios-20260702`.
+
+## Atualização extra - Poção Arcana salva + minérios com respawn
+- Ao usar a Poção Arcana para aumentar a mana máxima, o jogo agora força um autosave imediatamente.
+- A mana máxima aumentada pela Poção Arcana continua salva mesmo se o jogador fechar o jogo logo depois.
+- Todas as jazidas de minério da Mina Cristalina agora voltam depois de 5 minutos.
+- Todas as jazidas de minério da Dimensão Ácida agora voltam depois de 5 minutos.
+- Os timers de respawn ficam salvos no progresso, então continuam contando ao sair e voltar ao jogo.
+- Saves antigos com jazidas já mineradas recebem um timer de 5 minutos ao carregar, evitando minérios presos para sempre.
+- `node --check app.js` passou sem erro após a alteração.
+
+
+## Atualizacao extra - Musica dentro do menu
+- O botao `Musica: Ligada/Desligada` foi removido do HUD principal.
+- O controle de musica agora fica dentro do menu de pausa, logo abaixo de `Continuar`.
+- A faixa grande de musica nao aparece mais por cima da tela durante o jogo.
+- O mesmo botao continua ligando/desligando a musica e salvando a preferencia no navegador.
+- Cache atualizado para `musica-no-menu-20260702`.
+
+
+Atualizacao extra - HUD muito mais bonito:
+- HUD recebeu visual real/medieval mais sofisticado;
+- caixas do HUD agora usam gradientes mais ricos, brilho suave, dourado e sombra mais elegante;
+- textos e labels do HUD ficaram mais legiveis e refinados;
+- barras de XP, mana, oxigenio e boss foram redesenhadas com visual premium;
+- barra de boss ganhou acabamento mais dramatico e efeito de brilho pulsante;
+- cache do HTML atualizado para forcar o celular/navegador a puxar o novo visual.
+
+
+## Correcao HUD visivel 2026-07-02
+- Corrigido HUD bonito que escondia nome, XP, vida e mana no mobile.
+- Nome do personagem, XP, barra de XP, vida e mana voltaram a aparecer.
+- Mantido o visual bonito do HUD, sem alterar jogabilidade.
+- Cache atualizado para hud-visivel-corrigido-20260702.
+- node --check app.js passou sem erro.
+
+
+Atualizacao: adicionada uma barreira real e bonita ao redor da vila principal, com quatro entradas elegantes e selos magicos que barram monstros sem impedir o jogador de entrar e sair.
+
+Correcao: entradas da barreira alinhadas aos caminhos reais da vila. O jogador agora consegue sair e entrar pela barreira, enquanto os monstros continuam bloqueados pelos selos magicos.
+
+
+Atualizacao: a barreira da vila agora ganhou um telhado externo muito mais bonito. O telhado aparece do lado de fora da muralha e por dentro a vila continua normal, sem teleporte e sem mudar de mapa.
+
+
+Correcao: o telhado da barreira agora fica voltado para o lado de dentro da vila, permitindo ao jogador ver o lado de fora da vila sem mudar de mapa e sem teleporte.
+
+
+Atualizacao: grande melhoria visual no personagem. O heroi ganhou visual mais bonito, armas redesenhadas (espada, arco, cajado e lanca), animacoes de ataque melhores e aparencia das armaduras equipadas bem mais marcante.
+
+
+Atualizacao EXTRA: o heroi ficou ainda mais epico. Reforcei o sprite com cabelo melhor, postura mais heroica, roupa base mais bonita, armaduras com identidade propria, armas mais lendarias, animacoes/efeitos mais fortes e sensacao visual muito mais rica.
+
+
+Correcao: reduzi a intensidade da aura do personagem para deixar o visual mais bonito e menos exagerado, mantendo apenas um brilho mais suave e controlado.
+
+
+Atualizacao: deixei a hitbox do ataque muito mais bonita e elegante, substituindo o cone exagerado por um efeito mais refinado. Tambem adicionei contador de dano com numeros flutuantes melhores e total acumulado por alvo.
+
+
+Atualizacao EXTRA: a hitbox foi refeita para ficar muito mais bonita e caprichada, com slash em camadas para espada e golpe de lanca mais elegante, reduzindo a simplicidade do efeito anterior.
+
+
+Correcao: deixei o contador de dano mais visivel, com numeros maiores, fundo escuro, borda destacada e melhor leitura em combate.
+
+
+Atualizacao: adicionei efeitos elementais nas armas. Armas de fogo agora queimam por alguns segundos, armas de gelo congelam e deixam lento, armas venenosas envenenam, armas eletricas eletrizam, armas sombrias amaldiçoam e armas sagradas marcam os inimigos com dano extra.
+
+
+Atualizacao EXTRA: os efeitos elementais agora estao MUITO mais bonitos, com particulas especificas para fogo, gelo, veneno, raio, sombra e luz. Tambem adicionei aura elemental mais forte e bonita em bosses quando recebem esses efeitos.
+
+
+Atualizacao EXTRA: deixei o interior da barreira / vila muito mais bonito, com jardins na frente das casas, praca central mais caprichada, lanternas decorativas, banners, sebes, enfeites no caminho e detalhes perto do lago.
+
+
+Atualizacao EXTRA FORTE: refiz de forma bem mais visivel o interior da barreira / vila. Agora o chao de grama dentro da vila esta mais rico e florido, os caminhos estao mais nobres, a praca esta com padrao real, as arvores da vila viraram cerejeiras e a iluminacao ganhou brilhos bem mais fortes e bonitos na praca e nos caminhos.
+
+
+Ajuste pedido: removi a grama da parte interior da vila e mantive grama apenas perto das arvores de cerejeira. O restante do interior ficou com piso mais nobre / de patio.
+
+
+Hotfix: corrigi o erro radialGlow is not defined que podia travar a tela ao desenhar a iluminacao do interior da vila.
+
+
+Atualizacao: Dimensao Tranquila da Vila refeita para ficar muito mais bonita e mais expandida. Melhorei a agua com brilho/reflexo, os caminhos, a praca central, as cerejeiras, petalas caindo, lanternas suaves, cristais brilhando, bancos, flores, fontes, ilhas e pontes entre as areas.
+
+
+Atualizacao: removi a agua de dentro da vila e substitui por piso de praca (P), para o interior ficar seco e combinando com o visual da vila.
+
+
+Atualizacao: adicionado favicon oficial do Eternal Rift usando o logo ER com fenda azul/roxa. Inclui favicon.ico, favicon.png, apple-touch-icon.png, icon-192.png e icon-512.png, com links configurados no index.html.
+
+
+## Multiplayer básico com Firebase
+- Adicionado Firebase Realtime Database com a URL:
+  https://eternal-rift-default-rtdb.firebaseio.com/
+- O jogo usa a sala padrão `sala1`.
+- Também é possível escolher sala pelo link: `?room=sala1`.
+- Sincroniza nome, posição X/Y, direção, vida, nível e cena atual.
+- Mostra outros jogadores andando no mapa.
+- Se Firebase falhar, o jogo continua funcionando offline.
+- Para testar, suba estes arquivos no GitHub Pages e abra o mesmo link em dois aparelhos:
+  `https://gabryel19-lang.github.io/jogorpg2d/?play=1&lite=1&room=sala1&v=multiplayer-user-files-1`
+
+Regras recomendadas para teste no Realtime Database:
+```json
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}
+```
+
+
+## Correção do Firebase não carregou
+- O jogo agora tenta carregar o Firebase automaticamente pelo `app.js`, mesmo se o `index.html` antigo estiver em cache ou sem os scripts.
+- Tenta Firebase CDN em versões 10.12.5, 9.23.0 e 8.10.1.
+- Se falhar, aparece aviso para verificar internet/CDN.
+- Depois de subir no GitHub Pages, use `v=multiplayer-loader-fix`.

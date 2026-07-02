@@ -546,16 +546,160 @@ canvas {
   color: var(--muted);
 }
 
+.game-over h2 {
+  margin: 0 0 8px;
+  font-size: clamp(2rem, 5vw, 2.85rem);
+  line-height: 1;
+  color: #fff5d0;
+  text-shadow: 0 2px 0 rgba(26, 31, 61, 0.9), 0 0 18px rgba(255, 242, 100, 0.16);
+}
+
+.game-over button {
+  min-width: min(320px, 100%);
+  min-height: 58px;
+  border: 3px solid #1a1f3d;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff58a, #f5ce79 60%, #ddb24a);
+  color: #273052;
+  cursor: pointer;
+  font-size: 1.12rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  padding: 12px 18px;
+  box-shadow:
+    0 0 0 4px rgba(245, 206, 121, 0.25),
+    0 7px 0 rgba(12, 18, 40, 0.34),
+    0 14px 34px rgba(0, 0, 0, 0.24);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+.game-over button:hover {
+  filter: brightness(1.03);
+}
+
+.game-over button:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 0 0 4px rgba(245, 206, 121, 0.2),
+    0 4px 0 rgba(12, 18, 40, 0.34),
+    0 8px 20px rgba(0, 0, 0, 0.22);
+}
+
 .game-over {
   position: absolute;
   inset: 0;
   display: grid;
-  place-content: center;
-  gap: 12px;
+  place-items: center;
+  padding: 24px;
   text-align: center;
-  background: rgba(14, 17, 34, 0.82);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(112, 33, 49, 0.28), transparent 34%),
+    radial-gradient(circle at 50% 120%, rgba(37, 89, 143, 0.22), transparent 40%),
+    linear-gradient(180deg, rgba(9, 12, 24, 0.58), rgba(8, 10, 20, 0.86));
+  backdrop-filter: blur(2px);
   color: var(--text);
-  z-index: 5;
+  z-index: 25;
+}
+
+.game-over::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border: 2px solid rgba(245, 206, 121, 0.36);
+  box-shadow: inset 0 0 0 2px rgba(26, 31, 61, 0.88);
+  pointer-events: none;
+}
+
+.game-over-card {
+  position: relative;
+  width: min(560px, calc(100% - 28px));
+  padding: 26px 24px 22px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(73, 82, 129, 0.97), rgba(29, 37, 72, 0.98));
+  box-shadow:
+    0 0 0 3px var(--ui-border),
+    0 0 0 7px rgba(245, 206, 121, 0.58),
+    0 24px 60px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.game-over-card::before,
+.game-over-card::after {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.24;
+}
+
+.game-over-card::before {
+  left: -34px;
+  top: -48px;
+  background: radial-gradient(circle, rgba(255, 242, 100, 0.75), transparent 65%);
+}
+
+.game-over-card::after {
+  right: -40px;
+  bottom: -72px;
+  background: radial-gradient(circle, rgba(85, 232, 255, 0.62), transparent 68%);
+}
+
+.game-over-crown {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 10px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff4bf;
+  font-size: 1.6rem;
+  background: radial-gradient(circle at 35% 30%, #fff5b3, #f5ce79 48%, #8c5e20 100%);
+  box-shadow:
+    0 0 0 3px rgba(26, 31, 61, 0.94),
+    0 0 0 7px rgba(245, 206, 121, 0.5),
+    0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.game-over-kicker {
+  margin: 0 0 6px;
+  color: #ffe7a2;
+  font-size: 0.8rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.game-over-area {
+  margin: 0 auto 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(14, 20, 44, 0.58);
+  box-shadow: inset 0 0 0 2px rgba(245, 206, 121, 0.32);
+  color: #b8d9ff;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.game-over-message {
+  margin: 0 auto 18px;
+  max-width: 440px;
+  color: #fff6df;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.game-over-actions {
+  display: flex;
+  justify-content: center;
 }
 
 .info-panel {
@@ -6523,5 +6667,623 @@ body.hud-editor-open #infoPanel {
     bottom: max(8px, env(safe-area-inset-bottom));
     width: auto;
     max-height: 45dvh;
+  }
+}
+
+
+/* ===== HUD ROYAL BEAUTY UPGRADE ===== */
+:root {
+  --hud-royal-1: rgba(37, 49, 93, 0.90);
+  --hud-royal-2: rgba(26, 34, 70, 0.94);
+  --hud-royal-3: rgba(17, 23, 48, 0.94);
+  --hud-gold-soft: rgba(244, 211, 122, 0.85);
+  --hud-gold-bright: #f8df92;
+  --hud-sky: rgba(130, 224, 255, 0.82);
+  --hud-shadow-deep: rgba(4, 8, 22, 0.55);
+}
+
+.hud {
+  gap: 10px;
+  filter: drop-shadow(0 14px 26px rgba(6, 10, 26, 0.22));
+}
+
+.hud > div,
+.hud button {
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255, 255, 255, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(255,255,255,0.08), transparent 30%),
+    linear-gradient(180deg, var(--hud-royal-1), var(--hud-royal-2) 52%, var(--hud-royal-3));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 1px rgba(13, 18, 40, 0.9),
+    0 0 0 3px rgba(244, 211, 122, 0.16),
+    0 10px 24px var(--hud-shadow-deep),
+    0 3px 0 rgba(8, 12, 30, 0.85);
+  color: #fff9e8;
+  backdrop-filter: blur(9px) saturate(130%);
+  -webkit-backdrop-filter: blur(9px) saturate(130%);
+  overflow: hidden;
+}
+
+.hud > div::before,
+.hud button::before,
+.boss-hud::before {
+  left: 12px;
+  right: 12px;
+  top: 7px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+}
+
+.hud > div::after,
+.hud button::after,
+.boss-hud::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(248, 223, 146, 0.18);
+}
+
+.hud-label {
+  color: #d9e8ff;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.36);
+}
+
+.hud strong,
+#questProgress,
+#powerHud,
+#playerName,
+#bossNameHud {
+  color: #fff8df;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.34);
+}
+
+#playerName,
+#playerPosition,
+#weaponHud,
+#bossNameHud {
+  color: var(--hud-gold-bright);
+}
+
+#xpHud,
+#manaHud,
+#oxygenHud,
+#coinHud,
+#healthHud,
+#questProgress,
+#powerHud {
+  color: #eef6ff;
+}
+
+.xp-bar,
+.mana-bar,
+.oxygen-bar,
+.boss-bar {
+  position: relative;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.18)),
+    rgba(9, 14, 31, 0.72);
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,0.42),
+    inset 0 0 0 1px rgba(248, 223, 146, 0.08),
+    0 0 10px rgba(0,0,0,0.18);
+}
+
+.xp-bar::before,
+.mana-bar::before,
+.oxygen-bar::before,
+.boss-bar::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), transparent 55%);
+  pointer-events: none;
+}
+
+#xpFill,
+#manaFill,
+#oxygenFill,
+#bossFill {
+  position: relative;
+  border-radius: inherit;
+  box-shadow: 0 0 12px currentColor;
+}
+
+#xpFill {
+  background: linear-gradient(90deg, #ffd96b 0%, #ffe9a8 45%, #fff8cf 100%);
+}
+
+#manaFill {
+  background: linear-gradient(90deg, #4fa0ff 0%, #6fd8ff 45%, #b3f3ff 100%);
+}
+
+#oxygenFill {
+  background: linear-gradient(90deg, #65f1ff 0%, #98f0ff 45%, #e5feff 100%);
+}
+
+#bossFill {
+  background: linear-gradient(90deg, #ff526b 0%, #ff8365 40%, #ffd66f 100%);
+  animation: bossBarPulse 2.2s ease-in-out infinite;
+}
+
+@keyframes bossBarPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.15); }
+}
+
+.boss-hud {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 118, 118, 0.18), transparent 30%),
+    radial-gradient(circle at 85% 15%, rgba(255, 209, 112, 0.12), transparent 20%),
+    linear-gradient(180deg, rgba(107, 42, 57, 0.92), rgba(63, 24, 42, 0.95) 54%, rgba(38, 14, 30, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 0 0 1px rgba(255, 174, 184, 0.08),
+    0 0 0 1px rgba(41, 10, 20, 0.94),
+    0 0 0 3px rgba(255, 105, 131, 0.18),
+    0 12px 26px rgba(40, 6, 18, 0.45),
+    0 3px 0 rgba(26, 5, 12, 0.85);
+}
+
+.boss-hud .hud-label {
+  color: #ffd1d7;
+}
+
+#bossNameHud {
+  color: #fff1d6;
+}
+
+.hud button {
+  color: #fff7dc;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  transition: transform 0.16s ease, box-shadow 0.18s ease, filter 0.18s ease, background 0.18s ease;
+}
+
+.hud button:hover {
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.2),
+    inset 0 0 0 1px rgba(255,255,255,0.04),
+    0 0 0 1px rgba(13, 18, 40, 0.92),
+    0 0 0 3px rgba(244, 211, 122, 0.22),
+    0 12px 26px rgba(5, 10, 28, 0.52),
+    0 3px 0 rgba(8, 12, 30, 0.85);
+}
+
+.hud button:active {
+  transform: translateY(2px) scale(0.995);
+}
+
+.hud-menu-button {
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255,255,255,0.14), transparent 30%),
+    linear-gradient(180deg, rgba(87, 109, 179, 0.98), rgba(45, 61, 117, 0.98));
+}
+
+#saveButton,
+#resetButton,
+#musicToggleButton {
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255,255,255,0.14), transparent 30%),
+    linear-gradient(180deg, rgba(77, 96, 157, 0.98), rgba(39, 51, 99, 0.98));
+}
+
+@media (max-width: 880px), (pointer: coarse) {
+  .hud > div,
+  .hud button,
+  .boss-hud {
+    backdrop-filter: blur(7px) saturate(125%);
+    -webkit-backdrop-filter: blur(7px) saturate(125%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+      inset 0 0 0 1px rgba(255,255,255,0.03),
+      0 0 0 1px rgba(13, 18, 40, 0.88),
+      0 0 0 2px rgba(244, 211, 122, 0.15),
+      0 8px 18px rgba(5, 10, 28, 0.36),
+      0 2px 0 rgba(8, 12, 30, 0.76);
+  }
+}
+
+/* ===== END HUD ROYAL BEAUTY UPGRADE ===== */
+
+/* ==========================================================
+   ETERNAL RIFT - CORRECAO HUD VISIVEL 2026-07-02
+   Restaura nome, XP, vida e mana sem mudar a jogabilidade.
+   ========================================================== */
+@media (max-width: 880px), (pointer: coarse) {
+  body.er-mobile-real-fix .hud,
+  body.mobile-controls-fixed .hud,
+  body.is-mobile .hud {
+    grid-template-columns: minmax(112px, 24vw) minmax(150px, 1fr) minmax(94px, 19vw) !important;
+    grid-template-rows: 24px 24px 24px !important;
+    max-height: 78px !important;
+    overflow: visible !important;
+    gap: 3px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div,
+  body.er-mobile-real-fix .hud button,
+  body.mobile-controls-fixed .hud > div,
+  body.mobile-controls-fixed .hud button,
+  body.is-mobile .hud > div,
+  body.is-mobile .hud button {
+    height: auto !important;
+    min-height: 24px !important;
+    padding: 3px 6px !important;
+    border-radius: 8px !important;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(255,255,255,0.13), transparent 32%),
+      linear-gradient(180deg, rgba(47,58,104,0.86), rgba(21,28,62,0.86)) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.15),
+      0 0 0 1px rgba(12,17,34,0.78),
+      0 0 0 2px rgba(245,206,121,0.14),
+      0 5px 12px rgba(0,0,0,0.28) !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(1),
+  body.mobile-controls-fixed .hud > div:nth-child(1),
+  body.is-mobile .hud > div:nth-child(1) {
+    grid-column: 1 !important;
+    grid-row: 1 / span 2 !important;
+    min-height: 51px !important;
+    display: grid !important;
+    grid-template-rows: auto auto 4px !important;
+    align-content: center !important;
+    gap: 2px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(4),
+  body.mobile-controls-fixed .hud > div:nth-child(4),
+  body.is-mobile .hud > div:nth-child(4) {
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    display: grid !important;
+    align-content: center !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(5),
+  body.mobile-controls-fixed .hud > div:nth-child(5),
+  body.is-mobile .hud > div:nth-child(5) {
+    grid-column: 2 !important;
+    grid-row: 3 !important;
+    display: grid !important;
+    grid-template-columns: auto 70px !important;
+    align-items: center !important;
+    gap: 5px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(3),
+  body.mobile-controls-fixed .hud > div:nth-child(3),
+  body.is-mobile .hud > div:nth-child(3) {
+    grid-column: 2 !important;
+    grid-row: 1 / span 2 !important;
+    min-height: 51px !important;
+    height: auto !important;
+    text-align: center !important;
+    align-content: center !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(2),
+  body.mobile-controls-fixed .hud > div:nth-child(2),
+  body.is-mobile .hud > div:nth-child(2) {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    display: grid !important;
+    align-content: center !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(7),
+  body.mobile-controls-fixed .hud > div:nth-child(7),
+  body.is-mobile .hud > div:nth-child(7) {
+    grid-column: 3 !important;
+    grid-row: 2 !important;
+    display: grid !important;
+    align-content: center !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(9),
+  body.mobile-controls-fixed .hud > div:nth-child(9),
+  body.is-mobile .hud > div:nth-child(9) {
+    grid-column: 3 !important;
+    grid-row: 3 !important;
+    display: grid !important;
+    align-content: center !important;
+  }
+
+  body.er-mobile-real-fix .hud-label,
+  body.mobile-controls-fixed .hud-label,
+  body.is-mobile .hud-label {
+    display: none !important;
+  }
+
+  body.er-mobile-real-fix #playerName,
+  body.mobile-controls-fixed #playerName,
+  body.is-mobile #playerName {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #ffe58d !important;
+    font-size: clamp(0.72rem, 2.2vw, 0.92rem) !important;
+    font-weight: 900 !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  body.er-mobile-real-fix #xpHud,
+  body.mobile-controls-fixed #xpHud,
+  body.is-mobile #xpHud,
+  body.er-mobile-real-fix .xp-hud,
+  body.mobile-controls-fixed .xp-hud,
+  body.is-mobile .xp-hud {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #f4f8ff !important;
+    font-size: clamp(0.54rem, 1.65vw, 0.68rem) !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  body.er-mobile-real-fix .xp-bar,
+  body.mobile-controls-fixed .xp-bar,
+  body.is-mobile .xp-bar {
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 4px !important;
+    margin-top: 0 !important;
+  }
+
+  body.er-mobile-real-fix #healthHud,
+  body.mobile-controls-fixed #healthHud,
+  body.is-mobile #healthHud {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #fff0d8 !important;
+    font-size: clamp(0.74rem, 2vw, 0.9rem) !important;
+    line-height: 1 !important;
+    letter-spacing: 0.03em !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+  }
+
+  body.er-mobile-real-fix #manaHud,
+  body.mobile-controls-fixed #manaHud,
+  body.is-mobile #manaHud {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #dff7ff !important;
+    font-size: clamp(0.62rem, 1.7vw, 0.78rem) !important;
+    font-weight: 900 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  body.er-mobile-real-fix .mana-bar,
+  body.mobile-controls-fixed .mana-bar,
+  body.is-mobile .mana-bar {
+    display: block !important;
+    width: 70px !important;
+    max-width: 70px !important;
+    height: 4px !important;
+    margin-top: 0 !important;
+  }
+
+  body.er-mobile-real-fix #questProgress,
+  body.mobile-controls-fixed #questProgress,
+  body.is-mobile #questProgress,
+  body.er-mobile-real-fix #playerPosition,
+  body.mobile-controls-fixed #playerPosition,
+  body.is-mobile #playerPosition,
+  body.er-mobile-real-fix #weaponHud,
+  body.mobile-controls-fixed #weaponHud,
+  body.is-mobile #weaponHud,
+  body.er-mobile-real-fix #powerHud,
+  body.mobile-controls-fixed #powerHud,
+  body.is-mobile #powerHud {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    font-size: clamp(0.56rem, 1.55vw, 0.72rem) !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  body.er-mobile-real-fix .game-panel > .boss-hud,
+  body.mobile-controls-fixed .game-panel > .boss-hud,
+  body.is-mobile .game-panel > .boss-hud {
+    top: max(82px, calc(env(safe-area-inset-top) + 78px)) !important;
+  }
+
+  body.er-mobile-real-fix .mobile-top-actions,
+  body.mobile-controls-fixed .mobile-top-actions,
+  body.is-mobile .mobile-top-actions {
+    top: max(82px, calc(env(safe-area-inset-top) + 78px)) !important;
+  }
+}
+
+@media (max-width: 880px) and (orientation: portrait), (pointer: coarse) and (orientation: portrait) {
+  body.er-mobile-real-fix .hud,
+  body.mobile-controls-fixed .hud,
+  body.is-mobile .hud {
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: 48px 24px 24px 24px !important;
+    max-height: 126px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(1),
+  body.mobile-controls-fixed .hud > div:nth-child(1),
+  body.is-mobile .hud > div:nth-child(1) {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    min-height: 48px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(3),
+  body.mobile-controls-fixed .hud > div:nth-child(3),
+  body.is-mobile .hud > div:nth-child(3) {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+    min-height: 48px !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(4),
+  body.mobile-controls-fixed .hud > div:nth-child(4),
+  body.is-mobile .hud > div:nth-child(4) {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(5),
+  body.mobile-controls-fixed .hud > div:nth-child(5),
+  body.is-mobile .hud > div:nth-child(5) {
+    grid-column: 2 !important;
+    grid-row: 2 !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(2),
+  body.mobile-controls-fixed .hud > div:nth-child(2),
+  body.is-mobile .hud > div:nth-child(2) {
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(7),
+  body.mobile-controls-fixed .hud > div:nth-child(7),
+  body.is-mobile .hud > div:nth-child(7) {
+    grid-column: 2 !important;
+    grid-row: 3 !important;
+  }
+
+  body.er-mobile-real-fix .hud > div:nth-child(9),
+  body.mobile-controls-fixed .hud > div:nth-child(9),
+  body.is-mobile .hud > div:nth-child(9) {
+    grid-column: 1 / span 2 !important;
+    grid-row: 4 !important;
+  }
+
+  body.er-mobile-real-fix .game-panel > .boss-hud,
+  body.mobile-controls-fixed .game-panel > .boss-hud,
+  body.is-mobile .game-panel > .boss-hud,
+  body.er-mobile-real-fix .mobile-top-actions,
+  body.mobile-controls-fixed .mobile-top-actions,
+  body.is-mobile .mobile-top-actions {
+    top: max(130px, calc(env(safe-area-inset-top) + 126px)) !important;
+  }
+}
+
+
+@media (max-width: 720px) {
+  .game-over {
+    padding: 14px;
+  }
+
+  .game-over-card {
+    width: min(100%, calc(100% - 12px));
+    padding: 22px 16px 18px;
+    border-radius: 14px;
+  }
+
+  .game-over h2 {
+    font-size: clamp(1.8rem, 9vw, 2.3rem);
+  }
+
+  .game-over-area {
+    font-size: 0.8rem;
+    min-height: 30px;
+    padding: 5px 10px;
+  }
+
+  .game-over-message {
+    font-size: 0.95rem;
+    margin-bottom: 14px;
+  }
+
+  .game-over button {
+    min-width: 100%;
+    min-height: 52px;
+    font-size: 1rem;
+    border-radius: 12px;
+  }
+}
+
+
+/* ===== Eternal Rift Multiplayer Firebase ===== */
+.online-status-panel {
+  position: absolute;
+  right: 14px;
+  top: 112px;
+  z-index: 16;
+  display: grid;
+  gap: 2px;
+  min-width: 138px;
+  max-width: 230px;
+  border: 2px solid #1a1f3d;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(74, 85, 133, 0.94), rgba(32, 40, 76, 0.94)),
+    rgba(32, 40, 76, 0.94);
+  color: #fff3d6;
+  padding: 8px 10px;
+  box-shadow:
+    0 0 0 3px rgba(245, 206, 121, 0.45),
+    0 5px 0 rgba(0,0,0,0.28);
+  pointer-events: none;
+  font-size: 0.76rem;
+}
+
+.online-status-panel.hidden {
+  display: none;
+}
+
+.online-status-panel strong {
+  color: #55e8ff;
+  line-height: 1;
+}
+
+.online-status-panel span {
+  color: #fff3d6;
+  line-height: 1.2;
+}
+
+@media (max-width: 880px) {
+  body.is-mobile .online-status-panel {
+    top: auto;
+    right: 10px;
+    bottom: calc(155px + env(safe-area-inset-bottom));
+    min-width: 118px;
+    max-width: 165px;
+    padding: 6px 8px;
+    font-size: 0.64rem;
+    opacity: 0.88;
+  }
+}
+
+@media (max-width: 880px) and (orientation: landscape) {
+  body.is-mobile .online-status-panel {
+    right: 10px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
   }
 }
