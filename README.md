@@ -576,3 +576,12 @@ Regras recomendadas para teste no Realtime Database:
 - A câmera é arredondada no mobile para evitar tremulação de pixels.
 - Flores no mobile usam desenho estático, sem bob/pulse.
 - CSS recebeu aceleração e renderização pixelada para diminuir flicker visual.
+
+
+## Upgrade do multiplayer: visual, arma e animação
+- Versão: `multiplayer-visual-arma-animacao-20260702-2054`
+- Corrigido: no mobile, o jogador do PC não aparece mais como quadrado branco.
+- Cada jogador agora tem um visual próprio gerado pelo ID/nome.
+- A arma equipada aparece no multiplayer.
+- Melhor animação de caminhada.
+- Melhor animação de ataque, com efeito visual conforme o tipo da arma.

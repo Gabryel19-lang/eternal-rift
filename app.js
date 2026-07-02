@@ -42743,6 +42743,188 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     return colors[Math.abs(hash) % colors.length];
   }
 
+  function onlineWeaponKey() {
+    try {
+      return String((typeof getCurrentWeaponKey === "function" ? getCurrentWeaponKey() : player?.equippedWeaponKey) || "sword");
+    } catch (error) {
+      return String(player?.equippedWeaponKey || "sword");
+    }
+  }
+
+  function onlineAttackSnapshot(now) {
+    const active = Boolean(
+      (typeof attackTimer === "number" && attackTimer > 0.02) ||
+      (typeof attackWindupTimer === "number" && attackWindupTimer > 0.02) ||
+      (currentMeleeAttack && Number(currentMeleeAttack.timer || 0) > 0.02)
+    );
+
+    let duration = 280;
+    try {
+      const key = onlineWeaponKey();
+      const weapon = (typeof weapons === "object" && weapons && weapons[key]) ? weapons[key] : null;
+      const cooldown = Number(weapon?.cooldown || 0.35);
+      duration = Math.max(220, Math.min(520, cooldown * 1000));
+      if (weapon?.kind === "projectile") duration = Math.max(duration, 260);
+      if (weapon?.kind === "line") duration = Math.max(duration, 300);
+    } catch (error) {}
+
+    return {
+      active,
+      duration,
+      until: active ? (now + duration) : 0
+    };
+  }
+
+  function onlineAppearance(id, name = "") {
+    const text = String(id || "") + "|" + String(name || "");
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+    const seed = Math.abs(hash);
+
+    const skins = ["#f4bd8f", "#e6b187", "#d99c73", "#f0c59e", "#c98b67", "#ffe0bc"];
+    const hairs = ["#253054", "#5b3728", "#d7edf8", "#6b58b8", "#c67a3f", "#182033"];
+    const mains = ["#55e8ff", "#b96cff", "#5ac36b", "#ff8a5c", "#fff264", "#73ffb8", "#ff6ccf", "#6ca7ff"];
+    const trims = ["#fff3d6", "#d9f5ff", "#efe2ff", "#ffe9a1", "#c7ffde", "#ffd6ef"];
+    const capes = ["#273052", "#3f285f", "#2c5138", "#5c3425", "#2c3d6d", "#56412f"];
+    const boots = ["#273052", "#43324f", "#334034", "#5c413c", "#25304d"];
+    const eyes = ["#273052", "#1b233c", "#2e1637"];
+
+    return {
+      seed,
+      skin: skins[seed % skins.length],
+      hair: hairs[(seed >> 2) % hairs.length],
+      main: mains[(seed >> 3) % mains.length],
+      trim: trims[(seed >> 5) % trims.length],
+      cape: capes[(seed >> 7) % capes.length],
+      boots: boots[(seed >> 9) % boots.length],
+      eyes: eyes[(seed >> 11) % eyes.length],
+      aura: onlineColor(id),
+      hairStyle: seed % 3,
+      capeStyle: (seed >> 4) % 2,
+      crest: (seed >> 6) % 3
+    };
+  }
+
+  function onlineWeaponFamily(key) {
+    const lower = String(key || "sword").toLowerCase();
+    if (lower === "unarmed" || lower === "none") return "none";
+    if (lower.includes("bow") || lower.includes("arco")) return "bow";
+    if (lower.includes("staff") || lower.includes("cajado") || lower.includes("wand") || lower.includes("orb")) return "staff";
+    if (lower.includes("spear") || lower.includes("lanca") || lower.includes("trident")) return "spear";
+    return "sword";
+  }
+
+  function drawOnlineSwingFx(x, y, dir, family, color, progress) {
+    if (progress <= 0) return;
+    ctx.save();
+    ctx.translate(x, y);
+    if (dir === "left") ctx.scale(-1, 1);
+    if (dir === "up") ctx.rotate(-Math.PI / 2);
+    if (dir === "down") ctx.rotate(Math.PI / 2);
+
+    if (family === "sword") {
+      const radius = 22 + progress * 12;
+      ctx.strokeStyle = color + "88";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, -0.7, 0.35);
+      ctx.stroke();
+      ctx.strokeStyle = "#ffffffaa";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius + 1, -0.65, 0.28);
+      ctx.stroke();
+    } else if (family === "spear") {
+      ctx.fillStyle = color + "77";
+      ctx.fillRect(8, -4, 18 + progress * 18, 8);
+      ctx.fillStyle = "#ffffffaa";
+      ctx.fillRect(20 + progress * 16, -2, 8, 4);
+    } else if (family === "bow") {
+      ctx.fillStyle = color + "55";
+      ctx.fillRect(6, -6, 22 + progress * 10, 12);
+      ctx.fillStyle = "#ffffffbb";
+      ctx.fillRect(16 + progress * 12, -1, 16, 2);
+    } else if (family === "staff") {
+      ctx.fillStyle = color + "55";
+      ctx.fillRect(7, -9, 16, 18);
+      ctx.fillStyle = color;
+      ctx.fillRect(20, -4, 10 + progress * 8, 8);
+      ctx.fillStyle = "#ffffffbb";
+      ctx.fillRect(24, -1, 6, 2);
+    }
+    ctx.restore();
+  }
+
+  function drawOnlineHeldWeapon(p, handX, handY, dir, family, progress, accent) {
+    if (family === "none") return;
+    const attackOffset = progress > 0 ? Math.sin(progress * Math.PI) * 10 : 0;
+    ctx.save();
+    ctx.translate(handX, handY);
+
+    let angle = 0;
+    if (dir === "up") angle = -Math.PI / 2;
+    else if (dir === "down") angle = Math.PI / 2;
+    else if (dir === "left") {
+      ctx.scale(-1, 1);
+      angle = 0;
+    }
+    ctx.rotate(angle);
+
+    if (family === "sword") {
+      ctx.translate(attackOffset, 0);
+      ctx.fillStyle = "#6b4b3e";
+      ctx.fillRect(-7, -2, 8, 4);
+      ctx.fillStyle = "#f5ce79";
+      ctx.fillRect(-1, -4, 3, 8);
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.moveTo(2, -5);
+      ctx.lineTo(26, 0);
+      ctx.lineTo(2, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(8, -1, 11, 2);
+    } else if (family === "spear") {
+      ctx.translate(attackOffset * 1.4, 0);
+      ctx.fillStyle = "#6b4b3e";
+      ctx.fillRect(-6, -1, 30, 2);
+      ctx.fillStyle = "#f5ce79";
+      ctx.fillRect(2, -2, 2, 4);
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.moveTo(24, -5);
+      ctx.lineTo(36, 0);
+      ctx.lineTo(24, 5);
+      ctx.closePath();
+      ctx.fill();
+    } else if (family === "bow") {
+      const pull = attackOffset * 0.8;
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, -1.1, 1.1);
+      ctx.stroke();
+      ctx.strokeStyle = "#fff3d6";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(4, -10);
+      ctx.lineTo(-7 - pull, 0);
+      ctx.lineTo(4, 10);
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(-6 - pull, -1, 18 + pull, 2);
+    } else if (family === "staff") {
+      ctx.fillStyle = "#6b4b3e";
+      ctx.fillRect(-6, -2, 24, 4);
+      ctx.fillStyle = accent;
+      ctx.fillRect(17, -6, 8, 12);
+      ctx.fillStyle = "#ffffffaa";
+      ctx.fillRect(19, -2, 4, 4);
+    }
+    ctx.restore();
+  }
+
 
   function loadScriptOnce(src) {
     return new Promise((resolve, reject) => {
@@ -42832,9 +43014,12 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
           const x = Number(data.x || 0);
           const y = Number(data.y || 0);
 
+          const name = String(data.name || "Jogador").slice(0, 18);
+          const appearance = existing.appearance || onlineAppearance(id, name);
+
           onlinePlayers.set(id, {
             id,
-            name: String(data.name || "Jogador").slice(0, 18),
+            name,
             x,
             y,
             drawX: Number.isFinite(existing.drawX) ? existing.drawX : x,
@@ -42847,8 +43032,13 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
             maxHealth: Number(data.maxHealth || 1),
             level: Number(data.level || 1),
             moving: Boolean(data.moving),
+            weaponKey: String(data.weaponKey || existing.weaponKey || "sword"),
+            attacking: Boolean(data.attacking),
+            attackDuration: Number(data.attackDuration || existing.attackDuration || 280),
+            attackUntil: Number(data.attackUntil || existing.attackUntil || 0),
             updatedAt,
-            color: existing.color || onlineColor(id)
+            color: existing.color || onlineColor(id),
+            appearance
           });
         });
 
@@ -42886,6 +43076,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     if (now - lastSendAt < SEND_INTERVAL_MS) return;
     lastSendAt = now;
 
+    const attackState = onlineAttackSnapshot(now);
     const payload = {
       name: onlineName(),
       x: Math.round(Number(player.x || 0)),
@@ -42898,6 +43089,10 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       maxHealth: Number(player.maxHealth || 1),
       level: Number(player.level || 1),
       moving: Boolean(player.moving),
+      weaponKey: onlineWeaponKey(),
+      attacking: Boolean(attackState.active),
+      attackDuration: Number(attackState.duration || 280),
+      attackUntil: Number(attackState.until || 0),
       updatedAt: now
     };
 
@@ -42977,94 +43172,127 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     if (Date.now() - Number(p.updatedAt || 0) > PLAYER_TIMEOUT_MS) return;
 
     const obj = { x: p.drawX, y: p.drawY, width: p.width, height: p.height };
-    if (typeof isOnCamera === "function" && !isOnCamera(obj, 90)) return;
+    if (typeof isOnCamera === "function" && !isOnCamera(obj, 110)) return;
 
     const x = Math.round(Number(p.drawX || p.x));
     const y = Math.round(Number(p.drawY || p.y));
     const w = Number(p.width || 22);
     const h = Number(p.height || 26);
-    const color = p.color || "#55e8ff";
-    const animSeed = Array.from(String(p.id || "online")).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-    const legOffset = p.moving ? Math.round(Math.sin((performance.now() + animSeed * 17) / 120) * 1.7) : 0;
-    const sideArmOffset = p.moving ? Math.round(Math.cos((performance.now() + animSeed * 11) / 120) * 1.2) : 0;
+    const look = p.appearance || onlineAppearance(p.id, p.name);
+    const nowPerf = performance.now();
+    const walk = p.moving ? Math.sin((nowPerf + look.seed) / 110) : 0;
+    const bob = p.moving ? Math.sin((nowPerf + look.seed) / 180) * 1.5 : Math.sin((nowPerf + look.seed) / 480) * 0.45;
+    const legFront = Math.round(walk * 2);
+    const armSwing = Math.round(Math.cos((nowPerf + look.seed) / 110) * 2);
+    const attackLeft = Math.max(0, Number(p.attackUntil || 0) - Date.now());
+    const attackDuration = Math.max(220, Number(p.attackDuration || 280));
+    const attackProgress = attackLeft > 0 ? (1 - Math.min(1, attackLeft / attackDuration)) : 0;
+    const attackSwing = attackProgress > 0 ? Math.sin(attackProgress * Math.PI) : 0;
+    const family = onlineWeaponFamily(p.weaponKey);
+    const facing = String(p.direction || "down");
+    const chestY = y + 12 + bob;
+    const headY = y + 4 + bob;
+    const handFrontX = facing === "left" ? x + 7 : x + w - 2;
+    const handFrontY = chestY + 4 + (attackProgress > 0 ? -2 : 0);
 
     ctx.save();
-    ctx.globalAlpha = 0.96;
+    ctx.globalAlpha = 0.98;
 
     if (typeof drawSoftShadow === "function") {
-      drawSoftShadow(x + 3, y + 25, 22, 5, 0.22);
+      drawSoftShadow(x + 3, y + h - 2, Math.max(18, w - 1), 5, 0.22);
     } else {
       ctx.fillStyle = "rgba(10, 13, 28, 0.32)";
       ctx.fillRect(x + 3, y + h - 2, w - 1, 5);
     }
+    ctx.fillStyle = look.aura + "22";
+    ctx.fillRect(x - 3, y + 3, w + 6, h + 4);
 
-    const pulse = 0.15 + Math.sin((performance.now() + animSeed * 40) / 200) * 0.05;
-    ctx.fillStyle = `rgba(85, 232, 255, ${Math.max(0.08, pulse)})`;
-    ctx.fillRect(x - 3, y + 4, w + 6, h + 2);
-
-    if (typeof pixelRect === "function") pixelRect(x + 5, y + 12, 17, 14, "#313a78");
-    else {
-      ctx.fillStyle = "#313a78";
-      ctx.fillRect(x + 5, y + 12, 17, 14);
+    ctx.fillStyle = look.cape;
+    ctx.fillRect(x + 6, chestY + 1, w - 12, h - 12);
+    if (look.capeStyle === 1) {
+      ctx.fillStyle = look.trim + "66";
+      ctx.fillRect(x + 9, chestY + 3, 3, h - 18);
+      ctx.fillRect(x + w - 12, chestY + 3, 3, h - 18);
     }
 
-    // túnica / peito
-    ctx.fillStyle = color;
-    ctx.fillRect(x + 8, y + 14, 11, 4);
-    ctx.fillStyle = "#e9ffff";
-    ctx.globalAlpha = 0.18;
-    ctx.fillRect(x + 9, y + 14, 4, 4);
-    ctx.globalAlpha = 0.96;
+    ctx.fillStyle = look.boots;
+    ctx.fillRect(x + 7, y + h - 7 + legFront, 5, 7);
+    ctx.fillRect(x + w - 12, y + h - 7 - legFront, 5, 7);
+    ctx.fillStyle = look.trim + "cc";
+    ctx.fillRect(x + 7, y + h - 3 + legFront, 5, 2);
+    ctx.fillRect(x + w - 12, y + h - 3 - legFront, 5, 2);
 
-    // cabeça
-    ctx.fillStyle = "#f4bd8f";
-    ctx.fillRect(x + 7, y + 4, 14, 10);
-
-    // cabelo / elmo
+    ctx.fillStyle = "#1f2743";
+    ctx.fillRect(x + 5, chestY, w - 10, 15);
+    ctx.fillStyle = look.main;
+    ctx.fillRect(x + 6, chestY + 1, w - 12, 13);
+    ctx.fillStyle = look.trim;
+    ctx.fillRect(x + 9, chestY + 3, w - 18, 4);
+    ctx.fillRect(x + 10, chestY + 10, w - 20, 2);
     ctx.fillStyle = "#273052";
-    ctx.fillRect(x + 5, y + 2, 18, 5);
-    ctx.fillRect(x + 4, y + 6, 5, 8);
+    ctx.fillRect(x + Math.floor(w / 2) - 1, chestY + 1, 2, 12);
 
-    // faixa brilhante do elmo
-    ctx.fillStyle = "#5ad6e7";
-    ctx.fillRect(x + 7, y, 12, 5);
-    ctx.fillRect(x + 4, y + 5, 5, 7);
+    ctx.fillStyle = look.skin;
+    ctx.fillRect(x + 3, chestY + 3 + armSwing, 4, 8);
+    ctx.fillRect(x + w - 7, chestY + 3 - armSwing, 4, 8);
 
-    // joia
-    ctx.fillStyle = "#fff264";
-    ctx.fillRect(x + 18, y + 1, 3, 3);
+    drawOnlineHeldWeapon(p, handFrontX, handFrontY, facing, family, attackSwing, look.trim);
 
-    // braços
-    ctx.fillStyle = "#f4bd8f";
-    ctx.fillRect(x + 3, y + 15 + sideArmOffset, 4, 8);
-    ctx.fillRect(x + 21, y + 15 - sideArmOffset, 4, 8);
+    ctx.fillStyle = look.skin;
+    ctx.fillRect(x + 7, headY, 14, 10);
 
-    // pernas
-    ctx.fillStyle = "#273052";
-    ctx.fillRect(x + 7, y + 25 + legOffset, 5, 6);
-    ctx.fillRect(x + 16, y + 25 - legOffset, 5, 6);
-
-    // rosto por direção
-    if (p.direction === "up") {
-      ctx.fillStyle = "#273052";
-      ctx.fillRect(x + 9, y + 6, 10, 2);
-    } else if (p.direction === "down") {
-      ctx.fillStyle = "#273052";
-      ctx.fillRect(x + 11, y + 9, 2, 2);
-      ctx.fillRect(x + 17, y + 9, 2, 2);
-    } else if (p.direction === "left") {
-      ctx.fillStyle = "#273052";
-      ctx.fillRect(x + 9, y + 9, 2, 2);
+    ctx.fillStyle = look.hair;
+    ctx.fillRect(x + 5, headY - 2, 18, 5);
+    if (look.hairStyle === 0) {
+      ctx.fillRect(x + 4, headY + 4, 5, 6);
+    } else if (look.hairStyle === 1) {
+      ctx.fillRect(x + 18, headY + 4, 5, 6);
     } else {
-      ctx.fillStyle = "#273052";
-      ctx.fillRect(x + 19, y + 9, 2, 2);
+      ctx.fillRect(x + 4, headY + 4, 4, 5);
+      ctx.fillRect(x + 19, headY + 4, 4, 5);
     }
 
-    // pequena aura do jogador remoto
-    ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.28;
-    ctx.strokeRect(x + 6, y + 12, 15, 14);
-    ctx.globalAlpha = 0.96;
+    ctx.fillStyle = look.trim;
+    ctx.fillRect(x + 7, headY - 1, 12, 3);
+    if (look.crest === 0) {
+      ctx.fillRect(x + 11, headY - 3, 4, 2);
+    } else if (look.crest === 1) {
+      ctx.fillRect(x + 9, headY - 3, 2, 2);
+      ctx.fillRect(x + 15, headY - 3, 2, 2);
+    } else {
+      ctx.fillRect(x + 12, headY - 4, 2, 3);
+    }
+
+    ctx.fillStyle = look.eyes;
+    if (facing === "up") {
+      ctx.fillRect(x + 9, headY + 5, 10, 2);
+    } else if (facing === "down") {
+      ctx.fillRect(x + 11, headY + 5, 2, 2);
+      ctx.fillRect(x + 17, headY + 5, 2, 2);
+      ctx.fillStyle = "#b06d59";
+      ctx.fillRect(x + 13, headY + 8, 3, 1);
+    } else if (facing === "left") {
+      ctx.fillRect(x + 9, headY + 6, 2, 2);
+    } else {
+      ctx.fillRect(x + 19, headY + 6, 2, 2);
+    }
+
+    ctx.strokeStyle = p.color || look.aura;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 6, chestY + 1, w - 12, 13);
+    ctx.fillStyle = look.trim + "99";
+    ctx.fillRect(x + Math.floor(w / 2) - 2, chestY + 5, 4, 4);
+
+    if (attackProgress > 0) {
+      drawOnlineSwingFx(
+        facing === "left" ? x + 8 : x + w - 8,
+        chestY + 6,
+        facing,
+        family,
+        p.color || look.aura,
+        attackSwing
+      );
+    }
 
     drawOnlineHealth(p, x, y);
     drawOnlineName(p, x, y);
