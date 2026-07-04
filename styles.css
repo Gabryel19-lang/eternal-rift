@@ -10243,3 +10243,61 @@ body.er-mobile-gameplay-v2.er-mobile-economy-mode .er-touch-pulse::after {
     grid-template-columns: 1fr;
   }
 }
+
+/* ETERNAL RIFT MOBILE BUGFIX - REMOVE LEGACY DPAD AND INVENTORY LEAKS */
+.touch-dpad,
+.touch-dpad *,
+body.is-mobile .touch-dpad,
+body.mobile-controls-fixed .touch-dpad,
+body.er-mobile-real-fix .touch-dpad,
+body.er-mobile-gameplay-v2 .touch-dpad {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+#inventoryPanel.er-inventory-rework-active > :not(#erInventoryReworkRoot),
+#inventoryPanel:has(#erInventoryReworkRoot) > :not(#erInventoryReworkRoot) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.is-mobile #inventoryPanel.er-inventory-rework-active .inventory-layout,
+body.is-mobile #inventoryPanel.er-inventory-rework-active .inventory-header,
+body.is-mobile #inventoryPanel.er-inventory-rework-active .inventory-tabs,
+body.is-mobile #inventoryPanel.er-inventory-rework-active .mobile-inventory-switcher,
+body.is-mobile #inventoryPanel.er-inventory-rework-active .inventory-grid-wrap,
+body.is-mobile #inventoryPanel.er-inventory-rework-active .inventory-side,
+body.is-mobile #inventoryPanel.er-inventory-rework-active .equipment-box,
+body.is-mobile #inventoryPanel.er-inventory-rework-active .item-details,
+body.is-mobile #inventoryPanel.er-inventory-rework-active .legacy-inventory-list,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .inventory-layout,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .inventory-header,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .inventory-tabs,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .mobile-inventory-switcher,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .inventory-grid-wrap,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .inventory-side,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .equipment-box,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .item-details,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active .legacy-inventory-list {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.is-mobile #inventoryPanel.er-inventory-rework-active #erInventoryReworkRoot,
+body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active #erInventoryReworkRoot {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
