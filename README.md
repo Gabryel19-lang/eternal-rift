@@ -602,3 +602,116 @@ Regras recomendadas para teste no Realtime Database:
 - Bioma sombrio ficou mais forte à noite.
 - Bioma vulcânico ficou mais perigoso perto da lava.
 - Mais recursos coletáveis, mais decorações e mais pontos de interesse.
+
+## Versão sem bosses e minibosses
+- Removidos todos os bosses e minibosses do jogo durante o carregamento e durante a atualização do mapa.
+- A função de criação de boss foi neutralizada para impedir que sistemas antigos recriem bosses.
+- HUD/barra de boss foi escondida.
+- Mini Guardião, Mini Dragão, Reis/Rainhas/Guardiões, bosses de biomas, bosses de dimensões, bosses de dungeon e bosses dos novos biomas lendários foram bloqueados.
+- Inimigos comuns, biomas, itens, recursos, mapa, multiplayer e demais sistemas continuam funcionando.
+# Atualizacao: Redesign Visual Premium + Som de Bau
+
+Primeira versao visual estavel inspirada na direcao artistica premium de Eternal Rift.
+
+- Personagem principal redesenhado no Canvas com cabelo marrom, armadura azul/dourada, capa e brilho magico.
+- Vila inicial recebeu mais clima aconchegante, fonte azul, flores, luzes e detalhes de chao sem mudar colisoes.
+- Bioma vulcanico recebeu brilho quente, cinzas, rachaduras de lava, fagulhas leves e atmosfera dramatica.
+- Ruinas submersas receberam reflexos ciano, bolhas, algas e nevoa aquatica discreta.
+- Inventario ganhou icones SVG leves com moldura de raridade para armas, pocoes, materiais, chaves, reliquias e itens magicos.
+- Baus importantes agora exibem uma tela de recompensa com bau grande, luz dourada/azul, particulas e cartas de loot.
+- O audio `assets/sounds/chest-open-reward.mp3` toca ao abrir recompensa de bau, em volume 0.55, sem loop e sem interromper a musica de fundo.
+- HUD, paineis e inventario receberam polimento RPG com fundo escuro translucido, bordas douradas e brilho azul.
+- Mobile, minimapa, save, inventario, controles touch, musica de fundo e Firebase foram preservados.
+# Atualizacao: Estilo Sandbox 2D de Exploracao
+
+Esta versao deixa o Eternal Rift com clima de jogo 2D de exploracao, mineracao e construcao, sem copiar sprites, nomes ou assets de outros jogos.
+
+- Adicionada hotbar inferior com Espada, Picareta, Terra, Pedra, Madeira, Tocha e Magia.
+- Teclas `1` a `7` selecionam slots da hotbar; `B` alterna rapidamente entre combate e picareta.
+- Picareta minera blocos proximos no mapa e guarda materiais no inventario.
+- Blocos de terra, pedra, madeira e tochas podem ser colocados no mapa depois de minerar espacos.
+- Mapa ganhou camada visual de blocos quadrados, pedra, terra, agua, lava, corais, madeira e minerios.
+- Foram adicionados minerios decorativos/coletaveis como cobre, cristal azul e minerio dourado.
+- Tela recebeu atmosfera de sandbox 2D com ceu, nuvens, brilho e visual mais pixelado.
+- Save, inventario, minimapa, controles touch, musica, Firebase e sistemas existentes foram preservados.
+# Eternal Rift - Rework visual estavel dos 3 biomas
+
+## Atualizacao aplicada
+- Adicionada escolha inicial de classe: Guerreiro, Arqueiro, Mago e Assassino.
+- A classe escolhida altera vida, mana, velocidade, arma inicial e pequenos bonus de combate.
+- O save agora preserva a classe em `playerClass` e roda a migracao `normalizeWorldReworkSaveState()`.
+- Adicionado Quadro de Contratos na vila, com aceitar, acompanhar progresso e entregar recompensas.
+- O mundo principal foi focado em tres regioes: Vila + Floresta, Terras Vulcanicas e Ruinas Aquaticas.
+- A Dimensao Acida agora fica ligada as Terras Vulcanicas.
+- A Dimensao Celestial agora fica ligada as Ruinas Aquaticas.
+- Foram adicionados tres chefes principais com introducoes cinematicas curtas.
+- O minimapa passou a destacar os tres biomas, os portais e os chefes principais.
+- A hotbar sandbox fica escondida no menu inicial mobile para nao bloquear o botao Novo Jogo.
+- Mobile, inventario, save, minimapa, toque, musica e Firebase foram preservados.
+
+## Como testar rapido
+- Inicie um Novo Jogo e escolha uma classe.
+- Interaja com o Quadro de Contratos perto da praca da vila.
+- Explore os tres biomas principais no mapa.
+- Entre na Fenda Acida nas Terras Vulcanicas e no Portal Celestial das Ruinas Aquaticas.
+- Aproxime-se dos chefes principais para ver as introducoes.
+
+
+## Atualização: Editor de HUD completo + hotbar segura
+- O Editor de HUD agora reconhece mais elementos: Classe/Contrato, hotbar/rotbar, caixa de diálogo, dica de interação, painel online, minimapa, botões, controles touch e HUDs criados depois.
+- A rotbar/hotbar sobe automaticamente quando a caixa de diálogo de NPC está aberta, evitando ficar em cima do texto.
+- Adicionado modo seguro para a hotbar quando o jogador conversa com NPCs.
+- Mantidos mobile, inventário, minimapa, save e sistemas existentes.
+- `node --check app.js` passou sem erro.
+
+
+## Atualização: Ultra Anti-Lag sem remover conteúdo
+- Mantidos os sistemas, biomas, HUD, hotbar, inventário, som, multiplayer e mecânicas existentes.
+- Adicionado modo anti-travamento automático para reduzir custo de renderização.
+- Minimap e HUD agora atualizam com intervalo inteligente em vez de pesar todo frame.
+- Sincronização dos 3 biomas, contratos e classe foi reduzida para não rodar loops pesados a cada frame.
+- Efeitos visuais continuam existindo, mas agora são limitados quando acumulam demais.
+- Canvas recebe orçamento de pixels para reduzir uso de GPU em tela cheia/celular.
+- O jogo usa modo economia visual por padrão quando detecta mobile/lite, sem apagar conteúdo.
+- Para forçar qualidade maior, usar `?perf=quality` no link.
+- Validação: `node --check app.js` passou sem erro.
+# Eternal Rift - Quarto do Heroi Ultra Interativo
+
+## Atualizacao aplicada em 2026-07-04
+- Quarto do jogador reconstruido como quarto principal do heroi.
+- Piso de madeira recebeu mais textura, marcas de tabuas e iluminacao quente.
+- Tapetes agora sao visuais, bonitos e sem colisao, para o jogador andar por cima sem travar.
+- Layout reorganizado em areas claras: cama, descanso, armazenamento, trabalho, equipamentos e decoracao.
+- Adicionados moveis e decoracoes: cama principal, bau pessoal, guarda-roupa, bancada, mesa de estudo, estante, espelho, mapa, suporte de armas, suporte de armadura, prateleiras, plantas, velas, caixas e trofeus.
+- Interacoes novas preservam sistemas existentes: dormir recupera vida/mana, bau abre inventario, guarda-roupa abre equipamentos, bancada organiza materiais, estante da XP com cooldown, espelho prepara troca visual futura, mapa mostra lore e suporte de armas mostra arma equipada.
+- Objetos interativos recebem contorno/brilho sutil quando o jogador chega perto.
+- Porta de saida, HUD, save, inventario, PC e mobile foram preservados.
+## Atualizacao - Inventario do Aventureiro
+- Adicionada uma nova camada visual de inventario por cima do sistema antigo, sem remover dados ou funcoes existentes.
+- Novo painel "Inventario do Aventureiro" com visual escuro, moldura dourada, brilho magico discreto, grade de slots, raridades e painel de detalhes.
+- Criada a funcao global `getUnifiedInventoryItems()` para adaptar moedas, armas, armaduras, acessorios, consumiveis, materiais, itens de missao e itens raros/lendarios.
+- Adicionadas abas: Todos, Armas, Armaduras, Acessorios, Consumiveis, Materiais, Missao e Raros/Lendarios.
+- Adicionados busca, ordenacao por raridade/nome/tipo/quantidade, slots equipados e acoes de usar, equipar, desequipar, mover para hotbar, inspecionar e fechar.
+- O inventario antigo continua no HTML para compatibilidade, mas fica escondido quando a nova interface esta ativa.
+- O estado visual da nova hotbar do inventario fica salvo em `questBook.inventoryRework`, sem sobrescrever a hotbar/rotbar sandbox existente.
+- Mantida compatibilidade com PC e mobile, com layout responsivo e fechamento seguro.
+## Atualizacao: Icones Visuais do Inventario
+- Letras simples nos slots do inventario foram substituidas por icones visuais em SVG leve.
+- Criado `getInventoryItemIcon(item)` com cache `inventoryIconCache` e fallback seguro `getFallbackItemIcon(item)`.
+- Icones agora reconhecem categorias como armas, ferramentas, armaduras, acessorios, consumiveis, materiais, magia e itens de missao.
+- Raridades ganharam borda/brilho visual: comum, incomum, raro, epico, lendario e mitico/divino.
+- A hotbar/rotbar sandbox tambem recebe os mesmos icones visuais para espada, picareta, terra, pedra, madeira, tocha e magia.
+- Mobile recebeu tamanho e espacamento ajustados para os icones nao ficarem pequenos nem cobertos por texto.
+- O sistema nao remove itens, nao altera save, nao duplica inventario e nao muda as teclas 1 a 7 da rotbar.
+
+## Atualizacao: Jogabilidade Mobile Confortavel
+- Adicionada camada final de controles mobile sem remover os sistemas antigos.
+- Joystick agora tem deadzone menor, sensibilidade configuravel e retorno visual mais limpo.
+- Botoes mobile foram reorganizados: ataque maior, acao contextual, inventario, pocao, arma, dash, poder equipado e poderes 1-4.
+- A acao mobile agora tambem continua/fecha dialogos, evitando travar conversa no celular.
+- Mira assistida mobile busca inimigos da cena ativa e usa a direcao do joystick quando nao ha alvo.
+- Hotbar/rotbar, inventario novo e dialogos receberam posicoes mais seguras para nao competir com os dedos.
+- Adicionado painel de Ajustes Mobile com tamanho dos botoes, opacidade, sensibilidade do joystick, mira assistida, economia de desempenho e reset do layout.
+- Adicionados presets mobile: Mobile Pequeno, Mobile Medio, Mobile Grande, Competitivo e Limpo.
+- Camera mobile recebeu leve antecipacao na direcao do movimento/alvo.
+- PC, saves, HUD, inventario, hotbar, classes, contratos, biomas, som e Firebase foram preservados.

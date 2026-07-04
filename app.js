@@ -6457,11 +6457,49 @@ function updateInteractionHint() {
   if (touchContextLabel) touchContextLabel.textContent = label;
 }
 
+function syncDialogLayoutSafe(force = false) {
+  if (!dialogBox) return;
+
+  const isVisible = dialogOpen && !dialogBox.classList.contains("hidden");
+  document.body.classList.toggle("dialog-active", isVisible);
+
+  if (!isVisible) {
+    dialogBox.style.removeProperty("bottom");
+    dialogBox.style.removeProperty("max-width");
+    dialogBox.style.removeProperty("width");
+    return;
+  }
+
+  const hotbar = document.getElementById("sandbox2DHotbar");
+  let bottomPx = 18;
+  if (hotbar && getComputedStyle(hotbar).display !== "none") {
+    const rect = hotbar.getBoundingClientRect();
+    if (rect.height > 0) {
+      bottomPx = Math.max(bottomPx, Math.max(18, Math.round(window.innerHeight - rect.top + 14)));
+    }
+  }
+
+  const isMobileView = Boolean(document.body.classList.contains("is-mobile") || window.matchMedia?.("(max-width: 900px), (pointer: coarse)")?.matches);
+  if (isMobileView) {
+    bottomPx = Math.max(bottomPx, 118);
+    dialogBox.style.setProperty("width", "min(520px, calc(100vw - 18px))", "important");
+    dialogBox.style.setProperty("max-width", "calc(100vw - 18px)", "important");
+  } else {
+    bottomPx = Math.max(bottomPx, 96);
+    dialogBox.style.setProperty("width", "min(760px, calc(100vw - 28px))", "important");
+    dialogBox.style.setProperty("max-width", "calc(100vw - 28px)", "important");
+  }
+
+  dialogBox.style.setProperty("bottom", `${bottomPx}px`, "important");
+}
+
 function showDialogMessage(message) {
-  if (!message) return;
-  dialogText.textContent = message;
+  if (!message || !dialogBox || !dialogText) return;
+  dialogText.textContent = String(message);
   dialogBox.classList.remove("hidden");
+  dialogBox.setAttribute("aria-hidden", "false");
   dialogOpen = true;
+  syncDialogLayoutSafe(true);
 }
 
 function toggleInteraction() {
@@ -6487,8 +6525,24 @@ function toggleInteraction() {
 }
 
 function closeDialog() {
-  dialogBox.classList.add("hidden");
+  if (!dialogBox) {
+    dialogOpen = false;
+    return;
+  }
   dialogOpen = false;
+  dialogBox.classList.add("hidden");
+  dialogBox.setAttribute("aria-hidden", "true");
+  dialogBox.classList.remove("hud-editor-force-show", "hud-editor-hidden-preview", "hud-editor-selected", "hud-editor-target");
+  dialogBox.style.removeProperty("bottom");
+  dialogBox.style.removeProperty("width");
+  dialogBox.style.removeProperty("max-width");
+  if (dialogText) dialogText.textContent = "";
+  document.body.classList.remove("dialog-active", "dialog-open-hotbar-safe");
+  const bar = document.getElementById("sandbox2DHotbar");
+  if (bar) {
+    bar.classList.remove("dialog-safe");
+    bar.setAttribute("data-dialog-safe", "false");
+  }
 }
 
 function resetPlayer() {
@@ -6597,7 +6651,7 @@ function selectMobileTargetFromPoint(event) {
 
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
-  const gameplayKeys = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "e", "i", "u", "q", "r", "f", "c", "m", "escape", "f3", " ", "tab", "1", "2", "3", "4"];
+  const gameplayKeys = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "e", "i", "u", "q", "r", "f", "c", "v", "z", "x", "h", "m", "escape", "f3", " ", "tab", "1", "2", "3", "4", "5", "6", "7"];
 
   if (isTypingInTextField()) {
     keys.clear();
@@ -6656,7 +6710,7 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
-  if (key === "c" && !inventoryOpen && !shopOpen && !dialogOpen) {
+  if (key === "h" && !inventoryOpen && !shopOpen && !dialogOpen) {
     toggleStatusPanel();
     return;
   }
@@ -6680,8 +6734,11 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
-  if (["1", "2", "3", "4"].includes(key)) {
-    equipPower(Number(key) - 1);
+  // ETERNAL RIFT KEYBIND PATCH - 1 a 7 ficam livres para a rotbar/hotbar.
+  // Os poderes agora são selecionados por Z, X, C e V para não brigar com a rotbar.
+  if (["z", "x", "c", "v"].includes(key)) {
+    const powerSlotIndex = { z: 0, x: 1, c: 2, v: 3 }[key];
+    equipPower(powerSlotIndex);
     return;
   }
 
@@ -38443,7 +38500,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
   }
 
   function addTarget(list, id, label, el, options = {}) {
-    if (!el || list.some((target) => target.id === id)) return;
+    if (!el || list.some((target) => target.id === id || target.el === el)) return;
     const def = {
       id,
       label,
@@ -38474,14 +38531,34 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     addTarget(list, "hudOxygen", "Oxigenio", getHudChild(7), { display: "grid" });
     addTarget(list, "hudPower", "Poder", getHudChild(8), { display: "grid" });
 
+    // ETERNAL RIFT HUD EDITOR FULL PATCH - agora o editor pega HUDs adicionados depois,
+    // como Classe/Contrato, botões soltos, hotbar sandbox e outros painéis do jogo.
+    addTarget(list, "classContractHud", "Classe / Contrato", byId("classContractHud"), { display: "grid" });
+    const hud = one(".hud");
+    if (hud) {
+      Array.from(hud.children).forEach((child, index) => {
+        if (!child || child.id === "bossHud") return;
+        const autoId = child.id ? `hudAuto_${child.id}` : `hudAutoChild${index}`;
+        const label = child.dataset?.hudEditorLabel || child.querySelector?.(".hud-label")?.textContent?.trim() || child.id || `HUD ${index + 1}`;
+        addTarget(list, autoId, label, child, { display: child.tagName === "BUTTON" ? "grid" : "grid" });
+      });
+    }
+
     addTarget(list, "bossHud", "Barra Boss", byId("bossHud"), { canHide: false, display: "grid", kind: "boss" });
     addTarget(list, "miniMap", "Minimapa", byId("miniMapCanvas"), { display: "block" });
+    addTarget(list, "interactionHint", "Dica Interacao", byId("interactionHint"), { display: "block" });
+    addTarget(list, "dialogBox", "Caixa de Dialogo", byId("dialogBox"), { canHide: false, display: "block" });
+    addTarget(list, "onlineStatus", "Painel Online", byId("onlineStatusPanel"), { display: "block" });
+    addTarget(list, "sandboxHotbar", "Hotbar / Rotbar", byId("sandbox2DHotbar"), { canHide: false, display: "grid" });
 
     addTarget(list, "saveButton", "Salvar", byId("saveButton"), { display: "grid" });
     addTarget(list, "resetButton", "Reset", byId("resetButton"), { display: "grid" });
     addTarget(list, "menuButton", "Menu", byId("hudMenuButton"), { canHide: false, display: "grid" });
 
     addTarget(list, "joystick", "Joystick", byId("joystickBase"), { canHide: false, display: "block" });
+    addTarget(list, "touchControls", "Controles Touch", one(".touch-controls"), { canHide: false, display: "block" });
+    addTarget(list, "touchDpad", "D-Pad Mobile", one(".touch-dpad"), { display: "grid" });
+    addTarget(list, "touchActions", "Acoes Mobile", one(".touch-actions"), { canHide: false, display: "grid" });
     addTarget(list, "mobileTop", "Topo Mobile", one(".mobile-top-actions"), { canHide: false, display: "flex" });
     addTarget(list, "mobileFullscreen", "Tela cheia", byId("mobileFullscreenButton"), { display: "grid" });
     addTarget(list, "mobilePause", "Pausa", byId("mobilePauseButton"), { canHide: false, display: "grid" });
@@ -45897,4 +45974,5462 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     updateEpicBiomeMechanics(typeof deltaTime === "number" ? deltaTime : 0.016);
     return result;
   };
+})();
+
+/* === ETERNAL RIFT: REMOÇÃO TOTAL DE BOSSES E MINIBOSSES === */
+(function eternalRiftNoBossesNoMinibossesPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_NO_BOSSES_PATCH_V1) return;
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_NO_BOSSES_PATCH_V1 = true;
+    window.ETERNAL_RIFT_CURRENT_VERSION = "sem-bosses-minibosses-20260703";
+  }
+
+  const REMOVED_BOSS_KINDS = new Set([
+    // Base / vila / caverna
+    "miniGuardiao", "miniDragao", "guardiao", "reiSlime", "aranhaRainha", "golemAncestral", "bruxoSombrio", "serpenteLago",
+    // Biomas antigos
+    "faraoAreia", "yetiAncestral", "bruxaDoPantano", "imperadorDunas", "dragaoGlacialAntigo", "hidraVenenosa",
+    // Dimensão celestial
+    "miniAnjoCorrompido", "guardiaoCelestial", "serafimCorrompido", "dragaoAurora",
+    // Sistemas gigantes / dimensões / dungeons
+    "solarPharaoh", "iceQueen", "supremeSwampWitch", "corruptedReactor", "fallenSeraph", "ancientCatacombLord",
+    // Novos biomas lendários
+    "titanNucleoFlamejante", "cervoAbissal", "leviataRuinas"
+  ]);
+
+  function normalizeText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  }
+
+  function isBossOrMiniBossObject(obj) {
+    if (!obj) return false;
+    const kind = normalizeText(obj.kind || obj.bossId || obj.bossKind || obj.id || "");
+    const name = normalizeText(obj.name || obj.title || obj.message || "");
+    const type = normalizeText(obj.type || "");
+    const role = normalizeText(obj.role || "");
+
+    if (obj.type === "enemy" && obj.boss) return true;
+    if (obj.bossId || obj.bossKind || obj.forceBossSpawn || obj.requiresBoss) return true;
+    if (REMOVED_BOSS_KINDS.has(obj.kind) || REMOVED_BOSS_KINDS.has(obj.bossId) || REMOVED_BOSS_KINDS.has(obj.bossKind)) return true;
+    if (type.includes("boss") || role.includes("boss")) return true;
+    if (kind.includes("boss") || kind.includes("miniguardiao") || kind.includes("minidragao") || kind.includes("minianjo")) return true;
+    if (name.includes("boss") || name.includes("mini guard") || name.includes("miniguard") || name.includes("mini drag") || name.includes("mini anjo")) return true;
+    return false;
+  }
+
+  function purgeBossesFromList(list) {
+    if (!Array.isArray(list)) return 0;
+    let removed = 0;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (isBossOrMiniBossObject(list[i])) {
+        list.splice(i, 1);
+        removed++;
+      }
+    }
+    return removed;
+  }
+
+  function purgeAllBosses() {
+    let removed = 0;
+    try { removed += purgeBossesFromList(villageObjects); } catch (error) {}
+    try { removed += purgeBossesFromList(crystalDimensionObjects); } catch (error) {}
+    try { removed += purgeBossesFromList(objects); } catch (error) {}
+
+    // Remove baús/painéis que dependem diretamente de bosses, para não ficar missão quebrada na tela.
+    try {
+      for (let i = villageObjects.length - 1; i >= 0; i--) {
+        const obj = villageObjects[i];
+        if (!obj) continue;
+        const type = normalizeText(obj.type || "");
+        if (type.includes("bosschest") || type.includes("bossreward") || type === "elementalbosschest") {
+          villageObjects.splice(i, 1);
+          removed++;
+        }
+      }
+    } catch (error) {}
+
+    try {
+      if (currentScene === "village") objects = villageObjects;
+      if (Array.isArray(objects)) interactables = objects.filter((obj) => obj && obj.message && !isBossOrMiniBossObject(obj));
+    } catch (error) {}
+
+    try {
+      if (bossHud) bossHud.classList.add("hidden");
+      if (bossFill) bossFill.style.width = "0%";
+      if (bossNameHud) bossNameHud.textContent = "";
+    } catch (error) {}
+
+    return removed;
+  }
+
+  // Não deixa a função boss() criar boss de novo. Se algum sistema antigo tentar criar,
+  // o objeto nasce marcado como removível e é apagado no próximo ciclo.
+  if (typeof boss === "function") {
+    boss = function bossRemovedByNoBossPatch(tileX, tileY, kind) {
+      const stats = typeof getEnemyStats === "function" ? getEnemyStats(kind) : null;
+      return {
+        type: "enemy",
+        kind: kind || "bossRemovido",
+        name: "Boss removido",
+        x: tileX * TILE + 4,
+        y: tileY * TILE + 4,
+        width: stats?.width || 1,
+        height: stats?.height || 1,
+        solid: false,
+        hp: 0,
+        maxHp: Math.max(1, stats?.hp || 1),
+        damage: 0,
+        speed: 0,
+        state: "removed",
+        spawnX: tileX * TILE + 4,
+        spawnY: tileY * TILE + 4,
+        aggroRange: 0,
+        attackRange: 0,
+        attackCooldown: 999,
+        attackDelay: 999,
+        attackTimer: 999,
+        invulnerableTimer: 999,
+        knockbackX: 0,
+        knockbackY: 0,
+        canFly: false,
+        canSwim: false,
+        projectileType: null,
+        dropTable: {},
+        xpReward: 0,
+        coinReward: 0,
+        coinsReward: 0,
+        defense: 0,
+        resistances: {},
+        boss: true,
+        bossId: kind || "bossRemovido",
+        bossItem: null,
+        alive: false,
+        removedByNoBossPatch: true
+      };
+    };
+  }
+
+  // HUD e avisos deixam de procurar bosses.
+  if (typeof getActiveBoss === "function") {
+    getActiveBoss = function getActiveBossNoBossPatch() { return null; };
+  }
+  if (typeof getStrongEnemyWarning === "function") {
+    const getStrongEnemyWarningBeforeNoBossPatch = getStrongEnemyWarning;
+    getStrongEnemyWarning = function getStrongEnemyWarningNoBossPatch() {
+      const original = getStrongEnemyWarningBeforeNoBossPatch();
+      if (normalizeText(original).includes("boss") || normalizeText(original).includes("forte")) return "";
+      return original;
+    };
+  }
+  if (typeof countDefeatedBosses === "function") {
+    countDefeatedBosses = function countDefeatedBossesNoBossPatch() { return 0; };
+  }
+
+  // Se algum boss passar pela criação, ele não aparece e não atualiza.
+  if (typeof drawEnemy === "function") {
+    const drawEnemyBeforeNoBossPatch = drawEnemy;
+    drawEnemy = function drawEnemyNoBossPatch(obj) {
+      if (isBossOrMiniBossObject(obj)) return;
+      return drawEnemyBeforeNoBossPatch(obj);
+    };
+  }
+  if (typeof updateEnemies === "function") {
+    const updateEnemiesBeforeNoBossPatch = updateEnemies;
+    updateEnemies = function updateEnemiesNoBossPatch(delta) {
+      purgeAllBosses();
+      const result = updateEnemiesBeforeNoBossPatch(delta);
+      purgeAllBosses();
+      return result;
+    };
+  }
+
+  if (typeof setActiveScene === "function") {
+    const setActiveSceneBeforeNoBossPatch = setActiveScene;
+    setActiveScene = function setActiveSceneNoBossPatch(scene) {
+      const result = setActiveSceneBeforeNoBossPatch(scene);
+      purgeAllBosses();
+      return result;
+    };
+  }
+
+  if (typeof loadGame === "function") {
+    const loadGameBeforeNoBossPatch = loadGame;
+    loadGame = function loadGameNoBossPatch() {
+      const result = loadGameBeforeNoBossPatch();
+      purgeAllBosses();
+      return result;
+    };
+  }
+
+  if (typeof resetProgressForNewGame === "function") {
+    const resetProgressBeforeNoBossPatch = resetProgressForNewGame;
+    resetProgressForNewGame = function resetProgressForNewGameNoBossPatch(name) {
+      const result = resetProgressBeforeNoBossPatch(name);
+      purgeAllBosses();
+      return result;
+    };
+  }
+
+  if (typeof normalizeRuntimeState === "function") {
+    const normalizeRuntimeStateBeforeNoBossPatch = normalizeRuntimeState;
+    normalizeRuntimeState = function normalizeRuntimeStateNoBossPatch() {
+      const result = normalizeRuntimeStateBeforeNoBossPatch();
+      purgeAllBosses();
+      return result;
+    };
+  }
+
+  if (typeof renderMissionsPanel === "function") {
+    const renderMissionsPanelBeforeNoBossPatch = renderMissionsPanel;
+    renderMissionsPanel = function renderMissionsPanelNoBossPatch() {
+      renderMissionsPanelBeforeNoBossPatch();
+      try {
+        document.querySelectorAll('[data-ultra-biome-bosses="true"], [data-boss-drops-entry="true"]').forEach((el) => el.remove());
+      } catch (error) {}
+    };
+  }
+
+  function hideBossUiButtons() {
+    try {
+      document.querySelectorAll("button, .hud-button, .menu-button").forEach((el) => {
+        const txt = normalizeText(el.textContent || "");
+        if (txt.includes("boss")) el.classList.add("hidden");
+      });
+      document.querySelectorAll("#bossDropsPanel, .boss-drops-panel").forEach((el) => el.classList.add("hidden"));
+    } catch (error) {}
+  }
+
+  if (typeof update === "function") {
+    const updateBeforeNoBossPatch = update;
+    update = function updateNoBossPatch(deltaTime) {
+      purgeAllBosses();
+      const result = updateBeforeNoBossPatch(deltaTime);
+      purgeAllBosses();
+      hideBossUiButtons();
+      return result;
+    };
+  }
+
+  purgeAllBosses();
+  hideBossUiButtons();
+  setTimeout(() => { purgeAllBosses(); hideBossUiButtons(); }, 100);
+  setTimeout(() => { purgeAllBosses(); hideBossUiButtons(); }, 1000);
+  setTimeout(() => { purgeAllBosses(); hideBossUiButtons(); }, 2500);
+})();
+
+/* ==================================================
+   ETERNAL RIFT - SANDBOX 2D EXPLORATION STYLE
+   Inspirado em jogos 2D de exploracao, mineracao e construcao, sem copiar assets.
+   ================================================== */
+(function eternalRiftSandbox2DExplorationPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_SANDBOX_2D_EXPLORATION_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_SANDBOX_2D_EXPLORATION_PATCH = true;
+
+  const SANDBOX_MAX_REACH_TILES = 6.5;
+  const SANDBOX_HOTBAR = [
+    { id: "sword", name: "Espada", hint: "Combate normal" },
+    { id: "pickaxe", name: "Picareta", hint: "Minera blocos proximos" },
+    { id: "dirt", name: "Terra", hint: "Coloca bloco de terra", material: "dirt" },
+    { id: "stone", name: "Pedra", hint: "Coloca bloco de pedra", material: "stone" },
+    { id: "wood", name: "Madeira", hint: "Coloca bloco de madeira", material: "wood" },
+    { id: "torch", name: "Tocha", hint: "Coloca luz decorativa", material: "torch" },
+    { id: "magic", name: "Magia", hint: "Combate normal com poder equipado" }
+  ];
+
+  const SANDBOX_BLOCKS = {
+    dirt: { name: "Terra", color: "#8b5a38", light: "#b77a49", dark: "#4d2f24", drop: "dirt" },
+    grass: { name: "Terra com grama", color: "#7a5639", light: "#73c75b", dark: "#3f2c21", drop: "dirt" },
+    stone: { name: "Pedra", color: "#777d84", light: "#a8b0ba", dark: "#3a414a", drop: "stone" },
+    wood: { name: "Madeira", color: "#9a6036", light: "#d08a4d", dark: "#4c2c1c", drop: "wood" },
+    leaf: { name: "Folhas", color: "#3f9d54", light: "#77df72", dark: "#1d5a34", drop: "wood" },
+    water: { name: "Agua", color: "#1f82b0", light: "#76e0ff", dark: "#0b3e5b", drop: "" },
+    sand: { name: "Areia", color: "#c8a65b", light: "#ffe39a", dark: "#766235", drop: "dirt" },
+    obsidian: { name: "Obsidiana", color: "#2b2632", light: "#7e5a87", dark: "#111018", drop: "stone" },
+    lava: { name: "Lava", color: "#d95b2a", light: "#ffd56d", dark: "#5a1c18", drop: "" },
+    coral: { name: "Coral", color: "#2aa4a8", light: "#9afcff", dark: "#125a68", drop: "stone" },
+    oreCopper: { name: "Minerio de Cobre", color: "#7b6860", light: "#ee9259", dark: "#3b3537", drop: "oreCopper" },
+    oreBlue: { name: "Cristal Azul", color: "#586b85", light: "#69e4ff", dark: "#253147", drop: "oreBlue" },
+    oreGold: { name: "Minerio Dourado", color: "#786744", light: "#ffd76b", dark: "#3c3020", drop: "oreGold" },
+    torch: { name: "Tocha", color: "#8a5637", light: "#ffd76b", dark: "#2a1714", drop: "torch" },
+    air: { name: "Ar", color: "transparent", light: "transparent", dark: "transparent", drop: "" }
+  };
+
+  function ensureSandboxState() {
+    if (!questBook.sandbox2D || typeof questBook.sandbox2D !== "object" || Array.isArray(questBook.sandbox2D)) questBook.sandbox2D = {};
+    const state = questBook.sandbox2D;
+    if (!state.blocks || typeof state.blocks !== "object" || Array.isArray(state.blocks)) state.blocks = {};
+    if (!state.inventory || typeof state.inventory !== "object" || Array.isArray(state.inventory)) {
+      state.inventory = { dirt: 20, stone: 12, wood: 12, torch: 8, oreCopper: 0, oreBlue: 0, oreGold: 0 };
+    }
+    for (const key of ["dirt", "stone", "wood", "torch", "oreCopper", "oreBlue", "oreGold"]) {
+      state.inventory[key] = Math.max(0, Number(state.inventory[key] || 0));
+    }
+    if (!state.selectedTool) state.selectedTool = "sword";
+    if (typeof state.introShown !== "boolean") state.introShown = false;
+    return state;
+  }
+
+  function sandboxKey(tileX, tileY) {
+    return `${tileX},${tileY}`;
+  }
+
+  function sandboxHash(tileX, tileY, salt = 0) {
+    const raw = Math.sin(tileX * 139.91 + tileY * 327.17 + salt * 71.3) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function naturalSandboxBlock(tileX, tileY) {
+    if (currentScene !== "village") return "air";
+    if (!Array.isArray(worldMap) || !worldMap[tileY]) return "air";
+    const tile = worldMap[tileY][tileX];
+    const h = sandboxHash(tileX, tileY, 2);
+
+    if (tileX >= 150 && tileX <= 224 && tileY >= 12 && tileY <= 54) {
+      if (h > 0.88) return "lava";
+      if (h > 0.72) return "oreCopper";
+      if (h > 0.46) return "obsidian";
+      return "stone";
+    }
+
+    if (tileX >= 122 && tileX <= 224 && tileY >= 102 && tileY <= 156) {
+      if (h > 0.78) return "coral";
+      if (h > 0.38) return "water";
+      return "stone";
+    }
+
+    if (tile === "W") return "water";
+    if (tile === "D" || tile === "P") return h > 0.92 ? "oreCopper" : "stone";
+    if (tile === "F") return h > 0.62 ? "leaf" : "wood";
+    if (tile === "A" || tile === "X") return "sand";
+    if (tile === "L" || tile === "N") return h > 0.88 ? "oreBlue" : "stone";
+    if (tileY > 43) {
+      if (h > 0.96) return "oreGold";
+      if (h > 0.90) return "oreBlue";
+      return "stone";
+    }
+    if (h > 0.975) return "oreGold";
+    if (h > 0.945) return "oreBlue";
+    return "grass";
+  }
+
+  function getSandboxBlock(tileX, tileY) {
+    const state = ensureSandboxState();
+    const override = state.blocks[sandboxKey(tileX, tileY)];
+    return override || naturalSandboxBlock(tileX, tileY);
+  }
+
+  function setSandboxBlock(tileX, tileY, block) {
+    const state = ensureSandboxState();
+    const key = sandboxKey(tileX, tileY);
+    if (block === "natural") delete state.blocks[key];
+    else state.blocks[key] = block;
+  }
+
+  function getSandboxMaterialLabel(key) {
+    const labels = {
+      dirt: "Terra",
+      stone: "Pedra",
+      wood: "Madeira",
+      torch: "Tocha",
+      oreCopper: "Minerio de cobre",
+      oreBlue: "Cristal azul",
+      oreGold: "Minerio dourado"
+    };
+    return labels[key] || key;
+  }
+
+  function drawSandboxBlock(px, py, type, tileX, tileY) {
+    const block = SANDBOX_BLOCKS[type] || SANDBOX_BLOCKS.dirt;
+    if (type === "air") return;
+    const h = sandboxHash(tileX, tileY, 7);
+    const alpha = type === "water" ? 0.22 : type === "lava" ? 0.34 : type === "torch" ? 1 : 0.31;
+
+    ctx.save();
+    if (type !== "torch") ctx.globalAlpha = alpha;
+
+    if (type === "torch") {
+      const glow = 0.32 + Math.sin(performance.now() / 160 + tileX) * 0.06;
+      ctx.fillStyle = `rgba(255, 179, 71, ${glow})`;
+      ctx.fillRect(px + 4, py + 1, 24, 26);
+      ctx.fillStyle = block.dark;
+      ctx.fillRect(px + 14, py + 12, 4, 16);
+      ctx.fillStyle = block.light;
+      ctx.fillRect(px + 11, py + 6, 10, 8);
+      ctx.fillStyle = "#fff1a6";
+      ctx.fillRect(px + 14, py + 4, 4, 5);
+      ctx.restore();
+      return;
+    }
+
+    ctx.fillStyle = block.color;
+    ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
+    ctx.fillStyle = block.dark;
+    ctx.fillRect(px + 1, py + TILE - 6, TILE - 2, 5);
+    ctx.fillRect(px + TILE - 5, py + 2, 4, TILE - 4);
+    ctx.fillStyle = block.light;
+    ctx.fillRect(px + 2, py + 2, TILE - 4, 4);
+    ctx.fillRect(px + 4, py + 6, 8, 3);
+
+    if (type === "grass") {
+      ctx.fillStyle = "#63cf58";
+      ctx.fillRect(px + 1, py + 1, TILE - 2, 5);
+      ctx.fillStyle = "#b9ef72";
+      ctx.fillRect(px + 6, py + 0, 5, 3);
+      ctx.fillRect(px + 18, py + 0, 4, 3);
+    }
+
+    if (type === "oreCopper" || type === "oreBlue" || type === "oreGold" || type === "coral") {
+      ctx.globalAlpha = Math.min(1, alpha + 0.22);
+      ctx.fillStyle = block.light;
+      ctx.fillRect(px + 7, py + 10, 6, 4);
+      ctx.fillRect(px + 18, py + 18, 8, 5);
+      if (h > 0.5) ctx.fillRect(px + 22, py + 8, 4, 4);
+    }
+
+    if (type === "lava") {
+      const pulse = 0.18 + Math.sin(performance.now() / 120 + tileX) * 0.07;
+      ctx.globalAlpha = 0.48;
+      ctx.fillStyle = `rgba(255, 225, 110, ${pulse + 0.28})`;
+      ctx.fillRect(px + 5, py + 9, 21, 5);
+      ctx.fillRect(px + 11, py + 20, 12, 4);
+    }
+
+    ctx.globalAlpha = Math.min(1, alpha + 0.16);
+    ctx.strokeStyle = "rgba(10, 12, 20, 0.55)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+    ctx.restore();
+  }
+
+  function drawSandboxBlockLayer() {
+    if (currentScene !== "village") return;
+    const cols = worldMap?.[0]?.length || MAP_COLS;
+    const rows = worldMap?.length || MAP_ROWS;
+    const startCol = Math.floor(camera.x / TILE) - 1;
+    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const startRow = Math.floor(camera.y / TILE) - 1;
+    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    for (let y = startRow; y <= endRow; y += 1) {
+      for (let x = startCol; x <= endCol; x += 1) {
+        if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
+        const type = getSandboxBlock(x, y);
+        if (type === "air") continue;
+        drawSandboxBlock(x * TILE, y * TILE, type, x, y);
+      }
+    }
+  }
+
+  const drawMapBeforeSandbox2D = drawMap;
+  drawMap = function drawMapSandbox2DExploration() {
+    drawMapBeforeSandbox2D();
+    drawSandboxBlockLayer();
+  };
+
+  function drawSandboxScreenAtmosphere() {
+    if (currentScene !== "village") return;
+    const now = performance.now() / 1000;
+    ctx.save();
+    ctx.globalAlpha = 0.26;
+    const sky = ctx.createLinearGradient(0, 0, 0, Math.max(160, canvas.height * 0.38));
+    sky.addColorStop(0, "#4fb7f2");
+    sky.addColorStop(0.62, "rgba(79, 183, 242, 0.16)");
+    sky.addColorStop(1, "rgba(79, 183, 242, 0)");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.36);
+    ctx.globalAlpha = 0.34;
+    for (let i = 0; i < 5; i += 1) {
+      const x = ((now * 16 + i * 190) % (canvas.width + 180)) - 120;
+      const y = 36 + i * 24;
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      ctx.fillRect(x, y, 54, 10);
+      ctx.fillRect(x + 18, y - 8, 36, 10);
+      ctx.fillRect(x + 50, y + 4, 42, 8);
+    }
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = "#111522";
+    ctx.fillRect(0, canvas.height - 44, canvas.width, 44);
+    ctx.restore();
+  }
+
+  const drawBeforeSandbox2D = draw;
+  draw = function drawSandbox2DExploration() {
+    drawBeforeSandbox2D();
+    drawSandboxScreenAtmosphere();
+  };
+
+  function ensureSandboxHotbar() {
+    ensureSandboxState();
+    let bar = document.getElementById("sandbox2DHotbar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "sandbox2DHotbar";
+      bar.className = "sandbox-2d-hotbar";
+      bar.setAttribute("aria-label", "Hotbar sandbox 2D");
+      document.body.appendChild(bar);
+      bar.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-sandbox-tool]");
+        if (!button) return;
+        const state = ensureSandboxState();
+        state.selectedTool = button.dataset.sandboxTool || "sword";
+        updateSandboxHotbar();
+        try { playSound("selectItem"); } catch (error) {}
+      });
+    }
+    updateSandboxHotbar();
+    return bar;
+  }
+
+  function getToolIcon(toolId) {
+    const icons = { sword: "S", pickaxe: "P", dirt: "D", stone: "R", wood: "W", torch: "T", magic: "M" };
+    return icons[toolId] || "?";
+  }
+
+  function getToolCount(tool) {
+    const state = ensureSandboxState();
+    if (!tool.material) return "";
+    return String(state.inventory[tool.material] || 0);
+  }
+
+  function updateSandboxHotbar() {
+    const bar = document.getElementById("sandbox2DHotbar");
+    if (!bar) return;
+    const state = ensureSandboxState();
+    bar.innerHTML = SANDBOX_HOTBAR.map((tool, index) => {
+      const active = state.selectedTool === tool.id ? " is-active" : "";
+      const count = getToolCount(tool);
+      return `
+        <button class="sandbox-slot${active}" type="button" data-sandbox-tool="${tool.id}" title="${tool.name}: ${tool.hint}">
+          <span class="sandbox-slot-key">${index + 1}</span>
+          <span class="sandbox-slot-icon">${getToolIcon(tool.id)}</span>
+          <strong>${tool.name}</strong>
+          ${count ? `<small>${count}</small>` : ""}
+        </button>
+      `;
+    }).join("");
+  }
+
+  function selectedSandboxTool() {
+    const state = ensureSandboxState();
+    return SANDBOX_HOTBAR.find((tool) => tool.id === state.selectedTool) || SANDBOX_HOTBAR[0];
+  }
+
+  function canvasPointToTile(event) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = (event.clientX - rect.left) * (canvas.width / Math.max(1, rect.width));
+    const sy = (event.clientY - rect.top) * (canvas.height / Math.max(1, rect.height));
+    return {
+      tileX: Math.floor((sx + camera.x) / TILE),
+      tileY: Math.floor((sy + camera.y) / TILE)
+    };
+  }
+
+  function isTileInSandboxReach(tileX, tileY) {
+    const playerTileX = Math.floor((player.x + player.width / 2) / TILE);
+    const playerTileY = Math.floor((player.y + player.height / 2) / TILE);
+    return Math.hypot(tileX - playerTileX, tileY - playerTileY) <= SANDBOX_MAX_REACH_TILES;
+  }
+
+  function addSandboxMaterial(material, amount = 1) {
+    const state = ensureSandboxState();
+    if (!material) return;
+    state.inventory[material] = Math.max(0, Number(state.inventory[material] || 0) + amount);
+    updateSandboxHotbar();
+  }
+
+  function useSandboxMaterial(material, amount = 1) {
+    const state = ensureSandboxState();
+    const current = Number(state.inventory[material] || 0);
+    if (current < amount) return false;
+    state.inventory[material] = current - amount;
+    updateSandboxHotbar();
+    return true;
+  }
+
+  function mineSandboxTile(tileX, tileY) {
+    const type = getSandboxBlock(tileX, tileY);
+    const block = SANDBOX_BLOCKS[type] || SANDBOX_BLOCKS.air;
+    if (type === "air" || type === "water" || type === "lava") {
+      showHudToast?.("Nada util para minerar aqui.");
+      try { playSound("invalid"); } catch (error) {}
+      return;
+    }
+    setSandboxBlock(tileX, tileY, "air");
+    if (block.drop) addSandboxMaterial(block.drop, type === "leaf" ? 1 : 2);
+    if (type === "oreCopper" || type === "oreBlue" || type === "oreGold") addSandboxMaterial("stone", 1);
+    const label = getSandboxMaterialLabel(block.drop || type);
+    spawnFloatingText?.(`+${label}`, tileX * TILE + 4, tileY * TILE - 4, block.light || "#fff2cf");
+    showHudToast?.(`Minerado: ${block.name}`);
+    try { playSound(type.includes("ore") ? "crystal" : "hit"); } catch (error) {}
+    try { vibrate?.(18); } catch (error) {}
+    renderInventory?.();
+  }
+
+  function placeSandboxTile(tileX, tileY, material) {
+    const current = getSandboxBlock(tileX, tileY);
+    if (material !== "torch" && current !== "air") {
+      showHudToast?.("Minere o espaco antes de construir.");
+      try { playSound("invalid"); } catch (error) {}
+      return;
+    }
+    if (!useSandboxMaterial(material, 1)) {
+      showHudToast?.(`${getSandboxMaterialLabel(material)} insuficiente.`);
+      try { playSound("invalid"); } catch (error) {}
+      return;
+    }
+    setSandboxBlock(tileX, tileY, material);
+    const block = SANDBOX_BLOCKS[material] || SANDBOX_BLOCKS.dirt;
+    spawnFloatingText?.(material === "torch" ? "Tocha" : "Bloco", tileX * TILE + 4, tileY * TILE - 4, block.light || "#fff2cf");
+    showHudToast?.(`Construido: ${block.name}`);
+    try { playSound(material === "torch" ? "quest" : "equipItem"); } catch (error) {}
+    renderInventory?.();
+  }
+
+  canvas.addEventListener("pointerdown", (event) => {
+    const tool = selectedSandboxTool();
+    if (!tool || tool.id === "sword" || tool.id === "magic") return;
+    if (currentScene !== "village" || gameOver || !gameStarted) return;
+    const point = canvasPointToTile(event);
+    if (!isTileInSandboxReach(point.tileX, point.tileY)) {
+      showHudToast?.("Chegue mais perto para minerar/construir.");
+      try { playSound("invalid"); } catch (error) {}
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (tool.id === "pickaxe") mineSandboxTile(point.tileX, point.tileY);
+    else if (tool.material) placeSandboxTile(point.tileX, point.tileY, tool.material);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, true);
+
+  document.addEventListener("keydown", (event) => {
+    const targetTag = String(event.target?.tagName || "").toLowerCase();
+    if (targetTag === "input" || targetTag === "textarea" || event.ctrlKey || event.altKey || event.metaKey) return;
+    const index = Number(event.key) - 1;
+    if (index >= 0 && index < SANDBOX_HOTBAR.length) {
+      const state = ensureSandboxState();
+      state.selectedTool = SANDBOX_HOTBAR[index].id;
+      updateSandboxHotbar();
+      return;
+    }
+    if (event.key.toLowerCase() === "b") {
+      const state = ensureSandboxState();
+      state.selectedTool = state.selectedTool === "pickaxe" ? "sword" : "pickaxe";
+      updateSandboxHotbar();
+      showHudToast?.(state.selectedTool === "pickaxe" ? "Modo mineracao." : "Combate normal.");
+    }
+  });
+
+  const getInventoryItemsBeforeSandbox2D = getInventoryItems;
+  getInventoryItems = function getInventoryItemsSandbox2D() {
+    const items = getInventoryItemsBeforeSandbox2D();
+    const state = ensureSandboxState();
+    const materialItems = [
+      ["dirt", "Bloco de Terra", "Material", "comum", "Bloco simples para construir caminhos e plataformas."],
+      ["stone", "Bloco de Pedra", "Material", "comum", "Pedra minerada para construcoes mais resistentes."],
+      ["wood", "Madeira", "Material", "incomum", "Madeira para estruturas, tochas e decoracao."],
+      ["torch", "Tocha", "Utilitario", "raro", "Ilumina cavernas e areas escuras."],
+      ["oreCopper", "Minerio de Cobre", "Minerio", "raro", "Minerio quente para futuras melhorias."],
+      ["oreBlue", "Cristal Azul", "Cristal", "epico", "Cristal brilhante encontrado em cavernas e gelo."],
+      ["oreGold", "Minerio Dourado", "Minerio", "lendario", "Minerio raro com brilho de tesouro."]
+    ];
+    for (const [key, name, typeLabel, rarity, description] of materialItems) {
+      const quantity = Number(state.inventory[key] || 0);
+      if (quantity <= 0) continue;
+      items.push({
+        id: `sandbox2d-${key}`,
+        name,
+        icon: "B",
+        quantity,
+        category: "materiais",
+        typeLabel,
+        rarity,
+        description,
+        effect: "Use a hotbar inferior para minerar e construir no mapa.",
+        locked: true
+      });
+    }
+    return items;
+  };
+
+  const updateBeforeSandbox2D = update;
+  update = function updateSandbox2DExploration(delta) {
+    const result = updateBeforeSandbox2D(delta);
+    const state = ensureSandboxState();
+    ensureSandboxHotbar();
+    if (gameStarted && !state.introShown) {
+      state.introShown = true;
+      showHudToast?.("Hotbar sandbox liberada: use 1-7, B, picareta e blocos.");
+    }
+    return result;
+  };
+
+  const updateHudBeforeSandbox2D = updateHud;
+  updateHud = function updateHudSandbox2D() {
+    const result = updateHudBeforeSandbox2D();
+    updateSandboxHotbar();
+    return result;
+  };
+
+  try {
+    document.body.classList.add("sandbox-2d-inspired");
+    ensureSandboxHotbar();
+  } catch (error) {}
+})();
+
+/* ==================================================
+   ETERNAL RIFT PREMIUM VISUAL - STABLE BEAUTY PASS
+   Primeiro passe visual estavel: personagem, mapa, UI, inventario, baus e som.
+   ================================================== */
+(function eternalRiftPremiumVisualStablePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_PREMIUM_VISUAL_STABLE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_PREMIUM_VISUAL_STABLE_PATCH = true;
+
+  const PREMIUM_SOUND_SRC = "assets/sounds/chest-open-reward.mp3";
+  const premiumRarityColors = {
+    comum: { edge: "#9aa3ad", glow: "rgba(205,216,224,0.30)", main: "#d7dde4" },
+    incomum: { edge: "#65dc83", glow: "rgba(101,220,131,0.32)", main: "#8effa8" },
+    raro: { edge: "#58dfff", glow: "rgba(88,223,255,0.36)", main: "#8bf0ff" },
+    epico: { edge: "#c076ff", glow: "rgba(192,118,255,0.40)", main: "#d9a6ff" },
+    lendario: { edge: "#ffd76b", glow: "rgba(255,215,107,0.46)", main: "#ffe89a" },
+    mitico: { edge: "#ff7aa7", glow: "rgba(255,122,167,0.44)", main: "#ffb1cc" },
+    divino: { edge: "#f8f8ff", glow: "rgba(248,248,255,0.46)", main: "#ffffff" }
+  };
+
+  function premiumNormalize(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  }
+
+  function premiumRarity(value) {
+    const key = premiumNormalize(value);
+    if (key.includes("lend")) return "lendario";
+    if (key.includes("epic") || key.includes("epic")) return "epico";
+    if (key.includes("mit")) return "mitico";
+    if (key.includes("div")) return "divino";
+    if (key.includes("rar")) return "raro";
+    if (key.includes("incom")) return "incomum";
+    return "comum";
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function premiumHash(x, y, salt = 0) {
+    const raw = Math.sin(x * 127.1 + y * 311.7 + salt * 43.13) * 10000;
+    return raw - Math.floor(raw);
+  }
+
+  function premiumRect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function premiumGlowRect(x, y, w, h, color, alpha = 0.26) {
+    ctx.fillStyle = color;
+    ctx.globalAlpha *= alpha;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    ctx.globalAlpha /= alpha || 1;
+  }
+
+  function premiumWorldShadow(x, y, w, h, alpha = 0.28) {
+    ctx.save();
+    ctx.fillStyle = `rgba(8, 10, 20, ${alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ETERNAL RIFT PREMIUM VISUAL - CHEST SOUND EFFECT
+  let premiumChestAudio = null;
+  let premiumChestSoundAt = 0;
+
+  function getPremiumChestAudio() {
+    if (!premiumChestAudio && typeof Audio !== "undefined") {
+      premiumChestAudio = new Audio(PREMIUM_SOUND_SRC);
+      premiumChestAudio.preload = "auto";
+      premiumChestAudio.volume = 0.55;
+    }
+    return premiumChestAudio;
+  }
+
+  function playChestRewardSound() {
+    try {
+      const now = performance.now();
+      if (now - premiumChestSoundAt < 420) return;
+      premiumChestSoundAt = now;
+      const audio = getPremiumChestAudio();
+      if (!audio) return;
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = 0.55;
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.catch === "function") playPromise.catch(() => {});
+    } catch (error) {}
+  }
+  if (typeof window !== "undefined") window.playChestRewardSound = playChestRewardSound;
+
+  try {
+    const unlockAudio = () => {
+      try { getPremiumChestAudio()?.load?.(); } catch (error) {}
+    };
+    document.addEventListener("pointerdown", unlockAudio, { once: true, passive: true });
+    document.addEventListener("keydown", unlockAudio, { once: true });
+  } catch (error) {}
+
+  if (typeof playSound === "function") {
+    const playSoundBeforePremiumVisual = playSound;
+    playSound = function playSoundPremiumChestAudio(name) {
+      const result = playSoundBeforePremiumVisual(name);
+      if (name === "chest") setTimeout(playChestRewardSound, 120);
+      return result;
+    };
+  }
+
+  // ETERNAL RIFT PREMIUM VISUAL - PLAYER REDESIGN
+  drawPlayer = function drawPlayerPremiumVisual() {
+    const x = player.x;
+    const y = player.y;
+    const t = performance.now() / 1000;
+    const bob = player.moving ? Math.sin(t * 11) * 1.2 : Math.sin(t * 2.2) * 0.35;
+    const walk = player.moving ? Math.round(Math.sin(t * 12) * 2) : 0;
+    const blinking = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 75) % 2 === 0;
+    const dir = player.direction || "down";
+
+    ctx.save();
+    if (blinking) ctx.globalAlpha = 0.45;
+
+    if (player.isSwimming) {
+      ctx.strokeStyle = "rgba(155, 244, 255, 0.72)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x + 12, y + 27, 18, 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      premiumRect(x - 4, y + 28, player.width + 8, 3, "rgba(99,218,255,0.28)");
+    }
+
+    if (player.levelGlowTimer > 0 || activePowerUps.shield > 0) {
+      const pulse = 0.28 + Math.sin(t * 7) * 0.08;
+      premiumRect(x - 8, y - 10, player.width + 16, player.height + 18, `rgba(88,223,255,${pulse})`);
+      premiumRect(x - 4, y - 14, player.width + 8, 4, "rgba(255,232,154,0.36)");
+    }
+
+    premiumWorldShadow(x + 1, y + 27, 26, 7, 0.30);
+
+    const py = y + bob;
+    const capeFlip = dir === "left" ? -1 : 1;
+    ctx.save();
+    ctx.translate(x + 13, py + 13);
+    ctx.scale(capeFlip, 1);
+    ctx.fillStyle = "#16285d";
+    ctx.beginPath();
+    ctx.moveTo(-9, 3);
+    ctx.lineTo(9, 3);
+    ctx.lineTo(7, 24);
+    ctx.lineTo(-11, 21);
+    ctx.closePath();
+    ctx.fill();
+    premiumRect(-2, 7, 4, 14, "#244da0");
+    premiumRect(3, 6, 2, 14, "#d8a947");
+    ctx.restore();
+
+    premiumRect(x + 6, py + 24 + walk, 5, 8, "#2b1d22");
+    premiumRect(x + 16, py + 24 - walk, 5, 8, "#2b1d22");
+    premiumRect(x + 5, py + 29 + walk, 7, 3, "#6a3f2b");
+    premiumRect(x + 15, py + 29 - walk, 7, 3, "#6a3f2b");
+
+    premiumRect(x + 4, py + 12, 20, 14, "#172149");
+    premiumRect(x + 6, py + 11, 16, 14, "#214fa1");
+    premiumRect(x + 8, py + 13, 12, 4, "#4fbfff");
+    premiumRect(x + 9, py + 17, 10, 2, "#ffd76b");
+    premiumRect(x + 13, py + 12, 2, 12, "#f4c75f");
+    premiumRect(x + 3, py + 12, 6, 8, "#315db5");
+    premiumRect(x + 19, py + 12, 6, 8, "#315db5");
+    premiumRect(x + 4, py + 13, 4, 3, "#ffd76b");
+    premiumRect(x + 20, py + 13, 4, 3, "#ffd76b");
+    premiumRect(x + 3, py + 20, 5, 7, "#7b4a2f");
+    premiumRect(x + 21, py + 20, 5, 7, "#7b4a2f");
+
+    premiumRect(x + 6, py + 4, 16, 11, "#f2bd8b");
+    premiumRect(x + 5, py + 2, 18, 5, "#6a3a24");
+    premiumRect(x + 4, py + 5, 5, 8, "#8b4a2b");
+    premiumRect(x + 19, py + 5, 4, 7, "#8b4a2b");
+    premiumRect(x + 9, py, 9, 4, "#a95f34");
+    premiumRect(x + 14, py - 2, 4, 3, "#c57943");
+
+    if (dir === "up") {
+      premiumRect(x + 8, py + 7, 11, 2, "#5b2f1d");
+    } else if (dir === "left") {
+      premiumRect(x + 8, py + 9, 2, 2, "#101529");
+      premiumRect(x + 5, py + 10, 2, 2, "#d58d62");
+    } else if (dir === "right") {
+      premiumRect(x + 18, py + 9, 2, 2, "#101529");
+      premiumRect(x + 21, py + 10, 2, 2, "#d58d62");
+    } else {
+      premiumRect(x + 10, py + 9, 2, 2, "#101529");
+      premiumRect(x + 17, py + 9, 2, 2, "#101529");
+      premiumRect(x + 13, py + 12, 3, 1, "#a85f48");
+    }
+
+    if (attackTimer > 0 || weaponCooldownTimer > 0) {
+      const glow = 0.45 + Math.sin(t * 18) * 0.15;
+      ctx.fillStyle = `rgba(88,223,255,${glow})`;
+      if (dir === "left") {
+        premiumRect(x - 12, py + 15, 16, 4, "#dff9ff");
+        premiumRect(x - 18, py + 16, 8, 2, "#58dfff");
+      } else if (dir === "right") {
+        premiumRect(x + 23, py + 15, 16, 4, "#dff9ff");
+        premiumRect(x + 38, py + 16, 8, 2, "#58dfff");
+      } else if (dir === "up") {
+        premiumRect(x + 12, py - 9, 4, 18, "#dff9ff");
+        premiumRect(x + 13, py - 15, 2, 9, "#58dfff");
+      } else {
+        premiumRect(x + 12, py + 23, 4, 18, "#dff9ff");
+        premiumRect(x + 13, py + 39, 2, 9, "#58dfff");
+      }
+    }
+
+    if (equippedPower === "blueRay" || equippedPower === "shockwave") {
+      const sparkle = 0.28 + Math.sin(t * 6) * 0.10;
+      premiumRect(x + 24, py + 10, 3, 3, `rgba(88,223,255,${sparkle})`);
+      premiumRect(x + 0, py + 18, 2, 2, `rgba(255,232,154,${sparkle})`);
+    }
+
+    ctx.restore();
+  };
+
+  // ETERNAL RIFT PREMIUM VISUAL - MAIN VILLAGE
+  // ETERNAL RIFT PREMIUM VISUAL - VOLCANIC LANDS
+  // ETERNAL RIFT PREMIUM VISUAL - SUBMERGED RUINS
+  const drawMapBeforePremiumVisual = drawMap;
+  drawMap = function drawMapPremiumVisualStable() {
+    drawMapBeforePremiumVisual();
+    drawPremiumMapDetails();
+  };
+
+  function drawPremiumMapDetails() {
+    if (currentScene !== "village") return;
+    const perfLite = Boolean(
+      document.body?.classList.contains("performance-economy") ||
+      document.body?.classList.contains("er-ultra-performance") ||
+      urlParams?.get?.("lite") === "1" ||
+      window.matchMedia?.("(max-width: 880px), (pointer: coarse)")?.matches
+    );
+    const startCol = Math.floor(camera.x / TILE) - 1;
+    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const startRow = Math.floor(camera.y / TILE) - 1;
+    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    const now = performance.now() / 1000;
+    const tileStep = perfLite ? 2 : 1;
+
+    for (let ty = startRow; ty <= endRow; ty += tileStep) {
+      for (let tx = startCol; tx <= endCol; tx += tileStep) {
+        const x = tx * TILE;
+        const y = ty * TILE;
+        const h = premiumHash(tx, ty, 23);
+
+        if (tx >= 20 && tx <= 48 && ty >= 16 && ty <= 34) {
+          if (h > 0.82) {
+            premiumRect(x + 6, y + 24, 5, 3, "#f7d56b");
+            premiumRect(x + 12, y + 24, 3, 3, "#ff8cb7");
+            premiumRect(x + 17, y + 24, 4, 3, "#8ee7ff");
+          }
+          if (h > 0.55 && h < 0.62) {
+            premiumRect(x + 3, y + 7, 24, 2, "rgba(255,232,154,0.28)");
+            premiumRect(x + 7, y + 18, 18, 2, "rgba(38,88,54,0.20)");
+          }
+        }
+
+        if (tx >= 150 && tx <= 224 && ty >= 12 && ty <= 52) {
+          if (h > 0.72) {
+            const pulse = 0.22 + Math.sin(now * 3.4 + tx) * 0.06;
+            premiumRect(x + 4, y + 8, 22, 3, `rgba(255,126,48,${pulse})`);
+            premiumRect(x + 12, y + 17, 12, 2, `rgba(255,215,107,${pulse})`);
+          }
+          if (h > 0.91) {
+            const rise = (now * 11 + tx * 3 + ty) % 22;
+            premiumRect(x + 15, y + 25 - rise, 3, 3, "rgba(255,185,82,0.58)");
+          }
+        }
+
+        if (tx >= 122 && tx <= 222 && ty >= 102 && ty <= 154) {
+          if (h > 0.74) {
+            const wobble = Math.sin(now * 1.7 + tx) * 2;
+            premiumRect(x + 6 + wobble, y + 8, 2, 11, "rgba(58,220,190,0.44)");
+            premiumRect(x + 11 + wobble, y + 5, 2, 14, "rgba(127,255,226,0.34)");
+          }
+          if (h > 0.90) {
+            const rise = (now * 9 + tx + ty * 2) % 24;
+            ctx.strokeStyle = "rgba(190,250,255,0.48)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x + 20, y + 28 - rise, 3, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+
+    drawPremiumVillageFountain(now);
+    drawPremiumBiomeAmbience(now);
+  }
+
+  function drawPremiumVillageFountain(now) {
+    const x = 32 * TILE - 8;
+    const y = 22 * TILE - 8;
+    if (x + 80 < camera.x || x > camera.x + canvas.width || y + 74 < camera.y || y > camera.y + canvas.height) return;
+    premiumWorldShadow(x + 8, y + 50, 62, 10, 0.24);
+    premiumRect(x + 8, y + 40, 64, 12, "#7d756c");
+    premiumRect(x + 14, y + 34, 52, 12, "#b9ada0");
+    premiumRect(x + 18, y + 28, 44, 12, "#7bdfff");
+    premiumRect(x + 24, y + 30, 32, 5, "#e9ffff");
+    premiumRect(x + 37, y + 8, 8, 25, "#62cfff");
+    premiumRect(x + 34, y + 16, 14, 4, "#e9ffff");
+    ctx.fillStyle = `rgba(88,223,255,${0.18 + Math.sin(now * 3) * 0.05})`;
+    ctx.fillRect(x + 5, y + 20, 70, 40);
+  }
+
+  function drawPremiumBiomeAmbience(now) {
+    const viewX = camera.x;
+    const viewY = camera.y;
+    const inVolcanic = viewX / TILE < 226 && (viewX + canvas.width) / TILE > 150 && viewY / TILE < 54 && (viewY + canvas.height) / TILE > 12;
+    const inOcean = viewX / TILE < 224 && (viewX + canvas.width) / TILE > 122 && viewY / TILE < 156 && (viewY + canvas.height) / TILE > 102;
+    if (inVolcanic) {
+      ctx.save();
+      ctx.fillStyle = "rgba(255,91,35,0.055)";
+      ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+      ctx.restore();
+    }
+    if (inOcean) {
+      ctx.save();
+      ctx.fillStyle = "rgba(39,181,219,0.06)";
+      ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+      ctx.strokeStyle = `rgba(155,244,255,${0.12 + Math.sin(now * 1.2) * 0.03})`;
+      for (let i = 0; i < 6; i += 1) {
+        const yy = camera.y + 40 + i * 70 + Math.sin(now + i) * 6;
+        ctx.beginPath();
+        ctx.moveTo(camera.x, yy);
+        ctx.lineTo(camera.x + canvas.width, yy + Math.sin(now + i) * 10);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function isPremiumChestObject(obj) {
+    if (!obj) return false;
+    const packed = premiumNormalize(`${obj.type || ""} ${obj.role || ""} ${obj.kind || ""} ${obj.message || ""}`);
+    return packed.includes("chest") || packed.includes("bau") || packed.includes("cofre") ||
+      obj.type === "rareChest" || obj.type === "dimensionChest" || obj.type === "celestialChest" ||
+      obj.type === "caveChest" || obj.role === "epicChest" || obj.role === "biomeChest";
+  }
+
+  function isPremiumChestOpen(obj) {
+    if (!obj) return false;
+    try {
+      if (obj.type === "rareChest") return Boolean(questBook.bossChestOpened);
+      if (obj.type === "dimensionChest") return Boolean(dimensionQuest.chestOpened);
+      if (obj.type === "celestialChest" && obj.chestId) return Boolean(obj.opened || questBook.celestial?.openedChests?.[obj.chestId]);
+      if (obj.role === "biomeChest" && obj.chestId) return Boolean(obj.opened || questBook.biomeMissions?.chests?.[obj.chestId]);
+      if (obj.role === "epicChest" && obj.chestId) return Boolean(obj.opened || questBook.epicBiomeChests?.[obj.chestId]);
+      if (obj.type === "caveChest") return Boolean(obj.opened || questBook.caveTreasures?.ancientChestOpened);
+    } catch (error) {}
+    return Boolean(obj.opened);
+  }
+
+  // ETERNAL RIFT PREMIUM VISUAL - LOOT CHEST
+  const drawObjectBeforePremiumVisual = drawObject;
+  drawObject = function drawObjectPremiumChestVisual(obj) {
+    if (isPremiumChestObject(obj)) {
+      drawPremiumWorldChest(obj);
+      return;
+    }
+    return drawObjectBeforePremiumVisual(obj);
+  };
+
+  function drawPremiumWorldChest(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width || 30;
+    const h = obj.height || 24;
+    const open = isPremiumChestOpen(obj);
+    const txt = premiumNormalize(`${obj.type || ""} ${obj.role || ""} ${obj.kind || ""} ${obj.message || ""} ${obj.chestId || ""}`);
+    const ocean = txt.includes("ocean") || txt.includes("mare") || txt.includes("celestial");
+    const volcanic = txt.includes("volcan") || txt.includes("lava") || txt.includes("magma");
+    const rare = txt.includes("rare") || txt.includes("raro") || txt.includes("dimension") || txt.includes("epic");
+    const edge = ocean ? "#72ecff" : volcanic ? "#ff9356" : rare ? "#c78cff" : "#ffd76b";
+    const body = ocean ? "#29506c" : volcanic ? "#5b3228" : "#59382c";
+    const lid = ocean ? "#3d6f8b" : volcanic ? "#794237" : "#77513b";
+    const pulse = 0.45 + Math.sin(performance.now() / 240 + x) * 0.12;
+
+    premiumWorldShadow(x + 1, y + h - 1, w + 3, 7, 0.30);
+    ctx.save();
+    ctx.fillStyle = edge;
+    ctx.globalAlpha = open ? 0.34 : 0.22;
+    ctx.fillRect(x - 6, y - 9, w + 12, h + 16);
+    ctx.globalAlpha = 1;
+    premiumRect(x, y + 8, w, Math.max(10, h - 8), "#20151d");
+    premiumRect(x + 2, y + 10, w - 4, Math.max(8, h - 12), body);
+    premiumRect(x + 5, y + 12, w - 10, 4, "rgba(255,255,255,0.12)");
+    premiumRect(x + 4, y + h - 8, w - 8, 3, "#2b1b20");
+
+    if (open) {
+      premiumRect(x + 2, y - 2, w - 4, 8, "#191820");
+      premiumRect(x + 4, y - 6, w - 8, 6, lid);
+      premiumRect(x + 8, y + 5, w - 16, 5, `rgba(255,232,154,${pulse})`);
+      premiumRect(x + 10, y - 12, 3, 3, edge);
+      premiumRect(x + w - 11, y - 16, 3, 3, "#fff8ce");
+    } else {
+      premiumRect(x + 1, y + 2, w - 2, 10, "#20151d");
+      premiumRect(x + 3, y + 4, w - 6, 7, lid);
+      premiumRect(x + 7, y + 6, w - 14, 3, "rgba(255,255,255,0.14)");
+    }
+
+    premiumRect(x + Math.floor(w / 2) - 4, y + 13, 8, 8, edge);
+    premiumRect(x + Math.floor(w / 2) - 1, y + 15, 2, 5, "#fff8ce");
+    ctx.restore();
+  }
+
+  function premiumItemKind(item) {
+    const s = premiumNormalize(`${item?.name || ""} ${item?.typeLabel || ""} ${item?.category || ""}`);
+    if (s.includes("moeda") || s.includes("coin") || s.includes("ouro")) return "coin";
+    if (s.includes("poc") || s.includes("potion") || s.includes("elixir")) return "potion";
+    if (s.includes("espada") || s.includes("sword") || s.includes("lanca") || s.includes("lan") || s.includes("cajado") || s.includes("staff") || s.includes("arco")) return "weapon";
+    if (s.includes("armadura") || s.includes("armor") || s.includes("bota") || s.includes("anel") || s.includes("amuleto") || s.includes("capa")) return "gear";
+    if (s.includes("chave") || s.includes("key")) return "key";
+    if (s.includes("pergaminho") || s.includes("scroll") || s.includes("carta") || s.includes("mapa")) return "scroll";
+    if (s.includes("carne") || s.includes("pao") || s.includes("comida")) return "food";
+    if (s.includes("cristal") || s.includes("fragmento") || s.includes("minerio") || s.includes("obsidiana") || s.includes("perola") || s.includes("coral") || s.includes("orbe")) return "crystal";
+    return "magic";
+  }
+
+  // ETERNAL RIFT PREMIUM VISUAL - ITEM ICONS
+  function premiumItemIconHtml(item) {
+    const rarity = premiumRarity(item?.rarity);
+    const color = premiumRarityColors[rarity] || premiumRarityColors.comum;
+    const kind = premiumItemKind(item);
+    const edge = color.edge;
+    const main = color.main;
+    const glow = color.glow;
+    const base = `
+      <defs>
+        <filter id="pglow-${kind}-${rarity}" x="-40%" y="-40%" width="180%" height="180%">
+          <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="${edge}" flood-opacity="0.75"/>
+        </filter>
+      </defs>
+      <rect x="6" y="6" width="52" height="52" rx="6" fill="#141827"/>
+      <rect x="9" y="9" width="46" height="46" rx="4" fill="#20263a" stroke="${edge}" stroke-width="3"/>
+      <rect x="14" y="14" width="36" height="10" fill="${glow}"/>
+    `;
+    const shapes = {
+      weapon: `<g filter="url(#pglow-${kind}-${rarity})"><rect x="18" y="43" width="8" height="4" fill="#8b5836"/><rect x="22" y="38" width="18" height="6" fill="#d1a24f"/><polygon points="36,14 46,18 29,40 23,36" fill="${main}" stroke="#effbff" stroke-width="2"/><rect x="18" y="40" width="16" height="5" fill="#34263a"/></g>`,
+      potion: `<g filter="url(#pglow-${kind}-${rarity})"><rect x="25" y="13" width="14" height="8" fill="#d8c58a"/><rect x="22" y="21" width="20" height="7" fill="#fff5c8"/><path d="M20 29 L44 29 L40 50 L24 50 Z" fill="${edge}" stroke="#f8ffff" stroke-width="2"/><rect x="25" y="34" width="14" height="5" fill="${main}"/></g>`,
+      gear: `<g filter="url(#pglow-${kind}-${rarity})"><path d="M32 13 L48 20 L45 39 L32 52 L19 39 L16 20 Z" fill="${main}" stroke="#f8ffff" stroke-width="2"/><path d="M24 24 L32 18 L40 24 L38 37 L32 43 L26 37 Z" fill="#26325b"/></g>`,
+      crystal: `<g filter="url(#pglow-${kind}-${rarity})"><polygon points="32,10 45,28 38,52 26,52 19,28" fill="${edge}" stroke="#e9ffff" stroke-width="2"/><polygon points="32,14 38,29 32,49 25,29" fill="${main}"/><rect x="30" y="20" width="4" height="18" fill="#ffffff" opacity="0.55"/></g>`,
+      key: `<g filter="url(#pglow-${kind}-${rarity})"><circle cx="24" cy="25" r="9" fill="none" stroke="${main}" stroke-width="5"/><rect x="31" y="23" width="21" height="5" fill="${main}"/><rect x="44" y="28" width="4" height="8" fill="${main}"/><rect x="50" y="28" width="4" height="6" fill="${main}"/></g>`,
+      scroll: `<g filter="url(#pglow-${kind}-${rarity})"><rect x="18" y="18" width="29" height="32" rx="3" fill="#f4dca1" stroke="${edge}" stroke-width="3"/><rect x="22" y="25" width="18" height="3" fill="#6d4a36"/><rect x="22" y="33" width="20" height="3" fill="#6d4a36"/><rect x="22" y="41" width="13" height="3" fill="#6d4a36"/></g>`,
+      food: `<g filter="url(#pglow-${kind}-${rarity})"><ellipse cx="33" cy="35" rx="17" ry="12" fill="#b96a38" stroke="#ffe2a7" stroke-width="3"/><rect x="18" y="36" width="30" height="5" fill="#f0b56b"/><circle cx="27" cy="29" r="3" fill="#fff2b5"/></g>`,
+      coin: `<g filter="url(#pglow-${kind}-${rarity})"><circle cx="32" cy="32" r="17" fill="#c48a28" stroke="#fff2a8" stroke-width="4"/><circle cx="32" cy="32" r="10" fill="${main}"/><rect x="30" y="20" width="4" height="24" fill="#8a5c1f" opacity="0.35"/></g>`,
+      magic: `<g filter="url(#pglow-${kind}-${rarity})"><circle cx="32" cy="32" r="15" fill="${edge}" stroke="#e9ffff" stroke-width="3"/><circle cx="32" cy="32" r="8" fill="${main}"/><rect x="31" y="12" width="3" height="10" fill="#fff8ce"/><rect x="31" y="42" width="3" height="10" fill="#fff8ce"/><rect x="12" y="31" width="10" height="3" fill="#fff8ce"/><rect x="42" y="31" width="10" height="3" fill="#fff8ce"/></g>`
+    };
+    return `<svg class="premium-svg-icon" viewBox="0 0 64 64" aria-hidden="true">${base}${shapes[kind] || shapes.magic}</svg>`;
+  }
+
+  function premiumRarityClass(item) {
+    return premiumRarity(item?.rarity);
+  }
+
+  renderInventoryGrid = function renderInventoryGridPremiumVisual(filteredItems, totalItems) {
+    if (!inventoryGrid) return;
+    const slotCount = Math.max(30, filteredItems.length);
+    const slots = [];
+    for (let index = 0; index < slotCount; index += 1) {
+      const item = filteredItems[index];
+      if (!item) {
+        slots.push(`<button class="inventory-slot premium-inventory-slot is-empty" type="button" disabled aria-label="Slot vazio"></button>`);
+        continue;
+      }
+      const equipped = (item.weaponKey && item.weaponKey === getCurrentWeaponKey()) ||
+        (item.powerKey && item.powerKey === equippedPower);
+      const rarity = premiumRarityClass(item);
+      slots.push(`
+        <button class="inventory-slot premium-inventory-slot rarity-${rarity}${selectedInventoryItemId === item.id ? " is-selected" : ""}${equipped ? " is-equipped" : ""}" type="button" data-item-id="${escapeHtml(item.id)}" data-rarity="${rarity}" aria-label="${escapeHtml(item.name)}">
+          <span class="item-icon">${premiumItemIconHtml(item)}</span>
+          <span class="item-qty">${item.quantity > 1 ? escapeHtml(item.quantity) : ""}</span>
+        </button>
+      `);
+    }
+    inventoryGrid.innerHTML = slots.join("");
+    if (inventoryEmpty) {
+      inventoryEmpty.textContent = totalItems ? "Nada nesta aba." : "Sua bolsa esta vazia.";
+      inventoryEmpty.classList.toggle("hidden", filteredItems.length > 0);
+    }
+  };
+
+  renderItemDetails = function renderItemDetailsPremiumVisual(item) {
+    if (!itemDetailName || !itemDetailMeta || !itemDetailDescription || !itemDetailEffect || !itemDetailActions) return;
+    if (!item) {
+      itemDetailName.textContent = "Bolsa vazia";
+      itemDetailMeta.textContent = "Nenhum item selecionado.";
+      itemDetailDescription.textContent = "Colete moedas, pocoes, cristais, chaves, armas e reliquias pelo mapa.";
+      itemDetailEffect.textContent = "";
+      itemDetailActions.innerHTML = "";
+      return;
+    }
+    const rarity = premiumRarityClass(item);
+    itemDetailName.innerHTML = `<span class="item-detail-icon-preview premium-detail-icon rarity-${rarity}">${premiumItemIconHtml(item)}</span><span>${escapeHtml(item.name)}</span>`;
+    if (itemDetailName.dataset) itemDetailName.dataset.rarity = rarity;
+    itemDetailMeta.textContent = `${item.typeLabel || "Item"} | ${formatRarity(item.rarity)} | Qtd. ${item.quantity}`;
+    itemDetailDescription.textContent = item.description || "Item especial guardado com cuidado.";
+    itemDetailEffect.textContent = item.effect || "";
+    itemDetailActions.innerHTML = getInventoryActionHtml(item);
+  };
+
+  let premiumLootSignature = "";
+  let premiumLootSignatureAt = 0;
+
+  function ensurePremiumLootOverlay() {
+    let overlay = document.getElementById("premiumLootOverlay");
+    if (overlay) return overlay;
+    overlay = document.createElement("div");
+    overlay.id = "premiumLootOverlay";
+    overlay.className = "premium-loot-overlay hidden";
+    overlay.innerHTML = `
+      <div class="premium-loot-backdrop"></div>
+      <section class="premium-loot-panel" role="dialog" aria-modal="true" aria-label="Recompensa do bau">
+        <button class="premium-loot-close" type="button" aria-label="Fechar recompensa">x</button>
+        <div class="premium-loot-stage">
+          <div class="premium-loot-rays"></div>
+          <div class="premium-loot-particles" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="premium-loot-chest" aria-hidden="true">
+            <div class="premium-loot-chest-lid"></div>
+            <div class="premium-loot-chest-light"></div>
+            <div class="premium-loot-chest-body"></div>
+            <div class="premium-loot-chest-lock"></div>
+          </div>
+        </div>
+        <div class="premium-loot-copy">
+          <p class="premium-loot-eyebrow">Recompensa encontrada</p>
+          <h2 id="premiumLootTitle">Bau aberto</h2>
+        </div>
+        <div id="premiumLootCards" class="premium-loot-cards"></div>
+        <div class="premium-loot-actions">
+          <button id="premiumLootCollectButton" type="button">Coletar</button>
+          <button id="premiumLootCloseButton" type="button">Fechar</button>
+        </div>
+      </section>
+    `;
+    document.body.appendChild(overlay);
+    const close = () => overlay.classList.add("hidden");
+    overlay.querySelector(".premium-loot-close")?.addEventListener("click", close);
+    overlay.querySelector("#premiumLootCloseButton")?.addEventListener("click", close);
+    overlay.querySelector("#premiumLootCollectButton")?.addEventListener("click", () => {
+      close();
+      try { playSound("coin"); } catch (error) {}
+    });
+    overlay.querySelector(".premium-loot-backdrop")?.addEventListener("click", close);
+    return overlay;
+  }
+
+  function rewardItem(name, quantity = 1, rarity = "raro", typeLabel = "Item") {
+    return { name, quantity, rarity, typeLabel };
+  }
+
+  function rewardsForPremiumChest(target, resultText) {
+    if (target?.type === "rareChest") {
+      return [
+        rewardItem("50 moedas", 50, "lendario", "Ouro"),
+        rewardItem("2 pocoes", 2, "raro", "Consumivel"),
+        rewardItem("Espada rara", 1, "epico", "Arma"),
+        rewardItem("Mana maxima", 1, "lendario", "Atributo")
+      ];
+    }
+    if (target?.type === "dimensionChest") {
+      return [
+        rewardItem("25 moedas", 25, "epico", "Ouro"),
+        rewardItem("Pocao", 1, "raro", "Consumivel"),
+        rewardItem("Espada rara", 1, "epico", "Arma"),
+        rewardItem("Coracao maximo", 1, "lendario", "Atributo")
+      ];
+    }
+    if (target?.type === "celestialChest") {
+      const rewards = (target.rewardItems || []).map((name) => rewardItem(name, 1, "lendario", "Reliquia"));
+      rewards.push(rewardItem("18 moedas", 18, "raro", "Ouro"), rewardItem("Pocao", 1, "raro", "Consumivel"));
+      return rewards;
+    }
+    if (target?.role === "biomeChest") {
+      const rewards = (target.rewardItems || []).map((name) => rewardItem(name, 1, "epico", "Reliquia"));
+      rewards.push(rewardItem("35 moedas", 35, "epico", "Ouro"), rewardItem("Pocao", 1, "raro", "Consumivel"));
+      return rewards;
+    }
+    if (target?.role === "epicChest") {
+      return (target.rewardItems || ["Reliquia do bioma"]).map((name, index) => rewardItem(name, 1, index === 0 ? "lendario" : "epico", "Item especial"));
+    }
+    if (target?.type === "caveChest") {
+      return [
+        rewardItem("35 moedas", 35, "epico", "Ouro"),
+        rewardItem("Pocao", 1, "raro", "Consumivel"),
+        rewardItem("12 flechas", 12, "raro", "Material"),
+        rewardItem("Orbe de mana", 1, "epico", "Magico")
+      ];
+    }
+    const text = premiumNormalize(resultText);
+    const rewards = [];
+    const coinMatch = text.match(/(\d+)\s*moed/);
+    const potionMatch = text.match(/(\d+)\s*poc/);
+    if (coinMatch) rewards.push(rewardItem(`${coinMatch[1]} moedas`, Number(coinMatch[1]), "raro", "Ouro"));
+    if (potionMatch) rewards.push(rewardItem(`${potionMatch[1]} pocoes`, Number(potionMatch[1]), "raro", "Consumivel"));
+    if (text.includes("espada")) rewards.push(rewardItem("Espada rara", 1, "epico", "Arma"));
+    return rewards.length ? rewards : [rewardItem("Recompensa magica", 1, "epico", "Tesouro")];
+  }
+
+  function chestTitle(target) {
+    if (target?.message) return target.message;
+    if (target?.type === "rareChest") return "Bau raro";
+    if (target?.type === "dimensionChest") return "Bau da dimensao";
+    if (target?.type === "celestialChest") return "Bau celestial";
+    if (target?.role === "biomeChest") return "Bau do bioma";
+    if (target?.role === "epicChest") return "Bau lendario";
+    return "Bau aberto";
+  }
+
+  function showPremiumLootChest(target, resultText) {
+    const title = chestTitle(target);
+    const rewards = rewardsForPremiumChest(target, resultText).slice(0, 8);
+    const signature = `${target?.type || ""}:${target?.role || ""}:${target?.chestId || ""}:${target?.x || 0}:${target?.y || 0}:${title}`;
+    const now = performance.now();
+    if (signature === premiumLootSignature && now - premiumLootSignatureAt < 900) return;
+    premiumLootSignature = signature;
+    premiumLootSignatureAt = now;
+
+    const overlay = ensurePremiumLootOverlay();
+    const titleEl = overlay.querySelector("#premiumLootTitle");
+    const cardsEl = overlay.querySelector("#premiumLootCards");
+    if (titleEl) titleEl.textContent = title;
+    if (cardsEl) {
+      cardsEl.innerHTML = rewards.map((item) => {
+        const rarity = premiumRarity(item.rarity);
+        return `
+          <article class="premium-loot-card rarity-${rarity}">
+            <span class="premium-loot-card-icon">${premiumItemIconHtml(item)}</span>
+            <strong>${escapeHtml(item.name)}</strong>
+            <span>${escapeHtml(formatRarity(item.rarity))}${item.quantity > 1 ? ` x${escapeHtml(item.quantity)}` : ""}</span>
+          </article>
+        `;
+      }).join("");
+    }
+
+    overlay.classList.remove("hidden", "is-open", "is-ready");
+    overlay.classList.add("is-shaking");
+    void overlay.offsetWidth;
+    setTimeout(() => {
+      overlay.classList.remove("is-shaking");
+      overlay.classList.add("is-open");
+      playChestRewardSound();
+    }, 340);
+    setTimeout(() => overlay.classList.add("is-ready"), 720);
+  }
+
+  function premiumOpenedMessage(text) {
+    const s = premiumNormalize(text);
+    if (!s) return false;
+    if (s.includes("ja foi aberto") || s.includes("ja esta aberto") || s.includes("restou")) return false;
+    return s.includes("abriu") || s.includes("aberto!") || s.includes("recebeu") || s.includes("recompensa");
+  }
+
+  const getQuestMessageBeforePremiumLoot = getQuestMessage;
+  getQuestMessage = function getQuestMessagePremiumLoot(target) {
+    const chest = isPremiumChestObject(target);
+    const wasOpen = chest ? isPremiumChestOpen(target) : false;
+    const result = getQuestMessageBeforePremiumLoot(target);
+    if (chest) {
+      const nowOpen = isPremiumChestOpen(target);
+      if ((!wasOpen && nowOpen) || premiumOpenedMessage(result)) {
+        showPremiumLootChest(target, result);
+        playChestRewardSound();
+      }
+    }
+    return result;
+  };
+
+  if (typeof openRareChest === "function") {
+    const openRareChestBeforePremiumLoot = openRareChest;
+    openRareChest = function openRareChestPremiumLoot() {
+      const wasOpen = Boolean(questBook.bossChestOpened);
+      const result = openRareChestBeforePremiumLoot();
+      if (!wasOpen && questBook.bossChestOpened) showPremiumLootChest({ type: "rareChest", message: "Bau raro" }, result);
+      return result;
+    };
+  }
+
+  if (typeof openDimensionChest === "function") {
+    const openDimensionChestBeforePremiumLoot = openDimensionChest;
+    openDimensionChest = function openDimensionChestPremiumLoot(chestObj) {
+      const wasOpen = Boolean(dimensionQuest.chestOpened || chestObj?.opened);
+      const result = openDimensionChestBeforePremiumLoot(chestObj);
+      if (!wasOpen && (dimensionQuest.chestOpened || chestObj?.opened)) showPremiumLootChest(chestObj || { type: "dimensionChest" }, result);
+      return result;
+    };
+  }
+
+  // ETERNAL RIFT PREMIUM VISUAL - UI HUD
+  try {
+    document.body.classList.add("premium-visual-stable");
+  } catch (error) {}
+})();
+
+/* ==================================================
+   ETERNAL RIFT CLASS SYSTEM PATCH
+   ETERNAL RIFT HUNT CONTRACT SYSTEM PATCH
+   ETERNAL RIFT BOSS CINEMATIC PATCH
+   ETERNAL RIFT THREE BIOMES REWORK PATCH
+   ETERNAL RIFT ACID DIMENSION INSIDE VOLCANIC PATCH
+   ETERNAL RIFT CELESTIAL DIMENSION INSIDE AQUATIC RUINS PATCH
+   ETERNAL RIFT SAVE MIGRATION THREE BIOMES PATCH
+   ================================================== */
+(function eternalRiftThreeBiomeFocusPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_THREE_BIOME_FOCUS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_THREE_BIOME_FOCUS_PATCH = true;
+
+  const CLASS_DEFS = {
+    warrior: {
+      id: "warrior", name: "Guerreiro", weapon: "sword", power: "shockwave",
+      maxHealth: 7, maxMana: 5, baseSpeed: 150, damageBonus: 1, critChance: 0.13, arrows: 12,
+      label: "Mais vida, espada forte e armadura azul/dourada."
+    },
+    archer: {
+      id: "archer", name: "Arqueiro", weapon: "bow", power: "blueRay",
+      maxHealth: 5, maxMana: 6, baseSpeed: 172, damageBonus: 0, critChance: 0.16, arrows: 42,
+      label: "Mais velocidade, arco inicial e muitas flechas."
+    },
+    mage: {
+      id: "mage", name: "Mago", weapon: "staff", power: "fireball",
+      maxHealth: 5, maxMana: 10, baseSpeed: 150, damageBonus: 1, critChance: 0.12, arrows: 12, manaRegen: 0.68,
+      label: "Mais mana, cajado e magia inicial mais forte."
+    },
+    assassin: {
+      id: "assassin", name: "Assassino", weapon: "sword", power: "dash",
+      maxHealth: 4, maxMana: 6, baseSpeed: 188, damageBonus: 1, critChance: 0.26, arrows: 18, attackSpeed: 0.86,
+      label: "Muito rapido, critico alto e menos vida."
+    }
+  };
+
+  const MAIN_BIOME_BOUNDS = {
+    forest: { x1: 0, y1: 0, x2: 98, y2: 92, name: "Vila Principal + Floresta" },
+    volcanic: { x1: 146, y1: 8, x2: 228, y2: 64, name: "Terras Vulcanicas" },
+    aquatic: { x1: 118, y1: 98, x2: 228, y2: 160, name: "Ruinas Aquaticas" }
+  };
+
+  const MAIN_BOSSES = {
+    forestGuardian: {
+      key: "forestGuardian", kind: "forestGuardian", name: "Guardiao da Floresta",
+      phrase: "A floresta testa todos que buscam a Fenda.",
+      biome: "forest", tileX: 72, tileY: 36, hp: 70, damage: 1, speed: 48, color: "#73df77", rewardXp: 620
+    },
+    volcanicTitan: {
+      key: "volcanicTitan", kind: "volcanicTitan", name: "Tita do Nucleo Flamejante",
+      phrase: "A forja eterna nao aceita fracos.",
+      biome: "volcanic", tileX: 209, tileY: 29, hp: 110, damage: 2, speed: 38, color: "#ff8148", rewardXp: 900
+    },
+    ruinsLeviathan: {
+      key: "ruinsLeviathan", kind: "ruinsLeviathan", name: "Leviata das Ruinas",
+      phrase: "Nas profundezas, ate a luz aprende a se afogar.",
+      biome: "aquatic", tileX: 194, tileY: 135, hp: 130, damage: 2, speed: 44, color: "#69e4ff", rewardXp: 1200
+    }
+  };
+
+  const CONTRACTS = {
+    forestCleanse: {
+      id: "forestCleanse", name: "Limpeza da Floresta", biome: "forest", goal: 5,
+      description: "Derrote 5 inimigos fracos da Floresta Iniciante.",
+      reward: { coins: 18, potions: 1, xp: 160 }
+    },
+    volcanicOre: {
+      id: "volcanicOre", name: "Minerios Ardentes", biome: "volcanic", goal: 4,
+      description: "Derrote 4 criaturas das Terras Vulcanicas.",
+      reward: { coins: 28, item: "Cristal de Magma", xp: 260 }
+    },
+    aquaticHunt: {
+      id: "aquaticHunt", name: "Caca Submersa", biome: "aquatic", goal: 4,
+      description: "Derrote 4 criaturas das Ruinas Aquaticas.",
+      reward: { coins: 32, item: "Perola Antiga", xp: 300 }
+    },
+    specialBoss: {
+      id: "specialBoss", name: "Contrato Especial", biome: "boss", goal: 1,
+      description: "Derrote 1 chefe principal disponivel.",
+      reward: { coins: 50, item: "Bau Raro de Contrato", xp: 450 }
+    }
+  };
+
+  const PLAYER_CLASS_STORAGE_KEY = "playerClass";
+
+  let classSelectedForNewGame = "";
+  let bossCinematic = null;
+  let bossCinematicTimer = 0;
+
+  function readStoredPlayerClassId() {
+    try {
+      const raw = localStorage.getItem(PLAYER_CLASS_STORAGE_KEY);
+      if (!raw) return "";
+      if (CLASS_DEFS[raw]) return raw;
+      const parsed = JSON.parse(raw);
+      return CLASS_DEFS[parsed?.selected] ? parsed.selected : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function persistPlayerClass(def) {
+    if (!def) return;
+    try {
+      localStorage.setItem(PLAYER_CLASS_STORAGE_KEY, JSON.stringify({ selected: def.id, name: def.name }));
+    } catch (error) {}
+  }
+
+  function normalizeBiomeText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  }
+
+  function ensureThreeBiomeState() {
+    if (!questBook.threeBiomeRework || typeof questBook.threeBiomeRework !== "object" || Array.isArray(questBook.threeBiomeRework)) {
+      questBook.threeBiomeRework = {};
+    }
+    const state = questBook.threeBiomeRework;
+    if (!state.cinematicsSeen || typeof state.cinematicsSeen !== "object") {
+      state.cinematicsSeen = { forestGuardian: false, volcanicTitan: false, ruinsLeviathan: false };
+    }
+    for (const key of Object.keys(MAIN_BOSSES)) {
+      if (typeof state.cinematicsSeen[key] !== "boolean") state.cinematicsSeen[key] = false;
+    }
+    if (!state.defeatedBosses || typeof state.defeatedBosses !== "object") state.defeatedBosses = {};
+    if (!state.unlockedBiomes || typeof state.unlockedBiomes !== "object") {
+      state.unlockedBiomes = { forest: true, volcanic: true, aquatic: true };
+    }
+    if (!state.demoComplete) state.demoComplete = false;
+    if (!questBook.playerClass || !CLASS_DEFS[questBook.playerClass.selected]) {
+      const storedClassId = readStoredPlayerClassId();
+      const def = CLASS_DEFS[storedClassId] || CLASS_DEFS.warrior;
+      questBook.playerClass = { selected: def.id, name: def.name };
+    }
+    if (!questBook.huntContracts || typeof questBook.huntContracts !== "object") {
+      questBook.huntContracts = { activeId: "", progress: 0, completedRuns: {} };
+    }
+    if (!questBook.huntContracts.completedRuns || typeof questBook.huntContracts.completedRuns !== "object") {
+      questBook.huntContracts.completedRuns = {};
+    }
+    window.playerClass = questBook.playerClass;
+    return state;
+  }
+
+  function normalizeWorldReworkSaveState() {
+    ensureThreeBiomeState();
+    const allowedScenes = new Set(["village", "home", "shopInterior", "mayorInterior", "acidDimension", "celestialDimension"]);
+    if (!allowedScenes.has(currentScene)) {
+      setActiveScene("village");
+      player.x = player.startX;
+      player.y = player.startY;
+      showHudToast?.("Save antigo migrado para a Vila Principal.");
+    }
+    if (!Number.isFinite(player.x) || !Number.isFinite(player.y)) {
+      player.x = player.startX;
+      player.y = player.startY;
+    }
+    return true;
+  }
+  window.normalizeWorldReworkSaveState = normalizeWorldReworkSaveState;
+
+  function selectedClassIdFromUi() {
+    const active = document.querySelector("[data-class-choice].is-selected");
+    return active?.dataset?.classChoice || classSelectedForNewGame || questBook.playerClass?.selected || "";
+  }
+
+  function ensureClassSelectionUi() {
+    if (!startScreen || document.getElementById("classSelectPanel")) return;
+    const panel = document.createElement("section");
+    panel.id = "classSelectPanel";
+    panel.className = "class-select-panel";
+    panel.setAttribute("aria-label", "Escolha de classe");
+    panel.innerHTML = `
+      <div class="class-select-title">
+        <span>Classe inicial</span>
+        <strong id="classSelectSummary">Escolha uma classe antes do Novo Jogo</strong>
+      </div>
+      <div class="class-select-grid">
+        ${Object.values(CLASS_DEFS).map((def) => `
+          <button class="class-card" type="button" data-class-choice="${def.id}">
+            <span>${def.name}</span>
+            <small>${def.label}</small>
+          </button>
+        `).join("")}
+      </div>
+    `;
+    const anchor = characterNameInput?.closest(".name-field") || startScreen.querySelector(".start-content h1");
+    if (anchor?.parentElement) anchor.insertAdjacentElement("afterend", panel);
+    panel.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-class-choice]");
+      if (!button) return;
+      classSelectedForNewGame = button.dataset.classChoice || "warrior";
+      panel.querySelectorAll("[data-class-choice]").forEach((entry) => entry.classList.toggle("is-selected", entry === button));
+      const def = CLASS_DEFS[classSelectedForNewGame] || CLASS_DEFS.warrior;
+      const summary = document.getElementById("classSelectSummary");
+      if (summary) summary.textContent = `${def.name}: ${def.label}`;
+      try { playSound("selectItem"); } catch (error) {}
+    });
+  }
+
+  function equipClassWeapon(def) {
+    if (!def) return;
+    if (!Array.isArray(player.unlockedWeapons)) player.unlockedWeapons = ["sword", "bow", "staff", "spear"];
+    if (!player.unlockedWeapons.includes(def.weapon)) player.unlockedWeapons.push(def.weapon);
+    if (typeof equipWeapon === "function") {
+      try {
+        equipWeapon(def.weapon);
+        return;
+      } catch (error) {}
+    }
+    const index = weaponOrder.indexOf(def.weapon);
+    if (index >= 0) currentWeaponIndex = index;
+  }
+
+  function applyClassStats(classId, preserveCurrent = false) {
+    const def = CLASS_DEFS[classId] || CLASS_DEFS.warrior;
+    questBook.playerClass = { selected: def.id, name: def.name };
+    window.playerClass = questBook.playerClass;
+    persistPlayerClass(def);
+
+    player.maxHealth = def.maxHealth;
+    player.maxMana = def.maxMana;
+    player.baseSpeed = def.baseSpeed;
+    player.speed = def.baseSpeed;
+    player.damageBonus = def.damageBonus;
+    player.critChance = def.critChance;
+    player.manaRegen = def.manaRegen || 0.45;
+    player.classAttackSpeed = def.attackSpeed || 1;
+    if (!preserveCurrent) {
+      player.health = player.maxHealth;
+      player.mana = player.maxMana;
+      inventory.flechas = Math.max(Number(inventory.flechas || 0), def.arrows || 12);
+    } else {
+      player.health = Math.min(player.maxHealth, Math.max(1, Number(player.health || player.maxHealth)));
+      player.mana = Math.min(player.maxMana, Math.max(0, Number(player.mana || player.maxMana)));
+    }
+    equippedPower = def.power || equippedPower;
+    equipClassWeapon(def);
+    updateClassContractHud();
+  }
+
+  function className() {
+    ensureThreeBiomeState();
+    return questBook.playerClass?.name || "Guerreiro";
+  }
+
+  function createClassContractHud() {
+    let hud = document.getElementById("classContractHud");
+    if (hud || !document.querySelector(".hud")) return hud;
+    hud = document.createElement("div");
+    hud.id = "classContractHud";
+    hud.className = "hud-wide class-contract-hud";
+    hud.innerHTML = `
+      <span class="hud-label">Classe</span>
+      <strong id="classHudText">Guerreiro</strong>
+      <span id="contractHudText" class="contract-hud-text">Contrato: nenhum</span>
+    `;
+    document.querySelector(".hud").appendChild(hud);
+    return hud;
+  }
+
+  function contractProgressText() {
+    ensureThreeBiomeState();
+    const state = questBook.huntContracts;
+    const contract = CONTRACTS[state.activeId];
+    if (!contract) return "Contrato: nenhum";
+    return `Contrato: ${Math.min(state.progress || 0, contract.goal)}/${contract.goal} - ${contract.name}`;
+  }
+
+  let classContractHudLastUpdateAt = 0;
+  let classContractHudLastClassText = "";
+  let classContractHudLastContractText = "";
+  function updateClassContractHud(force = false) {
+    const now = performance.now();
+    if (!force && now - classContractHudLastUpdateAt < 180) return;
+    classContractHudLastUpdateAt = now;
+    createClassContractHud();
+    const classHud = document.getElementById("classHudText");
+    const contractHud = document.getElementById("contractHudText");
+    const clsText = className();
+    const conText = contractProgressText();
+    if (classHud && classContractHudLastClassText !== clsText) {
+      classHud.textContent = clsText;
+      classContractHudLastClassText = clsText;
+    }
+    if (contractHud && classContractHudLastContractText !== conText) {
+      contractHud.textContent = conText;
+      classContractHudLastContractText = conText;
+    }
+  }
+
+  let startMenuOverlayLastState = null;
+  function syncStartMenuOverlayState() {
+    const menuOpen = Boolean(startScreen && !startScreen.classList.contains("hidden"));
+    if (menuOpen === startMenuOverlayLastState) return;
+    startMenuOverlayLastState = menuOpen;
+    try { document.body.classList.toggle("start-menu-open", menuOpen); } catch (error) {}
+  }
+
+  function safeAddGameItem(name, amount = 1) {
+    if (!name) return;
+    if (typeof window.addGameItem === "function") {
+      window.addGameItem(name, amount);
+      return;
+    }
+    if (!inventory.customItems || typeof inventory.customItems !== "object") inventory.customItems = {};
+    inventory.customItems[name] = Number(inventory.customItems[name] || 0) + amount;
+  }
+
+  function rewardText(reward) {
+    const parts = [];
+    if (reward.coins) parts.push(`${reward.coins} moedas`);
+    if (reward.potions) parts.push(`${reward.potions} pocao`);
+    if (reward.item) parts.push(reward.item);
+    if (reward.xp) parts.push(`${reward.xp} XP`);
+    return parts.join(", ");
+  }
+
+  function ensureContractPanel() {
+    let panel = document.getElementById("huntContractPanel");
+    if (panel) return panel;
+    panel = document.createElement("div");
+    panel.id = "huntContractPanel";
+    panel.className = "hunt-contract-panel hidden";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Contratos de caca");
+    panel.innerHTML = `
+      <div class="hunt-contract-card">
+        <button id="huntContractClose" type="button" aria-label="Fechar contratos">x</button>
+        <span class="panel-eyebrow">Quadro de Contratos</span>
+        <h2>Contratos de Caca</h2>
+        <p class="hunt-contract-active" id="huntContractActiveText">Contrato ativo: nenhum</p>
+        <div id="huntContractList" class="hunt-contract-list"></div>
+      </div>
+    `;
+    document.body.appendChild(panel);
+    panel.querySelector("#huntContractClose")?.addEventListener("click", closeContractPanel);
+    panel.addEventListener("click", (event) => {
+      const actionButton = event.target.closest("[data-contract-action]");
+      if (!actionButton) return;
+      const action = actionButton.dataset.contractAction;
+      const id = actionButton.dataset.contractId;
+      if (action === "accept") acceptContract(id);
+      if (action === "deliver") deliverContract(id);
+      renderContractPanel();
+    });
+    return panel;
+  }
+
+  function renderContractPanel() {
+    ensureThreeBiomeState();
+    const panel = ensureContractPanel();
+    const state = questBook.huntContracts;
+    const activeText = panel.querySelector("#huntContractActiveText");
+    const list = panel.querySelector("#huntContractList");
+    if (activeText) activeText.textContent = contractProgressText();
+    if (!list) return;
+    list.innerHTML = Object.values(CONTRACTS).map((contract) => {
+      const active = state.activeId === contract.id;
+      const progress = active ? Math.min(state.progress || 0, contract.goal) : 0;
+      const ready = active && progress >= contract.goal;
+      return `
+        <article class="hunt-contract-entry${active ? " is-active" : ""}">
+          <h3>${contract.name}</h3>
+          <p>${contract.description}</p>
+          <span>Progresso: ${progress}/${contract.goal}</span>
+          <strong>Recompensa: ${rewardText(contract.reward)}</strong>
+          <div>
+            <button type="button" data-contract-action="accept" data-contract-id="${contract.id}" ${active ? "disabled" : ""}>Aceitar</button>
+            <button type="button" data-contract-action="deliver" data-contract-id="${contract.id}" ${ready ? "" : "disabled"}>Entregar</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function openContractPanel() {
+    renderContractPanel();
+    ensureContractPanel().classList.remove("hidden");
+    try { playSound("inventoryOpen"); } catch (error) {}
+  }
+
+  function closeContractPanel() {
+    document.getElementById("huntContractPanel")?.classList.add("hidden");
+    try { playSound("inventoryClose"); } catch (error) {}
+  }
+
+  function acceptContract(id) {
+    const contract = CONTRACTS[id];
+    if (!contract) return;
+    ensureThreeBiomeState();
+    questBook.huntContracts.activeId = id;
+    questBook.huntContracts.progress = 0;
+    showHudToast?.(`Contrato aceito: ${contract.name}`);
+    updateClassContractHud();
+  }
+
+  function deliverContract(id) {
+    ensureThreeBiomeState();
+    const state = questBook.huntContracts;
+    const contract = CONTRACTS[id];
+    if (!contract || state.activeId !== id || (state.progress || 0) < contract.goal) {
+      showHudToast?.("Contrato ainda nao concluido.");
+      return;
+    }
+    inventory.moedas = Number(inventory.moedas || 0) + Number(contract.reward.coins || 0);
+    inventory.pocoes = Number(inventory.pocoes || 0) + Number(contract.reward.potions || 0);
+    if (contract.reward.item) safeAddGameItem(contract.reward.item, 1);
+    if (contract.reward.xp) awardXp(contract.reward.xp, contract.name);
+    state.completedRuns[id] = Number(state.completedRuns[id] || 0) + 1;
+    state.activeId = "";
+    state.progress = 0;
+    showHudToast?.(`Contrato entregue: ${rewardText(contract.reward)}`);
+    try { playSound("quest"); } catch (error) {}
+    updateHud();
+    renderInventory();
+    updateClassContractHud();
+  }
+
+  function biomeForPoint(x, y) {
+    const tx = Math.floor(x / TILE);
+    const ty = Math.floor(y / TILE);
+    for (const [key, b] of Object.entries(MAIN_BIOME_BOUNDS)) {
+      if (tx >= b.x1 && tx <= b.x2 && ty >= b.y1 && ty <= b.y2) return key;
+    }
+    return "forest";
+  }
+
+  function biomeForEnemy(obj) {
+    if (!obj) return "forest";
+    if (obj.mainBiomeKey) return obj.mainBiomeKey;
+    const text = normalizeBiomeText(`${obj.kind || ""} ${obj.name || ""}`);
+    if (text.includes("lava") || text.includes("magma") || text.includes("cinza") || text.includes("flamejante") || text.includes("vulcan")) return "volcanic";
+    if (text.includes("peixe") || text.includes("serpente") || text.includes("afogado") || text.includes("polvo") || text.includes("leviata") || text.includes("ruina") || text.includes("aquatic")) return "aquatic";
+    return biomeForPoint(obj.x || 0, obj.y || 0);
+  }
+
+  function incrementContractForEnemy(obj) {
+    ensureThreeBiomeState();
+    const state = questBook.huntContracts;
+    const contract = CONTRACTS[state.activeId];
+    if (!contract) return;
+    const defeatedBiome = obj?.mainBossKey ? "boss" : biomeForEnemy(obj);
+    if (contract.biome !== defeatedBiome) return;
+    state.progress = Math.min(contract.goal, Number(state.progress || 0) + 1);
+    showHudToast?.(`Contrato: ${state.progress}/${contract.goal}`);
+    updateClassContractHud();
+    renderContractPanel();
+  }
+
+  function contractBoardObject() {
+    return {
+      type: "huntContractBoard",
+      x: 28 * TILE,
+      y: 25 * TILE,
+      width: 38,
+      height: 42,
+      solid: false,
+      message: "Quadro de Contratos: escolha uma caca e receba recompensas."
+    };
+  }
+
+  function acidRiftObject() {
+    return {
+      type: "acidRiftVolcanic",
+      x: 203 * TILE,
+      y: 43 * TILE,
+      width: 44,
+      height: 58,
+      solid: false,
+      message: "Fenda Acida: uma passagem corrosiva pulsa entre lava e pedra preta."
+    };
+  }
+
+  function celestialPortalObject() {
+    return {
+      type: "celestialPortalAquatic",
+      x: 188 * TILE,
+      y: 131 * TILE,
+      width: 54,
+      height: 64,
+      solid: false,
+      message: "Portal Celestial Submerso: luz azul e dourada respira sob as ruinas."
+    };
+  }
+
+  function createMainBoss(def) {
+    const stats = getEnemyStats("golem") || {};
+    return {
+      type: "enemy",
+      kind: def.kind,
+      name: def.name,
+      mainBossKey: def.key,
+      mainBiomeKey: def.biome,
+      x: def.tileX * TILE,
+      y: def.tileY * TILE,
+      spawnX: def.tileX * TILE,
+      spawnY: def.tileY * TILE,
+      width: Math.max(34, stats.width || 34),
+      height: Math.max(38, stats.height || 38),
+      solid: false,
+      alive: true,
+      hp: def.hp,
+      maxHp: def.hp,
+      damage: def.damage,
+      speed: def.speed,
+      state: "idle",
+      aggroRange: 420,
+      attackRange: 44,
+      attackDelay: 1.15,
+      attackTimer: 0,
+      attackCooldown: 0,
+      invulnerableTimer: 0,
+      knockbackX: 0,
+      knockbackY: 0,
+      coinReward: 0,
+      coinsReward: 0,
+      xpReward: def.rewardXp,
+      dropTable: {},
+      canFly: false,
+      canSwim: def.biome === "aquatic",
+      boss: false
+    };
+  }
+
+  function ensureFocusWorldObjects() {
+    ensureThreeBiomeState();
+    const required = [
+      ["huntContractBoard", contractBoardObject],
+      ["acidRiftVolcanic", acidRiftObject],
+      ["celestialPortalAquatic", celestialPortalObject]
+    ];
+    for (const [type, factory] of required) {
+      if (!villageObjects.some((obj) => obj.type === type)) villageObjects.push(factory());
+    }
+
+    for (const def of Object.values(MAIN_BOSSES)) {
+      const defeated = Boolean(questBook.threeBiomeRework.defeatedBosses[def.key]);
+      let obj = villageObjects.find((entry) => entry.mainBossKey === def.key);
+      if (!obj && !defeated) {
+        obj = createMainBoss(def);
+        villageObjects.push(obj);
+      }
+      if (obj) {
+        obj.alive = !defeated && obj.hp > 0;
+        obj.hiddenByNoBossPatch = false;
+      }
+    }
+
+    if (currentScene === "village") {
+      objects = villageObjects;
+      colliders = objects.filter((obj) => obj.solid && !obj.hiddenByThreeBiomeRework);
+      interactables = objects.filter((obj) => obj.message && !obj.hiddenByThreeBiomeRework);
+    }
+  }
+
+  function isAllowedMainBiomeObject(obj) {
+    if (!obj || currentScene !== "village") return true;
+    if (obj.type === "huntContractBoard" || obj.type === "acidRiftVolcanic" || obj.type === "celestialPortalAquatic") return true;
+    if (obj.mainBossKey) return true;
+    const tx = Math.floor((obj.x || 0) / TILE);
+    const ty = Math.floor((obj.y || 0) / TILE);
+    return Object.values(MAIN_BIOME_BOUNDS).some((b) => tx >= b.x1 && tx <= b.x2 && ty >= b.y1 && ty <= b.y2);
+  }
+
+  function hideExtraBiomesSafely() {
+    if (!Array.isArray(villageObjects)) return;
+    for (const obj of villageObjects) {
+      if (!obj || isAllowedMainBiomeObject(obj)) continue;
+      if (obj.type === "enemy" || obj.type === "biomeFeature" || obj.type === "celestialGate") {
+        obj.hiddenByThreeBiomeRework = true;
+        obj.alive = false;
+        obj.solid = false;
+        if (obj.type !== "npc") obj.message = "";
+      }
+    }
+  }
+
+  function startBossCinematic(obj) {
+    if (!obj?.mainBossKey) return;
+    const state = ensureThreeBiomeState();
+    if (state.cinematicsSeen[obj.mainBossKey]) return;
+    const def = MAIN_BOSSES[obj.mainBossKey];
+    if (!def) return;
+    state.cinematicsSeen[obj.mainBossKey] = true;
+    bossCinematic = { key: def.key, name: def.name, phrase: def.phrase, color: def.color };
+    bossCinematicTimer = 3.1;
+    player.moving = false;
+    playSound?.("mission");
+    try { vibrate?.(45); } catch (error) {}
+  }
+
+  function updateBossCinematic(delta) {
+    if (!bossCinematic) return false;
+    bossCinematicTimer = Math.max(0, bossCinematicTimer - delta);
+    player.moving = false;
+    if (bossCinematicTimer <= 0) bossCinematic = null;
+    return true;
+  }
+
+  function skipBossCinematic() {
+    if (!bossCinematic) return;
+    bossCinematic = null;
+    bossCinematicTimer = 0;
+  }
+
+  document.addEventListener("pointerdown", skipBossCinematic, { passive: true });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" || event.key === " " || event.key === "Enter") skipBossCinematic();
+  });
+
+  function drawBossCinematicOverlay() {
+    if (!bossCinematic) return;
+    const progress = Math.max(0, Math.min(1, bossCinematicTimer / 3.1));
+    ctx.save();
+    ctx.fillStyle = "rgba(3, 5, 12, 0.68)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = bossCinematic.color || "#fff2cf";
+    ctx.globalAlpha = 0.18 + Math.sin(performance.now() / 90) * 0.04;
+    ctx.fillRect(0, canvas.height * 0.34, canvas.width, canvas.height * 0.28);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `900 ${Math.max(26, Math.floor(canvas.width / 22))}px Trebuchet MS, Arial`;
+    ctx.fillStyle = "#fff2cf";
+    ctx.fillText(bossCinematic.name, canvas.width / 2, canvas.height * 0.43);
+    ctx.font = `800 ${Math.max(13, Math.floor(canvas.width / 54))}px Trebuchet MS, Arial`;
+    ctx.fillStyle = "#9defff";
+    ctx.fillText(bossCinematic.phrase, canvas.width / 2, canvas.height * 0.52);
+    ctx.fillStyle = "rgba(255, 215, 107, 0.9)";
+    ctx.fillRect(canvas.width * 0.25, canvas.height * 0.62, canvas.width * 0.5 * (1 - progress), 5);
+    ctx.font = "800 13px Trebuchet MS, Arial";
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
+    ctx.fillText("Toque ou pressione Espaco para pular", canvas.width / 2, canvas.height * 0.70);
+    ctx.restore();
+  }
+
+  function drawMainBoss(obj) {
+    const def = MAIN_BOSSES[obj.mainBossKey];
+    const x = obj.x;
+    const y = obj.y;
+    const pulse = 0.5 + Math.sin(performance.now() / 170) * 0.12;
+    ctx.save();
+    ctx.fillStyle = `rgba(0,0,0,0.32)`;
+    ctx.beginPath();
+    ctx.ellipse(x + obj.width / 2, y + obj.height, obj.width * 0.58, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `${def.color}44`;
+    ctx.fillRect(x - 8, y - 12, obj.width + 16, obj.height + 20);
+    ctx.fillStyle = "#151927";
+    ctx.fillRect(x + 4, y + 12, obj.width - 8, obj.height - 10);
+    ctx.fillStyle = def.color;
+    ctx.fillRect(x + 8, y + 6, obj.width - 16, 12);
+    ctx.fillStyle = "#fff2cf";
+    ctx.fillRect(x + 12, y + 18, 7, 5);
+    ctx.fillRect(x + obj.width - 19, y + 18, 7, 5);
+    ctx.fillStyle = "#2a1830";
+    ctx.fillRect(x + 12, y + 28, obj.width - 24, 6);
+    ctx.fillStyle = `rgba(255,255,255,${pulse})`;
+    ctx.fillRect(x + 10, y + 8, obj.width - 20, 3);
+    const hpPct = Math.max(0, obj.hp / Math.max(1, obj.maxHp));
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(x - 8, y - 18, obj.width + 16, 5);
+    ctx.fillStyle = def.color;
+    ctx.fillRect(x - 8, y - 18, (obj.width + 16) * hpPct, 5);
+    ctx.restore();
+  }
+
+  function drawContractBoard(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    ctx.fillRect(x - 2, y + 34, obj.width + 4, 6);
+    ctx.fillStyle = "#5b3827";
+    ctx.fillRect(x + 4, y + 8, 30, 27);
+    ctx.fillStyle = "#d8aa66";
+    ctx.fillRect(x + 7, y + 11, 24, 20);
+    ctx.fillStyle = "#2a1a18";
+    ctx.fillRect(x + 3, y + 34, 5, 8);
+    ctx.fillRect(x + 30, y + 34, 5, 8);
+    ctx.fillStyle = "#7a3e32";
+    ctx.fillRect(x + 10, y + 15, 18, 2);
+    ctx.fillRect(x + 10, y + 21, 14, 2);
+    ctx.fillRect(x + 10, y + 27, 20, 2);
+    ctx.fillStyle = "#69e4ff";
+    ctx.fillRect(x + 17, y + 4, 5, 5);
+    ctx.restore();
+  }
+
+  function drawAcidRift(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.fillStyle = `rgba(129,255,99,${0.22 + Math.sin(t * 4) * 0.06})`;
+    ctx.fillRect(x - 10, y - 12, obj.width + 20, obj.height + 24);
+    ctx.fillStyle = "#131b17";
+    ctx.fillRect(x + 8, y + 6, obj.width - 16, obj.height - 10);
+    ctx.strokeStyle = "#8dff63";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x + 10, y + 8, obj.width - 20, obj.height - 16);
+    ctx.fillStyle = "#c8ff70";
+    ctx.fillRect(x + 18, y + 14 + Math.sin(t * 5) * 4, 8, 26);
+    ctx.fillStyle = "rgba(210,255,110,0.65)";
+    ctx.fillRect(x + 3, y + 46, obj.width - 6, 5);
+    ctx.restore();
+  }
+
+  function drawCelestialAquaticPortal(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.fillStyle = "rgba(105,228,255,0.18)";
+    ctx.fillRect(x - 14, y - 12, obj.width + 28, obj.height + 24);
+    ctx.strokeStyle = "#ffd76b";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x + 8, y + 6, obj.width - 16, obj.height - 12);
+    ctx.strokeStyle = "#69e4ff";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(x + obj.width / 2, y + obj.height / 2, 15 + Math.sin(t * 2) * 2, 24, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,247,191,0.75)";
+    ctx.fillRect(x + obj.width / 2 - 3, y + 10, 6, obj.height - 20);
+    ctx.fillStyle = "rgba(155,244,255,0.62)";
+    ctx.fillRect(x + 12, y + 46 - ((t * 14) % 28), 4, 4);
+    ctx.fillRect(x + obj.width - 15, y + 38 - ((t * 10) % 24), 4, 4);
+    ctx.restore();
+  }
+
+  const resetProgressBeforeThreeBiome = resetProgressForNewGame;
+  resetProgressForNewGame = function resetProgressForNewGameThreeBiome(name) {
+    const classId = selectedClassIdFromUi() || "warrior";
+    resetProgressBeforeThreeBiome(name);
+    ensureThreeBiomeState();
+    questBook.threeBiomeRework = {
+      cinematicsSeen: { forestGuardian: false, volcanicTitan: false, ruinsLeviathan: false },
+      defeatedBosses: {},
+      unlockedBiomes: { forest: true, volcanic: true, aquatic: true },
+      demoComplete: false
+    };
+    questBook.huntContracts = { activeId: "", progress: 0, completedRuns: {} };
+    applyClassStats(classId, false);
+    normalizeWorldReworkSaveState();
+    ensureFocusWorldObjects();
+    hideExtraBiomesSafely();
+  };
+
+  const loadGameBeforeThreeBiome = loadGame;
+  loadGame = function loadGameThreeBiomePatch() {
+    const result = loadGameBeforeThreeBiome();
+    if (result) {
+      ensureThreeBiomeState();
+      applyClassStats(questBook.playerClass?.selected || readStoredPlayerClassId() || "warrior", true);
+      normalizeWorldReworkSaveState();
+      ensureFocusWorldObjects();
+      hideExtraBiomesSafely();
+      updateClassContractHud();
+    }
+    return result;
+  };
+
+  const saveGameBeforeThreeBiome = saveGame;
+  saveGame = function saveGameThreeBiomePatch() {
+    ensureThreeBiomeState();
+    persistPlayerClass(CLASS_DEFS[questBook.playerClass?.selected] || CLASS_DEFS.warrior);
+    return saveGameBeforeThreeBiome();
+  };
+
+  const startGameBeforeThreeBiome = startGame;
+  startGame = function startGameThreeBiomePatch(loadSave = false) {
+    if (!loadSave) {
+      const selected = selectedClassIdFromUi();
+      if (!selected || !CLASS_DEFS[selected]) {
+        startMessage.textContent = "Escolha uma classe antes de iniciar.";
+        showHudToast?.("Escolha uma classe primeiro.");
+        return;
+      }
+      classSelectedForNewGame = selected;
+    }
+    const result = startGameBeforeThreeBiome(loadSave);
+    ensureClassSelectionUi();
+    updateClassContractHud();
+    syncStartMenuOverlayState();
+    return result;
+  };
+
+  const startNewGameBeforeThreeBiome = startNewGame;
+  startNewGame = function startNewGameThreeBiomePatch() {
+    const selected = selectedClassIdFromUi();
+    if (!selected || !CLASS_DEFS[selected]) {
+      startMessage.textContent = "Escolha uma classe antes de iniciar.";
+      showHudToast?.("Escolha uma classe primeiro.");
+      return;
+    }
+    classSelectedForNewGame = selected;
+    persistPlayerClass(CLASS_DEFS[selected]);
+    const result = startNewGameBeforeThreeBiome();
+    syncStartMenuOverlayState();
+    return result;
+  };
+
+  playButton?.addEventListener("click", (event) => {
+    if (event.defaultPrevented) return;
+    const selected = selectedClassIdFromUi();
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!selected || !CLASS_DEFS[selected]) {
+      startMessage.textContent = "Escolha uma classe antes de iniciar.";
+      showHudToast?.("Escolha uma classe primeiro.");
+      return;
+    }
+    classSelectedForNewGame = selected;
+    startNewGame();
+  }, true);
+
+  const defeatEnemyBeforeThreeBiome = defeatEnemy;
+  defeatEnemy = function defeatEnemyThreeBiomePatch(obj) {
+    const wasAlive = obj?.alive !== false;
+    const mainBossKey = obj?.mainBossKey || "";
+    const result = defeatEnemyBeforeThreeBiome(obj);
+    if (wasAlive) incrementContractForEnemy(obj);
+    if (mainBossKey && questBook.threeBiomeRework) {
+      const def = MAIN_BOSSES[mainBossKey];
+      questBook.threeBiomeRework.defeatedBosses[mainBossKey] = true;
+      questBook.defeatedBosses = questBook.defeatedBosses || {};
+      questBook.defeatedBosses[mainBossKey] = true;
+      inventory.moedas = Number(inventory.moedas || 0) + (mainBossKey === "forestGuardian" ? 35 : mainBossKey === "volcanicTitan" ? 55 : 75);
+      if (def?.rewardXp) awardXp(def.rewardXp, def.name);
+      showHudToast?.(`${def?.name || "Chefe"} derrotado!`);
+      if (mainBossKey === "ruinsLeviathan" && !questBook.threeBiomeRework.demoComplete) {
+        questBook.threeBiomeRework.demoComplete = true;
+        setTimeout(() => showInfo("Fim do Prologo", "Fim do Prologo. A Fenda Eterna ainda pulsa..."), 500);
+      }
+    }
+    updateClassContractHud();
+    return result;
+  };
+
+  const getQuestMessageBeforeThreeBiome = getQuestMessage;
+  getQuestMessage = function getQuestMessageThreeBiomePatch(target) {
+    if (target?.type === "huntContractBoard") {
+      openContractPanel();
+      return "Quadro de Contratos aberto.";
+    }
+    if (target?.type === "acidRiftVolcanic") {
+      lastVillagePosition = { x: player.x, y: player.y };
+      setActiveScene("acidDimension");
+      player.x = 43 * TILE;
+      player.y = 54 * TILE;
+      showHudToast?.("Entrando na Dimensao Acida.");
+      return "Fenda Acida: a lava fica para tras e o ar vira veneno verde.";
+    }
+    if (target?.type === "celestialPortalAquatic") {
+      lastVillagePosition = { x: player.x, y: player.y };
+      setActiveScene("celestialDimension");
+      player.x = 24 * TILE;
+      player.y = 27 * TILE;
+      showHudToast?.("Entrando na Dimensao Celestial.");
+      return "Portal Celestial Submerso: a ruina canta em azul e dourado.";
+    }
+    return getQuestMessageBeforeThreeBiome(target);
+  };
+
+  const updateBeforeThreeBiome = update;
+  update = function updateThreeBiomeFocus(delta) {
+    if (updateBossCinematic(delta)) {
+      updateClassContractHud();
+      syncStartMenuOverlayState();
+      return;
+    }
+    const result = updateBeforeThreeBiome(delta);
+    ensureThreeBiomeState();
+    const syncNow = performance.now();
+    if (!updateThreeBiomeFocus._lastClassUiSync || syncNow - updateThreeBiomeFocus._lastClassUiSync > 900) {
+      ensureClassSelectionUi();
+      updateThreeBiomeFocus._lastClassUiSync = syncNow;
+    }
+    const sceneChanged = updateThreeBiomeFocus._lastScene !== currentScene;
+    if (sceneChanged || !updateThreeBiomeFocus._worldReady || syncNow - (updateThreeBiomeFocus._lastWorldSync || 0) > 1100) {
+      ensureFocusWorldObjects();
+      hideExtraBiomesSafely();
+      updateThreeBiomeFocus._worldReady = true;
+      updateThreeBiomeFocus._lastWorldSync = syncNow;
+      updateThreeBiomeFocus._lastScene = currentScene;
+    }
+    if (currentScene === "village" && gameStarted && !gameOver) {
+      for (const obj of villageObjects) {
+        if (!obj?.mainBossKey || !obj.alive) continue;
+        const distance = Math.hypot((player.x + player.width / 2) - (obj.x + obj.width / 2), (player.y + player.height / 2) - (obj.y + obj.height / 2));
+        if (distance < 250) startBossCinematic(obj);
+      }
+    }
+    updateClassContractHud();
+    syncStartMenuOverlayState();
+    return result;
+  };
+
+  const drawBeforeThreeBiome = draw;
+  draw = function drawThreeBiomeFocus() {
+    drawBeforeThreeBiome();
+    drawBossCinematicOverlay();
+  };
+
+  const drawObjectBeforeThreeBiome = drawObject;
+  drawObject = function drawObjectThreeBiomeFocus(obj) {
+    if (obj?.hiddenByThreeBiomeRework) return;
+    if (obj?.mainBossKey) return drawMainBoss(obj);
+    if (obj?.type === "huntContractBoard") return drawContractBoard(obj);
+    if (obj?.type === "acidRiftVolcanic") return drawAcidRift(obj);
+    if (obj?.type === "celestialPortalAquatic") return drawCelestialAquaticPortal(obj);
+    return drawObjectBeforeThreeBiome(obj);
+  };
+
+  const drawPlayerBeforeThreeBiome = drawPlayer;
+  drawPlayer = function drawPlayerClassVisual() {
+    drawPlayerBeforeThreeBiome();
+    const cls = questBook.playerClass?.selected || "warrior";
+    const x = player.x;
+    const y = player.y;
+    ctx.save();
+    if (cls === "mage") {
+      ctx.fillStyle = "rgba(105,228,255,0.32)";
+      ctx.fillRect(x - 4, y - 6, player.width + 8, player.height + 10);
+    } else if (cls === "archer") {
+      ctx.fillStyle = "#6fdc83";
+      ctx.fillRect(x + 3, y + 9, 4, 18);
+      ctx.fillStyle = "#d8aa66";
+      ctx.fillRect(x + player.width + 2, y + 12, 3, 18);
+    } else if (cls === "assassin") {
+      ctx.fillStyle = "rgba(36,24,50,0.42)";
+      ctx.fillRect(x - 3, y + 7, player.width + 6, player.height - 2);
+      ctx.fillStyle = "#b68cff";
+      ctx.fillRect(x + 2, y + 14, 4, 3);
+    } else {
+      ctx.fillStyle = "#ffd76b";
+      ctx.fillRect(x + player.width - 4, y + 13, 4, 10);
+    }
+    ctx.restore();
+  };
+
+  const updateHudBeforeThreeBiome = updateHud;
+  updateHud = function updateHudThreeBiomeFocus() {
+    const result = updateHudBeforeThreeBiome();
+    updateClassContractHud();
+    return result;
+  };
+
+  const drawMiniMapBeforeThreeBiome = drawMiniMap;
+  drawMiniMap = function drawMiniMapThreeBiomeFocus() {
+    if (currentScene !== "village") return drawMiniMapBeforeThreeBiome();
+    miniCtx.clearRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+    miniCtx.fillStyle = "#101827";
+    miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+    const worldW = (worldMap?.[0]?.length || MAP_COLS) * TILE;
+    const worldH = (worldMap?.length || MAP_ROWS) * TILE;
+    const sx = miniMapCanvas.width / worldW;
+    const sy = miniMapCanvas.height / worldH;
+    function areaRect(bounds, color, label) {
+      const x = bounds.x1 * TILE * sx;
+      const y = bounds.y1 * TILE * sy;
+      const w = (bounds.x2 - bounds.x1) * TILE * sx;
+      const h = (bounds.y2 - bounds.y1) * TILE * sy;
+      miniCtx.fillStyle = color;
+      miniCtx.fillRect(x, y, w, h);
+      miniCtx.strokeStyle = "rgba(255,255,255,0.65)";
+      miniCtx.strokeRect(x, y, w, h);
+      miniCtx.fillStyle = "#fff2cf";
+      miniCtx.font = "8px Arial";
+      miniCtx.fillText(label, x + 3, y + 9);
+    }
+    areaRect(MAIN_BIOME_BOUNDS.forest, "#357b4c", "Vila/Floresta");
+    areaRect(MAIN_BIOME_BOUNDS.volcanic, "#8e3d2c", "Vulcanico");
+    areaRect(MAIN_BIOME_BOUNDS.aquatic, "#236f89", "Ruinas");
+    miniCtx.fillStyle = "#9aff63";
+    miniCtx.fillRect(203 * TILE * sx - 2, 43 * TILE * sy - 2, 5, 5);
+    miniCtx.fillStyle = "#ffd76b";
+    miniCtx.fillRect(188 * TILE * sx - 2, 131 * TILE * sy - 2, 5, 5);
+    miniCtx.fillStyle = "#ff4f62";
+    for (const obj of villageObjects) {
+      if (obj?.mainBossKey && obj.alive) miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 6, 6);
+    }
+    miniCtx.fillStyle = "#fff264";
+    miniCtx.fillRect(player.x * sx - 3, player.y * sy - 3, 7, 7);
+  };
+
+  const getAreaNameBeforeThreeBiome = getAreaName;
+  getAreaName = function getAreaNameThreeBiomeFocus() {
+    if (currentScene === "acidDimension") return "Dimensao Acida (Terras Vulcanicas)";
+    if (currentScene === "celestialDimension") return "Dimensao Celestial (Ruinas Aquaticas)";
+    if (currentScene !== "village") return getAreaNameBeforeThreeBiome();
+    const biome = biomeForPoint(player.x, player.y);
+    return MAIN_BIOME_BOUNDS[biome]?.name || "Vila Principal + Floresta";
+  };
+
+  ensureClassSelectionUi();
+  ensureThreeBiomeState();
+  normalizeWorldReworkSaveState();
+  ensureFocusWorldObjects();
+  hideExtraBiomesSafely();
+  updateClassContractHud(true);
+  syncStartMenuOverlayState();
+  try { document.body.classList.add("three-biome-focus"); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT HUD EDITOR FULL PATCH + HOTBAR DIALOG SAFE PATCH
+   - A rotbar/hotbar sobe automaticamente quando a caixa de dialogo abre.
+   - O editor de HUD passa a reconhecer a hotbar mesmo se ela for criada depois.
+   - Mantem um modo seguro para nao ficar por cima do dialogo de NPC.
+   ================================================== */
+(function eternalRiftHudEditorFullAndHotbarSafePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HUD_FULL_HOTBAR_SAFE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HUD_FULL_HOTBAR_SAFE_PATCH = true;
+
+  function isDialogOpenNow() {
+    const dialog = document.getElementById("dialogBox");
+    return Boolean(dialog && !dialog.classList.contains("hidden") && getComputedStyle(dialog).display !== "none");
+  }
+
+  function syncHotbarDialogState() {
+    const open = isDialogOpenNow();
+    document.body.classList.toggle("dialog-open-hotbar-safe", open);
+    const bar = document.getElementById("sandbox2DHotbar");
+    if (bar) {
+      bar.classList.toggle("dialog-safe", open);
+      bar.setAttribute("data-dialog-safe", open ? "true" : "false");
+    }
+  }
+
+  const dialog = document.getElementById("dialogBox");
+  if (dialog) {
+    const observer = new MutationObserver(syncHotbarDialogState);
+    observer.observe(dialog, { attributes: true, attributeFilter: ["class", "style"] });
+  }
+
+  // Observa criacao tardia da hotbar ou de novos elementos de HUD.
+  const bodyObserver = new MutationObserver(() => {
+    syncHotbarDialogState();
+    const bar = document.getElementById("sandbox2DHotbar");
+    if (bar && !bar.dataset.hudFullPatchReady) {
+      bar.dataset.hudFullPatchReady = "true";
+      bar.dataset.hudEditorId = bar.dataset.hudEditorId || "sandboxHotbar";
+      bar.dataset.hudEditorLabel = bar.dataset.hudEditorLabel || "Hotbar / Rotbar";
+    }
+    const classHud = document.getElementById("classContractHud");
+    if (classHud && !classHud.dataset.hudFullPatchReady) {
+      classHud.dataset.hudFullPatchReady = "true";
+      classHud.dataset.hudEditorLabel = "Classe / Contrato";
+    }
+  });
+  bodyObserver.observe(document.body, { childList: true, subtree: true });
+
+  window.addEventListener("resize", () => setTimeout(syncHotbarDialogState, 60), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(syncHotbarDialogState, 180), { passive: true });
+  document.addEventListener("click", () => setTimeout(syncHotbarDialogState, 0), true);
+  document.addEventListener("keydown", () => setTimeout(syncHotbarDialogState, 0), true);
+
+  syncHotbarDialogState();
+  setInterval(syncHotbarDialogState, 350);
+})();
+
+(function eternalRiftDialogVisibilityAndHotbarNormalPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DIALOG_VISIBILITY_FIX_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_DIALOG_VISIBILITY_FIX_PATCH = true;
+
+  const safeSync = () => {
+    if (typeof syncDialogLayoutSafe === "function") syncDialogLayoutSafe();
+    if (!dialogOpen && dialogBox && !dialogBox.classList.contains("hidden")) {
+      dialogBox.classList.add("hidden");
+      dialogBox.setAttribute("aria-hidden", "true");
+    }
+    if (!dialogOpen && dialogText && dialogText.textContent && dialogBox?.classList.contains("hidden")) {
+      dialogText.textContent = "";
+    }
+    const bar = document.getElementById("sandbox2DHotbar");
+    if (bar) {
+      bar.classList.remove("dialog-safe");
+      bar.style.removeProperty("bottom");
+    }
+    document.body.classList.remove("dialog-open-hotbar-safe");
+  };
+
+  const safeClose = () => {
+    if (typeof closeDialog === "function") closeDialog();
+    safeSync();
+  };
+
+  window.addEventListener("resize", () => setTimeout(safeSync, 40), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(safeSync, 160), { passive: true });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) safeClose(); });
+  document.addEventListener("pointerdown", (event) => {
+    if (!dialogOpen || !dialogBox || dialogBox.classList.contains("hidden")) return;
+    const clickedInsideDialog = event.target?.closest?.("#dialogBox");
+    const clickedInteractive = event.target?.closest?.("#touchActionButton, #dialogContinueButton, .touch-actions, .touch-controls, .hud-editor-panel");
+    if (!clickedInsideDialog && !clickedInteractive && !findInteraction()) safeClose();
+  }, true);
+  setInterval(safeSync, 300);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT KEYBIND PATCH - HOTBAR 1-7 / PODERES Z-X-C-V
+   - Rotbar usa números 1 a 7.
+   - Poderes usam Z, X, C e V.
+   - Q continua usando o poder equipado.
+   - H abre o status no lugar do C.
+   ================================================== */
+(function eternalRiftHotbarPowerKeybindPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HOTBAR_POWER_KEYBIND_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HOTBAR_POWER_KEYBIND_PATCH = true;
+
+  const POWER_SLOT_KEYS = ["Z", "X", "C", "V"];
+  const POWER_SLOT_MAP = { z: 0, x: 1, c: 2, v: 3 };
+
+  function shouldIgnoreKey(event) {
+    const tag = String(event.target?.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || event.ctrlKey || event.altKey || event.metaKey;
+  }
+
+  const getPowerHudTextBeforeKeybindPatch = typeof getPowerHudText === "function" ? getPowerHudText : null;
+  if (getPowerHudTextBeforeKeybindPatch) {
+    getPowerHudText = function getPowerHudTextKeybindPatch() {
+      const slot = Math.max(0, powerSlots.indexOf(equippedPower));
+      const keyLabel = POWER_SLOT_KEYS[slot] || "Z";
+      const cooldown = player.spellCooldowns[equippedPower] || 0;
+      const suffix = cooldown > 0 ? ` (${cooldown.toFixed(1)}s)` : "";
+      return `Q usar | ${keyLabel}: ${powerNames[equippedPower] || "Poder"}${suffix}`;
+    };
+  }
+
+  const updateMobilePowerButtonsBeforeKeybindPatch = typeof updateMobilePowerButtons === "function" ? updateMobilePowerButtons : null;
+  if (updateMobilePowerButtonsBeforeKeybindPatch) {
+    updateMobilePowerButtons = function updateMobilePowerButtonsKeybindPatch() {
+      updateMobilePowerButtonsBeforeKeybindPatch();
+      const buttons = [touchPower1Button, touchPower2Button, touchPower3Button, touchPower4Button];
+      buttons.forEach((button, index) => {
+        if (!button) return;
+        const key = powerSlots[index] || "fireball";
+        const name = powerNames[key] || "Poder";
+        button.title = `${POWER_SLOT_KEYS[index]}: ${name}`;
+        button.setAttribute("aria-label", `${POWER_SLOT_KEYS[index]}: ${name}`);
+      });
+    };
+  }
+
+  // Captura as novas teclas cedo para impedir qualquer patch antigo de usar C para outro painel.
+  document.addEventListener("keydown", (event) => {
+    const key = String(event.key || "").toLowerCase();
+    if (!POWER_SLOT_MAP.hasOwnProperty(key) || shouldIgnoreKey(event)) return;
+    if (!gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen || dialogOpen || missionsOpen || statusOpen) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    equipPower(POWER_SLOT_MAP[key]);
+  }, true);
+
+  // H vira atalho de Status. C agora pertence aos poderes.
+  document.addEventListener("keydown", (event) => {
+    const key = String(event.key || "").toLowerCase();
+    if (key !== "h" || shouldIgnoreKey(event)) return;
+    if (!gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen || dialogOpen || missionsOpen) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (typeof toggleStatusPanel === "function") toggleStatusPanel();
+  }, true);
+
+  setTimeout(() => {
+    try { updateMobilePowerButtons?.(); updateHud?.(); } catch (error) {}
+    try { showHudToast?.("Atalhos: Rotbar 1-7 | Poderes Z X C V | Q usa poder", 3); } catch (error) {}
+  }, 900);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT ULTRA PERFORMANCE PATCH - SEM REMOVER CONTEUDO
+   - Mantem sistemas, biomas, HUD, hotbar, inventario, audio e multiplayer.
+   - Reduz custo de renderizacao, minimapa, HUD e efeitos quando o jogo esta pesado.
+   - Corrige travamentos fortes causados por muitos overlays visuais rodando a 60 FPS.
+   ================================================== */
+(function eternalRiftUltraPerformanceNoRemovalPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ULTRA_PERFORMANCE_NO_REMOVAL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ULTRA_PERFORMANCE_NO_REMOVAL_PATCH = true;
+
+  const PERF_KEY = "eternal-rift-performance-mode-v2";
+  const mobileQuery = "(max-width: 900px), (pointer: coarse)";
+  const userRequestedQuality = ["quality", "alta", "high"].includes(String(urlParams?.get?.("perf") || "").toLowerCase());
+  const hasLiteUrl = urlParams?.get?.("lite") === "1" || urlParams?.get?.("fast") === "1";
+
+  function isMobilePerf() {
+    return Boolean(window.matchMedia?.(mobileQuery)?.matches || document.body?.classList.contains("is-mobile"));
+  }
+
+  function performanceBudget() {
+    const mobile = isMobilePerf();
+    const lite = hasLiteUrl || mobile || document.body?.classList.contains("er-ultra-performance");
+    return {
+      fps: userRequestedQuality ? 55 : lite ? 30 : 42,
+      miniMs: userRequestedQuality ? 260 : lite ? 1100 : 620,
+      hudMs: userRequestedQuality ? 120 : lite ? 360 : 220,
+      effectTrimMs: userRequestedQuality ? 450 : 260,
+      canvasPixels: userRequestedQuality ? 1050000 : lite ? 560000 : 820000,
+      projectileLimit: userRequestedQuality ? 48 : lite ? 20 : 32,
+      textLimit: userRequestedQuality ? 24 : lite ? 8 : 14,
+      lootLimit: userRequestedQuality ? 30 : lite ? 14 : 20
+    };
+  }
+
+  function enableUltraMode() {
+    try {
+      if (!userRequestedQuality) localStorage.setItem(PERF_KEY, "economy");
+    } catch (error) {}
+    try {
+      document.body?.classList.add("performance-lite", "performance-economy", "er-ultra-performance");
+    } catch (error) {}
+  }
+
+  enableUltraMode();
+
+  const ensureCanvasSizeBeforeUltraPerf = ensureCanvasSize;
+  let lastCanvasKeyUltraPerf = "";
+  let lastCanvasCheckUltraPerf = 0;
+  ensureCanvasSize = function ensureCanvasSizeUltraPerformance(force = false) {
+    const now = performance.now();
+    const key = `${Math.round(window.innerWidth || 0)}x${Math.round(window.innerHeight || 0)}@${Math.round((window.devicePixelRatio || 1) * 100)}`;
+    if (!force && key === lastCanvasKeyUltraPerf && now - lastCanvasCheckUltraPerf < 900) return;
+    lastCanvasKeyUltraPerf = key;
+    lastCanvasCheckUltraPerf = now;
+    ensureCanvasSizeBeforeUltraPerf?.(force);
+
+    const budget = performanceBudget().canvasPixels;
+    const pixels = Math.max(1, canvas.width * canvas.height);
+    if (pixels > budget) {
+      const scale = Math.sqrt(budget / pixels);
+      const newW = Math.max(560, Math.floor(canvas.width * scale));
+      const newH = Math.max(360, Math.floor(canvas.height * scale));
+      if (Math.abs(canvas.width - newW) > 2 || Math.abs(canvas.height - newH) > 2) {
+        canvas.width = newW;
+        canvas.height = newH;
+      }
+    }
+  };
+
+  const updateHudBeforeUltraPerf = updateHud;
+  let lastHudUltraPerf = 0;
+  updateHud = function updateHudUltraPerformance(force = false) {
+    const now = performance.now();
+    const urgent = force || !gameStarted || gameOver || dialogOpen || inventoryOpen || pauseOpen || shopOpen || missionsOpen || statusOpen;
+    if (!urgent && now - lastHudUltraPerf < performanceBudget().hudMs) return;
+    lastHudUltraPerf = now;
+    return updateHudBeforeUltraPerf?.(force);
+  };
+
+  const drawMiniMapBeforeUltraPerf = drawMiniMap;
+  let lastMiniMapUltraPerf = 0;
+  let lastMiniMapSceneUltraPerf = "";
+  let lastMiniMapTileUltraPerf = "";
+  drawMiniMap = function drawMiniMapUltraPerformance() {
+    if (!miniMapCanvas || miniMapCanvas.classList.contains("hidden")) return;
+    const now = performance.now();
+    const playerTileKey = `${currentScene}:${Math.floor((player.x || 0) / (TILE * 3))}:${Math.floor((player.y || 0) / (TILE * 3))}`;
+    const urgent = currentScene !== lastMiniMapSceneUltraPerf || playerTileKey !== lastMiniMapTileUltraPerf || !gameStarted || gameOver;
+    if (!urgent && now - lastMiniMapUltraPerf < performanceBudget().miniMs) return;
+    lastMiniMapUltraPerf = now;
+    lastMiniMapSceneUltraPerf = currentScene;
+    lastMiniMapTileUltraPerf = playerTileKey;
+    return drawMiniMapBeforeUltraPerf?.();
+  };
+
+  function trimArrayKeepLatest(list, limit) {
+    if (Array.isArray(list) && list.length > limit) list.splice(0, list.length - limit);
+  }
+
+  let lastEffectTrimUltraPerf = 0;
+  function trimVisualEffectsUltraPerformance(force = false) {
+    const now = performance.now();
+    const budget = performanceBudget();
+    if (!force && now - lastEffectTrimUltraPerf < budget.effectTrimMs) return;
+    lastEffectTrimUltraPerf = now;
+    trimArrayKeepLatest(projectiles, budget.projectileLimit);
+    trimArrayKeepLatest(enemyProjectiles, budget.projectileLimit);
+    trimArrayKeepLatest(floatingTexts, budget.textLimit);
+    trimArrayKeepLatest(lootItems, budget.lootLimit);
+    trimArrayKeepLatest(hazardZones, 10);
+    trimArrayKeepLatest(dashTrails, 6);
+    trimArrayKeepLatest(shockwaves, 3);
+    trimArrayKeepLatest(healBursts, 3);
+  }
+
+  const updateBeforeUltraPerf = update;
+  update = function updateUltraPerformance(delta) {
+    const cappedDelta = Math.min(Math.max(delta || 0, 0), 0.04);
+    const result = updateBeforeUltraPerf?.(cappedDelta);
+    trimVisualEffectsUltraPerformance(false);
+    return result;
+  };
+
+  const drawBeforeUltraPerf = draw;
+  draw = function drawUltraPerformance() {
+    trimVisualEffectsUltraPerformance(false);
+    const oldShadow = ctx.shadowBlur;
+    const oldAlpha = ctx.globalAlpha;
+    const oldImageSmoothing = ctx.imageSmoothingEnabled;
+    try {
+      ctx.imageSmoothingEnabled = false;
+      if (!userRequestedQuality) ctx.shadowBlur = 0;
+      return drawBeforeUltraPerf?.();
+    } finally {
+      ctx.shadowBlur = oldShadow;
+      ctx.globalAlpha = oldAlpha;
+      ctx.imageSmoothingEnabled = oldImageSmoothing;
+    }
+  };
+
+  let lastFrameUltraPerf = 0;
+  let lastSecondUltraPerf = 0;
+  let badFramesUltraPerf = 0;
+  gameLoop = function gameLoopUltraPerformance(time) {
+    if (document.hidden) {
+      lastTime = time;
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    const budget = performanceBudget();
+    const targetMs = 1000 / Math.max(24, Math.min(60, budget.fps));
+    if (time - lastFrameUltraPerf < targetMs) {
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    if (!lastTime) lastTime = time;
+    const delta = Math.min(Math.max((time - lastTime) / 1000, 0.001), 0.04);
+    lastTime = time;
+    lastFrameUltraPerf = time;
+
+    const started = performance.now();
+    try {
+      update(delta);
+      draw();
+    } catch (error) {
+      showErrorMessage(error);
+    }
+    const spent = performance.now() - started;
+
+    if (time - lastSecondUltraPerf > 1000) {
+      lastSecondUltraPerf = time;
+      if (spent > targetMs * 1.15) badFramesUltraPerf += 1;
+      else badFramesUltraPerf = Math.max(0, badFramesUltraPerf - 1);
+      if (badFramesUltraPerf >= 3) {
+        try { document.body?.classList.add("performance-economy", "er-ultra-performance"); } catch (error) {}
+        badFramesUltraPerf = 0;
+      }
+    }
+
+    requestAnimationFrame(gameLoop);
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    lastTime = performance.now();
+    try { keys?.clear?.(); } catch (error) {}
+  });
+
+  window.addEventListener("resize", () => setTimeout(() => ensureCanvasSize(true), 120), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(() => ensureCanvasSize(true), 180), { passive: true });
+
+  window.ER_SET_PERFORMANCE_MODE = function setEternalRiftPerformanceMode(mode = "economy") {
+    const safe = String(mode || "economy").toLowerCase();
+    const finalMode = ["economy", "balanced", "quality"].includes(safe) ? safe : "economy";
+    try { localStorage.setItem(PERF_KEY, finalMode); } catch (error) {}
+    if (finalMode === "quality") {
+      document.body?.classList.remove("performance-economy", "er-ultra-performance");
+    } else {
+      document.body?.classList.add("performance-economy", "er-ultra-performance");
+    }
+    ensureCanvasSize(true);
+    updateHud(true);
+    showHudToast?.(`Desempenho: ${finalMode}`, 1.8);
+  };
+
+  setTimeout(() => {
+    enableUltraMode();
+    ensureCanvasSize(true);
+    updateHud(true);
+    trimVisualEffectsUltraPerformance(true);
+    showHudToast?.("Modo anti-travamento ativado sem remover conteudo.", 2.4);
+  }, 350);
+})();
+
+/* ==================================================
+   Patch final: quarto do heroi ultra detalhado e interativo
+   - Mantem perspectiva 2D top-down/pixel art.
+   - Tapetes sao visuais e nao bloqueiam passagem.
+   - Moveis importantes continuam interativos.
+   ================================================== */
+(function heroBedroomUltraInteractivePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_ULTRA_INTERACTIVE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_ULTRA_INTERACTIVE_PATCH = true;
+
+  const HERO_ROOM_ACTION_LABELS = {
+    sleep: "dormir",
+    personalChest: "abrir bau",
+    wardrobe: "trocar equipamento",
+    workbench: "organizar craft",
+    study: "estudar",
+    read: "ler",
+    mirror: "olhar espelho",
+    map: "ver mapa",
+    weaponRack: "ver armas",
+    armorStand: "ver armadura",
+    lamp: "luz",
+    rest: "descansar",
+    storage: "organizar",
+    lore: "ler lore"
+  };
+
+  function heroRoomState() {
+    if (!questBook.heroBedroom || typeof questBook.heroBedroom !== "object") {
+      questBook.heroBedroom = {
+        personalChestOpened: false,
+        rests: 0,
+        outfit: 0,
+        mirrorStyle: 0,
+        lightsOn: true,
+        cooldowns: {}
+      };
+    }
+    if (!questBook.heroBedroom.cooldowns || typeof questBook.heroBedroom.cooldowns !== "object") {
+      questBook.heroBedroom.cooldowns = {};
+    }
+    return questBook.heroBedroom;
+  }
+
+  function heroRoomCooldownReady(key, ms) {
+    const state = heroRoomState();
+    const now = Date.now();
+    const last = Number(state.cooldowns[key] || 0);
+    if (now - last < ms) return false;
+    state.cooldowns[key] = now;
+    return true;
+  }
+
+  function heroFurniture(id, tileX, tileY, kind, solid = false, widthTiles = 1, heightTiles = 1, action = "look", message = "") {
+    const obj = furnitureV2(id, tileX, tileY, kind, solid, widthTiles, heightTiles, message || "Objeto do quarto do heroi.");
+    obj.homeHeroRoomInteractive = true;
+    obj.homeInteractive = true;
+    obj.homeAction = action;
+    obj.heroRoomAction = action;
+    return obj;
+  }
+
+  function heroDecor(id, tileX, tileY, kind, widthTiles = 1, heightTiles = 1, message = "", action = "look") {
+    return heroFurniture(id, tileX, tileY, kind, false, widthTiles, heightTiles, action, message);
+  }
+
+  function resetHeroBedroomMap() {
+    if (!Array.isArray(homeMap)) return;
+    for (let y = 0; y < HOME_ROWS; y++) {
+      for (let x = 0; x < HOME_COLS; x++) homeMap[y][x] = "I";
+    }
+    fillHomeRect(homeMap, 0, 0, HOME_COLS, 1, "B");
+    fillHomeRect(homeMap, 0, HOME_ROWS - 1, HOME_COLS, 1, "B");
+    fillHomeRect(homeMap, 0, 0, 1, HOME_ROWS, "B");
+    fillHomeRect(homeMap, HOME_COLS - 1, 0, 1, HOME_ROWS, "B");
+    fillHomeRect(homeMap, 14, HOME_ROWS - 1, 2, 1, "I");
+  }
+
+  function rebuildHeroBedroom() {
+    resetHeroBedroomMap();
+    homeObjects.length = 0;
+    homeObjects.push(
+      block(0, 0, HOME_COLS, 1),
+      block(0, 0, 1, HOME_ROWS),
+      block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+      block(0, HOME_ROWS - 1, 14, 1),
+      block(16, HOME_ROWS - 1, 14, 1),
+
+      heroDecor("hero-exit-plaque", 12, 17, "heroFloorPlaque", 6, 1, "Porta de saida: caminhe para baixo para voltar para a vila.", "lore"),
+
+      heroDecor("hero-window-left", 3, 1, "heroWindow", 2, 1, "Janela do quarto: a luz da vila deixa o quarto mais aconchegante.", "lore"),
+      heroDecor("hero-window-center", 13, 1, "heroWindowWide", 4, 1, "Janela grande: da para ver os telhados e lanternas da vila.", "lore"),
+      heroDecor("hero-window-right", 24, 1, "heroWindow", 2, 1, "Janela lateral: ar fresco entra por aqui.", "lore"),
+      heroDecor("hero-wall-lamp-left", 2, 2, "heroWallLamp", 1, 1, "Luminaria: pressione E para alternar a luz quente do quarto.", "lamp"),
+      heroDecor("hero-wall-lamp-right", 27, 2, "heroWallLamp", 1, 1, "Luminaria: pressione E para alternar a luz quente do quarto.", "lamp"),
+
+      heroFurniture("hero-main-bed", 3, 3, "heroBed", true, 4, 2, "sleep", "Cama principal do heroi: pressione E para dormir, passar tempo e recuperar vida e mana."),
+      heroFurniture("hero-nightstand-a", 2, 4, "heroNightstand", true, 1, 1, "storage", "Mesa de cabeceira: mapas pequenos, vela e uma caneca guardada."),
+      heroFurniture("hero-nightstand-b", 7, 4, "heroNightstand", true, 1, 1, "storage", "Mesa de cabeceira: um diario de viagem fica aqui."),
+      heroFurniture("hero-bookshelf", 1, 6, "heroBookshelf", true, 2, 3, "read", "Estante do heroi: livros de monstros, biomas e ruinas antigas."),
+      heroFurniture("hero-daybed", 4, 13, "heroDaybed", true, 4, 2, "rest", "Area de descanso: pressione E para sentar e recuperar um pouco de mana."),
+      heroFurniture("hero-personal-chest", 2, 12, "heroPersonalChest", true, 2, 1, "personalChest", "Bau pessoal: pressione E para abrir, guardar e organizar itens."),
+
+      heroFurniture("hero-work-desk", 12, 3, "heroWorkDesk", true, 4, 2, "study", "Mesa de trabalho: estudos, mapas, tinta e planos de aventura."),
+      heroFurniture("hero-desk-chair", 14, 5, "heroChair", true, 1, 1, "rest", "Cadeira da mesa: pressione E para sentar um instante."),
+      heroFurniture("hero-crafting-table", 10, 11, "heroCraftingTable", true, 4, 2, "workbench", "Bancada de trabalho: organize materiais e prepare suprimentos simples."),
+      heroDecor("hero-scroll-pile", 15, 12, "heroScrollPile", 2, 1, "Pergaminhos: anotacoes sobre contratos, baus e chefes.", "lore"),
+      heroDecor("hero-map-board", 19, 2, "heroMapBoard", 4, 2, "Mapa de parede: mostra a Vila, as Terras Vulcanicas e as Ruinas Aquaticas.", "map"),
+      heroDecor("hero-mirror", 17, 2, "heroMirror", 2, 2, "Espelho: pressione E para testar uma troca visual futura.", "mirror"),
+
+      heroFurniture("hero-weapon-rack", 21, 5, "heroWeaponRack", true, 2, 2, "weaponRack", "Suporte de armas: pressione E para ver a arma equipada."),
+      heroFurniture("hero-armor-stand", 24, 5, "heroArmorStand", true, 1, 2, "armorStand", "Suporte de armadura: pressione E para abrir equipamentos."),
+      heroFurniture("hero-wardrobe", 26, 4, "heroWardrobe", true, 2, 3, "wardrobe", "Guarda-roupa: pressione E para trocar conjunto/equipamentos."),
+      heroFurniture("hero-storage-cabinet", 25, 12, "heroStorageCabinet", true, 3, 2, "storage", "Armario de armazenamento: caixas, frascos, cordas e mantimentos."),
+      heroFurniture("hero-crate-a", 22, 13, "heroCrate", true, 1, 1, "storage", "Caixa pequena: recursos organizados para proximas aventuras."),
+      heroDecor("hero-wall-shelf", 21, 9, "heroWallShelf", 4, 1, "Prateleira: trofeus, livros e cristais lembram aventuras antigas.", "lore"),
+      heroDecor("hero-trophy", 26, 9, "heroTrophy", 2, 1, "Trofeu: uma lembranca brilhante de uma batalha importante.", "lore"),
+
+      heroFurniture("hero-plant-a", 2, 15, "heroPlant", true, 1, 1, "storage", "Vaso de planta: deixa o quarto vivo e cuidado."),
+      heroFurniture("hero-plant-b", 27, 15, "heroPlant", true, 1, 1, "storage", "Vaso de planta: folhas verdes iluminadas pela janela."),
+      heroDecor("hero-candle-row", 9, 15, "heroCandleRow", 3, 1, "Velas: luz suave e cheiro de madeira quente.", "lamp")
+    );
+
+    refreshHeroBedroomScene();
+  }
+
+  function refreshHeroBedroomScene() {
+    if (currentScene !== "home") return;
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  function recoverHeroRoom(full = false) {
+    if (full) {
+      player.health = player.maxHealth;
+      player.mana = player.maxMana;
+      if (player.maxOxygen !== undefined) player.oxygen = player.maxOxygen;
+    } else {
+      player.health = Math.min(player.maxHealth || player.health, (player.health || 0) + 1);
+      player.mana = Math.min(player.maxMana || player.mana, (player.mana || 0) + 1);
+    }
+    updateHud?.(true);
+  }
+
+  function openHeroInventory(tab = "all") {
+    try {
+      inventoryTab = tab;
+      toggleInventory?.(true);
+      renderInventory?.();
+    } catch (error) {}
+  }
+
+  function currentHeroWeaponName() {
+    try {
+      const weapon = getCurrentWeapon?.();
+      if (weapon?.name) return weapon.name;
+    } catch (error) {}
+    return weaponHud?.textContent?.replace("Arma equipada:", "").trim() || "arma atual";
+  }
+
+  function handleHeroRoomAction(obj) {
+    const state = heroRoomState();
+    const action = obj?.heroRoomAction || obj?.homeAction || "lore";
+
+    if (action === "sleep") {
+      state.rests = Number(state.rests || 0) + 1;
+      recoverHeroRoom(true);
+      playSound?.("heal");
+      saveGame?.();
+      return `Voce dormiu na cama principal do heroi. Vida, mana e oxigenio foram recuperados. O tempo passou com calma. Descansos: ${state.rests}.`;
+    }
+
+    if (action === "personalChest") {
+      if (!state.personalChestOpened) {
+        state.personalChestOpened = true;
+        inventory.moedas = Number(inventory.moedas || 0) + 25;
+        inventory.flechas = Number(inventory.flechas || 0) + 16;
+        inventory.pocoes = Number(inventory.pocoes || 0) + 1;
+        renderInventory?.();
+        updateHud?.(true);
+        playSound?.("chest");
+        openHeroInventory("all");
+        return "Voce abriu o bau pessoal e encontrou 25 moedas, 16 flechas e 1 pocao. O inventario foi aberto para organizar os itens.";
+      }
+      openHeroInventory("all");
+      playSound?.("inventoryOpen");
+      return "Bau pessoal aberto. Use o inventario para organizar itens, armas e consumiveis.";
+    }
+
+    if (action === "wardrobe") {
+      state.outfit = (Number(state.outfit || 0) + 1) % 4;
+      showHudToast?.(`Conjunto visual ${state.outfit + 1}`);
+      openHeroInventory("armas");
+      return `Voce abriu o guarda-roupa heroico. Conjunto visual ${state.outfit + 1} selecionado e inventario aberto para equipamentos.`;
+    }
+
+    if (action === "armorStand") {
+      openHeroInventory("armas");
+      return "Voce conferiu o suporte de armadura. O inventario foi aberto para revisar equipamentos e armas.";
+    }
+
+    if (action === "weaponRack") {
+      openHeroInventory("armas");
+      return `Suporte de armas: sua arma equipada agora e ${currentHeroWeaponName()}. O inventario foi aberto para trocar ou desequipar armas.`;
+    }
+
+    if (action === "workbench") {
+      if (heroRoomCooldownReady("workbench", 30000)) {
+        inventory.flechas = Number(inventory.flechas || 0) + 8;
+        inventory.moedas = Number(inventory.moedas || 0) + 3;
+        renderInventory?.();
+        updateHud?.(true);
+        playSound?.("craft");
+        return "Voce organizou a bancada, afiou ferramentas e preparou suprimentos simples: +8 flechas e +3 moedas encontradas em caixas.";
+      }
+      openHeroInventory("materiais");
+      return "A bancada ja foi usada ha pouco. O inventario foi aberto para organizar materiais.";
+    }
+
+    if (action === "study") {
+      if (heroRoomCooldownReady("study", 30000)) {
+        awardXp?.(45, "Estudo no quarto do heroi");
+        return "Voce estudou mapas, contratos e anotacoes na mesa de trabalho. Ganhou 45 XP.";
+      }
+      return "Voce revisou suas anotacoes. Melhor esperar um pouco antes de ganhar XP estudando de novo.";
+    }
+
+    if (action === "read") {
+      if (heroRoomCooldownReady("read", 30000)) {
+        awardXp?.(30, "Leitura da estante heroica");
+        return "Voce leu livros sobre monstros, baus e ruinas antigas. Ganhou 30 XP.";
+      }
+      return "A estante esta cheia de lore do Eternal Rift: biomas, chefes, portais e tesouros escondidos.";
+    }
+
+    if (action === "mirror") {
+      state.mirrorStyle = (Number(state.mirrorStyle || 0) + 1) % 5;
+      showHudToast?.(`Aparencia futura ${state.mirrorStyle + 1}`);
+      playSound?.("selectItem");
+      return `Espelho heroico: pre-visualizacao futura de aparencia ${state.mirrorStyle + 1}. A troca completa de visual pode ser expandida depois.`;
+    }
+
+    if (action === "map") {
+      showInfo?.("Mapa do Heroi", "O mapa destaca a Vila + Floresta, as Terras Vulcanicas e as Ruinas Aquaticas. A Fenda Eterna ainda pulsa alem desses caminhos.");
+      return "Voce observou o mapa do heroi. Ele marca os tres grandes biomas e os portais mais importantes.";
+    }
+
+    if (action === "lamp") {
+      state.lightsOn = !state.lightsOn;
+      playSound?.("selectItem");
+      return state.lightsOn ? "As luminarias ficaram mais quentes. O quarto parece seguro e aconchegante." : "Voce reduziu as luzes. O quarto ficou mais calmo, com sombras suaves.";
+    }
+
+    if (action === "rest") {
+      recoverHeroRoom(false);
+      return "Voce descansou por alguns instantes na area de descanso. Vida +1 e mana +1.";
+    }
+
+    if (action === "storage") {
+      return "Voce organizou caixas, livros, roupas e pequenos equipamentos. O quarto continua bonito e funcional.";
+    }
+
+    return obj?.message || "Voce observou um detalhe do quarto do heroi.";
+  }
+
+  function isHeroRoomTarget(obj) {
+    if (currentScene !== "home" || !obj?.homeHeroRoomInteractive) return false;
+    try { return findInteraction() === obj; } catch (error) { return false; }
+  }
+
+  function drawHeroInteractiveHighlight(obj) {
+    if (!isHeroRoomTarget(obj)) return;
+    const pulse = 0.45 + Math.sin(performance.now() / 180) * 0.18;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255, 242, 100, ${pulse})`;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(Math.round(obj.x - 3) + 0.5, Math.round(obj.y - 3) + 0.5, obj.width + 6, obj.height + 6);
+    ctx.fillStyle = `rgba(105, 232, 255, ${0.06 + pulse * 0.05})`;
+    ctx.fillRect(Math.round(obj.x - 2), Math.round(obj.y - 2), obj.width + 4, obj.height + 4);
+    ctx.restore();
+  }
+
+  function drawHeroRoomRug(x, y, w, h, base, trim, accent) {
+    drawSoftShadow(x + 4, y + h - 3, w - 8, 5, 0.10);
+    fillPixelV2(x, y, w, h, trim);
+    fillPixelV2(x + 4, y + 4, w - 8, h - 8, base);
+    fillPixelV2(x + 10, y + 10, w - 20, h - 20, "rgba(0,0,0,0.10)");
+    fillPixelV2(x + w / 2 - 18, y + h / 2 - 3, 36, 6, accent);
+    for (let ix = x + 12; ix < x + w - 12; ix += 18) fillPixelV2(ix, y + 7, 8, 3, "rgba(255,255,255,0.14)");
+    for (let ix = x + 14; ix < x + w - 14; ix += 20) fillPixelV2(ix, y + h - 11, 7, 3, "rgba(0,0,0,0.16)");
+  }
+
+  const drawInteriorRoomBackdropBeforeHeroBedroom = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorRoomBackdropHeroBedroom(scene) {
+    drawInteriorRoomBackdropBeforeHeroBedroom(scene);
+    if (scene !== "home") return;
+
+    const state = heroRoomState();
+    for (let y = 1; y < HOME_ROWS - 1; y++) {
+      const py = y * TILE;
+      fillPixelV2(TILE, py + 14, (HOME_COLS - 2) * TILE, 2, "rgba(64, 38, 26, 0.18)");
+      if (y % 2 === 0) fillPixelV2(TILE, py + 2, (HOME_COLS - 2) * TILE, 1, "rgba(255, 230, 170, 0.06)");
+    }
+    for (let x = 2; x < HOME_COLS - 2; x += 3) {
+      const px = x * TILE + ((x % 2) ? 4 : 13);
+      fillPixelV2(px, 3 * TILE + ((x * 7) % 11), 9, 2, "rgba(255, 226, 166, 0.10)");
+      fillPixelV2(px + 5, 12 * TILE + ((x * 5) % 17), 10, 2, "rgba(71, 43, 32, 0.16)");
+    }
+
+    fillPixelV2(1 * TILE, 1 * TILE, 28 * TILE, 36, "rgba(62, 43, 34, 0.18)");
+    fillPixelV2(1 * TILE, 2 * TILE - 5, 28 * TILE, 5, "rgba(255, 240, 198, 0.12)");
+    fillPixelV2(9 * TILE, 1 * TILE, 10 * TILE, 2, "rgba(105, 232, 255, 0.12)");
+
+    drawHeroRoomRug(3 * TILE, 6 * TILE, 7 * TILE, 4 * TILE, "#8f2f37", "#5b1f27", "#e7c083");
+    drawHeroRoomRug(10 * TILE, 7 * TILE, 7 * TILE, 2 * TILE, "#355b77", "#20344a", "#c9d4e8");
+    drawHeroRoomRug(9 * TILE, 14 * TILE, 9 * TILE, 3 * TILE, "#8a342d", "#5d241f", "#d3a88b");
+    drawHeroRoomRug(21 * TILE, 11 * TILE, 7 * TILE, 3 * TILE, "#5b416e", "#392748", "#e1d5f0");
+
+    fillPixelV2(2 * TILE, 2 * TILE, 8 * TILE, 5 * TILE, "rgba(255, 221, 160, 0.055)");
+    fillPixelV2(11 * TILE, 2 * TILE, 8 * TILE, 5 * TILE, "rgba(120, 210, 255, 0.045)");
+    fillPixelV2(20 * TILE, 3 * TILE, 8 * TILE, 10 * TILE, "rgba(255, 242, 100, 0.035)");
+    fillPixelV2(13 * TILE, 15 * TILE, 4 * TILE, 2 * TILE, "rgba(255, 242, 100, 0.06)");
+
+    if (!state.lightsOn) fillPixelV2(camera.x, camera.y, canvas.width, canvas.height, "rgba(12, 8, 18, 0.18)");
+  };
+
+  const drawFurnitureBeforeHeroBedroom = drawFurniture;
+  drawFurniture = function drawFurnitureHeroBedroom(obj) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    const h = obj.height;
+    const state = heroRoomState();
+    const warm = state.lightsOn ? 1 : 0.45;
+    const glow = 0.8 + Math.sin(performance.now() / 260) * 0.12;
+
+    function finish() {
+      drawHeroInteractiveHighlight(obj);
+    }
+
+    if (obj.kind === "heroBed") {
+      drawSoftShadow(x + 6, y + h - 4, w - 12, 7, 0.22);
+      outlinePixelV2(x + 2, y + 8, w - 4, h - 12, "#4a2f2b");
+      fillPixelV2(x + 8, y + 12, w - 16, 12, "#fff2cf");
+      fillPixelV2(x + 8, y + 26, w - 16, h - 34, "#1d4e89");
+      fillPixelV2(x + 11, y + 29, w - 22, 8, "#2f7fc2");
+      fillPixelV2(x + 14, y + 15, 20, 7, "#fffaf0");
+      fillPixelV2(x + w - 36, y + 15, 20, 7, "#eee5d4");
+      fillPixelV2(x + 12, y + h - 12, w - 24, 4, "#f2c96e");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroNightstand") {
+      drawSoftShadow(x + 5, y + h - 4, w - 10, 5, 0.16);
+      outlinePixelV2(x + 5, y + 10, w - 10, h - 12, "#5a3827");
+      fillPixelV2(x + 9, y + 14, w - 18, h - 20, "#9a6242");
+      fillPixelV2(x + w / 2 - 2, y + 18, 4, 4, "#f2c96e");
+      fillPixelV2(x + 11, y + 7, 7, 5, `rgba(255, 230, 140, ${0.7 * warm})`);
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroBookshelf") {
+      drawSoftShadow(x + 4, y + h - 4, w - 8, 7, 0.20);
+      outlinePixelV2(x + 2, y + 2, w - 4, h - 4, "#543723");
+      fillPixelV2(x + 6, y + 6, w - 12, h - 12, "#7c5033");
+      for (let row = 0; row < 3; row++) {
+        const sy = y + 10 + row * 23;
+        fillPixelV2(x + 8, sy + 14, w - 16, 3, "#3f281f");
+        const colors = ["#69e4ff", "#d24c63", "#fff264", "#7fe38a", "#b685ff", "#f2c96e"];
+        for (let i = 0; i < 6; i++) fillPixelV2(x + 10 + i * 7, sy, 5, 13, colors[(i + row) % colors.length]);
+      }
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroDaybed") {
+      drawSoftShadow(x + 6, y + h - 5, w - 12, 7, 0.18);
+      outlinePixelV2(x + 2, y + 10, w - 4, h - 14, "#5d3329");
+      fillPixelV2(x + 8, y + 14, w - 16, h - 24, "#9f6040");
+      fillPixelV2(x + 12, y + 18, w - 24, h - 32, "#8a342d");
+      fillPixelV2(x + w - 26, y + 18, 14, h - 32, "#f0e6d2");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroPersonalChest") {
+      drawSoftShadow(x + 5, y + h - 4, w - 10, 6, 0.18);
+      outlinePixelV2(x + 3, y + 8, w - 6, h - 10, "#4b3328");
+      fillPixelV2(x + 7, y + 13, w - 14, h - 18, "#8c5638");
+      fillPixelV2(x + 7, y + 7, w - 14, 9, "#2f3f63");
+      fillPixelV2(x + w / 2 - 5, y + 15, 10, 7, "#f2c96e");
+      fillPixelV2(x + 12, y + 18, w - 24, 3, "rgba(255,255,255,0.12)");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroWorkDesk" || obj.kind === "heroCraftingTable") {
+      drawSoftShadow(x + 7, y + h - 4, w - 14, 6, 0.18);
+      outlinePixelV2(x + 2, y + 10, w - 4, h - 12, "#5d3a27");
+      fillPixelV2(x + 8, y + 14, w - 16, 13, "#a66a43");
+      fillPixelV2(x + 16, y + 17, 23, 10, "#efe0bb");
+      fillPixelV2(x + 44, y + 15, 9, 11, "#b685ff");
+      fillPixelV2(x + w - 24, y + 15, 10, 10, "#69e4ff");
+      fillPixelV2(x + w - 22, y + 10, 5, 5, `rgba(255,242,100,${0.8 * warm})`);
+      if (obj.kind === "heroCraftingTable") {
+        fillPixelV2(x + 58, y + 31, 22, 5, "#8b8f9c");
+        fillPixelV2(x + 62, y + 27, 12, 5, "#f2c96e");
+      }
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroChair") {
+      drawSoftShadow(x + 7, y + h - 5, w - 14, 5, 0.16);
+      outlinePixelV2(x + 7, y + 8, w - 14, 14, "#5d3a27");
+      fillPixelV2(x + 10, y + 11, w - 20, 8, "#c08255");
+      fillPixelV2(x + 12, y + 20, 3, 7, "#5d3a27");
+      fillPixelV2(x + w - 15, y + 20, 3, 7, "#5d3a27");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroMirror") {
+      outlinePixelV2(x + 9, y + 4, w - 18, h - 8, "#4b365f");
+      fillPixelV2(x + 13, y + 8, w - 26, h - 16, "#a8e3ff");
+      fillPixelV2(x + 17, y + 12, 9, h - 25, "rgba(255,255,255,0.32)");
+      fillPixelV2(x + w - 24, y + 10, 8, 8, `rgba(105,232,255,${0.24 * glow})`);
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroMapBoard") {
+      outlinePixelV2(x + 2, y + 6, w - 4, h - 12, "#4f3427");
+      fillPixelV2(x + 8, y + 11, w - 16, h - 22, "#d8be89");
+      fillPixelV2(x + 14, y + 18, 30, 8, "#7fe38a");
+      fillPixelV2(x + 50, y + 20, 24, 8, "#ff7c5c");
+      fillPixelV2(x + 80, y + 17, 26, 11, "#69e4ff");
+      fillPixelV2(x + w / 2 - 3, y + h / 2 - 3, 6, 6, "#6a54d7");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroWeaponRack") {
+      drawSoftShadow(x + 5, y + h - 5, w - 10, 5, 0.18);
+      outlinePixelV2(x + 4, y + 8, w - 8, h - 12, "#4b3328");
+      fillPixelV2(x + 9, y + 13, w - 18, h - 22, "#7c5033");
+      fillPixelV2(x + 18, y + 18, 5, h - 35, "#c7d8ea");
+      fillPixelV2(x + 16, y + 14, 9, 6, "#f2c96e");
+      fillPixelV2(x + 38, y + 18, 5, h - 35, "#69e4ff");
+      fillPixelV2(x + 35, y + 15, 11, 5, "#2f3f63");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroArmorStand") {
+      drawSoftShadow(x + 5, y + h - 5, w - 10, 5, 0.18);
+      fillPixelV2(x + w / 2 - 2, y + 12, 4, h - 14, "#5d3a27");
+      outlinePixelV2(x + 6, y + 14, w - 12, 25, "#2f3f63");
+      fillPixelV2(x + 9, y + 17, w - 18, 18, "#3f8fe5");
+      fillPixelV2(x + 12, y + 19, w - 24, 4, "#f2c96e");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroWardrobe" || obj.kind === "heroStorageCabinet") {
+      drawSoftShadow(x + 5, y + h - 5, w - 10, 7, 0.20);
+      outlinePixelV2(x + 2, y + 2, w - 4, h - 4, "#4b3328");
+      fillPixelV2(x + 7, y + 7, w - 14, h - 14, "#7c5033");
+      fillPixelV2(x + w / 2 - 2, y + 8, 4, h - 16, "#3f281f");
+      fillPixelV2(x + 12, y + h / 2, 4, 5, "#f2c96e");
+      fillPixelV2(x + w - 16, y + h / 2, 4, 5, "#f2c96e");
+      if (obj.kind === "heroStorageCabinet") fillPixelV2(x + 10, y + 12, w - 20, 4, "rgba(255,255,255,0.10)");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroCrate") {
+      drawSoftShadow(x + 5, y + h - 4, w - 10, 5, 0.15);
+      outlinePixelV2(x + 4, y + 8, w - 8, h - 12, "#5d3a27");
+      fillPixelV2(x + 8, y + 12, w - 16, h - 20, "#a66a43");
+      fillPixelV2(x + 12, y + 16, w - 24, 3, "#6c432e");
+      fillPixelV2(x + w / 2 - 2, y + 12, 4, h - 20, "#6c432e");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroWallShelf") {
+      outlinePixelV2(x + 4, y + 12, w - 8, 12, "#5d3a27");
+      fillPixelV2(x + 9, y + 9, 8, 8, "#69e4ff");
+      fillPixelV2(x + 25, y + 8, 7, 10, "#d24c63");
+      fillPixelV2(x + 43, y + 7, 9, 11, "#f2c96e");
+      fillPixelV2(x + 62, y + 8, 8, 9, "#7fe38a");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroTrophy") {
+      outlinePixelV2(x + 12, y + 8, w - 24, h - 14, "#5d3a27");
+      fillPixelV2(x + w / 2 - 8, y + 10, 16, 12, "#f2c96e");
+      fillPixelV2(x + w / 2 - 4, y + 22, 8, 8, "#c98a3e");
+      fillPixelV2(x + w / 2 - 12, y + 30, 24, 4, "#5d3a27");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroScrollPile") {
+      drawSoftShadow(x + 8, y + h - 5, w - 16, 4, 0.10);
+      fillPixelV2(x + 9, y + 13, 28, 7, "#e8d6ad");
+      fillPixelV2(x + 13, y + 22, 34, 7, "#f3e3bf");
+      fillPixelV2(x + 42, y + 15, 16, 8, "#c9b082");
+      fillPixelV2(x + 19, y + 14, 3, 5, "#8b5e3c");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroPlant") {
+      drawSoftShadow(x + 8, y + h - 4, 16, 5, 0.14);
+      outlinePixelV2(x + 8, y + h - 14, 16, 12, "#7e4c3a");
+      fillPixelV2(x + 10, y + h - 12, 12, 8, "#a8634a");
+      fillPixelV2(x + 15, y + 8, 4, h - 24, "#41744c");
+      fillPixelV2(x + 8, y + 6, 12, 10, "#71b77f");
+      fillPixelV2(x + 16, y + 2, 12, 10, "#8ad08a");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroCandleRow" || obj.kind === "heroWallLamp") {
+      const alpha = state.lightsOn ? 0.18 * glow : 0.05;
+      fillPixelV2(x + 5, y + 4, w - 10, h - 8, `rgba(255,214,120,${alpha})`);
+      for (let i = 0; i < Math.max(1, Math.floor(w / 22)); i++) {
+        const cx = x + 9 + i * 18;
+        outlinePixelV2(cx, y + 12, 7, 12, "#6f4a33");
+        fillPixelV2(cx + 2, y + 9, 3, 5, state.lightsOn ? "#fff3c8" : "#6d5038");
+      }
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroWindow" || obj.kind === "heroWindowWide") {
+      outlinePixelV2(x + 4, y + 5, w - 8, h - 10, "#5c3d2c");
+      fillPixelV2(x + 8, y + 9, w - 16, h - 18, "#73b8e8");
+      fillPixelV2(x + w / 2 - 2, y + 7, 4, h - 14, "#5c3d2c");
+      fillPixelV2(x + 7, y + h / 2, w - 14, 3, "#5c3d2c");
+      fillPixelV2(x + 12, y + 12, 10, 4, "rgba(255,255,255,0.32)");
+      finish();
+      return;
+    }
+
+    if (obj.kind === "heroFloorPlaque") {
+      fillPixelV2(x + 6, y + 10, w - 12, 10, "rgba(39,48,82,0.55)");
+      fillPixelV2(x + w / 2 - 26, y + 13, 52, 3, "#f2c96e");
+      finish();
+      return;
+    }
+
+    drawFurnitureBeforeHeroBedroom(obj);
+    finish();
+  };
+
+  const getQuestMessageBeforeHeroBedroom = getQuestMessage;
+  getQuestMessage = function getQuestMessageHeroBedroom(obj) {
+    if (obj?.type === "furniture" && obj.homeHeroRoomInteractive) {
+      try { return handleHeroRoomAction(obj); }
+      catch (error) { return obj.message || "Voce interagiu com o quarto do heroi."; }
+    }
+    return getQuestMessageBeforeHeroBedroom(obj);
+  };
+
+  const updateInteractionHintBeforeHeroBedroom = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintHeroBedroom() {
+    updateInteractionHintBeforeHeroBedroom();
+    try {
+      const target = findInteraction();
+      if (!target?.homeHeroRoomInteractive || dialogOpen || shopOpen) return;
+      const label = HERO_ROOM_ACTION_LABELS[target.heroRoomAction || target.homeAction] || "interagir";
+      interactionHint.textContent = `Pressione E para ${label}`;
+      if (touchContextLabel) touchContextLabel.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+    } catch (error) {}
+  };
+
+  const setActiveSceneBeforeHeroBedroom = setActiveScene;
+  setActiveScene = function setActiveSceneHeroBedroom(scene) {
+    const result = setActiveSceneBeforeHeroBedroom(scene);
+    if (currentScene === "home") refreshHeroBedroomScene();
+    return result;
+  };
+
+  rebuildHeroBedroom();
+})();
+
+/* ==================================================
+   ETERNAL RIFT INVENTORY REWORK - ANALYSIS
+   ETERNAL RIFT INVENTORY REWORK - NEW UI
+   ETERNAL RIFT INVENTORY REWORK - DATA ADAPTER
+   ETERNAL RIFT INVENTORY REWORK - EQUIPMENT
+   ETERNAL RIFT INVENTORY REWORK - CONSUMABLES
+   ETERNAL RIFT INVENTORY REWORK - HOTBAR INTEGRATION
+   ETERNAL RIFT INVENTORY REWORK - MOBILE
+   ETERNAL RIFT INVENTORY REWORK - OLD INVENTORY COMPATIBILITY
+   ETERNAL RIFT INVENTORY REWORK - OPEN CLOSE SAFE
+   ETERNAL RIFT INVENTORY REWORK - RARITY ICONS
+   ETERNAL RIFT INVENTORY REWORK - SORT FILTER
+   ETERNAL RIFT INVENTORY REWORK - SAVE MIGRATION
+   ETERNAL RIFT INVENTORY REWORK - PERFORMANCE
+   ================================================== */
+(function eternalRiftInventoryReworkFinalPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_INVENTORY_REWORK_FINAL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_INVENTORY_REWORK_FINAL_PATCH = true;
+
+  const INVENTORY_REWORK_TABS = [
+    { id: "all", label: "Todos" },
+    { id: "armas", label: "Armas" },
+    { id: "armaduras", label: "Armaduras" },
+    { id: "acessorios", label: "Acessorios" },
+    { id: "consumiveis", label: "Consumiveis" },
+    { id: "materiais", label: "Materiais" },
+    { id: "missao", label: "Missao" },
+    { id: "raros", label: "Raros/Lendarios" }
+  ];
+
+  const INVENTORY_REWORK_SORTS = [
+    { id: "rarity", label: "Raridade" },
+    { id: "name", label: "Nome" },
+    { id: "type", label: "Tipo" },
+    { id: "quantity", label: "Quantidade" }
+  ];
+
+  const rarityRank = { comum: 1, raro: 2, epico: 3, lendario: 4 };
+  const rawInventoryGetterBeforeRework = typeof getInventoryItems === "function" ? getInventoryItems : null;
+  const renderInventoryBeforeRework = typeof renderInventory === "function" ? renderInventory : null;
+  const toggleInventoryBeforeRework = typeof toggleInventory === "function" ? toggleInventory : null;
+  const saveGameBeforeInventoryRework = typeof saveGame === "function" ? saveGame : null;
+  const loadGameBeforeInventoryRework = typeof loadGame === "function" ? loadGame : null;
+
+  let reworkLastItems = [];
+
+  function stripText(value) {
+    return String(value ?? "");
+  }
+
+  function normalizeSearch(value) {
+    return stripText(value)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  function slugify(value) {
+    return normalizeSearch(value).replace(/\s+/g, "-") || "item";
+  }
+
+  function escapeInventoryHtml(value) {
+    return stripText(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function normalizeInventoryRarity(value) {
+    const normalized = normalizeSearch(value);
+    if (normalized.includes("lend")) return "lendario";
+    if (normalized.includes("epic")) return "epico";
+    if (normalized.includes("rar")) return "raro";
+    return "comum";
+  }
+
+  function reworkRarityLabel(value) {
+    if (typeof formatRarity === "function") {
+      try { return formatRarity(value); } catch (error) {}
+    }
+    const rarity = normalizeInventoryRarity(value);
+    return rarity === "lendario" ? "Lendario" : rarity === "epico" ? "Epico" : rarity === "raro" ? "Raro" : "Comum";
+  }
+
+  function normalizeInventoryCategory(value) {
+    const normalized = normalizeSearch(value);
+    if (normalized.includes("arma") || normalized.includes("weapon")) return "armas";
+    if (normalized.includes("armadura") || normalized.includes("armor")) return "armaduras";
+    if (normalized.includes("acessor") || normalized.includes("anel") || normalized.includes("amuleto") || normalized.includes("bota") || normalized.includes("capa") || normalized.includes("boots") || normalized.includes("ring")) return "acessorios";
+    if (normalized.includes("consum") || normalized.includes("poc") || normalized.includes("food") || normalized.includes("comida")) return "consumiveis";
+    if (normalized.includes("material") || normalized.includes("recurso") || normalized.includes("resource") || normalized.includes("minerio") || normalized.includes("cristal") || normalized.includes("fragmento") || normalized.includes("ore")) return "materiais";
+    if (normalized.includes("miss") || normalized.includes("quest") || normalized.includes("carta") || normalized.includes("chave") || normalized.includes("key")) return "missao";
+    if (normalized.includes("raro") || normalized.includes("epico") || normalized.includes("lend")) return "raros";
+    return "all";
+  }
+
+  function itemDefForRework(item) {
+    try {
+      if (typeof window !== "undefined" && typeof window.getCustomItemDef === "function") {
+        return window.getCustomItemDef(item?.customItemName || item?.name || "") || null;
+      }
+    } catch (error) {}
+    return null;
+  }
+
+  function detectGearSlot(item, def) {
+    const explicit = item?.slot || item?.gearSlot || def?.slot || "";
+    if (explicit) return String(explicit);
+    const packed = normalizeSearch(`${item?.name || ""} ${item?.typeLabel || ""} ${item?.category || ""}`);
+    if (packed.includes("armadura") || packed.includes("armor")) return "armor";
+    if (packed.includes("bota") || packed.includes("boots") || packed.includes("asas")) return "boots";
+    if (packed.includes("anel") || packed.includes("ring")) return "ring";
+    if (packed.includes("amuleto") || packed.includes("pingente") || packed.includes("charm")) return "charm";
+    if (packed.includes("capa") || packed.includes("cape")) return "cape";
+    if (packed.includes("trofeu") || packed.includes("reliquia") || packed.includes("especial")) return "special";
+    return "";
+  }
+
+  function detectItemKind(item, category) {
+    const packed = normalizeSearch(`${item?.name || ""} ${item?.typeLabel || ""} ${item?.category || ""}`);
+    if (category === "armas" || packed.includes("espada") || packed.includes("lanca") || packed.includes("arco") || packed.includes("cajado")) return "weapon";
+    if (category === "armaduras" || category === "acessorios") return "gear";
+    if (category === "consumiveis" || packed.includes("poc")) return "potion";
+    if (packed.includes("moeda") || packed.includes("ouro")) return "coin";
+    if (packed.includes("chave")) return "key";
+    if (packed.includes("pergaminho") || packed.includes("carta") || packed.includes("mapa")) return "scroll";
+    if (category === "materiais" || packed.includes("cristal") || packed.includes("fragmento") || packed.includes("orbe")) return "crystal";
+    return "magic";
+  }
+
+  function normalizeUnifiedInventoryItem(item, index) {
+    const def = itemDefForRework(item);
+    const rarity = normalizeInventoryRarity(def?.rarity || item?.rarity);
+    const gearSlot = detectGearSlot(item, def);
+    const rawCategory = def?.category || item?.category || item?.typeLabel || "";
+    let category = normalizeInventoryCategory(rawCategory);
+    if (gearSlot === "armor") category = "armaduras";
+    else if (gearSlot) category = "acessorios";
+    if (item?.weaponKey || item?.action === "equipWeapon") category = "armas";
+    if (item?.action === "usePotion") category = "consumiveis";
+    const name = stripText(item?.name || def?.name || "Item");
+    const id = stripText(item?.id || `${category}-${slugify(name)}-${index}`);
+    const quantity = Math.max(1, Number(item?.quantity ?? item?.amount ?? 1) || 1);
+    const customAction = def?.actionType || "";
+    const canUse = item?.action === "usePotion" || item?.action === "useCustomItem" || item?.customUsable || customAction === "consumable" || customAction === "buff";
+    const canEquip = item?.action === "equipWeapon" || item?.action === "equipPower" || customAction === "weapon" || customAction === "gear" || Boolean(item?.weaponKey || item?.powerKey || gearSlot);
+    const gear = inventory?.equippedCustomItems || {};
+    const isEquippedWeapon = Boolean(item?.weaponKey && typeof getCurrentWeaponKey === "function" && item.weaponKey === getCurrentWeaponKey());
+    const isEquippedPower = Boolean(item?.powerKey && item.powerKey === equippedPower);
+    const equippedGearName = gearSlot ? gear[gearSlot] || (gearSlot === "ring" ? gear.accessory : "") || (gearSlot === "charm" ? gear.charm : "") : "";
+    const isEquippedGear = Boolean(gearSlot && normalizeSearch(equippedGearName) === normalizeSearch(name));
+
+    return {
+      ...item,
+      id,
+      name,
+      icon: stripText(def?.icon || item?.icon || name.charAt(0) || "I").slice(0, 3),
+      quantity,
+      category,
+      rarity,
+      typeLabel: stripText(def?.typeLabel || item?.typeLabel || (category === "all" ? "Item" : category)),
+      description: stripText(def?.description || item?.description || "Item guardado no inventario do heroi."),
+      effect: stripText(def?.effect || item?.effect || ""),
+      action: item?.action || "",
+      actionLabel: stripText(def?.actionLabel || item?.actionLabel || ""),
+      customItemName: item?.customItemName || name,
+      customUsable: Boolean(item?.customUsable || customAction),
+      gearSlot,
+      canUse,
+      canEquip,
+      hotbarEligible: category !== "missao",
+      equipped: isEquippedWeapon || isEquippedPower || isEquippedGear,
+      kind: detectItemKind(item, category),
+      searchText: normalizeSearch(`${name} ${category} ${item?.typeLabel || ""} ${item?.description || ""} ${item?.effect || ""}`)
+    };
+  }
+
+  // ETERNAL RIFT INVENTORY REWORK - SAVE MIGRATION
+  function normalizeInventoryReworkSaveState() {
+    if (typeof questBook !== "undefined") {
+      if (!questBook.inventoryRework || typeof questBook.inventoryRework !== "object" || Array.isArray(questBook.inventoryRework)) {
+        questBook.inventoryRework = {};
+      }
+      const state = questBook.inventoryRework;
+      if (!state.hotbar || typeof state.hotbar !== "object" || Array.isArray(state.hotbar)) state.hotbar = {};
+      if (!INVENTORY_REWORK_TABS.some((tab) => tab.id === state.tab)) state.tab = normalizeInventoryCategory(typeof inventoryTab !== "undefined" ? inventoryTab : "all");
+      if (!INVENTORY_REWORK_SORTS.some((sort) => sort.id === state.sort)) state.sort = "rarity";
+      if (typeof state.search !== "string") state.search = "";
+      if (typeof state.selectedId !== "string") state.selectedId = "";
+    }
+
+    if (typeof inventory !== "undefined") {
+      if (!inventory.equippedCustomItems || typeof inventory.equippedCustomItems !== "object" || Array.isArray(inventory.equippedCustomItems)) {
+        inventory.equippedCustomItems = {};
+      }
+      for (const slot of ["armor", "accessory", "boots", "charm", "ring", "amulet", "cape", "special"]) {
+        if (typeof inventory.equippedCustomItems[slot] !== "string") inventory.equippedCustomItems[slot] = "";
+      }
+    }
+    return questBook?.inventoryRework || { hotbar: {}, tab: "all", sort: "rarity", search: "", selectedId: "" };
+  }
+
+  if (typeof window !== "undefined") window.normalizeInventoryReworkSaveState = normalizeInventoryReworkSaveState;
+
+  // ETERNAL RIFT INVENTORY REWORK - DATA ADAPTER
+  function getUnifiedInventoryItems() {
+    normalizeInventoryReworkSaveState();
+    let rawItems = [];
+    try {
+      rawItems = rawInventoryGetterBeforeRework ? rawInventoryGetterBeforeRework() : [];
+    } catch (error) {
+      rawItems = [];
+      try { showErrorMessage?.(error); } catch (innerError) {}
+    }
+    if (!Array.isArray(rawItems)) rawItems = [];
+    return rawItems.map(normalizeUnifiedInventoryItem);
+  }
+
+  if (typeof window !== "undefined") window.getUnifiedInventoryItems = getUnifiedInventoryItems;
+
+  function stateRework() {
+    return normalizeInventoryReworkSaveState();
+  }
+
+  function syncReworkTabFromLegacyTab() {
+    if (typeof inventoryTab === "undefined") return;
+    const state = stateRework();
+    const legacy = normalizeInventoryCategory(inventoryTab);
+    if (INVENTORY_REWORK_TABS.some((tab) => tab.id === legacy)) state.tab = legacy;
+  }
+
+  function panelRework() {
+    return inventoryPanel || document.getElementById("inventoryPanel");
+  }
+
+  function ensureInventoryReworkShell() {
+    const panel = panelRework();
+    if (!panel) return null;
+    panel.classList.add("er-inventory-rework-active");
+    panel.setAttribute("aria-label", "Inventario do Aventureiro");
+
+    let root = document.getElementById("erInventoryReworkRoot");
+    if (root) return root;
+
+    root = document.createElement("div");
+    root.id = "erInventoryReworkRoot";
+    root.className = "er-inv-root";
+    root.innerHTML = `
+      <div class="er-inv-frame" role="document">
+        <div class="er-inv-glow" aria-hidden="true"></div>
+        <header class="er-inv-top">
+          <div class="er-inv-title-block">
+            <p class="er-inv-eyebrow">Eternal Rift</p>
+            <h2>Inventario do Aventureiro</h2>
+            <span id="erInventorySubtitle">Equipamentos, tesouros e recursos do heroi.</span>
+          </div>
+          <div id="erInventorySummary" class="er-inv-summary" aria-live="polite"></div>
+          <button id="erInventoryClose" class="er-inv-close" type="button">Fechar</button>
+        </header>
+
+        <nav id="erInventoryTabs" class="er-inv-tabs" aria-label="Categorias do inventario">
+          ${INVENTORY_REWORK_TABS.map((tab) => `<button type="button" data-er-inv-tab="${tab.id}">${tab.label}</button>`).join("")}
+        </nav>
+
+        <div class="er-inv-controls">
+          <label class="er-inv-search">
+            <span>Buscar</span>
+            <input id="erInventorySearch" type="search" autocomplete="off" spellcheck="false" placeholder="Nome, tipo ou efeito">
+          </label>
+          <label class="er-inv-sort">
+            <span>Ordenar</span>
+            <select id="erInventorySort">
+              ${INVENTORY_REWORK_SORTS.map((sort) => `<option value="${sort.id}">${sort.label}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+
+        <section class="er-inv-body">
+          <aside class="er-inv-character">
+            <div class="er-inv-portrait" aria-hidden="true">
+              <div class="er-inv-portrait-aura"></div>
+              <div class="er-inv-portrait-hero">
+                <span class="er-hero-head"></span>
+                <span class="er-hero-body"></span>
+                <span class="er-hero-blade"></span>
+              </div>
+            </div>
+            <div id="erInventoryEquipment" class="er-inv-equipment"></div>
+          </aside>
+
+          <main class="er-inv-bag">
+            <div id="erInventoryGridNew" class="er-inv-grid" aria-label="Itens do inventario"></div>
+            <p id="erInventoryEmptyNew" class="er-inv-empty hidden">Nada encontrado nesta categoria.</p>
+          </main>
+
+          <aside id="erInventoryDetail" class="er-inv-detail" aria-live="polite"></aside>
+        </section>
+      </div>
+    `;
+    panel.insertBefore(root, panel.firstChild);
+    bindInventoryReworkEvents(panel);
+    return root;
+  }
+
+  function bindInventoryReworkEvents(panel) {
+    if (!panel || panel.dataset.erInventoryReworkBound === "true") return;
+    panel.dataset.erInventoryReworkBound = "true";
+
+    panel.addEventListener("click", (event) => {
+      const closeButton = event.target.closest?.("#erInventoryClose, [data-er-inv-action='close']");
+      if (closeButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleInventory?.(false);
+        return;
+      }
+
+      const tabButton = event.target.closest?.("[data-er-inv-tab]");
+      if (tabButton) {
+        event.preventDefault();
+        const state = stateRework();
+        state.tab = tabButton.dataset.erInvTab || "all";
+        if (typeof inventoryTab !== "undefined") inventoryTab = state.tab === "armaduras" || state.tab === "acessorios" ? "raros" : state.tab;
+        state.selectedId = "";
+        if (typeof selectedInventoryItemId !== "undefined") selectedInventoryItemId = "";
+        renderInventoryRework();
+        try { playSound?.("selectItem"); } catch (error) {}
+        return;
+      }
+
+      const slotButton = event.target.closest?.("[data-er-inv-item]");
+      if (slotButton) {
+        event.preventDefault();
+        const state = stateRework();
+        state.selectedId = slotButton.dataset.erInvItem || "";
+        if (typeof selectedInventoryItemId !== "undefined") selectedInventoryItemId = state.selectedId;
+        renderInventoryRework();
+        try { playSound?.("selectItem"); } catch (error) {}
+        return;
+      }
+
+      const actionButton = event.target.closest?.("[data-er-inv-action]");
+      if (actionButton) {
+        event.preventDefault();
+        const item = reworkLastItems.find((entry) => entry.id === actionButton.dataset.itemId) || selectedReworkItem();
+        handleInventoryReworkAction(actionButton.dataset.erInvAction, item, actionButton);
+      }
+    });
+
+    panel.addEventListener("input", (event) => {
+      if (event.target?.id !== "erInventorySearch") return;
+      const state = stateRework();
+      state.search = event.target.value || "";
+      state.selectedId = "";
+      renderInventoryRework();
+    });
+
+    panel.addEventListener("change", (event) => {
+      if (event.target?.id !== "erInventorySort") return;
+      const state = stateRework();
+      state.sort = event.target.value || "rarity";
+      renderInventoryRework();
+    });
+  }
+
+  function filterReworkItems(items, state) {
+    const tab = state.tab || "all";
+    const search = normalizeSearch(state.search || "");
+    let filtered = items;
+    if (tab === "raros") {
+      filtered = filtered.filter((item) => rarityRank[item.rarity] >= 2 || item.category === "raros");
+    } else if (tab !== "all") {
+      filtered = filtered.filter((item) => item.category === tab);
+    }
+    if (search) {
+      filtered = filtered.filter((item) => item.searchText.includes(search));
+    }
+
+    const sort = state.sort || "rarity";
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      if (sort === "quantity") return (b.quantity - a.quantity) || a.name.localeCompare(b.name);
+      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "type") return `${a.category} ${a.name}`.localeCompare(`${b.category} ${b.name}`);
+      return ((rarityRank[b.rarity] || 0) - (rarityRank[a.rarity] || 0)) || a.name.localeCompare(b.name);
+    });
+    return sorted;
+  }
+
+  function selectedReworkItem() {
+    const state = stateRework();
+    return reworkLastItems.find((item) => item.id === state.selectedId) || reworkLastItems[0] || null;
+  }
+
+  function syncReworkControls(root, state, total, shown) {
+    root.querySelectorAll("[data-er-inv-tab]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.erInvTab === state.tab);
+    });
+    const searchInput = root.querySelector("#erInventorySearch");
+    if (searchInput && document.activeElement !== searchInput) searchInput.value = state.search || "";
+    const sortSelect = root.querySelector("#erInventorySort");
+    if (sortSelect) sortSelect.value = state.sort || "rarity";
+    const summary = root.querySelector("#erInventorySummary");
+    if (summary) {
+      const rareCount = reworkLastItems.filter((item) => rarityRank[item.rarity] >= 3).length;
+      summary.innerHTML = `
+        <span><strong>${shown}</strong> visiveis</span>
+        <span><strong>${total}</strong> itens</span>
+        <span><strong>${rareCount}</strong> raros+</span>
+      `;
+    }
+  }
+
+  // ETERNAL RIFT INVENTORY REWORK - RARITY ICONS
+  function itemIconReworkHtml(item) {
+    try {
+      if (typeof window !== "undefined" && typeof window.getInventoryItemIcon === "function") {
+        return window.getInventoryItemIcon(item);
+      }
+    } catch (error) {}
+    return `
+      <span class="er-inv-icon er-kind-${escapeInventoryHtml(item.kind)} rarity-${escapeInventoryHtml(item.rarity)}">
+        <span class="er-inv-fallback-gem"></span>
+      </span>
+    `;
+  }
+
+  function renderReworkGrid(root, items, state) {
+    const grid = root.querySelector("#erInventoryGridNew");
+    const empty = root.querySelector("#erInventoryEmptyNew");
+    if (!grid) return;
+    const slotCount = Math.max(40, items.length);
+    const parts = [];
+    for (let index = 0; index < slotCount; index += 1) {
+      const item = items[index];
+      if (!item) {
+        parts.push(`<button class="er-inv-slot is-empty" type="button" disabled aria-label="Slot vazio"></button>`);
+        continue;
+      }
+      parts.push(`
+        <button class="er-inv-slot rarity-${escapeInventoryHtml(item.rarity)}${item.id === state.selectedId ? " is-selected" : ""}${item.equipped ? " is-equipped" : ""}" type="button" data-er-inv-item="${escapeInventoryHtml(item.id)}" aria-label="${escapeInventoryHtml(item.name)}">
+          ${itemIconReworkHtml(item)}
+          ${item.quantity > 1 ? `<span class="er-inv-qty">${escapeInventoryHtml(item.quantity)}</span>` : ""}
+          ${item.equipped ? `<span class="er-inv-equipped-mark">E</span>` : ""}
+        </button>
+      `);
+    }
+    grid.innerHTML = parts.join("");
+    if (empty) {
+      empty.classList.toggle("hidden", items.length > 0);
+      empty.textContent = reworkLastItems.length ? "Nada encontrado nesta categoria." : "Sua bolsa esta vazia.";
+    }
+  }
+
+  function getGearValueForRework(slot) {
+    const gear = inventory?.equippedCustomItems || {};
+    if (slot === "weapon") {
+      try {
+        const key = typeof getCurrentWeaponKey === "function" ? getCurrentWeaponKey() : player?.equippedWeaponKey;
+        if (key === "unarmed") return "Nenhuma";
+        return (typeof getCurrentWeapon === "function" ? getCurrentWeapon()?.name : weapons?.[key]?.name) || "Espada";
+      } catch (error) {
+        return "Espada";
+      }
+    }
+    if (slot === "armor") return gear.armor || "Vazio";
+    if (slot === "boots") return gear.boots || "Vazio";
+    if (slot === "ring") return gear.ring || (normalizeSearch(gear.accessory).includes("anel") ? gear.accessory : "Vazio");
+    if (slot === "amulet") return gear.amulet || (gear.charm || (normalizeSearch(gear.accessory).includes("amuleto") ? gear.accessory : "")) || "Vazio";
+    if (slot === "cape") return gear.cape || (normalizeSearch(gear.accessory).includes("capa") ? gear.accessory : "") || (normalizeSearch(gear.boots).includes("asa") ? gear.boots : "") || "Vazio";
+    if (slot === "special") return gear.special || powerNames?.[equippedPower] || "Poder Q";
+    return "Vazio";
+  }
+
+  // ETERNAL RIFT INVENTORY REWORK - EQUIPMENT
+  function renderReworkEquipment(root) {
+    const box = root.querySelector("#erInventoryEquipment");
+    if (!box) return;
+    const slots = [
+      ["weapon", "Arma"],
+      ["armor", "Armadura"],
+      ["boots", "Bota"],
+      ["ring", "Anel"],
+      ["amulet", "Amuleto"],
+      ["cape", "Capa"],
+      ["special", "Especial"]
+    ];
+    box.innerHTML = `
+      <h3>Equipado</h3>
+      <div class="er-inv-equipment-grid">
+        ${slots.map(([slot, label]) => `
+          <div class="er-equip-slot er-equip-${slot}">
+            <span>${label}</span>
+            <strong>${escapeInventoryHtml(getGearValueForRework(slot))}</strong>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function isCustomGearEquipped(item) {
+    if (!item?.gearSlot) return false;
+    const gear = inventory?.equippedCustomItems || {};
+    const value = gear[item.gearSlot] || (item.gearSlot === "ring" ? gear.accessory : "") || (item.gearSlot === "charm" ? gear.charm : "");
+    return normalizeSearch(value) === normalizeSearch(item.name);
+  }
+
+  // ETERNAL RIFT INVENTORY REWORK - CONSUMABLES
+  function actionButtonsReworkHtml(item) {
+    if (!item) return `<button type="button" data-er-inv-action="close">Fechar</button>`;
+    const buttons = [];
+    if (item.action === "usePotion") {
+      buttons.push(`<button type="button" data-er-inv-action="usePotion" data-item-id="${escapeInventoryHtml(item.id)}">Usar</button>`);
+    }
+    if (item.action === "equipWeapon" && item.weaponKey) {
+      const equipped = typeof getCurrentWeaponKey === "function" && item.weaponKey === getCurrentWeaponKey();
+      buttons.push(`<button type="button" data-er-inv-action="${equipped ? "unequipWeapon" : "equipWeapon"}" data-item-id="${escapeInventoryHtml(item.id)}">${equipped ? "Desequipar" : "Equipar"}</button>`);
+    }
+    if (item.action === "equipPower" && item.powerKey) {
+      const equipped = item.powerKey === equippedPower;
+      buttons.push(`<button type="button" data-er-inv-action="equipPower" data-item-id="${escapeInventoryHtml(item.id)}"${equipped ? " disabled" : ""}>${equipped ? "Equipado" : "Equipar"}</button>`);
+    }
+    if (item.action === "useCustomItem" || item.customUsable) {
+      const equipped = isCustomGearEquipped(item);
+      const label = item.actionLabel || (item.gearSlot ? "Equipar" : "Usar");
+      buttons.push(`<button type="button" data-er-inv-action="useCustomItem" data-item-id="${escapeInventoryHtml(item.id)}"${equipped ? " disabled" : ""}>${equipped ? "Equipado" : escapeInventoryHtml(label)}</button>`);
+      if (equipped) buttons.push(`<button type="button" data-er-inv-action="unequipGear" data-item-id="${escapeInventoryHtml(item.id)}">Desequipar</button>`);
+    }
+    if (item.hotbarEligible) {
+      buttons.push(`<button type="button" data-er-inv-action="hotbar" data-item-id="${escapeInventoryHtml(item.id)}">Mover para hotbar</button>`);
+    }
+    buttons.push(`<button type="button" data-er-inv-action="inspect" data-item-id="${escapeInventoryHtml(item.id)}">Inspecionar</button>`);
+    buttons.push(`<button type="button" data-er-inv-action="close" data-item-id="${escapeInventoryHtml(item.id)}">Fechar</button>`);
+    return buttons.join("");
+  }
+
+  function renderReworkDetail(root, item) {
+    const detail = root.querySelector("#erInventoryDetail");
+    if (!detail) return;
+    if (!item) {
+      detail.innerHTML = `
+        <div class="er-detail-empty">
+          <h3>Bolsa vazia</h3>
+          <p>Colete moedas, pocoes, armas, armaduras, materiais e reliquias para preencher este inventario.</p>
+          <div class="er-detail-actions">${actionButtonsReworkHtml(null)}</div>
+        </div>
+      `;
+      return;
+    }
+    detail.innerHTML = `
+      <div class="er-detail-card rarity-${escapeInventoryHtml(item.rarity)}">
+        <div class="er-detail-icon-wrap">${itemIconReworkHtml(item)}</div>
+        <div>
+          <p class="er-detail-eyebrow">${escapeInventoryHtml(item.typeLabel)} | ${escapeInventoryHtml(reworkRarityLabel(item.rarity))}</p>
+          <h3>${escapeInventoryHtml(item.name)}</h3>
+          <p class="er-detail-count">Quantidade: ${escapeInventoryHtml(item.quantity)}</p>
+        </div>
+      </div>
+      <p class="er-detail-description">${escapeInventoryHtml(item.description)}</p>
+      ${item.effect ? `<p class="er-detail-effect">${escapeInventoryHtml(item.effect)}</p>` : `<p class="er-detail-effect">Sem efeito ativo configurado.</p>`}
+      <div class="er-detail-actions">${actionButtonsReworkHtml(item)}</div>
+      <div class="er-hotbar-readout">${hotbarReadoutHtml(item)}</div>
+    `;
+  }
+
+  function hotbarReadoutHtml(item) {
+    const state = stateRework();
+    const slots = [];
+    for (let index = 1; index <= 7; index += 1) {
+      const assigned = state.hotbar[String(index)];
+      const current = assigned === item?.id ? " is-current" : "";
+      slots.push(`<span class="er-hotbar-chip${current}">${index}: ${assigned ? escapeInventoryHtml(hotbarItemName(assigned)) : "Livre"}</span>`);
+    }
+    return slots.join("");
+  }
+
+  function hotbarItemName(itemId) {
+    const item = reworkLastItems.find((entry) => entry.id === itemId);
+    return item?.name || "Item";
+  }
+
+  function assignItemToHotbar(item) {
+    if (!item) return false;
+    const state = stateRework();
+    const slots = state.hotbar;
+    let slot = "";
+    for (let index = 1; index <= 7; index += 1) {
+      const key = String(index);
+      if (!slots[key] || slots[key] === item.id) {
+        slot = key;
+        break;
+      }
+    }
+    if (!slot) slot = "1";
+    slots[slot] = item.id;
+    showHudToast?.(`${item.name} marcado na hotbar ${slot}.`);
+    try { playSound?.("selectItem"); } catch (error) {}
+    return true;
+  }
+
+  function unequipGearRework(item) {
+    if (!item?.gearSlot || !inventory?.equippedCustomItems) return false;
+    const target = normalizeSearch(item.name);
+    const slots = [item.gearSlot, "accessory", "charm", "ring", "amulet", "cape", "special"];
+    for (const slot of slots) {
+      if (normalizeSearch(inventory.equippedCustomItems[slot]) === target) inventory.equippedCustomItems[slot] = "";
+    }
+    showHudToast?.(`${item.name} desequipado.`);
+    try { playSound?.("equipItem"); } catch (error) {}
+    updateHud?.(true);
+    return true;
+  }
+
+  // ETERNAL RIFT INVENTORY REWORK - HOTBAR INTEGRATION
+  function handleInventoryReworkAction(action, item, button) {
+    if (!action) return;
+    if (action === "inspect") {
+      showInfo?.(item?.name || "Item", `${item?.description || "Item do inventario."}${item?.effect ? "\n\nEfeito: " + item.effect : ""}`);
+      try { playSound?.("selectItem"); } catch (error) {}
+      return;
+    }
+    if (action === "hotbar") {
+      assignItemToHotbar(item);
+      renderInventoryRework();
+      return;
+    }
+    if (action === "usePotion") {
+      usePotion?.();
+      renderInventoryRework();
+      return;
+    }
+    if (action === "equipWeapon" && item?.weaponKey) {
+      equipWeapon?.(item.weaponKey);
+      renderInventoryRework();
+      return;
+    }
+    if (action === "unequipWeapon") {
+      if (typeof window !== "undefined" && typeof window.unequipWeapon === "function") window.unequipWeapon();
+      else equipWeapon?.("unarmed");
+      renderInventoryRework();
+      return;
+    }
+    if (action === "equipPower" && item?.powerKey) {
+      const index = Array.isArray(powerSlots) ? powerSlots.indexOf(item.powerKey) : -1;
+      if (index >= 0) equipPower?.(index);
+      renderInventoryRework();
+      return;
+    }
+    if (action === "useCustomItem" && item) {
+      if (typeof window !== "undefined" && typeof window.useCustomInventoryItem === "function") {
+        window.useCustomInventoryItem(item.customItemName || item.name);
+      } else if (button && typeof handleInventoryAction === "function") {
+        const fake = document.createElement("button");
+        fake.dataset.inventoryAction = "useCustomItem";
+        fake.dataset.customItemName = item.customItemName || item.name;
+        handleInventoryAction(fake);
+      }
+      renderInventoryRework();
+      return;
+    }
+    if (action === "unequipGear" && item) {
+      unequipGearRework(item);
+      renderInventoryRework();
+      return;
+    }
+  }
+
+  function renderInventoryRework() {
+    const root = ensureInventoryReworkShell();
+    if (!root) return;
+    const state = stateRework();
+    const items = getUnifiedInventoryItems();
+    const filtered = filterReworkItems(items, state);
+    reworkLastItems = filtered;
+    if (!filtered.some((item) => item.id === state.selectedId)) {
+      state.selectedId = filtered[0]?.id || "";
+    }
+    if (typeof selectedInventoryItemId !== "undefined") selectedInventoryItemId = state.selectedId;
+    syncReworkControls(root, state, items.length, filtered.length);
+    renderReworkGrid(root, filtered, state);
+    renderReworkEquipment(root);
+    renderReworkDetail(root, selectedReworkItem());
+    document.body?.classList.toggle("er-inventory-rework-open", Boolean(inventoryOpen));
+  }
+
+  // ETERNAL RIFT INVENTORY REWORK - OLD INVENTORY COMPATIBILITY
+  renderInventory = function renderInventoryReworkCompatible() {
+    try {
+      return renderInventoryRework();
+    } catch (error) {
+      try { return renderInventoryBeforeRework?.(); } catch (innerError) { showErrorMessage?.(innerError || error); }
+      return undefined;
+    }
+  };
+
+  // ETERNAL RIFT INVENTORY REWORK - OPEN CLOSE SAFE
+  toggleInventory = function toggleInventoryReworkSafe(force) {
+    const result = toggleInventoryBeforeRework ? toggleInventoryBeforeRework(force) : undefined;
+    const panel = panelRework();
+    if (panel) {
+      if (inventoryOpen) {
+        syncReworkTabFromLegacyTab();
+        ensureInventoryReworkShell();
+        panel.classList.add("er-inventory-rework-active");
+        panel.removeAttribute("aria-hidden");
+        document.body?.classList.add("er-inventory-rework-open");
+        renderInventoryRework();
+      } else {
+        document.body?.classList.remove("er-inventory-rework-open");
+      }
+    }
+    return result;
+  };
+
+  if (typeof window !== "undefined") {
+    const forceCloseBeforeRework = window.forceCloseInventoryPanel;
+    window.forceCloseInventoryPanel = function forceCloseInventoryPanelRework(event) {
+      document.body?.classList.remove("er-inventory-rework-open");
+      return typeof forceCloseBeforeRework === "function" ? forceCloseBeforeRework(event) : toggleInventory(false);
+    };
+  }
+
+  if (saveGameBeforeInventoryRework) {
+    saveGame = function saveGameInventoryRework() {
+      normalizeInventoryReworkSaveState();
+      return saveGameBeforeInventoryRework();
+    };
+  }
+
+  if (loadGameBeforeInventoryRework) {
+    loadGame = function loadGameInventoryRework() {
+      const ok = loadGameBeforeInventoryRework();
+      normalizeInventoryReworkSaveState();
+      return ok;
+    };
+  }
+
+  try {
+    normalizeInventoryReworkSaveState();
+    ensureInventoryReworkShell();
+    document.body?.classList.add("inventory-rework-ready");
+  } catch (error) {}
+})();
+
+/* ==================================================
+   ETERNAL RIFT INVENTORY ICONS PATCH - ICON SYSTEM
+   ETERNAL RIFT INVENTORY ICONS PATCH - CATEGORY ICONS
+   ETERNAL RIFT INVENTORY ICONS PATCH - RARITY STYLE
+   ETERNAL RIFT INVENTORY ICONS PATCH - NO LETTER ICONS
+   ETERNAL RIFT INVENTORY ICONS PATCH - INVENTORY RENDER
+   ETERNAL RIFT INVENTORY ICONS PATCH - HOTBAR ICONS
+   ETERNAL RIFT INVENTORY ICONS PATCH - MOBILE
+   ETERNAL RIFT INVENTORY ICONS PATCH - PERFORMANCE
+   ETERNAL RIFT INVENTORY ICONS PATCH - SAFE FALLBACK
+   ================================================== */
+(function eternalRiftInventoryIconsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_INVENTORY_VISUAL_ICONS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_INVENTORY_VISUAL_ICONS_PATCH = true;
+
+  const inventoryIconCache = new Map();
+  if (typeof window !== "undefined") window.inventoryIconCache = inventoryIconCache;
+
+  const rarityStyles = {
+    comum: { edge: "#9aa1ad", glow: "rgba(154,161,173,0.24)", main: "#c8ced8", dark: "#4f5867" },
+    incomum: { edge: "#6fe18a", glow: "rgba(111,225,138,0.28)", main: "#8cf0a2", dark: "#2c6c46" },
+    raro: { edge: "#55cfff", glow: "rgba(85,207,255,0.32)", main: "#7ee4ff", dark: "#265c8c" },
+    epico: { edge: "#b685ff", glow: "rgba(182,133,255,0.34)", main: "#cda6ff", dark: "#54317f" },
+    lendario: { edge: "#fff264", glow: "rgba(255,242,100,0.42)", main: "#ffe588", dark: "#8a5c1f" },
+    mitico: { edge: "#ff74dd", glow: "rgba(255,116,221,0.45)", main: "#f9d4ff", dark: "#6b2b83" }
+  };
+
+  function iconText(value) {
+    return String(value ?? "");
+  }
+
+  function iconEscape(value) {
+    return iconText(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function iconNormalize(value) {
+    return iconText(value)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  function iconRarity(item) {
+    const value = iconNormalize(item?.rarity || item?.quality || "");
+    if (value.includes("mitic") || value.includes("divin")) return "mitico";
+    if (value.includes("lend") || value.includes("legend")) return "lendario";
+    if (value.includes("epic")) return "epico";
+    if (value.includes("rar")) return "raro";
+    if (value.includes("incom") || value.includes("uncommon")) return "incomum";
+    return "comum";
+  }
+
+  function itemPackedText(item) {
+    return iconNormalize([
+      item?.id,
+      item?.name,
+      item?.type,
+      item?.typeLabel,
+      item?.category,
+      item?.kind,
+      item?.icon,
+      item?.rarity
+    ].join(" "));
+  }
+
+  function itemOwnImage(item) {
+    const source = iconText(item?.image || item?.imageUrl || item?.iconUrl || item?.sprite || item?.src || "");
+    if (!source) return "";
+    if (/^(data:image\/|https?:\/\/|\.?\/|[a-zA-Z]:\\)/.test(source) || /\.(png|jpg|jpeg|webp|gif|svg)(\?|#|$)/i.test(source)) return source;
+    return "";
+  }
+
+  function categoryFromItem(item, packed) {
+    const category = iconNormalize(item?.category || item?.type || item?.typeLabel || "");
+    if (category.includes("arma") || category.includes("weapon")) return "weapon";
+    if (category.includes("armadura") || category.includes("armor") || category.includes("acessor")) return "gear";
+    if (category.includes("consum") || category.includes("poc") || category.includes("food")) return "consumable";
+    if (category.includes("material") || category.includes("recurso") || category.includes("resource")) return "material";
+    if (category.includes("miss") || category.includes("quest")) return "quest";
+    if (packed.includes("mag") || packed.includes("orbe") || packed.includes("runa") || packed.includes("essencia")) return "magic";
+    return "";
+  }
+
+  function iconKeyForItem(item) {
+    const packed = itemPackedText(item);
+
+    if (packed.includes("bau") || packed.includes("chest") || packed.includes("cofre")) return "chest";
+    if (packed.includes("chave") || packed.includes("key")) return "key";
+    if (packed.includes("carta") || packed.includes("letter")) return "letter";
+    if (packed.includes("pergaminho") || packed.includes("scroll")) return "scroll";
+    if (packed.includes("fenda") || packed.includes("rift")) return "rift-fragment";
+
+    if (packed.includes("pocao") && (packed.includes("mana") || packed.includes("azul"))) return "potion-mana";
+    if (packed.includes("pocao") && (packed.includes("fogo") || packed.includes("calor") || packed.includes("lava"))) return "potion-fire";
+    if (packed.includes("pocao") || packed.includes("potion") || packed.includes("cura") || packed.includes("vida")) return "potion-health";
+    if (packed.includes("comida") || packed.includes("carne") || packed.includes("pao") || packed.includes("food")) return "food";
+
+    if (packed.includes("picareta") || packed.includes("pickaxe")) return "pickaxe";
+    if (packed.includes("vara") && packed.includes("pesca")) return "fishing-rod";
+    if (packed.includes("construcao") || packed.includes("build")) return "build-tool";
+    if (packed.includes("machado") && !packed.includes("arma")) return "tool-axe";
+
+    if (packed.includes("tridente")) return elementWeapon(packed, "trident");
+    if (packed.includes("adaga") || packed.includes("dagger")) return elementWeapon(packed, "dagger");
+    if (packed.includes("arco") || packed.includes("bow")) return elementWeapon(packed, "bow");
+    if (packed.includes("cajado") || packed.includes("staff")) return elementWeapon(packed, "staff");
+    if (packed.includes("lanca") || packed.includes("spear")) return elementWeapon(packed, "spear");
+    if (packed.includes("machado")) return elementWeapon(packed, "axe");
+    if (packed.includes("espada") || packed.includes("sword") || packed.includes("arma") || packed.includes("weapon")) return elementWeapon(packed, "sword");
+
+    if (packed.includes("capacete") || packed.includes("helmet")) return "helmet";
+    if (packed.includes("peitoral") || packed.includes("armadura") || packed.includes("armor")) return "chestplate";
+    if (packed.includes("calca") || packed.includes("legs")) return "leggings";
+    if (packed.includes("bota") || packed.includes("boots") || packed.includes("asas")) return "boots";
+    if (packed.includes("escudo") || packed.includes("shield")) return "shield";
+    if (packed.includes("capa") || packed.includes("cape")) return "cape";
+
+    if (packed.includes("anel") || packed.includes("ring")) return "ring";
+    if (packed.includes("amuleto") || packed.includes("pingente") || packed.includes("colar") || packed.includes("amulet") || packed.includes("necklace")) return "amulet";
+    if (packed.includes("reliquia") || packed.includes("relic")) return "relic";
+    if (packed.includes("artefato") || packed.includes("artifact")) return "artifact";
+
+    if (packed.includes("madeira") || packed.includes("wood")) return "wood";
+    if (packed.includes("pedra") || packed.includes("stone") || packed.includes("rocha")) return "stone";
+    if (packed.includes("terra") || packed.includes("dirt")) return "dirt";
+    if (packed.includes("ferro") || packed.includes("iron")) return "iron-ore";
+    if (packed.includes("ouro") || packed.includes("gold") || packed.includes("moeda")) return "gold";
+    if (packed.includes("obsidiana") || packed.includes("obsidian")) return "obsidian";
+    if (packed.includes("magma") || packed.includes("lava")) return "magma";
+    if (packed.includes("coral")) return "coral";
+    if (packed.includes("perola") || packed.includes("pearl")) return "pearl";
+    if (packed.includes("escama") || packed.includes("scale")) return "scale";
+    if (packed.includes("minerio") || packed.includes("ore")) return "ore";
+    if (packed.includes("fragmento") || packed.includes("shard")) return "fragment";
+    if (packed.includes("cristal") || packed.includes("crystal")) return "crystal";
+
+    if (packed.includes("livro") || packed.includes("book")) return "magic-book";
+    if (packed.includes("runa") || packed.includes("rune")) return "rune";
+    if (packed.includes("essencia") || packed.includes("essence")) return "essence";
+    if (packed.includes("orbe") || packed.includes("orb") || packed.includes("magia") || packed.includes("magic")) return "magic-orb";
+    if (packed.includes("tocha") || packed.includes("torch")) return "torch";
+
+    const category = categoryFromItem(item, packed);
+    if (category === "weapon") return "sword";
+    if (category === "gear") return "chestplate";
+    if (category === "consumable") return "potion-health";
+    if (category === "material") return "crystal";
+    if (category === "quest") return "scroll";
+    if (category === "magic") return "magic-orb";
+    if (item?.kind === "coin") return "gold";
+    if (item?.kind === "potion") return "potion-health";
+    if (item?.kind === "crystal") return "crystal";
+    if (item?.kind === "gear") return "chestplate";
+    if (item?.kind === "weapon") return "sword";
+    return "generic";
+  }
+
+  function elementWeapon(packed, base) {
+    if (packed.includes("vulcan") || packed.includes("lava") || packed.includes("magma") || packed.includes("fogo")) return `${base}-fire`;
+    if (packed.includes("agua") || packed.includes("aquatic") || packed.includes("mare") || packed.includes("abismo")) return `${base}-water`;
+    if (packed.includes("celestial") || packed.includes("sagrado") || packed.includes("aurora") || packed.includes("estrela")) return `${base}-holy`;
+    if (packed.includes("sombra") || packed.includes("sombr") || packed.includes("treva") || packed.includes("lua negra")) return `${base}-dark`;
+    return base;
+  }
+
+  function elementColors(key, rarity) {
+    const r = rarityStyles[rarity] || rarityStyles.comum;
+    if (key.includes("-fire") || key.includes("magma")) return { a: "#ffba5f", b: "#ff5a30", c: "#6e2118", edge: r.edge, glow: "#ff8b35" };
+    if (key.includes("-water") || key.includes("coral") || key.includes("pearl")) return { a: "#97f4ff", b: "#2d9bd4", c: "#164362", edge: r.edge, glow: "#55d8ff" };
+    if (key.includes("-holy") || key.includes("rift")) return { a: "#fff7bf", b: "#73dfff", c: "#3456a3", edge: r.edge, glow: "#fff264" };
+    if (key.includes("-dark") || key.includes("obsidian")) return { a: "#b685ff", b: "#58417f", c: "#171022", edge: r.edge, glow: "#b685ff" };
+    return { a: r.main, b: "#d7a45a", c: r.dark, edge: r.edge, glow: r.edge };
+  }
+
+  function iconFrame(content, item, key) {
+    const rarity = iconRarity(item);
+    const r = rarityStyles[rarity] || rarityStyles.comum;
+    const c = elementColors(key, rarity);
+    const mythical = rarity === "mitico" || rarity === "lendario";
+    return `
+      <span class="er-inv-icon er-item-icon-shell er-icon-${iconEscape(key)} rarity-${iconEscape(rarity)}" data-icon-key="${iconEscape(key)}">
+        <svg class="er-item-svg-icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false" style="--er-icon-edge:${r.edge};--er-icon-glow:${r.glow};--er-icon-main:${c.a};--er-icon-mid:${c.b};--er-icon-dark:${c.c};">
+          <rect x="5" y="5" width="54" height="54" rx="8" fill="#121722"/>
+          <rect x="8" y="8" width="48" height="48" rx="6" fill="#20283a" stroke="${r.edge}" stroke-width="3"/>
+          <rect x="13" y="13" width="38" height="9" fill="${c.a}" opacity="0.16"/>
+          ${mythical ? `<path d="M32 4 L35 12 L43 9 L39 17 L47 20 L38 23 L41 31 L32 26 L23 31 L26 23 L17 20 L25 17 L21 9 L29 12 Z" fill="${r.edge}" opacity="0.26"/>` : ""}
+          <g class="er-item-svg-shape">${content(c, r)}</g>
+        </svg>
+      </span>
+    `;
+  }
+
+  function sword(c) {
+    return `<path d="M41 10 L53 13 L35 37 L28 33 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/><rect x="20" y="35" width="22" height="6" rx="1" fill="${c.b}" stroke="#22151c" stroke-width="2"/><rect x="13" y="39" width="18" height="8" rx="2" fill="#8b5836" stroke="#2a1712" stroke-width="2"/><rect x="17" y="47" width="8" height="8" fill="${c.c}"/>`;
+  }
+
+  function axe(c) {
+    return `<rect x="28" y="18" width="6" height="36" rx="2" fill="#8b5836"/><path d="M32 14 C45 12 51 20 48 31 C42 28 38 25 32 28 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/><path d="M32 16 C19 14 14 22 17 32 C23 29 27 25 33 28 Z" fill="${c.b}" stroke="#effbff" stroke-width="2"/>`;
+  }
+
+  function spear(c) {
+    return `<rect x="29" y="18" width="5" height="35" fill="#8b5836"/><path d="M32 7 L43 22 L32 30 L21 22 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/><rect x="24" y="30" width="16" height="5" fill="${c.b}"/>`;
+  }
+
+  function bow(c) {
+    return `<path d="M42 10 C22 21 22 43 42 54" fill="none" stroke="${c.b}" stroke-width="6" stroke-linecap="round"/><path d="M41 12 C49 24 49 40 41 52" fill="none" stroke="#f0d69c" stroke-width="2"/><line x1="41" y1="13" x2="41" y2="52" stroke="#eef9ff" stroke-width="2"/><line x1="16" y1="32" x2="45" y2="32" stroke="${c.a}" stroke-width="4"/><path d="M15 32 L25 27 L23 32 L25 37 Z" fill="#effbff"/>`;
+  }
+
+  function staff(c) {
+    return `<rect x="29" y="20" width="6" height="35" rx="2" fill="#8b5836"/><circle cx="32" cy="15" r="10" fill="${c.a}" stroke="#effbff" stroke-width="2"/><circle cx="32" cy="15" r="5" fill="${c.b}"/><path d="M22 27 L42 27" stroke="${c.b}" stroke-width="4"/><path d="M24 9 L18 5 M40 9 L46 5" stroke="${c.a}" stroke-width="3"/>`;
+  }
+
+  function dagger(c) {
+    return `<path d="M37 10 L47 14 L31 36 L25 33 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/><rect x="20" y="34" width="18" height="5" fill="${c.b}" stroke="#22151c" stroke-width="2"/><rect x="14" y="38" width="12" height="10" rx="2" fill="#8b5836"/>`;
+  }
+
+  function trident(c) {
+    return `<rect x="30" y="22" width="5" height="33" fill="#8b5836"/><path d="M20 9 L24 9 L24 25 L30 25 L30 8 L35 8 L35 25 L41 25 L41 9 L45 9 L45 28 L35 34 L30 34 L20 28 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/>`;
+  }
+
+  function pickaxe(c) {
+    return `<rect x="29" y="25" width="7" height="31" rx="2" fill="#8b5836" transform="rotate(-27 32 40)"/><path d="M14 22 C27 9 45 10 53 20 C37 17 26 21 16 31 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/><path d="M34 18 C39 18 46 22 50 29" fill="none" stroke="${c.b}" stroke-width="5" stroke-linecap="round"/>`;
+  }
+
+  function toolAxe(c) {
+    return `<rect x="29" y="21" width="7" height="35" rx="2" fill="#8b5836"/><path d="M32 13 C44 12 50 19 47 29 C39 28 34 24 32 20 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/>`;
+  }
+
+  function torch(c) {
+    return `<rect x="29" y="29" width="7" height="25" fill="#8b5836"/><path d="M32 8 C45 21 38 31 32 33 C21 29 23 17 32 8 Z" fill="#ffcf5e"/><path d="M32 13 C38 22 35 27 31 29 C26 26 27 18 32 13 Z" fill="#ff6238"/><path d="M25 35 L41 35" stroke="${c.b}" stroke-width="5"/>`;
+  }
+
+  function potion(c, mana = false, fire = false) {
+    const liquid = fire ? "#ff6a37" : mana ? "#55cfff" : "#e64d70";
+    return `<rect x="25" y="10" width="14" height="8" fill="#d8c58a" stroke="#2a1712" stroke-width="2"/><rect x="22" y="18" width="20" height="7" rx="2" fill="#fff5c8"/><path d="M20 27 L44 27 L40 52 L24 52 Z" fill="${liquid}" stroke="#f8ffff" stroke-width="2"/><rect x="25" y="33" width="14" height="6" fill="${c.a}" opacity="0.55"/><circle cx="35" cy="45" r="3" fill="#ffffff" opacity="0.55"/>`;
+  }
+
+  function food(c) {
+    return `<ellipse cx="32" cy="36" rx="18" ry="12" fill="#b96a38" stroke="#ffe2a7" stroke-width="3"/><rect x="17" y="35" width="31" height="5" fill="#f0b56b"/><circle cx="27" cy="30" r="3" fill="#fff2b5"/><circle cx="36" cy="29" r="2" fill="${c.a}"/>`;
+  }
+
+  function scroll(c) {
+    return `<rect x="18" y="16" width="29" height="34" rx="4" fill="#f4dca1" stroke="${c.b}" stroke-width="3"/><circle cx="18" cy="20" r="5" fill="#e0bd7f"/><circle cx="47" cy="46" r="5" fill="#e0bd7f"/><rect x="24" y="25" width="17" height="3" fill="#6d4a36"/><rect x="24" y="33" width="19" height="3" fill="#6d4a36"/><rect x="24" y="41" width="13" height="3" fill="#6d4a36"/>`;
+  }
+
+  function armor(c) {
+    return `<path d="M32 11 L48 19 L45 39 L32 53 L19 39 L16 19 Z" fill="${c.a}" stroke="#f8ffff" stroke-width="2"/><path d="M24 25 L32 18 L40 25 L38 38 L32 45 L26 38 Z" fill="${c.c}"/><path d="M20 21 L12 28 L17 34 L23 29 Z M44 21 L52 28 L47 34 L41 29 Z" fill="${c.b}"/>`;
+  }
+
+  function helmet(c) {
+    return `<path d="M17 34 C17 18 25 11 32 11 C43 11 49 20 49 34 L44 47 L20 47 Z" fill="${c.a}" stroke="#f8ffff" stroke-width="2"/><rect x="22" y="32" width="20" height="5" fill="${c.c}"/><rect x="30" y="14" width="4" height="31" fill="${c.b}"/>`;
+  }
+
+  function boots(c) {
+    return `<path d="M19 18 L31 18 L31 40 L42 40 L47 48 L20 48 L17 42 Z" fill="${c.a}" stroke="#f8ffff" stroke-width="2"/><path d="M36 18 L46 18 L46 35 L53 40 L53 48 L41 48 L36 39 Z" fill="${c.b}" stroke="#f8ffff" stroke-width="2"/>`;
+  }
+
+  function shield(c) {
+    return `<path d="M32 10 L50 18 L47 36 C44 46 38 52 32 55 C26 52 20 46 17 36 L14 18 Z" fill="${c.a}" stroke="#f8ffff" stroke-width="2"/><path d="M32 16 L42 21 L40 35 C38 42 35 46 32 49 Z" fill="${c.c}"/>`;
+  }
+
+  function cape(c) {
+    return `<path d="M22 11 L42 11 L49 53 L32 45 L15 53 Z" fill="${c.a}" stroke="#f8ffff" stroke-width="2"/><path d="M27 15 L37 15 L39 42 L32 38 L25 42 Z" fill="${c.b}" opacity="0.85"/>`;
+  }
+
+  function ring(c) {
+    return `<circle cx="32" cy="35" r="15" fill="none" stroke="${c.b}" stroke-width="8"/><circle cx="32" cy="35" r="9" fill="#141827"/><path d="M25 17 L32 9 L40 17 L36 25 L28 25 Z" fill="${c.a}" stroke="#f8ffff" stroke-width="2"/>`;
+  }
+
+  function amulet(c) {
+    return `<path d="M20 13 C26 24 38 24 44 13" fill="none" stroke="#d8c58a" stroke-width="4"/><path d="M32 24 L44 34 L39 50 L25 50 L20 34 Z" fill="${c.a}" stroke="#f8ffff" stroke-width="2"/><circle cx="32" cy="36" r="6" fill="${c.b}"/>`;
+  }
+
+  function relic(c) {
+    return `<path d="M32 9 L47 25 L42 48 L32 55 L22 48 L17 25 Z" fill="${c.c}" stroke="${c.a}" stroke-width="3"/><circle cx="32" cy="31" r="10" fill="${c.a}"/><circle cx="32" cy="31" r="4" fill="#f8ffff"/><path d="M32 12 L32 20 M32 42 L32 52 M12 31 L21 31 M43 31 L52 31" stroke="${c.b}" stroke-width="3"/>`;
+  }
+
+  function wood(c) {
+    return `<rect x="14" y="30" width="38" height="14" rx="4" fill="#9a6036" stroke="#f0c08a" stroke-width="3"/><circle cx="22" cy="37" r="5" fill="#6e3f25"/><path d="M28 33 L48 33 M29 40 L45 40" stroke="#5b321e" stroke-width="2"/>`;
+  }
+
+  function stone(c) {
+    return `<path d="M18 27 L27 16 L42 18 L51 32 L44 49 L24 50 L13 39 Z" fill="#818995" stroke="#e5edf5" stroke-width="2"/><path d="M27 18 L31 34 L45 27 M23 48 L31 34 L15 39" stroke="#59616d" stroke-width="3"/>`;
+  }
+
+  function dirt(c) {
+    return `<rect x="15" y="20" width="34" height="30" rx="4" fill="#8a5b35" stroke="#d6a56c" stroke-width="3"/><rect x="16" y="20" width="32" height="9" fill="#5f9c45"/><rect x="22" y="36" width="7" height="4" fill="#5f3825"/><rect x="36" y="42" width="6" height="3" fill="#5f3825"/>`;
+  }
+
+  function ore(c) {
+    return `<path d="M18 26 L28 16 L43 18 L51 33 L43 50 L24 50 L13 38 Z" fill="#59616d" stroke="#dfe8f2" stroke-width="2"/><path d="M25 27 L32 22 L38 28 L35 38 L26 37 Z" fill="${c.a}"/><rect x="39" y="35" width="6" height="6" fill="${c.b}"/>`;
+  }
+
+  function crystal(c, broken = false) {
+    return broken
+      ? `<polygon points="26,14 39,30 32,51 19,38" fill="${c.a}" stroke="#effbff" stroke-width="2"/><polygon points="43,20 52,34 45,49 36,33" fill="${c.b}" stroke="#effbff" stroke-width="2"/><polygon points="15,31 24,39 20,52 10,43" fill="${c.c}" stroke="#effbff" stroke-width="2"/>`
+      : `<polygon points="32,10 45,28 38,52 26,52 19,28" fill="${c.a}" stroke="#effbff" stroke-width="2"/><polygon points="32,14 38,29 32,49 25,29" fill="${c.b}"/><rect x="30" y="20" width="4" height="18" fill="#ffffff" opacity="0.55"/>`;
+  }
+
+  function pearl(c) {
+    return `<circle cx="32" cy="35" r="17" fill="#e7fbff" stroke="${c.b}" stroke-width="3"/><circle cx="26" cy="29" r="5" fill="#ffffff" opacity="0.8"/><path d="M15 45 C24 55 42 55 50 44" fill="none" stroke="#6dbbd1" stroke-width="4"/>`;
+  }
+
+  function coral(c) {
+    return `<path d="M32 50 L32 23 M32 35 L20 25 M32 38 L45 27 M27 45 L16 42 M38 44 L50 43" stroke="#ff7e8e" stroke-width="7" stroke-linecap="round"/><circle cx="32" cy="20" r="4" fill="${c.a}"/><circle cx="20" cy="25" r="4" fill="${c.a}"/><circle cx="45" cy="27" r="4" fill="${c.a}"/>`;
+  }
+
+  function scale(c) {
+    return `<path d="M32 11 C49 24 49 43 32 53 C15 43 15 24 32 11 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/><path d="M22 31 C27 27 37 27 42 31 M20 39 C27 35 37 35 44 39" stroke="${c.c}" stroke-width="3" fill="none"/>`;
+  }
+
+  function gold(c) {
+    return `<circle cx="32" cy="32" r="18" fill="#c48a28" stroke="#fff2a8" stroke-width="4"/><circle cx="32" cy="32" r="10" fill="#ffe066"/><rect x="30" y="20" width="4" height="24" fill="#8a5c1f" opacity="0.35"/>`;
+  }
+
+  function magicOrb(c) {
+    return `<circle cx="32" cy="32" r="16" fill="${c.a}" stroke="#effbff" stroke-width="3"/><circle cx="32" cy="32" r="8" fill="${c.b}"/><path d="M32 9 L34 20 M32 44 L34 55 M9 32 L20 34 M44 32 L55 34" stroke="${c.a}" stroke-width="3"/><circle cx="25" cy="25" r="3" fill="#ffffff" opacity="0.75"/>`;
+  }
+
+  function rune(c) {
+    return `<rect x="17" y="13" width="30" height="39" rx="5" fill="${c.c}" stroke="${c.a}" stroke-width="3"/><path d="M24 22 L39 22 L31 32 L40 42 L24 42 L32 32 Z" fill="none" stroke="#effbff" stroke-width="4"/>`;
+  }
+
+  function book(c) {
+    return `<path d="M16 15 L31 19 L31 52 L16 47 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/><path d="M48 15 L33 19 L33 52 L48 47 Z" fill="${c.b}" stroke="#effbff" stroke-width="2"/><path d="M24 24 L28 26 M40 24 L36 26 M23 35 L29 37 M41 35 L35 37" stroke="${c.c}" stroke-width="2"/>`;
+  }
+
+  function key(c) {
+    return `<circle cx="24" cy="25" r="9" fill="none" stroke="${c.a}" stroke-width="5"/><rect x="31" y="23" width="23" height="5" fill="${c.a}"/><rect x="45" y="28" width="4" height="8" fill="${c.a}"/><rect x="52" y="28" width="4" height="6" fill="${c.a}"/>`;
+  }
+
+  function letter(c) {
+    return `<rect x="14" y="19" width="38" height="27" rx="3" fill="#efe0bb" stroke="${c.b}" stroke-width="3"/><path d="M16 22 L32 35 L50 22 M17 44 L28 34 M48 44 L37 34" stroke="#8b5e3c" stroke-width="3" fill="none"/>`;
+  }
+
+  function chest(c) {
+    return `<rect x="14" y="29" width="38" height="19" rx="3" fill="#7a4c30" stroke="${c.b}" stroke-width="3"/><path d="M17 25 C20 16 46 16 49 25 L49 32 L17 32 Z" fill="#9b603b" stroke="${c.b}" stroke-width="3"/><rect x="28" y="31" width="9" height="10" fill="${c.a}" stroke="#2a1712" stroke-width="2"/><path d="M20 37 L44 37" stroke="#2a1712" stroke-width="3"/>`;
+  }
+
+  function generic(c) {
+    return `<path d="M32 10 L48 22 L43 48 L32 55 L21 48 L16 22 Z" fill="${c.a}" stroke="#effbff" stroke-width="2"/><circle cx="32" cy="32" r="8" fill="${c.b}"/><path d="M32 15 L32 24 M32 40 L32 51 M17 32 L25 32 M39 32 L47 32" stroke="${c.c}" stroke-width="3"/>`;
+  }
+
+  function shapeForKey(key) {
+    const base = key.split("-")[0];
+    const shapes = {
+      sword, axe, spear, bow, staff, dagger, trident,
+      pickaxe, torch, food, scroll, armor, helmet, boots, shield, cape, ring, amulet, relic,
+      wood, stone, dirt, pearl, coral, scale, gold, key, letter, chest
+    };
+    if (key === "tool-axe") return toolAxe;
+    if (key === "build-tool") return pickaxe;
+    if (key === "fishing-rod") return bow;
+    if (key === "potion-mana") return (c) => potion(c, true, false);
+    if (key === "potion-fire") return (c) => potion(c, false, true);
+    if (key === "potion-health") return potion;
+    if (key === "chestplate" || key === "leggings") return armor;
+    if (key === "artifact") return relic;
+    if (key === "iron-ore" || key === "ore" || key === "obsidian" || key === "magma") return ore;
+    if (key === "fragment" || key === "rift-fragment") return (c) => crystal(c, true);
+    if (key === "crystal") return crystal;
+    if (key === "magic-orb" || key === "essence") return magicOrb;
+    if (key === "rune") return rune;
+    if (key === "magic-book") return book;
+    if (shapes[base]) return shapes[base];
+    if (key.includes("sword")) return sword;
+    if (key.includes("axe")) return axe;
+    if (key.includes("spear")) return spear;
+    if (key.includes("bow")) return bow;
+    if (key.includes("staff")) return staff;
+    if (key.includes("dagger")) return dagger;
+    if (key.includes("trident")) return trident;
+    return generic;
+  }
+
+  function getFallbackItemIcon(item) {
+    try {
+      return iconFrame(generic, item || { rarity: "comum" }, "generic");
+    } catch (error) {
+      return `<span class="er-inv-icon er-item-icon-shell rarity-comum"><svg class="er-item-svg-icon" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="8" width="48" height="48" rx="6" fill="#20283a" stroke="#9aa1ad" stroke-width="3"/><path d="M32 14 L48 30 L40 50 L24 50 L16 30 Z" fill="#c8ced8"/></svg></span>`;
+    }
+  }
+
+  function getInventoryItemIcon(item) {
+    try {
+      const ownImage = itemOwnImage(item);
+      const rarity = iconRarity(item);
+      const key = iconKeyForItem(item || {});
+      if (ownImage) {
+        const cacheKey = `image:${ownImage}:${rarity}`;
+        if (!inventoryIconCache.has(cacheKey)) {
+          inventoryIconCache.set(cacheKey, `
+            <span class="er-inv-icon er-item-icon-shell er-item-image-icon rarity-${iconEscape(rarity)}">
+              <img src="${iconEscape(ownImage)}" alt="" loading="lazy">
+            </span>
+          `);
+        }
+        return inventoryIconCache.get(cacheKey);
+      }
+
+      const cacheKey = `${key}:${rarity}`;
+      if (!inventoryIconCache.has(cacheKey)) {
+        const shape = shapeForKey(key);
+        inventoryIconCache.set(cacheKey, iconFrame(shape, item || { rarity }, key));
+      }
+      return inventoryIconCache.get(cacheKey);
+    } catch (error) {
+      return getFallbackItemIcon(item);
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    window.getInventoryItemIcon = getInventoryItemIcon;
+    window.getFallbackItemIcon = getFallbackItemIcon;
+  }
+
+  function hotbarToolItem(toolId, name) {
+    const table = {
+      sword: { id: "hotbar-sword", name: name || "Espada", category: "armas", kind: "weapon", rarity: "comum" },
+      pickaxe: { id: "hotbar-pickaxe", name: name || "Picareta", category: "ferramentas", kind: "tool", rarity: "comum" },
+      dirt: { id: "hotbar-dirt", name: name || "Terra", category: "materiais", kind: "material", rarity: "comum" },
+      stone: { id: "hotbar-stone", name: name || "Pedra", category: "materiais", kind: "material", rarity: "comum" },
+      wood: { id: "hotbar-wood", name: name || "Madeira", category: "materiais", kind: "material", rarity: "comum" },
+      torch: { id: "hotbar-torch", name: name || "Tocha", category: "ferramentas", kind: "tool", rarity: "raro" },
+      magic: { id: "hotbar-magic", name: name || "Magia", category: "magia", kind: "magic", rarity: "raro" }
+    };
+    return table[toolId] || { id: `hotbar-${toolId || "item"}`, name: name || "Item", category: "materiais", kind: "generic", rarity: "comum" };
+  }
+
+  function decorateSandboxHotbarIcons() {
+    try {
+      const bar = document.getElementById("sandbox2DHotbar");
+      if (!bar) return;
+      bar.querySelectorAll("[data-sandbox-tool]").forEach((button) => {
+        const iconSlot = button.querySelector(".sandbox-slot-icon");
+        if (!iconSlot) return;
+        const toolId = button.dataset.sandboxTool || "";
+        const label = button.querySelector("strong")?.textContent || toolId;
+        const stamp = `${toolId}:${label}`;
+        if (iconSlot.dataset.visualIconStamp === stamp) return;
+        iconSlot.dataset.visualIconStamp = stamp;
+        iconSlot.classList.add("sandbox-slot-icon-visual");
+        iconSlot.innerHTML = getInventoryItemIcon(hotbarToolItem(toolId, label));
+      });
+    } catch (error) {}
+  }
+
+  let hotbarObserver = null;
+  let bodyObserver = null;
+
+  function observeSandboxHotbarIcons() {
+    decorateSandboxHotbarIcons();
+    const bar = document.getElementById("sandbox2DHotbar");
+    if (bar && !hotbarObserver) {
+      hotbarObserver = new MutationObserver(() => decorateSandboxHotbarIcons());
+      hotbarObserver.observe(bar, { childList: true, subtree: true });
+    }
+    if (!bodyObserver && document.body) {
+      bodyObserver = new MutationObserver(() => {
+        if (!hotbarObserver && document.getElementById("sandbox2DHotbar")) observeSandboxHotbarIcons();
+      });
+      bodyObserver.observe(document.body, { childList: true });
+    }
+  }
+
+  const renderInventoryBeforeIconsPatch = typeof renderInventory === "function" ? renderInventory : null;
+  if (renderInventoryBeforeIconsPatch) {
+    renderInventory = function renderInventoryWithVisualIconsPatch() {
+      const result = renderInventoryBeforeIconsPatch();
+      decorateSandboxHotbarIcons();
+      return result;
+    };
+  }
+
+  try {
+    observeSandboxHotbarIcons();
+    document.body?.classList.add("inventory-icons-visual-ready");
+    setTimeout(decorateSandboxHotbarIcons, 120);
+    setTimeout(decorateSandboxHotbarIcons, 600);
+  } catch (error) {}
+})();
+
+/* ==========================================================
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - JOYSTICK
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - BUTTON LAYOUT
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - HUD EDITOR MOBILE
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - MOBILE COMBAT
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - SMART INTERACTION
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - HOTBAR MOBILE
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - INVENTORY MOBILE
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - DIALOG MOBILE
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - CAMERA
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - PERFORMANCE
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - AUTO MOBILE MODE
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - MOBILE SETTINGS
+   ETERNAL RIFT MOBILE GAMEPLAY PATCH - TOUCH FEEDBACK
+   ========================================================== */
+(function eternalRiftMobileGameplayComfortPatch20260704() {
+  if (window.ETERNAL_RIFT_MOBILE_GAMEPLAY_COMFORT_PATCH_20260704) return;
+  window.ETERNAL_RIFT_MOBILE_GAMEPLAY_COMFORT_PATCH_20260704 = true;
+
+  const SETTINGS_KEY = "eternal-rift-mobile-gameplay-settings-v1";
+  const DEFAULT_SETTINGS = {
+    buttonSize: "medium",
+    opacity: 0.88,
+    joystickSensitivity: 1.06,
+    autoAim: true,
+    performanceEconomy: false,
+    preset: "Medio"
+  };
+
+  const q = (id) => document.getElementById(id);
+  const clampLocal = (value, min, max) => Math.max(min, Math.min(max, value));
+  const now = () => performance.now();
+  const state = {
+    mobile: false,
+    joystickPointerId: null,
+    moveX: 0,
+    moveY: 0,
+    strength: 0,
+    lastMoveAt: 0,
+    lastActionAt: Object.create(null),
+    lastAimTarget: null,
+    settings: loadMobileSettings()
+  };
+
+  const getMovementInputBeforeMobileGameplay = typeof getMovementInput === "function" ? getMovementInput : null;
+  const getNearestEnemyBeforeMobileGameplay = typeof getNearestEnemyToPlayer === "function" ? getNearestEnemyToPlayer : null;
+  const getMobileAimBeforeMobileGameplay = typeof getMobileAimDirection === "function" ? getMobileAimDirection : null;
+  const updateMobilePowerButtonsBeforeGameplay = typeof updateMobilePowerButtons === "function" ? updateMobilePowerButtons : null;
+  const updateInteractionHintBeforeMobileGameplay = typeof updateInteractionHint === "function" ? updateInteractionHint : null;
+  const drawBeforeMobileGameplay = typeof draw === "function" ? draw : null;
+  const updateBeforeMobileGameplay = typeof update === "function" ? update : null;
+  const triggerPrimaryAttackBeforeMobileGameplay = typeof triggerPrimaryAttack === "function" ? triggerPrimaryAttack : null;
+
+  function loadMobileSettings() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+      return normalizeMobileSettings({ ...DEFAULT_SETTINGS, ...saved });
+    } catch (error) {
+      return { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  function normalizeMobileSettings(input) {
+    const settings = { ...DEFAULT_SETTINGS, ...(input || {}) };
+    if (!["small", "medium", "large"].includes(settings.buttonSize)) settings.buttonSize = "medium";
+    settings.opacity = clampLocal(Number(settings.opacity) || DEFAULT_SETTINGS.opacity, 0.45, 1);
+    settings.joystickSensitivity = clampLocal(Number(settings.joystickSensitivity) || DEFAULT_SETTINGS.joystickSensitivity, 0.72, 1.45);
+    settings.autoAim = settings.autoAim !== false;
+    settings.performanceEconomy = settings.performanceEconomy === true;
+    settings.preset = String(settings.preset || "Medio");
+    return settings;
+  }
+
+  function saveMobileSettings(next) {
+    state.settings = normalizeMobileSettings({ ...state.settings, ...(next || {}) });
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+    } catch (error) {}
+    applyMobileSettingsToDom();
+    syncMobileSettingsPanel();
+    return state.settings;
+  }
+
+  function mobileMediaMatches() {
+    try {
+      return Boolean(
+        window.matchMedia?.("(pointer: coarse)")?.matches ||
+        window.matchMedia?.("(hover: none)")?.matches ||
+        window.matchMedia?.("(max-width: 920px)")?.matches ||
+        window.matchMedia?.("(max-height: 560px)")?.matches
+      );
+    } catch (error) {
+      return window.innerWidth <= 920 || window.innerHeight <= 560;
+    }
+  }
+
+  function detectMobileGameplay() {
+    return Boolean(document.body?.classList.contains("is-mobile") || mobileMediaMatches());
+  }
+
+  function applyMobileSettingsToDom() {
+    const mobile = detectMobileGameplay();
+    state.mobile = mobile;
+    if (typeof isMobile !== "undefined") isMobile = Boolean(isMobile || mobile);
+
+    const body = document.body;
+    if (!body) return;
+    body.classList.toggle("er-mobile-gameplay-v2", mobile);
+    body.classList.toggle("er-mobile-economy-mode", mobile && state.settings.performanceEconomy);
+    body.classList.toggle("performance-lite", mobile && state.settings.performanceEconomy);
+    body.dataset.mobileButtonSize = state.settings.buttonSize;
+    body.style.setProperty("--er-mobile-control-opacity", String(state.settings.opacity));
+    body.style.setProperty("--er-mobile-joystick-sensitivity", String(state.settings.joystickSensitivity));
+
+    if (mobile && state.settings.performanceEconomy) {
+      body.dataset.mobileEconomyApplied = "true";
+      body.classList.add("er-ultra-performance");
+      try { localStorage.setItem("eternal-rift-performance-mode-v2", "economy"); } catch (error) {}
+    } else if (body.dataset.mobileEconomyApplied === "true") {
+      body.classList.remove("er-ultra-performance");
+      delete body.dataset.mobileEconomyApplied;
+    }
+  }
+
+  function consumeTouch(event) {
+    try { event.preventDefault(); } catch (error) {}
+    try { event.stopPropagation(); } catch (error) {}
+    try { event.stopImmediatePropagation(); } catch (error) {}
+  }
+
+  function haptic(pattern = 12) {
+    try { vibrate?.(pattern); } catch (error) {
+      try { navigator.vibrate?.(pattern); } catch (nestedError) {}
+    }
+  }
+
+  function isTextInputActive() {
+    try {
+      return typeof isTypingInTextField === "function" && isTypingInTextField();
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function gameplayBlockedForMove() {
+    return Boolean(
+      !gameStarted ||
+      gameOver ||
+      inventoryOpen ||
+      shopOpen ||
+      dialogOpen ||
+      pauseOpen ||
+      isTextInputActive()
+    );
+  }
+
+  function gameplayBlockedForAction() {
+    return Boolean(!gameStarted || gameOver || inventoryOpen || shopOpen || pauseOpen || isTextInputActive());
+  }
+
+  function setMoveVector(x, y, strength) {
+    state.moveX = x;
+    state.moveY = y;
+    state.strength = clampLocal(strength, 0, 1);
+    state.lastMoveAt = now();
+    joystick.active = state.strength > 0.03;
+    joystick.x = x;
+    joystick.y = y;
+    joystick.strength = state.strength;
+  }
+
+  function resetJoystickVisual() {
+    const stick = q("joystickStick");
+    if (stick) {
+      stick.style.transition = "transform 90ms ease";
+      stick.style.transform = "translate(-50%, -50%)";
+      setTimeout(() => { stick.style.transition = ""; }, 120);
+    }
+  }
+
+  function resetMove() {
+    state.joystickPointerId = null;
+    setMoveVector(0, 0, 0);
+    joystick.active = false;
+    joystick.pointerId = null;
+    resetJoystickVisual();
+  }
+
+  function updateJoystickFromPoint(clientX, clientY) {
+    const base = q("joystickBase");
+    const stick = q("joystickStick");
+    if (!base || !stick) return;
+
+    const rect = base.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const radius = Math.max(42, Math.min(rect.width, rect.height) * 0.43);
+    const dx = clientX - centerX;
+    const dy = clientY - centerY;
+    const distance = Math.hypot(dx, dy);
+    const deadzone = Math.max(4, rect.width * 0.045);
+    const rawStrength = distance <= deadzone ? 0 : clampLocal((distance - deadzone) / (radius - deadzone), 0, 1);
+    const strength = clampLocal(rawStrength * state.settings.joystickSensitivity, 0, 1);
+    const normalizedX = distance > 0 ? dx / distance : 0;
+    const normalizedY = distance > 0 ? dy / distance : 0;
+
+    if (strength <= 0.02) {
+      setMoveVector(0, 0, 0);
+      stick.style.transform = "translate(-50%, -50%)";
+      return;
+    }
+
+    const visualDistance = Math.min(distance, radius);
+    stick.style.transform = `translate(calc(-50% + ${normalizedX * visualDistance}px), calc(-50% + ${normalizedY * visualDistance}px))`;
+    setMoveVector(normalizedX, normalizedY, strength);
+  }
+
+  function bindJoystickComfort() {
+    const base = q("joystickBase");
+    if (!base || base.dataset.mobileGameplayJoystick === "true") return;
+    base.dataset.mobileGameplayJoystick = "true";
+    base.style.touchAction = "none";
+
+    base.addEventListener("pointerdown", (event) => {
+      if (!state.mobile) return;
+      consumeTouch(event);
+      state.joystickPointerId = event.pointerId;
+      joystick.pointerId = event.pointerId;
+      try { base.setPointerCapture(event.pointerId); } catch (error) {}
+      updateJoystickFromPoint(event.clientX, event.clientY);
+      base.classList.add("is-active");
+    }, true);
+
+    window.addEventListener("pointermove", (event) => {
+      if (!state.mobile || state.joystickPointerId !== event.pointerId) return;
+      consumeTouch(event);
+      if (gameplayBlockedForMove()) {
+        resetMove();
+        return;
+      }
+      updateJoystickFromPoint(event.clientX, event.clientY);
+    }, true);
+
+    const release = (event) => {
+      if (state.joystickPointerId !== event.pointerId) return;
+      consumeTouch(event);
+      base.classList.remove("is-active");
+      resetMove();
+    };
+    window.addEventListener("pointerup", release, true);
+    window.addEventListener("pointercancel", release, true);
+    window.addEventListener("blur", resetMove, { passive: true });
+  }
+
+  getMovementInput = function getMovementInputMobileGameplayComfort() {
+    if (state.mobile) {
+      if (gameplayBlockedForMove()) return { x: 0, y: 0, strength: 0 };
+      if (state.strength > 0.03 || now() - state.lastMoveAt < 80) {
+        return { x: state.moveX, y: state.moveY, strength: clampLocal(state.strength, 0, 1) };
+      }
+    }
+    return getMovementInputBeforeMobileGameplay ? getMovementInputBeforeMobileGameplay() : { x: 0, y: 0, strength: 0 };
+  };
+
+  function objectIsAttackable(obj) {
+    if (!obj || obj.collected || obj.hidden) return false;
+    if (obj.type !== "enemy" && obj.type !== "boss") return false;
+    if (obj.alive === false) return false;
+    if (Number.isFinite(obj.health) && obj.health <= 0) return false;
+    if (Number.isFinite(obj.hp) && obj.hp <= 0) return false;
+    return true;
+  }
+
+  function getCurrentAttackableObjects() {
+    const pools = [];
+    try { if (Array.isArray(objects)) pools.push(objects); } catch (error) {}
+    try { if (currentScene === "village" && Array.isArray(villageObjects)) pools.push(villageObjects); } catch (error) {}
+    try { if (Array.isArray(crystalDimensionObjects)) pools.push(crystalDimensionObjects); } catch (error) {}
+
+    const unique = new Set();
+    const result = [];
+    for (const pool of pools) {
+      for (const obj of pool) {
+        if (!objectIsAttackable(obj) || unique.has(obj)) continue;
+        unique.add(obj);
+        result.push(obj);
+      }
+    }
+    return result;
+  }
+
+  function getObjectCenter(obj) {
+    return {
+      x: Number(obj.x || 0) + Number(obj.width || TILE) / 2,
+      y: Number(obj.y || 0) + Number(obj.height || TILE) / 2
+    };
+  }
+
+  function findNearestMobileEnemy(maxDistance = 420) {
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    let nearest = null;
+    let nearestDistance = maxDistance;
+    const facing = directionVector(player.direction || "down");
+
+    for (const obj of getCurrentAttackableObjects()) {
+      const objCenter = getObjectCenter(obj);
+      const dx = objCenter.x - centerX;
+      const dy = objCenter.y - centerY;
+      const distance = Math.hypot(dx, dy);
+      if (distance > nearestDistance) continue;
+
+      const inFront = distance < 140 || (dx * facing.x + dy * facing.y) > -20;
+      if (!inFront && state.strength <= 0.08) continue;
+      nearest = obj;
+      nearestDistance = distance;
+    }
+    return nearest;
+  }
+
+  getNearestEnemyToPlayer = function getNearestEnemyToPlayerMobileComfort(maxDistance = 320) {
+    if (state.mobile && state.settings.autoAim) {
+      return findNearestMobileEnemy(maxDistance + 80) || (getNearestEnemyBeforeMobileGameplay ? getNearestEnemyBeforeMobileGameplay(maxDistance) : null);
+    }
+    return getNearestEnemyBeforeMobileGameplay ? getNearestEnemyBeforeMobileGameplay(maxDistance) : null;
+  };
+
+  getMobileAimDirection = function getMobileAimDirectionComfort(maxDistance = 420) {
+    if (!state.mobile || !state.settings.autoAim) {
+      return getMobileAimBeforeMobileGameplay ? getMobileAimBeforeMobileGameplay(maxDistance) : directionVector(player.direction || "down");
+    }
+
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    let target = state.lastAimTarget || mobileLockedTarget || null;
+    if (!objectIsAttackable(target)) target = null;
+    if (target) {
+      const t = getObjectCenter(target);
+      if (Math.hypot(t.x - centerX, t.y - centerY) > maxDistance + 120) target = null;
+    }
+    if (!target) target = findNearestMobileEnemy(maxDistance);
+    state.lastAimTarget = target;
+    mobileLockedTarget = target;
+    currentAutoAimTarget = target;
+
+    if (target) {
+      const t = getObjectCenter(target);
+      const dx = t.x - centerX;
+      const dy = t.y - centerY;
+      const length = Math.hypot(dx, dy) || 1;
+      return { x: dx / length, y: dy / length, angle: Math.atan2(dy, dx), target };
+    }
+
+    if (state.strength > 0.08) {
+      return { x: state.moveX, y: state.moveY, angle: Math.atan2(state.moveY, state.moveX), target: null };
+    }
+
+    const vector = directionVector(player.direction || "down");
+    return { ...vector, angle: Math.atan2(vector.y, vector.x), target: null };
+  };
+
+  function prepareMobileAttackDirection() {
+    if (state.settings.autoAim) {
+      const target = findNearestMobileEnemy(460);
+      if (target) {
+        const aim = getObjectCenter(target);
+        const centerX = player.x + player.width / 2;
+        const centerY = player.y + player.height / 2;
+        const dx = aim.x - centerX;
+        const dy = aim.y - centerY;
+        if (Math.abs(dx) > Math.abs(dy)) player.direction = dx >= 0 ? "right" : "left";
+        else player.direction = dy >= 0 ? "down" : "up";
+        mobileLockedTarget = target;
+        state.lastAimTarget = target;
+        return;
+      }
+    }
+
+    if (state.strength > 0.08) {
+      if (Math.abs(state.moveX) > Math.abs(state.moveY)) player.direction = state.moveX >= 0 ? "right" : "left";
+      else player.direction = state.moveY >= 0 ? "down" : "up";
+    }
+  }
+
+  function ensureMobileWeaponReady() {
+    try {
+      const key = getCurrentWeaponKey?.();
+      if (key && key !== "unarmed") return;
+      const unlocked = Array.isArray(player.unlockedWeapons) ? player.unlockedWeapons : [];
+      const preferred = ["sword", "spear", "bow", "staff"].find((weaponKey) => unlocked.includes(weaponKey) && weapons?.[weaponKey]);
+      if (preferred) currentWeaponIndex = Math.max(0, unlocked.indexOf(preferred));
+    } catch (error) {}
+  }
+
+  function mobileAttack() {
+    if (gameplayBlockedForAction() || dialogOpen) return;
+    ensureMobileWeaponReady();
+    prepareMobileAttackDirection();
+    try {
+      triggerPrimaryAttackBeforeMobileGameplay ? triggerPrimaryAttackBeforeMobileGameplay() : triggerAttack?.();
+    } catch (error) {
+      try { triggerAttack?.(); } catch (nestedError) { showErrorMessage?.(nestedError); }
+    }
+  }
+
+  triggerPrimaryAttack = function triggerPrimaryAttackMobileComfort() {
+    if (state.mobile) {
+      mobileAttack();
+      return;
+    }
+    return triggerPrimaryAttackBeforeMobileGameplay ? triggerPrimaryAttackBeforeMobileGameplay() : undefined;
+  };
+
+  function describeInteractionTarget(target) {
+    if (!target) return "...";
+    const type = target.type || "";
+    const role = target.role || "";
+    if (type === "portal" || type === "dimensionPortal" || type === "caveEntrance" || type === "homeDoor") return "Entrar";
+    if (type === "dimensionCrystal") return "Ativar";
+    if (type === "dimensionChest" || type === "rareChest" || type.includes("chest")) return "Abrir";
+    if (type === "bed") return "Dormir";
+    if (type === "workbench" || type === "craftingTable") return "Criar";
+    if (type === "wardrobe" || type === "armorStand") return "Equipar";
+    if (type === "bookcase" || type === "sign" || type === "map" || type === "painting") return "Olhar";
+    if (type === "npc") return role === "shopkeeper" ? "Comprar" : "Falar";
+    if (type === "collectible") return "Coletar";
+    return "Usar";
+  }
+
+  function getInteractionTargetSafe() {
+    try {
+      return typeof findInteraction === "function" ? findInteraction() : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function updateMobileContextLabel() {
+    const actionButton = q("touchActionButton");
+    const label = q("touchContextLabel");
+    const target = getInteractionTargetSafe();
+    const hasDialog = Boolean(dialogOpen && !dialogBox?.classList.contains("hidden"));
+    const text = hasDialog ? "Continuar" : describeInteractionTarget(target);
+
+    if (label) label.textContent = text;
+    if (actionButton) {
+      actionButton.classList.toggle("is-context-ready", Boolean(target) || hasDialog);
+      actionButton.dataset.contextLabel = text;
+      if (state.mobile) actionButton.setAttribute("aria-label", text === "..." ? "Interagir" : text);
+    }
+  }
+
+  updateInteractionHint = function updateInteractionHintMobileComfort() {
+    if (updateInteractionHintBeforeMobileGameplay) updateInteractionHintBeforeMobileGameplay();
+    if (state.mobile) updateMobileContextLabel();
+  };
+
+  function continueOrCloseDialog() {
+    if (!dialogOpen) return false;
+    try { closeDialog?.(); } catch (error) {}
+    return true;
+  }
+
+  function smartInteraction() {
+    if (!gameStarted || gameOver || inventoryOpen || shopOpen || pauseOpen || isTextInputActive()) return;
+    if (continueOrCloseDialog()) return;
+    try { toggleInteraction?.(); } catch (error) { showErrorMessage?.(error); }
+  }
+
+  function openInventoryMobile() {
+    if (!gameStarted || gameOver) return;
+    resetMove();
+    try { closeShop?.(); } catch (error) {}
+    try { closeOverlayPanels?.(); } catch (error) {}
+    try { toggleInventory?.(!inventoryOpen); } catch (error) {
+      if (q("inventoryPanel")) q("inventoryPanel").classList.toggle("hidden", inventoryOpen);
+    }
+    document.body?.classList.toggle("er-inventory-rework-open", Boolean(inventoryOpen));
+    try { renderInventory?.(); } catch (error) {}
+  }
+
+  function setMobilePausePanel(open) {
+    resetMove();
+    if (typeof pauseOpen !== "undefined") pauseOpen = Boolean(open);
+    const panel = q("pausePanel");
+    if (panel) panel.classList.toggle("hidden", !open);
+    if (open && inventoryOpen) {
+      try { toggleInventory?.(false); } catch (error) {}
+    }
+    syncMobileOpenClasses();
+  }
+
+  function bindComfortButton(id, action, cooldownMs = 160) {
+    const button = q(id);
+    if (!button || button.dataset.mobileGameplayButton === "true") return;
+    button.dataset.mobileGameplayButton = "true";
+    button.style.touchAction = "none";
+
+    const run = (event) => {
+      if (!state.mobile) return;
+      consumeTouch(event);
+      const stamp = now();
+      if (stamp - Number(state.lastActionAt[id] || 0) < cooldownMs) return;
+      state.lastActionAt[id] = stamp;
+      button.classList.add("is-pressed", "er-touch-pulse");
+      setTimeout(() => button.classList.remove("er-touch-pulse"), 220);
+      haptic(id === "touchAttackButton" ? 14 : 8);
+      try { action(event); } catch (error) { showErrorMessage?.(error); }
+    };
+
+    button.addEventListener("pointerdown", run, true);
+    const release = (event) => {
+      if (!state.mobile) return;
+      consumeTouch(event);
+      button.classList.remove("is-pressed");
+    };
+    button.addEventListener("pointerup", release, true);
+    button.addEventListener("pointercancel", release, true);
+    button.addEventListener("click", (event) => {
+      if (state.mobile) consumeTouch(event);
+    }, true);
+  }
+
+  function updateMobilePowerButtonState() {
+    if (updateMobilePowerButtonsBeforeGameplay) updateMobilePowerButtonsBeforeGameplay();
+    ["touchPower1Button", "touchPower2Button", "touchPower3Button", "touchPower4Button"].forEach((id, index) => {
+      const button = q(id);
+      if (!button) return;
+      const isEquipped = Array.isArray(powerSlots) && powerSlots[index] === equippedPower;
+      button.classList.toggle("is-equipped", Boolean(isEquipped));
+      button.setAttribute("aria-pressed", String(Boolean(isEquipped)));
+    });
+  }
+
+  updateMobilePowerButtons = updateMobilePowerButtonState;
+
+  function bindAllComfortButtons() {
+    bindComfortButton("touchInventoryButton", openInventoryMobile, 220);
+    bindComfortButton("touchAttackButton", mobileAttack, 90);
+    bindComfortButton("touchActionButton", smartInteraction, 120);
+    bindComfortButton("touchPotionButton", () => { if (!gameplayBlockedForAction() && !dialogOpen) usePotion?.(); }, 230);
+    bindComfortButton("touchWeaponButton", () => { if (!gameplayBlockedForAction() && !dialogOpen) cycleWeapon?.(); }, 220);
+    bindComfortButton("touchPowerButton", () => { if (!gameplayBlockedForAction() && !dialogOpen) useEquippedPower?.(); }, 130);
+    bindComfortButton("touchDashButton", () => { if (!gameplayBlockedForAction() && !dialogOpen) dodgeDash?.(); }, 180);
+    bindComfortButton("touchFireballButton", () => { if (!gameplayBlockedForAction() && !dialogOpen) { equipPower?.(0); useEquippedPower?.(); } }, 150);
+    bindComfortButton("touchShockwaveButton", () => { if (!gameplayBlockedForAction() && !dialogOpen) { equipPower?.(2); useEquippedPower?.(); } }, 190);
+    bindComfortButton("touchHealButton", () => { if (!gameplayBlockedForAction() && !dialogOpen) { equipPower?.(3); useEquippedPower?.(); } }, 220);
+    bindComfortButton("touchPower1Button", () => { if (!gameplayBlockedForAction() && !dialogOpen) equipPower?.(0); }, 140);
+    bindComfortButton("touchPower2Button", () => { if (!gameplayBlockedForAction() && !dialogOpen) equipPower?.(1); }, 140);
+    bindComfortButton("touchPower3Button", () => { if (!gameplayBlockedForAction() && !dialogOpen) equipPower?.(2); }, 140);
+    bindComfortButton("touchPower4Button", () => { if (!gameplayBlockedForAction() && !dialogOpen) equipPower?.(3); }, 140);
+    bindComfortButton("closeInventoryButton", () => toggleInventory?.(false), 90);
+    bindComfortButton("dialogContinueButton", continueOrCloseDialog, 90);
+    bindComfortButton("mobilePauseButton", () => setMobilePausePanel(!pauseOpen), 220);
+    bindComfortButton("hudMenuButton", () => setMobilePausePanel(!pauseOpen), 220);
+    bindComfortButton("pauseContinueButton", () => setMobilePausePanel(false), 90);
+    bindComfortButton("mobileFullscreenButton", () => requestGameFullscreen?.(), 420);
+    bindComfortButton("startFullscreenButton", () => requestGameFullscreen?.(), 420);
+  }
+
+  function createButton(id, label, className = "touch-button") {
+    let button = q(id);
+    if (button) return button;
+    button = document.createElement("button");
+    button.id = id;
+    button.type = "button";
+    button.className = className;
+    button.textContent = label;
+    button.setAttribute("aria-label", label);
+    return button;
+  }
+
+  function ensureMobileSettingsPanel() {
+    const topActions = document.querySelector(".mobile-top-actions");
+    if (topActions && !q("mobileSettingsButton")) {
+      topActions.appendChild(createButton("mobileSettingsButton", "Ajustes", "touch-button mobile-settings-open-button"));
+    }
+
+    const pauseActions = q("pausePanel")?.querySelector?.(".pause-actions, .pause-menu-actions, .panel-actions") || q("pausePanel");
+    if (pauseActions && !q("pauseMobileSettingsButton")) {
+      pauseActions.appendChild(createButton("pauseMobileSettingsButton", "Ajustes Mobile", "pause-button mobile-settings-open-button"));
+    }
+
+    if (!q("mobileGameplaySettingsPanel")) {
+      const panel = document.createElement("section");
+      panel.id = "mobileGameplaySettingsPanel";
+      panel.className = "mobile-gameplay-settings-panel hidden";
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-label", "Ajustes mobile");
+      panel.innerHTML = `
+        <div class="mobile-gameplay-settings-card">
+          <header>
+            <div>
+              <span>Ajustes Mobile</span>
+              <h2>Conforto no celular</h2>
+            </div>
+            <button id="closeMobileSettingsButton" type="button" aria-label="Fechar ajustes">Fechar</button>
+          </header>
+          <label>
+            Tamanho dos botoes
+            <select id="mobileButtonSizeSelect">
+              <option value="small">Pequeno</option>
+              <option value="medium">Medio</option>
+              <option value="large">Grande</option>
+            </select>
+          </label>
+          <label>
+            Opacidade dos controles
+            <input id="mobileButtonOpacityRange" type="range" min="45" max="100" step="5">
+          </label>
+          <label>
+            Sensibilidade do joystick
+            <input id="mobileJoystickSensitivityRange" type="range" min="72" max="145" step="1">
+          </label>
+          <label class="mobile-gameplay-settings-check">
+            <input id="mobileAutoAimToggle" type="checkbox">
+            Mira assistida
+          </label>
+          <label class="mobile-gameplay-settings-check">
+            <input id="mobilePerformanceToggle" type="checkbox">
+            Economia de desempenho
+          </label>
+          <div class="mobile-gameplay-preset-grid" aria-label="Presets de HUD mobile">
+            <button type="button" data-mobile-preset="Mobile Pequeno">Mobile Pequeno</button>
+            <button type="button" data-mobile-preset="Mobile Medio">Mobile Medio</button>
+            <button type="button" data-mobile-preset="Mobile Grande">Mobile Grande</button>
+            <button type="button" data-mobile-preset="Competitivo">Competitivo</button>
+            <button type="button" data-mobile-preset="Limpo">Limpo</button>
+          </div>
+          <button id="resetMobileLayoutButton" type="button" class="mobile-reset-layout-button">Resetar layout mobile</button>
+        </div>
+      `;
+      document.body.appendChild(panel);
+    }
+
+    bindComfortButton("mobileSettingsButton", openMobileSettings, 180);
+    bindComfortButton("pauseMobileSettingsButton", openMobileSettings, 180);
+    if (q("closeMobileSettingsButton")) q("closeMobileSettingsButton").onclick = closeMobileSettings;
+    if (q("mobileButtonSizeSelect")) q("mobileButtonSizeSelect").onchange = (event) => saveMobileSettings({ buttonSize: event.target.value });
+    if (q("mobileButtonOpacityRange")) q("mobileButtonOpacityRange").oninput = (event) => saveMobileSettings({ opacity: Number(event.target.value) / 100 });
+    if (q("mobileJoystickSensitivityRange")) q("mobileJoystickSensitivityRange").oninput = (event) => saveMobileSettings({ joystickSensitivity: Number(event.target.value) / 100 });
+    if (q("mobileAutoAimToggle")) q("mobileAutoAimToggle").onchange = (event) => saveMobileSettings({ autoAim: event.target.checked });
+    if (q("mobilePerformanceToggle")) q("mobilePerformanceToggle").onchange = (event) => saveMobileSettings({ performanceEconomy: event.target.checked });
+    if (q("resetMobileLayoutButton")) q("resetMobileLayoutButton").onclick = () => {
+      saveMobileSettings(DEFAULT_SETTINGS);
+      try { localStorage.removeItem("eternal-rift-hud-layout-freefire-v1"); } catch (error) {}
+      document.body?.classList.remove("hud-editor-open");
+      showHudToast?.("Layout mobile resetado.");
+    };
+
+    document.querySelectorAll("[data-mobile-preset]").forEach((button) => {
+      if (button.dataset.mobilePresetBound === "true") return;
+      button.dataset.mobilePresetBound = "true";
+      button.addEventListener("click", () => applyMobilePreset(button.dataset.mobilePreset));
+    });
+
+    syncMobileSettingsPanel();
+  }
+
+  function openMobileSettings(event) {
+    if (event) consumeTouch(event);
+    q("mobileGameplaySettingsPanel")?.classList.remove("hidden");
+    document.body?.classList.add("mobile-settings-open");
+    resetMove();
+  }
+
+  function closeMobileSettings(event) {
+    if (event) consumeTouch(event);
+    q("mobileGameplaySettingsPanel")?.classList.add("hidden");
+    document.body?.classList.remove("mobile-settings-open");
+  }
+
+  function syncMobileSettingsPanel() {
+    const size = q("mobileButtonSizeSelect");
+    const opacity = q("mobileButtonOpacityRange");
+    const sensitivity = q("mobileJoystickSensitivityRange");
+    const autoAim = q("mobileAutoAimToggle");
+    const performance = q("mobilePerformanceToggle");
+    if (size) size.value = state.settings.buttonSize;
+    if (opacity) opacity.value = String(Math.round(state.settings.opacity * 100));
+    if (sensitivity) sensitivity.value = String(Math.round(state.settings.joystickSensitivity * 100));
+    if (autoAim) autoAim.checked = state.settings.autoAim;
+    if (performance) performance.checked = state.settings.performanceEconomy;
+  }
+
+  function applyMobilePreset(name = "Mobile Medio") {
+    const presets = {
+      "Mobile Pequeno": { buttonSize: "small", opacity: 0.82, joystickSensitivity: 1.03, preset: "Mobile Pequeno" },
+      "Mobile Medio": { buttonSize: "medium", opacity: 0.88, joystickSensitivity: 1.06, preset: "Mobile Medio" },
+      "Mobile Grande": { buttonSize: "large", opacity: 0.92, joystickSensitivity: 1.0, preset: "Mobile Grande" },
+      Competitivo: { buttonSize: "medium", opacity: 0.72, joystickSensitivity: 1.18, autoAim: true, preset: "Competitivo" },
+      Limpo: { buttonSize: "small", opacity: 0.62, joystickSensitivity: 1.08, preset: "Limpo" }
+    };
+    saveMobileSettings(presets[name] || presets["Mobile Medio"]);
+    document.body?.setAttribute("data-mobile-hud-preset", name);
+    showHudToast?.(`Preset mobile: ${name}`);
+  }
+
+  function rebuildTouchControlsForComfort() {
+    const controls = document.querySelector(".touch-controls");
+    if (controls && controls.dataset.mobileGameplayRebuilt !== "true") {
+      const clone = controls.cloneNode(true);
+      clone.dataset.mobileGameplayRebuilt = "true";
+      controls.replaceWith(clone);
+    }
+
+    const top = document.querySelector(".mobile-top-actions");
+    if (top && top.dataset.mobileGameplayRebuilt !== "true") {
+      const clone = top.cloneNode(true);
+      clone.dataset.mobileGameplayRebuilt = "true";
+      top.replaceWith(clone);
+    }
+
+    ensureMobileSettingsPanel();
+  }
+
+  function syncMobileOpenClasses() {
+    document.body?.classList.toggle("er-inventory-rework-open", Boolean(inventoryOpen));
+    document.body?.classList.toggle("er-dialog-mobile-open", Boolean(dialogOpen));
+    document.body?.classList.toggle("er-pause-mobile-open", Boolean(pauseOpen));
+  }
+
+  update = function updateMobileComfort(delta) {
+    const result = updateBeforeMobileGameplay ? updateBeforeMobileGameplay(delta) : undefined;
+    if (state.mobile) {
+      syncMobileOpenClasses();
+      updateMobileCameraLookAhead();
+      updateMobileContextLabel();
+      if (state.settings.performanceEconomy) trimMobileEffectPools();
+    }
+    return result;
+  };
+
+  function updateMobileCameraLookAhead() {
+    if (!gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen) return;
+    if (!canvas || !camera || !player) return;
+
+    let lookX = 0;
+    let lookY = 0;
+    if (state.strength > 0.08) {
+      lookX = state.moveX * Math.min(84, canvas.width * 0.12);
+      lookY = state.moveY * Math.min(72, canvas.height * 0.13);
+    }
+    const target = state.settings.autoAim ? state.lastAimTarget : null;
+    if (objectIsAttackable(target)) {
+      const t = getObjectCenter(target);
+      lookX += clampLocal(t.x - (player.x + player.width / 2), -72, 72) * 0.28;
+      lookY += clampLocal(t.y - (player.y + player.height / 2), -62, 62) * 0.28;
+    }
+
+    const desiredX = clampLocal(player.x + player.width / 2 + lookX - canvas.width / 2, 0, Math.max(0, getSceneWidth() - canvas.width));
+    const desiredY = clampLocal(player.y + player.height / 2 + lookY - canvas.height / 2, 0, Math.max(0, getSceneHeight() - canvas.height));
+    camera.x += (desiredX - camera.x) * 0.18;
+    camera.y += (desiredY - camera.y) * 0.18;
+  }
+
+  function trimMobileEffectPools() {
+    try { if (Array.isArray(floatingTexts) && floatingTexts.length > 28) floatingTexts.splice(0, floatingTexts.length - 28); } catch (error) {}
+    try { if (Array.isArray(projectiles) && projectiles.length > 42) projectiles.splice(0, projectiles.length - 42); } catch (error) {}
+    try { if (Array.isArray(enemyProjectiles) && enemyProjectiles.length > 28) enemyProjectiles.splice(0, enemyProjectiles.length - 28); } catch (error) {}
+    try { if (Array.isArray(visualEffects) && visualEffects.length > 36) visualEffects.splice(0, visualEffects.length - 36); } catch (error) {}
+  }
+
+  function drawMobileInteractionMark() {
+    if (!state.mobile || inventoryOpen || shopOpen || pauseOpen) return;
+    const target = getInteractionTargetSafe();
+    if (!target) return;
+
+    ctx.save();
+    ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255, 242, 100, 0.82)";
+    ctx.fillStyle = "rgba(255, 242, 100, 0.10)";
+    const pad = 5 + Math.sin(performance.now() / 160) * 1.5;
+    ctx.fillRect(target.x - pad, target.y - pad, target.width + pad * 2, target.height + pad * 2);
+    ctx.strokeRect(target.x - pad, target.y - pad, target.width + pad * 2, target.height + pad * 2);
+    ctx.restore();
+  }
+
+  draw = function drawMobileComfort() {
+    const result = drawBeforeMobileGameplay ? drawBeforeMobileGameplay() : undefined;
+    try { drawMobileInteractionMark(); } catch (error) {}
+    return result;
+  };
+
+  document.addEventListener("touchmove", (event) => {
+    if (!state.mobile) return;
+    const target = event.target;
+    if (target?.closest?.("#inventoryPanel, #mobileGameplaySettingsPanel, #pausePanel, #missionsPanel, #statusPanel, #infoPanel, .brutal-minimap-modal, .er-inventory-rework-root")) return;
+    if (target?.closest?.(".game-panel, #gameCanvas, .touch-controls, .mobile-top-actions, .sandbox-2d-hotbar")) consumeTouch(event);
+  }, { capture: true, passive: false });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) resetMove();
+  }, { passive: true });
+
+  function bootMobileComfort() {
+    applyMobileSettingsToDom();
+    rebuildTouchControlsForComfort();
+    bindJoystickComfort();
+    bindAllComfortButtons();
+    updateMobilePowerButtonState();
+    updateMobileContextLabel();
+    syncMobileOpenClasses();
+    try { ensureCanvasSize?.(true); } catch (error) {}
+  }
+
+  window.addEventListener("resize", () => setTimeout(bootMobileComfort, 80), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(bootMobileComfort, 180), { passive: true });
+  window.addEventListener("load", () => setTimeout(bootMobileComfort, 120), { passive: true });
+
+  bootMobileComfort();
+  setTimeout(bootMobileComfort, 250);
+  setTimeout(() => {
+    bootMobileComfort();
+    if (state.mobile) showHudToast?.("Mobile melhorado: joystick, botoes, hotbar e mira assistida.");
+  }, 900);
 })();
