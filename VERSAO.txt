@@ -1,4 +1,6 @@
 ETERNAL RIFT - HITBOX MELHORADA 2026-07-06
+- mobile-clean-hud-only-20260706: HUD principal mobile mais limpo; oxigenio, moedas, classe/contrato e boss fixo ficam ocultos somente no celular, sem alterar PC nem remover sistemas.
+
 - espada, arco e cajado com hitbox direcional melhorada
 - projeteis de arco/cajado saem melhor alinhados
 - mantida a correcao da espada duplicada
