@@ -60623,3 +60623,575 @@ if (typeof premiumWorldShadow !== "function") {
     } catch (error) {}
   }, 250);
 })();
+
+
+
+/* ==================================================
+   ETERNAL RIFT: HUD estilo MMORPG igual à imagem enviada
+   ================================================== */
+(function eternalRiftMmoPhotoHudPatch() {
+  const PATCH_ID = "mmo-photo-hud-20260706-1";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MMO_PHOTO_HUD === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MMO_PHOTO_HUD = PATCH_ID;
+
+  function mobileLike() {
+    // HUD da foto forçado em PC e mobile.
+    return true;
+  }
+
+  function make(tag, className, html = "") {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (html) el.innerHTML = html;
+    return el;
+  }
+
+  function safeClick(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      try { el.click(); } catch (error) {}
+    }
+  }
+
+  function labelButton(icon, label, clickId, extraClass = "") {
+    const btn = make("button", `er-mmo-button er-mmo-corner ${extraClass}`, `<span class="er-mmo-icon">${icon}</span><span>${label}</span>`);
+    btn.type = "button";
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (clickId === "missions") safeClick("pauseMissionsButton");
+      else if (clickId === "menu") safeClick("hudMenuButton");
+      else if (clickId === "shop") {
+        try { showHudToast?.("Fale com um vendedor para abrir a loja.", 1.8); } catch (error) {}
+        safeClick("touchActionButton");
+      } else if (clickId === "events") {
+        try { showHudToast?.("Eventos em breve.", 1.8); } catch (error) {}
+      } else safeClick(clickId);
+    });
+    return btn;
+  }
+
+  function skillButton(icon, label, clickId, color, extraClass = "") {
+    const wrap = make("div", `er-mmo-circle-wrap ${extraClass}`);
+    const btn = make("button", "er-mmo-circle er-mmo-corner", `<b>${icon}</b>`);
+    btn.type = "button";
+    btn.style.setProperty("--skill-color", color);
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      safeClick(clickId);
+    });
+    const text = make("div", "er-mmo-circle-label", label);
+    wrap.append(btn, text);
+    return wrap;
+  }
+
+  function hotbarSlot(n, icon, name, clickId) {
+    const btn = make("button", "er-mmo-slot er-mmo-corner", `<span class="er-mmo-slot-number">${n}</span><span class="er-mmo-slot-icon">${icon}</span><span class="er-mmo-slot-name">${name}</span>`);
+    btn.type = "button";
+    if (clickId) {
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        safeClick(clickId);
+      });
+    }
+    return btn;
+  }
+
+  function buildHud() {
+    if (document.getElementById("erMmoHud")) return document.getElementById("erMmoHud");
+
+    const hud = make("div", "er-mmo-hud");
+    hud.id = "erMmoHud";
+
+    const profile = make("div", "er-mmo-panel er-mmo-profile er-mmo-corner");
+    profile.innerHTML = `
+      <div class="er-mmo-portrait-frame">
+        <img id="erMmoPortrait" src="assets/player/hero-down.png" alt="">
+        <div id="erMmoLevelShield" class="er-mmo-level-shield">1</div>
+      </div>
+      <div class="er-mmo-name-line"><span id="erMmoName">Herói</span><span>| Nvl. <b id="erMmoLevel">1</b></span></div>
+      <div class="er-mmo-bar-row"><span class="er-mmo-bar-label">HP</span><div class="er-mmo-bar-track"><span id="erMmoHpFill" class="er-mmo-bar-fill er-mmo-hp-fill"></span><span id="erMmoHpText" class="er-mmo-bar-text">HP 0/0</span></div></div>
+      <div class="er-mmo-bar-row"><span class="er-mmo-bar-label">MP</span><div class="er-mmo-bar-track"><span id="erMmoMpFill" class="er-mmo-bar-fill er-mmo-mp-fill"></span><span id="erMmoMpText" class="er-mmo-bar-text">MP 0/0</span></div></div>
+      <div class="er-mmo-bar-row"><span class="er-mmo-bar-label">XP</span><div class="er-mmo-bar-track"><span id="erMmoXpFill" class="er-mmo-bar-fill er-mmo-xp-fill"></span><span id="erMmoXpText" class="er-mmo-bar-text">XP 0/0</span></div></div>
+    `;
+
+    const topMenu = make("div", "er-mmo-top-menu");
+    topMenu.append(
+      labelButton("🎒", "Bolsa", "touchInventoryButton"),
+      labelButton("📜", "Tarefas", "missions"),
+      labelButton("🏰", "Loja", "shop"),
+      labelButton("🏳️", "Eventos", "events"),
+      labelButton("☰", "Menu", "menu")
+    );
+
+    const currency = make("div", "er-mmo-panel er-mmo-currency er-mmo-corner");
+    currency.innerHTML = `
+      <span>🪙 <b id="erMmoCoins">0</b></span>
+      <span>💎 <b id="erMmoCrystals">0</b></span>
+      <span>🔮 <b id="erMmoGems">0</b></span>
+      <span class="er-mmo-add">＋</span>
+    `;
+
+    const left = make("div", "er-mmo-left-stack");
+    left.innerHTML = `
+      <div class="er-mmo-quest er-mmo-corner">
+        <div class="er-mmo-location">📍 <span id="erMmoLocation">Vila Principal • Floresta</span></div>
+        <div class="er-mmo-quest-title">🗡️ <span id="erMmoQuest">Missão</span></div>
+        <div class="er-mmo-quest-sub" id="erMmoQuestSub">Fale com o Guerreiro.</div>
+      </div>
+      <div class="er-mmo-contract er-mmo-corner">
+        <div>🛡️ <b id="erMmoNpc">Guerreiro</b></div>
+        <div>Contrato: <span id="erMmoContract">nenhum</span></div>
+      </div>
+    `;
+
+    const mid = make("div", "er-mmo-mid-stack");
+    const boss = make("div", "er-mmo-mid-panel er-mmo-corner", `💀 <span id="erMmoBoss">Boss: nenhum</span> &nbsp; <button id="erMmoPauseBtn" type="button">Pausa</button>`);
+    boss.querySelector("#erMmoPauseBtn").addEventListener("click", () => safeClick("mobilePauseButton"));
+    const mana = make("div", "er-mmo-mid-panel er-mmo-corner", `<span id="erMmoManaMini">0/0</span><div class="er-mmo-bar-track"><span id="erMmoManaMiniFill" class="er-mmo-bar-fill er-mmo-mp-fill"></span></div>`);
+    const weapon = make("div", "er-mmo-mid-panel er-mmo-corner", `🗡️ Arma: <span id="erMmoWeapon">Espada</span>`);
+    const saveRow = make("div", "er-mmo-save-row");
+    const save = make("button", "er-mmo-mid-panel er-mmo-corner", "Salvar Jogo");
+    save.type = "button";
+    save.addEventListener("click", () => safeClick("saveButton"));
+    const reset = make("button", "er-mmo-mid-panel er-mmo-corner", "📍 Reiniciar posição");
+    reset.type = "button";
+    reset.addEventListener("click", () => safeClick("resetButton"));
+    saveRow.append(save, reset);
+    mid.append(boss, mana, weapon, saveRow);
+
+    const minimap = make("div", "er-mmo-minimap-shell er-mmo-corner");
+    minimap.innerHTML = `
+      <div class="er-mmo-minimap-title">Mapa tático</div>
+      <div class="er-mmo-minimap-plus">+</div>
+      <div id="erMmoMiniBox" class="er-mmo-minimap-box"></div>
+      <div class="er-mmo-minimap-label">Vila/Floresta</div>
+    `;
+
+    const right = make("div", "er-mmo-right-skills");
+    right.append(
+      skillButton("☄️", "Bola de Fogo", "touchFireballButton", "#ff6d22"),
+      skillButton("✦", "Magia", "touchPowerButton", "#9f54ff"),
+      skillButton("✚", "Cura", "touchHealButton", "#24bfff"),
+      skillButton("⚔️", "Ataque Rápido", "touchDashButton", "#b6b6bd"),
+      skillButton("🗡️", "Atacar", "touchAttackButton", "#bd1b23", "er-mmo-attack-main")
+    );
+
+    const hotbar = make("div", "er-mmo-bottom-hotbar er-mmo-panel er-mmo-corner");
+    hotbar.append(
+      hotbarSlot(1, "🗡️", "Espada", "touchWeaponButton"),
+      hotbarSlot(2, "⛏️", "Picareta", ""),
+      hotbarSlot(3, "🔮", "Magia", "touchPowerButton"),
+      hotbarSlot(4, "🧪", "Poção", "touchPotionButton"),
+      hotbarSlot(5, "🍞", "Pão", ""),
+      hotbarSlot(6, "📜", "Pergaminho", "pauseMissionsButton"),
+      hotbarSlot(7, "🗝️", "Chave", ""),
+      hotbarSlot(8, "💍", "Anel", "")
+    );
+
+    const chat = make("div", "er-mmo-chat er-mmo-corner", "💬 [Sistema] Bem-vindo ao Eternal Rift!");
+    const gear = make("button", "er-mmo-gear er-mmo-button er-mmo-corner", "⚙️");
+    gear.type = "button";
+    gear.addEventListener("click", () => safeClick("hudMenuButton"));
+
+    hud.append(profile, topMenu, currency, left, mid, minimap, right, hotbar, chat, gear);
+    document.body.appendChild(hud);
+
+    const miniCanvas = document.getElementById("miniMapCanvas");
+    const box = document.getElementById("erMmoMiniBox");
+    if (miniCanvas && box && miniCanvas.parentElement !== box) {
+      box.appendChild(miniCanvas);
+    }
+
+    return hud;
+  }
+
+  function parseNumberPair(text) {
+    const match = String(text || "").match(/(\d+)\s*\/\s*(\d+)/);
+    if (!match) return null;
+    return { current: Number(match[1]), max: Number(match[2]) };
+  }
+
+  function setFill(id, current, max) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const pct = max > 0 ? Math.max(0, Math.min(100, current / max * 100)) : 0;
+    el.style.width = `${pct}%`;
+  }
+
+  function syncHud() {
+    if (!mobileLike()) return;
+
+    buildHud();
+    document.body.classList.add("er-mmo-hud-active");
+
+    const name = (typeof getPlayerHudName === "function" ? getPlayerHudName() : (player?.name || document.getElementById("playerName")?.textContent || "Herói"));
+    const level = Number(player?.level || 1);
+    const health = Number(player?.health || 0);
+    const maxHealth = Number(player?.maxHealth || 1);
+    const mana = Number(player?.mana || 0);
+    const maxMana = Number(player?.maxMana || 1);
+    const xp = Number(player?.xp || 0);
+    const xpToNext = Number(player?.xpToNextLevel || 1);
+    const coins = Number(inventory?.moedas || 0);
+    const crystals = Number(inventory?.cristais || inventory?.manaOrbes || 0);
+    const gems = Number(inventory?.fragmentos || inventory?.chavesRaras || 0);
+
+    const setText = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+
+    setText("erMmoName", name);
+    setText("erMmoLevel", level);
+    setText("erMmoLevelShield", level);
+    setText("erMmoHpText", `HP ${health}/${maxHealth}`);
+    setText("erMmoMpText", `MP ${Math.round(mana)}/${maxMana}`);
+    setText("erMmoXpText", `XP ${xp}/${xpToNext}`);
+    setText("erMmoCoins", coins);
+    setText("erMmoCrystals", crystals);
+    setText("erMmoGems", gems);
+    setText("erMmoManaMini", `${Math.round(mana)}/${maxMana}`);
+
+    setFill("erMmoHpFill", health, maxHealth);
+    setFill("erMmoMpFill", mana, maxMana);
+    setFill("erMmoXpFill", xp, xpToNext);
+    setFill("erMmoManaMiniFill", mana, maxMana);
+
+    const area = document.getElementById("playerPosition")?.textContent || "Vila Principal";
+    const questText = document.getElementById("questProgress")?.textContent || "Fale com o Guerreiro.";
+    const weapon = document.getElementById("weaponHud")?.textContent || "Espada";
+    const bossName = document.getElementById("bossNameHud")?.textContent || "Nenhum";
+
+    setText("erMmoLocation", area.includes("•") ? area : `${area} • Floresta`);
+    setText("erMmoQuest", questText.length > 26 ? questText.slice(0, 26) + "..." : questText);
+    setText("erMmoQuestSub", questText.includes("Fale") ? questText : "Fale com o Guerreiro.");
+    setText("erMmoWeapon", weapon.length > 24 ? weapon.slice(0, 24) + "..." : weapon);
+    setText("erMmoBoss", bossName && bossName !== "Nenhum" ? `Boss: ${bossName}` : "Boss: nenhum");
+  }
+
+  function enableOrDisableHud() {
+    if (mobileLike()) {
+      buildHud();
+      syncHud();
+    } else {
+      document.body.classList.remove("er-mmo-hud-active");
+      const hud = document.getElementById("erMmoHud");
+      if (hud) hud.style.display = "none";
+    }
+  }
+
+  const updateHudBeforeMmoPhotoHud = typeof updateHud === "function" ? updateHud : null;
+  if (updateHudBeforeMmoPhotoHud) {
+    updateHud = function updateHudMmoPhotoHud(force = false) {
+      const result = updateHudBeforeMmoPhotoHud(force);
+      try { syncHud(); } catch (error) {}
+      return result;
+    };
+  }
+
+  window.addEventListener("resize", () => setTimeout(enableOrDisableHud, 120), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(enableOrDisableHud, 260), { passive: true });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) setTimeout(enableOrDisableHud, 120);
+  });
+
+  setInterval(() => {
+    try { enableOrDisableHud(); } catch (error) {}
+  }, 500);
+
+  setTimeout(() => {
+    try {
+      enableOrDisableHud();
+      if (typeof showHudToast === "function" && mobileLike()) showHudToast("HUD MMORPG ativado.", 1.8);
+    } catch (error) {}
+  }, 250);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: FINAL REAL - HUD DA FOTO + MOBILE SEM LAG
+   ================================================== */
+(function eternalRiftFinalHudPhotoNoLagRealPatch() {
+  const PATCH_ID = "final-hud-photo-no-lag-real-20260706-2";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_FINAL_HUD_PHOTO_NO_LAG_REAL === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_FINAL_HUD_PHOTO_NO_LAG_REAL = PATCH_ID;
+
+  function coarseDevice() {
+    try {
+      return Boolean(
+        window.matchMedia?.("(pointer: coarse)")?.matches ||
+        window.matchMedia?.("(max-width: 880px)")?.matches ||
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "") ||
+        document.body?.classList.contains("is-mobile") ||
+        isMobile
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function potatoMode() {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      return coarseDevice() || params.get("potato") === "1" || params.get("ultra") === "1" || params.get("lite") === "1";
+    } catch (error) {
+      return coarseDevice();
+    }
+  }
+
+  function applyBodyFlags() {
+    try {
+      document.body?.classList.add("er-mmo-hud-active", "er-final-photo-hud", "er-mobile-no-lag-real");
+      if (potatoMode()) document.body?.classList.add("er-potato-render");
+      const hud = document.getElementById("erMmoHud");
+      if (hud) hud.style.display = "block";
+      const miniCanvas = document.getElementById("miniMapCanvas");
+      const box = document.getElementById("erMmoMiniBox");
+      if (miniCanvas && box && miniCanvas.parentElement !== box) box.appendChild(miniCanvas);
+    } catch (error) {}
+  }
+
+  applyBodyFlags();
+  setInterval(applyBodyFlags, 350);
+
+  // Canvas menor no celular = muito menos travamento. Não remove conteúdo, só renderiza mais leve.
+  const ensureCanvasSizeBeforeFinalLag = typeof ensureCanvasSize === "function" ? ensureCanvasSize : null;
+  let lastCanvasKeyFinalLag = "";
+  let lastCanvasAtFinalLag = 0;
+  ensureCanvasSize = function ensureCanvasSizeFinalHudNoLag(force = false) {
+    const now = performance.now();
+    const vv = window.visualViewport;
+    const cssW = Math.max(320, Math.round(vv?.width || canvas?.clientWidth || window.innerWidth || 960));
+    const cssH = Math.max(240, Math.round(vv?.height || canvas?.clientHeight || window.innerHeight || 640));
+    const key = `${cssW}x${cssH}:${window.innerWidth > window.innerHeight ? "land" : "port"}`;
+    if (!force && key === lastCanvasKeyFinalLag && now - lastCanvasAtFinalLag < 1000) {
+      try { ctx.imageSmoothingEnabled = false; miniCtx.imageSmoothingEnabled = false; } catch (error) {}
+      return;
+    }
+    lastCanvasKeyFinalLag = key;
+    lastCanvasAtFinalLag = now;
+
+    if (ensureCanvasSizeBeforeFinalLag) ensureCanvasSizeBeforeFinalLag(true);
+
+    if (potatoMode()) {
+      const landscape = cssW > cssH;
+      const budget = landscape ? 150000 : 125000;
+      let targetW = Math.max(380, Math.round(cssW * (landscape ? 0.82 : 0.74)));
+      let targetH = Math.max(260, Math.round(cssH * (landscape ? 0.82 : 0.74)));
+      const pixels = targetW * targetH;
+      if (pixels > budget) {
+        const k = Math.sqrt(budget / pixels);
+        targetW = Math.max(360, Math.floor(targetW * k));
+        targetH = Math.max(240, Math.floor(targetH * k));
+      }
+      if (Math.abs(canvas.width - targetW) > 2 || Math.abs(canvas.height - targetH) > 2) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+    }
+
+    if (miniMapCanvas.width <= 0) miniMapCanvas.width = 150;
+    if (miniMapCanvas.height <= 0) miniMapCanvas.height = 105;
+    try { ctx.imageSmoothingEnabled = false; miniCtx.imageSmoothingEnabled = false; } catch (error) {}
+  };
+
+  function trimKeepLatest(list, limit) {
+    if (Array.isArray(list) && list.length > limit) list.splice(0, list.length - limit);
+  }
+
+  const updateBeforeFinalLag = typeof update === "function" ? update : null;
+  update = function updateFinalHudNoLag(delta) {
+    const d = potatoMode() ? Math.min(Math.max(delta || 0.016, 0.001), 0.033) : Math.min(Math.max(delta || 0.016, 0.001), 0.04);
+    const result = updateBeforeFinalLag ? updateBeforeFinalLag(d) : undefined;
+    if (potatoMode()) {
+      trimKeepLatest(projectiles, 8);
+      trimKeepLatest(enemyProjectiles, 8);
+      trimKeepLatest(floatingTexts, 5);
+      trimKeepLatest(lootItems, 10);
+      trimKeepLatest(hazardZones, 5);
+      trimKeepLatest(dashTrails, 3);
+      trimKeepLatest(shockwaves, 1);
+      trimKeepLatest(healBursts, 1);
+    }
+    return result;
+  };
+
+  // HUD não precisa recalcular DOM todo frame.
+  const updateHudBeforeFinalLag = typeof updateHud === "function" ? updateHud : null;
+  let lastHudUpdateFinalLag = 0;
+  updateHud = function updateHudFinalNoLag(force = false) {
+    const now = performance.now();
+    if (potatoMode() && !force && now - lastHudUpdateFinalLag < 300) return;
+    lastHudUpdateFinalLag = now;
+    return updateHudBeforeFinalLag ? updateHudBeforeFinalLag(force) : undefined;
+  };
+
+  // IA longe do jogador fica dormindo no mobile. O inimigo continua existindo, só não calcula longe.
+  function distanceToPlayerFinal(obj) {
+    const px = player.x + player.width / 2;
+    const py = player.y + player.height / 2;
+    return Math.hypot((obj.x + obj.width / 2) - px, (obj.y + obj.height / 2) - py);
+  }
+
+  const updateEnemiesBeforeFinalLag = typeof updateEnemies === "function" ? updateEnemies : null;
+  updateEnemies = function updateEnemiesFinalNoLag(delta) {
+    if (!potatoMode() || currentScene !== "village" || !Array.isArray(villageObjects) || !updateEnemiesBeforeFinalLag) {
+      return updateEnemiesBeforeFinalLag ? updateEnemiesBeforeFinalLag(delta) : undefined;
+    }
+    const original = villageObjects.slice();
+    const filtered = original.filter((obj) => {
+      if (!obj || obj.type !== "enemy") return true;
+      if (!obj.alive || obj.boss || obj.trainingDummy) return true;
+      if (typeof isOnCamera === "function" && isOnCamera(obj, 96)) return true;
+      return distanceToPlayerFinal(obj) <= 360;
+    });
+    villageObjects.length = 0;
+    villageObjects.push(...filtered);
+    try { return updateEnemiesBeforeFinalLag(delta); }
+    finally { villageObjects.length = 0; villageObjects.push(...original); }
+  };
+
+  const updateNpcsBeforeFinalLag = typeof updateNpcs === "function" ? updateNpcs : null;
+  updateNpcs = function updateNpcsFinalNoLag(delta) {
+    if (!potatoMode() || currentScene !== "village" || !Array.isArray(villageObjects) || !updateNpcsBeforeFinalLag) {
+      return updateNpcsBeforeFinalLag ? updateNpcsBeforeFinalLag(delta) : undefined;
+    }
+    const original = villageObjects.slice();
+    const filtered = original.filter((obj) => {
+      if (!obj || obj.type !== "npc") return true;
+      if (typeof isOnCamera === "function" && isOnCamera(obj, 80)) return true;
+      return distanceToPlayerFinal(obj) <= 260;
+    });
+    villageObjects.length = 0;
+    villageObjects.push(...filtered);
+    try { return updateNpcsBeforeFinalLag(delta); }
+    finally { villageObjects.length = 0; villageObjects.push(...original); }
+  };
+
+  // Renderização do chão muito mais barata no mobile. Conteúdo/colisões continuam iguais.
+  const drawMapBeforeFinalLag = typeof drawMap === "function" ? drawMap : null;
+  function simpleTileColor(tile, x, y) {
+    const alt = ((x * 13 + y * 7) & 1) === 0;
+    if (tile === "D") return alt ? "#9f5a41" : "#8f4d38";
+    if (tile === "W" || tile === "M") return alt ? "#327fc4" : "#286fb2";
+    if (tile === "F") return alt ? "#4f944d" : "#458843";
+    if (tile === "P") return alt ? "#dca56a" : "#c8945e";
+    if (tile === "I") return alt ? "#9d714e" : "#8e6445";
+    if (tile === "B") return alt ? "#3f3444" : "#352c3b";
+    if (tile === "R") return alt ? "#8e2f43" : "#742638";
+    if (tile === "C" || tile === "Q") return alt ? "#3a2765" : "#302155";
+    return alt ? "#6fbd64" : "#65af5b";
+  }
+
+  drawMap = function drawMapFinalNoLag() {
+    if (!potatoMode() || !["village", "home", "shopInterior", "mayorInterior", "crystalDimension"].includes(currentScene)) {
+      return drawMapBeforeFinalLag ? drawMapBeforeFinalLag() : undefined;
+    }
+
+    let activeMap = homeMap;
+    let cols = HOME_COLS;
+    let rows = HOME_ROWS;
+    if (currentScene === "village") { activeMap = worldMap; cols = MAP_COLS; rows = MAP_ROWS; }
+    else if (currentScene === "crystalDimension") { activeMap = crystalDimensionMap; cols = CRYSTAL_COLS; rows = CRYSTAL_ROWS; }
+
+    const startCol = Math.floor(camera.x / TILE) - 1;
+    const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
+    const startRow = Math.floor(camera.y / TILE) - 1;
+    const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
+    for (let y = startRow; y <= endRow; y++) {
+      if (y < 0 || y >= rows) continue;
+      for (let x = startCol; x <= endCol; x++) {
+        if (x < 0 || x >= cols) continue;
+        const tile = activeMap[y]?.[x] || "G";
+        const px = x * TILE;
+        const py = y * TILE;
+        ctx.fillStyle = simpleTileColor(tile, x, y);
+        ctx.fillRect(px, py, TILE, TILE);
+        if (((x * 19 + y * 11) % 13) === 0 && (tile === "G" || tile === "F")) {
+          ctx.fillStyle = "rgba(24,80,43,.28)";
+          ctx.fillRect(px + 7, py + 20, 4, 8);
+        }
+      }
+    }
+  };
+
+  // Menos desenho de efeitos invisíveis.
+  function onCamFinal(obj, pad = 64) {
+    try { return typeof isOnCamera === "function" ? isOnCamera(obj, pad) : true; } catch (error) { return true; }
+  }
+
+  const drawProjectilesBeforeFinalLag = typeof drawProjectiles === "function" ? drawProjectiles : null;
+  drawProjectiles = function drawProjectilesFinalNoLag() {
+    if (!potatoMode() || !drawProjectilesBeforeFinalLag) return drawProjectilesBeforeFinalLag ? drawProjectilesBeforeFinalLag() : undefined;
+    const savedP = Array.isArray(projectiles) ? projectiles.slice() : [];
+    const savedE = Array.isArray(enemyProjectiles) ? enemyProjectiles.slice() : [];
+    try {
+      if (Array.isArray(projectiles)) { projectiles.length = 0; projectiles.push(...savedP.filter((p) => onCamFinal(p, 60))); }
+      if (Array.isArray(enemyProjectiles)) { enemyProjectiles.length = 0; enemyProjectiles.push(...savedE.filter((p) => p?.type === "bossWave" || onCamFinal(p, 60))); }
+      return drawProjectilesBeforeFinalLag();
+    } finally {
+      if (Array.isArray(projectiles)) { projectiles.length = 0; projectiles.push(...savedP); }
+      if (Array.isArray(enemyProjectiles)) { enemyProjectiles.length = 0; enemyProjectiles.push(...savedE); }
+    }
+  };
+
+  // Minimap pesado só atualiza de tempos em tempos.
+  const drawMiniMapBeforeFinalLag = typeof drawMiniMap === "function" ? drawMiniMap : null;
+  let lastMiniFinalLag = 0;
+  drawMiniMap = function drawMiniMapFinalNoLag() {
+    if (!potatoMode() || !drawMiniMapBeforeFinalLag) return drawMiniMapBeforeFinalLag ? drawMiniMapBeforeFinalLag() : undefined;
+    const now = performance.now();
+    if (now - lastMiniFinalLag < 1200) return;
+    lastMiniFinalLag = now;
+    return drawMiniMapBeforeFinalLag();
+  };
+
+  // Segurança: sem blur/sombra pesada no mobile.
+  const drawBeforeFinalLag = typeof draw === "function" ? draw : null;
+  draw = function drawFinalHudNoLag() {
+    if (!drawBeforeFinalLag) return;
+    if (!potatoMode()) return drawBeforeFinalLag();
+    const oldShadow = ctx.shadowBlur;
+    const oldSmoothing = ctx.imageSmoothingEnabled;
+    const oldFilter = ctx.filter;
+    try {
+      ctx.shadowBlur = 0;
+      ctx.filter = "none";
+      ctx.imageSmoothingEnabled = false;
+      return drawBeforeFinalLag();
+    } finally {
+      ctx.shadowBlur = oldShadow;
+      ctx.filter = oldFilter;
+      ctx.imageSmoothingEnabled = oldSmoothing;
+    }
+  };
+
+  // Loop final por último: mobile fraco precisa de estabilidade, não 60 FPS sofrendo.
+  let lastFrameFinalLag = 0;
+  gameLoop = function gameLoopFinalHudNoLag(time) {
+    if (document.hidden) {
+      lastTime = time;
+      lastFrameFinalLag = time;
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+    const targetFps = potatoMode() ? 24 : 60;
+    const frameMs = 1000 / targetFps;
+    if (time - lastFrameFinalLag < frameMs) {
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+    if (!lastTime) lastTime = time;
+    const delta = Math.min(Math.max((time - lastTime) / 1000, 0.001), potatoMode() ? 0.042 : 0.04);
+    lastTime = time;
+    lastFrameFinalLag = time;
+    try { update(delta); draw(); }
+    catch (error) { showErrorMessage(error); }
+    requestAnimationFrame(gameLoop);
+  };
+
+  setTimeout(() => {
+    try { ensureCanvasSize(true); applyBodyFlags(); updateHud(true); } catch (error) {}
+    try { if (typeof showHudToast === "function") showHudToast("HUD da foto + anti-lag REAL ativo.", 2.4); } catch (error) {}
+  }, 350);
+})();
