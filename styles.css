@@ -1,4 +1,4 @@
-/* ETERNAL_RIFT_CSS_VERSION_mobile-cache-fix-20260702-1909 */
+/* ETERNAL_RIFT_CSS_VERSION_pc-mobile-extreme-antilag-20260706 */
 :root {
   color-scheme: dark;
   --bg: #273052;
@@ -11906,4 +11906,134 @@ body.er-mmo-hud-active .mini-map {
   body.er-final-photo-hud .er-mmo-circle {
     touch-action: manipulation !important;
   }
+}
+
+/* ==================================================
+   HUD mobile MMORPG - trava final mobile-only
+   Versao: hud-mobile-mmorpg-20260706-1536
+   ================================================== */
+body:not(.is-mobile) .er-mmo-hud,
+body:not(.is-mobile).er-mmo-hud-active .er-mmo-hud,
+body:not(.is-mobile).er-final-photo-hud .er-mmo-hud {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body:not(.is-mobile).er-mmo-hud-active .hud,
+body:not(.is-mobile).er-final-photo-hud .hud {
+  display: grid !important;
+}
+
+body:not(.is-mobile) #resetMobileMmorpgHudButton {
+  display: none !important;
+}
+
+body.is-mobile.er-mmo-hud-active .er-mmo-hud,
+body.is-mobile.er-final-photo-hud .er-mmo-hud {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+}
+
+body.is-mobile.er-mmo-hud-active .hud,
+body.is-mobile.er-final-photo-hud .hud,
+body.is-mobile.er-mmo-hud-active .mobile-top-actions,
+body.is-mobile.er-final-photo-hud .mobile-top-actions,
+body.is-mobile.er-mmo-hud-active .touch-actions,
+body.is-mobile.er-final-photo-hud .touch-actions,
+body.is-mobile.er-mmo-hud-active .touch-dpad,
+body.is-mobile.er-final-photo-hud .touch-dpad,
+body.is-mobile.er-mmo-hud-active #sandbox2DHotbar,
+body.is-mobile.er-final-photo-hud #sandbox2DHotbar,
+body.is-mobile.er-mmo-hud-active .sandbox-2d-hotbar,
+body.is-mobile.er-final-photo-hud .sandbox-2d-hotbar,
+body.is-mobile.er-mmo-hud-active .brutal-minimap-shell,
+body.is-mobile.er-final-photo-hud .brutal-minimap-shell,
+body.is-mobile.er-mmo-hud-active #onlineStatusPanel,
+body.is-mobile.er-final-photo-hud #onlineStatusPanel,
+body.is-mobile.er-mmo-hud-active #classContractHud,
+body.is-mobile.er-final-photo-hud #classContractHud {
+  display: none !important;
+}
+
+/* ==================================================
+   Otimizacao extrema PC/Mobile anti-lag 20260706
+   ================================================== */
+body.er-extreme-antilag #gameCanvas,
+body.er-extreme-antilag #miniMapCanvas {
+  image-rendering: pixelated;
+}
+
+.er-extreme-perf-debug {
+  position: fixed;
+  left: 8px;
+  top: 8px;
+  z-index: 9999;
+  min-width: 154px;
+  padding: 8px 10px;
+  border: 1px solid rgba(245, 206, 121, 0.85);
+  border-radius: 6px;
+  background: rgba(5, 8, 14, 0.86);
+  color: #fff3d6;
+  font: 700 12px/1.45 Consolas, "Courier New", monospace;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #000;
+}
+
+.er-extreme-perf-debug.hidden {
+  display: none !important;
+}
+
+body.er-extreme-low .er-mmo-hud *,
+body.er-extreme-mobile .er-mmo-hud * {
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+}
+
+body.er-extreme-low .er-mmo-panel,
+body.er-extreme-low .er-mmo-button,
+body.er-extreme-low .er-mmo-slot,
+body.er-extreme-low .er-mmo-circle,
+body.er-extreme-low .er-mmo-minimap-shell,
+body.er-extreme-low .er-mmo-chat,
+body.er-extreme-low .er-mmo-quest,
+body.er-extreme-low .er-mmo-contract,
+body.er-extreme-low .er-mmo-mid-panel,
+body.er-extreme-mobile .er-mmo-panel,
+body.er-extreme-mobile .er-mmo-button,
+body.er-extreme-mobile .er-mmo-slot,
+body.er-extreme-mobile .er-mmo-circle,
+body.er-extreme-mobile .er-mmo-minimap-shell,
+body.er-extreme-mobile .er-mmo-chat,
+body.er-extreme-mobile .er-mmo-quest,
+body.er-extreme-mobile .er-mmo-contract,
+body.er-extreme-mobile .er-mmo-mid-panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow:
+    0 0 0 2px rgba(27, 20, 12, 0.96),
+    inset 0 0 0 1px rgba(255, 240, 168, 0.16) !important;
+}
+
+body.er-extreme-low .er-mmo-corner::before,
+body.er-extreme-low .er-mmo-corner::after,
+body.er-extreme-mobile .er-mmo-corner::before,
+body.er-extreme-mobile .er-mmo-corner::after {
+  display: none !important;
+}
+
+body.er-extreme-low .premium-loot-rays,
+body.er-extreme-low .start-portal span,
+body.er-extreme-mobile .premium-loot-rays,
+body.er-extreme-mobile .start-portal span {
+  animation: none !important;
+}
+
+body.er-extreme-low .hud-toast,
+body.er-extreme-mobile .hud-toast {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }

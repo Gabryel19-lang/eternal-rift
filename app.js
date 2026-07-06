@@ -37,13 +37,16 @@ if (typeof window !== "undefined") {
 }
 
 
-/* ETERNAL_RIFT_VERSION_MARKER_minimap-brutal-interativo-20260702-2148 */
+/* ETERNAL_RIFT_VERSION_MARKER_pc-mobile-extreme-antilag-20260706 */
 (function eternalRiftVersionMarker() {
   try {
-    window.ETERNAL_RIFT_CURRENT_VERSION = "minimap-brutal-interativo-20260702-2148";
-    console.log("Eternal Rift versão carregada:", "minimap-brutal-interativo-20260702-2148");
+    window.ETERNAL_RIFT_CURRENT_VERSION = "pc-mobile-extreme-antilag-20260706";
+    console.log("Eternal Rift versão carregada:", "pc-mobile-extreme-antilag-20260706");
     setTimeout(() => {
-      if (typeof showHudToast === "function") showHudToast("Versão nova carregada: minimap-brutal-interativo-20260702-2148");
+      if (typeof showHudToast === "function" && document.body?.classList.contains("is-mobile") && !window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN) {
+        window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN = true;
+        showHudToast("HUD mobile MMORPG carregado: hud-mobile-mmorpg-20260706-1536", 3.2);
+      }
     }, 1800);
   } catch (error) {}
 })();
@@ -60630,13 +60633,65 @@ if (typeof premiumWorldShadow !== "function") {
    ETERNAL RIFT: HUD estilo MMORPG igual à imagem enviada
    ================================================== */
 (function eternalRiftMmoPhotoHudPatch() {
-  const PATCH_ID = "mmo-photo-hud-20260706-1";
+  const PATCH_ID = "hud-mobile-mmorpg-20260706-1536";
+  const LEGACY_HUD_LAYOUT_KEYS = [
+    "eternal-rift-hud-layout-freefire-v1"
+  ];
+  let legacyHudLayoutResetDone = false;
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_MMO_PHOTO_HUD === PATCH_ID) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_MMO_PHOTO_HUD = PATCH_ID;
 
   function mobileLike() {
-    // HUD da foto forçado em PC e mobile.
-    return true;
+    return Boolean(document.body?.classList.contains("is-mobile"));
+  }
+
+  function resetLegacyHudLayout(showMessage = false) {
+    try {
+      LEGACY_HUD_LAYOUT_KEYS.forEach((key) => localStorage.removeItem(key));
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index);
+        if (!key) continue;
+        const safeKey = key.toLowerCase();
+        const isEternalRiftKey = safeKey.includes("eternal-rift") || safeKey.includes("gabryel-garcia");
+        const isHudLayoutKey = safeKey.includes("hud-layout") || safeKey.includes("hud_editor") || safeKey.includes("hud-editor");
+        if (isEternalRiftKey && isHudLayoutKey) localStorage.removeItem(key);
+      }
+      document.body?.classList.remove("hud-editor-open");
+      if (showMessage && typeof showHudToast === "function") {
+        showHudToast("Layout antigo de HUD resetado.", 2.2);
+      }
+    } catch (error) {}
+  }
+
+  if (typeof window !== "undefined") {
+    window.resetEternalRiftMobileHudLayout = resetLegacyHudLayout;
+  }
+
+  function resetLegacyHudLayoutOnceForMobile() {
+    if (legacyHudLayoutResetDone || !mobileLike()) return;
+    legacyHudLayoutResetDone = true;
+    resetLegacyHudLayout(false);
+  }
+
+  function ensureHudResetButton() {
+    const pauseMenu = document.querySelector("#pausePanel .pause-menu");
+    if (!pauseMenu || document.getElementById("resetMobileMmorpgHudButton")) return;
+
+    const button = document.createElement("button");
+    button.id = "resetMobileMmorpgHudButton";
+    button.type = "button";
+    button.textContent = "Resetar HUD mobile";
+    button.addEventListener("click", () => {
+      resetLegacyHudLayout(true);
+      enableOrDisableHud();
+    });
+
+    const anchor = document.getElementById("pauseHudEditorButton");
+    if (anchor?.parentElement === pauseMenu) {
+      anchor.insertAdjacentElement("afterend", button);
+    } else {
+      pauseMenu.appendChild(button);
+    }
   }
 
   function make(tag, className, html = "") {
@@ -60701,6 +60756,8 @@ if (typeof premiumWorldShadow !== "function") {
 
     const hud = make("div", "er-mmo-hud");
     hud.id = "erMmoHud";
+    hud.dataset.version = PATCH_ID;
+    hud.setAttribute("aria-hidden", "true");
 
     const profile = make("div", "er-mmo-panel er-mmo-profile er-mmo-corner");
     profile.innerHTML = `
@@ -60821,8 +60878,11 @@ if (typeof premiumWorldShadow !== "function") {
   function syncHud() {
     if (!mobileLike()) return;
 
+    resetLegacyHudLayoutOnceForMobile();
+    ensureHudResetButton();
     buildHud();
     document.body.classList.add("er-mmo-hud-active");
+    document.getElementById("erMmoHud")?.removeAttribute("aria-hidden");
 
     const name = (typeof getPlayerHudName === "function" ? getPlayerHudName() : (player?.name || document.getElementById("playerName")?.textContent || "Herói"));
     const level = Number(player?.level || 1);
@@ -60871,12 +60931,17 @@ if (typeof premiumWorldShadow !== "function") {
 
   function enableOrDisableHud() {
     if (mobileLike()) {
+      resetLegacyHudLayoutOnceForMobile();
+      ensureHudResetButton();
       buildHud();
       syncHud();
     } else {
-      document.body.classList.remove("er-mmo-hud-active");
+      document.body.classList.remove("er-mmo-hud-active", "er-final-photo-hud", "er-mobile-no-lag-real");
       const hud = document.getElementById("erMmoHud");
-      if (hud) hud.style.display = "none";
+      if (hud) {
+        hud.style.display = "none";
+        hud.setAttribute("aria-hidden", "true");
+      }
     }
   }
 
@@ -60902,7 +60967,10 @@ if (typeof premiumWorldShadow !== "function") {
   setTimeout(() => {
     try {
       enableOrDisableHud();
-      if (typeof showHudToast === "function" && mobileLike()) showHudToast("HUD MMORPG ativado.", 1.8);
+      if (typeof showHudToast === "function" && mobileLike() && !window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN) {
+        window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN = true;
+        showHudToast(`HUD mobile MMORPG carregado: ${PATCH_ID}`, 3.2);
+      }
     } catch (error) {}
   }, 250);
 })();
@@ -60912,19 +60980,19 @@ if (typeof premiumWorldShadow !== "function") {
    ETERNAL RIFT: FINAL REAL - HUD DA FOTO + MOBILE SEM LAG
    ================================================== */
 (function eternalRiftFinalHudPhotoNoLagRealPatch() {
-  const PATCH_ID = "final-hud-photo-no-lag-real-20260706-2";
+  const PATCH_ID = "hud-mobile-mmorpg-20260706-1536";
+  let mobileHudTestToastShown = false;
+  let finalLegacyHudResetDone = false;
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_FINAL_HUD_PHOTO_NO_LAG_REAL === PATCH_ID) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_FINAL_HUD_PHOTO_NO_LAG_REAL = PATCH_ID;
 
+  function mobileHudActive() {
+    return Boolean(document.body?.classList.contains("is-mobile"));
+  }
+
   function coarseDevice() {
     try {
-      return Boolean(
-        window.matchMedia?.("(pointer: coarse)")?.matches ||
-        window.matchMedia?.("(max-width: 880px)")?.matches ||
-        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "") ||
-        document.body?.classList.contains("is-mobile") ||
-        isMobile
-      );
+      return mobileHudActive();
     } catch (error) {
       return false;
     }
@@ -60941,13 +61009,40 @@ if (typeof premiumWorldShadow !== "function") {
 
   function applyBodyFlags() {
     try {
-      document.body?.classList.add("er-mmo-hud-active", "er-final-photo-hud", "er-mobile-no-lag-real");
-      if (potatoMode()) document.body?.classList.add("er-potato-render");
       const hud = document.getElementById("erMmoHud");
-      if (hud) hud.style.display = "block";
       const miniCanvas = document.getElementById("miniMapCanvas");
       const box = document.getElementById("erMmoMiniBox");
+      const gamePanel = document.querySelector(".game-panel");
+
+      if (!mobileHudActive()) {
+        document.body?.classList.remove("er-mmo-hud-active", "er-final-photo-hud", "er-mobile-no-lag-real", "er-potato-render");
+        if (hud) {
+          hud.style.display = "none";
+          hud.setAttribute("aria-hidden", "true");
+        }
+        if (miniCanvas && gamePanel && miniCanvas.parentElement !== gamePanel) {
+          gamePanel.insertBefore(miniCanvas, document.getElementById("orientationHint") || null);
+        }
+        return;
+      }
+
+      if (!finalLegacyHudResetDone) {
+        finalLegacyHudResetDone = true;
+        try { window.resetEternalRiftMobileHudLayout?.(false); } catch (error) {}
+      }
+
+      document.body?.classList.add("er-mmo-hud-active", "er-final-photo-hud", "er-mobile-no-lag-real");
+      if (potatoMode()) document.body?.classList.add("er-potato-render");
+      if (hud) {
+        hud.style.display = "block";
+        hud.removeAttribute("aria-hidden");
+      }
       if (miniCanvas && box && miniCanvas.parentElement !== box) box.appendChild(miniCanvas);
+      if (!mobileHudTestToastShown && typeof showHudToast === "function" && !window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN) {
+        mobileHudTestToastShown = true;
+        window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN = true;
+        showHudToast(`HUD mobile MMORPG carregado: ${PATCH_ID}`, 3.2);
+      }
     } catch (error) {}
   }
 
@@ -61192,6 +61287,836 @@ if (typeof premiumWorldShadow !== "function") {
 
   setTimeout(() => {
     try { ensureCanvasSize(true); applyBodyFlags(); updateHud(true); } catch (error) {}
-    try { if (typeof showHudToast === "function") showHudToast("HUD da foto + anti-lag REAL ativo.", 2.4); } catch (error) {}
+    try {
+      if (typeof showHudToast === "function" && mobileHudActive() && !window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN) {
+        window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN = true;
+        showHudToast(`HUD mobile MMORPG carregado: ${PATCH_ID}`, 3.2);
+      }
+    } catch (error) {}
   }, 350);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT: OTIMIZACAO EXTREMA PC/MOBILE
+   Cache de mapa, culling, grid de colisao, FPS real e qualidade grafica.
+   Versao: pc-mobile-extreme-antilag-20260706
+   ================================================== */
+(function eternalRiftExtremePcMobileAntiLag20260706() {
+  const PATCH_ID = "pc-mobile-extreme-antilag-20260706";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EXTREME_ANTILAG === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EXTREME_ANTILAG = PATCH_ID;
+
+  const nativePush = Array.prototype.push;
+  const nativeNow = () => (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now());
+  const QUALITY_KEY = "eternal-rift-quality-mode-v4";
+  const CELL_SIZE = 128;
+  const MAP_CHUNK_TILES = 16;
+  const MAP_CHUNK_SIZE = MAP_CHUNK_TILES * TILE;
+
+  const perfState = {
+    profile: null,
+    fps: 0,
+    frameCount: 0,
+    fpsLastAt: 0,
+    lastHudSignature: "",
+    lastHudAt: 0,
+    lastMiniAt: 0,
+    drawnObjects: 0,
+    activeEnemies: 0,
+    particleCount: 0,
+    debugLastAt: 0,
+    mapCaches: new Map(),
+    colliderCacheKey: "",
+    colliderGrid: new Map(),
+    preloadStarted: false,
+    bootToastShown: false
+  };
+
+  function safeBody() {
+    return document.body || document.documentElement;
+  }
+
+  function isMobilePerfDevice() {
+    try {
+      return Boolean(
+        document.body?.classList.contains("is-mobile") ||
+        window.matchMedia?.("(pointer: coarse)")?.matches ||
+        window.matchMedia?.("(max-width: 880px)")?.matches ||
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "")
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function hardwareTier() {
+    const cores = Number(navigator.hardwareConcurrency || 4);
+    const memory = Number(navigator.deviceMemory || 4);
+    if (cores <= 2 || memory <= 2) return "low";
+    if (cores <= 4 || memory <= 4) return "medium";
+    return "high";
+  }
+
+  function requestedQuality() {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      const fromUrl = String(params.get("quality") || params.get("grafico") || "").toLowerCase();
+      if (["low", "baixa"].includes(fromUrl)) return "low";
+      if (["medium", "media", "média"].includes(fromUrl)) return "medium";
+      if (["high", "alta"].includes(fromUrl)) return "high";
+      const stored = String(localStorage.getItem(QUALITY_KEY) || "").toLowerCase();
+      if (["low", "medium", "high"].includes(stored)) return stored;
+    } catch (error) {}
+    return "";
+  }
+
+  function computeProfile() {
+    const mobile = isMobilePerfDevice();
+    const tier = hardwareTier();
+    const requested = requestedQuality();
+    let quality = requested || (mobile ? "low" : (tier === "high" ? "medium" : "low"));
+    if (mobile && !requested) quality = "low";
+
+    const low = quality === "low";
+    const medium = quality === "medium";
+    const high = quality === "high";
+
+    return {
+      id: `${mobile ? "mobile" : "pc"}:${quality}:${tier}`,
+      mobile,
+      tier,
+      quality,
+      low,
+      medium,
+      high,
+      targetFps: mobile ? (low ? 30 : 36) : (high ? 60 : 55),
+      maxDelta: mobile ? 0.034 : 0.04,
+      hudMs: mobile ? 360 : (high ? 100 : 170),
+      minimapMs: mobile ? 500 : 250,
+      wakeDistance: mobile ? (low ? 430 : 560) : (low ? 620 : 820),
+      bossWakeDistance: mobile ? (low ? 820 : 980) : (low ? 980 : 1280),
+      drawMargin: mobile ? (low ? 72 : 112) : (high ? 220 : 150),
+      collisionMargin: mobile ? 80 : 112,
+      pixelBudget: mobile ? (low ? 150000 : 220000) : (high ? 1050000 : 720000),
+      projectileLimit: mobile ? (low ? 12 : 20) : (high ? 72 : 42),
+      enemyProjectileLimit: mobile ? (low ? 10 : 18) : (high ? 64 : 36),
+      textLimit: mobile ? (low ? 8 : 14) : (high ? 34 : 20),
+      lootLimit: mobile ? (low ? 16 : 24) : (high ? 80 : 44),
+      hazardLimit: mobile ? (low ? 6 : 10) : (high ? 24 : 14),
+      trailLimit: mobile ? (low ? 3 : 5) : (high ? 16 : 8),
+      burstLimit: mobile ? (low ? 2 : 4) : (high ? 12 : 6),
+      fxLimit: mobile ? (low ? 18 : 28) : (high ? 90 : 48),
+      useCachedMap: !high,
+      reduceEffects: mobile || low
+    };
+  }
+
+  function applyProfileClasses(profile) {
+    const body = safeBody();
+    if (!body) return;
+    body.classList.toggle("er-extreme-antilag", true);
+    body.classList.toggle("er-extreme-low", profile.low);
+    body.classList.toggle("er-extreme-medium", profile.medium);
+    body.classList.toggle("er-extreme-high", profile.high);
+    body.classList.toggle("er-extreme-mobile", profile.mobile);
+    body.dataset.erExtremeVersion = PATCH_ID;
+    body.dataset.erQuality = profile.quality;
+    body.dataset.erTargetFps = String(profile.targetFps);
+    body.dataset.erHudMs = String(profile.hudMs);
+    body.dataset.erMinimapMs = String(profile.minimapMs);
+  }
+
+  function currentProfile() {
+    const next = computeProfile();
+    if (!perfState.profile || perfState.profile.id !== next.id) {
+      perfState.profile = next;
+      applyProfileClasses(next);
+      perfState.mapCaches.clear();
+    }
+    return perfState.profile;
+  }
+
+  window.ER_EXTREME_PERFORMANCE = {
+    version: PATCH_ID,
+    getProfile: currentProfile,
+    setQuality(mode) {
+      const safe = ["low", "medium", "high"].includes(mode) ? mode : "";
+      try {
+        if (safe) localStorage.setItem(QUALITY_KEY, safe);
+        else localStorage.removeItem(QUALITY_KEY);
+      } catch (error) {}
+      perfState.profile = null;
+      const profile = currentProfile();
+      try { showHudToast?.(`Grafico: ${profile.quality}`); } catch (error) {}
+      return profile;
+    },
+    stats: perfState
+  };
+
+  function rectFor(obj) {
+    if (!obj) return null;
+    const x = Number(obj.x);
+    const y = Number(obj.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const width = Math.max(1, Number(obj.width || obj.w || TILE || 32));
+    const height = Math.max(1, Number(obj.height || obj.h || TILE || 32));
+    return { x, y, width, height };
+  }
+
+  function viewRect(margin = 0) {
+    const viewW = typeof getZoomedViewWidth === "function" ? getZoomedViewWidth() : canvas.width;
+    const viewH = typeof getZoomedViewHeight === "function" ? getZoomedViewHeight() : canvas.height;
+    return { x: camera.x - margin, y: camera.y - margin, width: viewW + margin * 2, height: viewH + margin * 2 };
+  }
+
+  function overlapsRect(a, b) {
+    return Boolean(a && b && a.x + a.width >= b.x && a.x <= b.x + b.width && a.y + a.height >= b.y && a.y <= b.y + b.height);
+  }
+
+  function centerDistanceToPlayer(obj) {
+    const rect = rectFor(obj);
+    if (!rect || !player) return Infinity;
+    const px = Number(player.x || 0) + Number(player.width || 24) / 2;
+    const py = Number(player.y || 0) + Number(player.height || 28) / 2;
+    return Math.hypot(rect.x + rect.width / 2 - px, rect.y + rect.height / 2 - py);
+  }
+
+  function isVisibleOrNear(obj, margin) {
+    const rect = rectFor(obj);
+    if (!rect) return true;
+    return overlapsRect(rect, viewRect(margin));
+  }
+
+  function keepForDraw(obj, profile) {
+    if (!obj) return false;
+    if (obj === player || obj.alwaysDraw || obj.forceDraw || obj.keepVisible) return true;
+    const rect = rectFor(obj);
+    if (!rect) return true;
+    if (rect.width > MAP_CHUNK_SIZE || rect.height > MAP_CHUNK_SIZE) return overlapsRect(rect, viewRect(profile.drawMargin * 1.6));
+    if (isVisibleOrNear(obj, profile.drawMargin)) return true;
+    if (obj.boss && centerDistanceToPlayer(obj) <= profile.bossWakeDistance) return true;
+    return false;
+  }
+
+  function keepForAi(obj, profile) {
+    if (!obj) return false;
+    if (obj.trainingDummy || obj.kind === "trainingDummy") return true;
+    if (obj.type !== "enemy" && obj.type !== "boss" && !obj.boss) return true;
+    if (!obj.alive) return true;
+    if (isVisibleOrNear(obj, profile.drawMargin + 96)) return true;
+    const distance = centerDistanceToPlayer(obj);
+    if (obj.boss) {
+      const inCombat = Number(obj.hp || 0) > 0 && Number(obj.maxHp || 0) > 0 && Number(obj.hp) < Number(obj.maxHp);
+      return inCombat || distance <= profile.bossWakeDistance;
+    }
+    return distance <= profile.wakeDistance;
+  }
+
+  function withTemporaryListFilter(list, predicate, limit) {
+    if (!Array.isArray(list)) return null;
+    const saved = list.slice();
+    const filtered = [];
+    for (let i = 0; i < saved.length; i += 1) {
+      const item = saved[i];
+      if (predicate(item)) filtered.push(item);
+      if (limit && filtered.length >= limit) break;
+    }
+    list.length = 0;
+    nativePush.apply(list, filtered);
+    return () => {
+      list.length = 0;
+      nativePush.apply(list, saved);
+    };
+  }
+
+  function trimArray(list, limit, predicate = null) {
+    if (!Array.isArray(list)) return 0;
+    if (predicate) {
+      for (let i = list.length - 1; i >= 0; i -= 1) {
+        if (!predicate(list[i])) list.splice(i, 1);
+      }
+    }
+    if (list.length > limit) list.splice(0, list.length - limit);
+    return list.length;
+  }
+
+  function recycleInto(target, source) {
+    if (!target || !source || typeof target !== "object" || typeof source !== "object") return source;
+    Object.keys(target).forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(source, key)) delete target[key];
+    });
+    Object.assign(target, source);
+    return target;
+  }
+
+  function patchBoundedPush(list, limitGetter) {
+    if (!Array.isArray(list) || list.__erExtremePushPatched) return;
+    Object.defineProperty(list, "__erExtremePushPatched", { value: true, configurable: true });
+    Object.defineProperty(list, "push", {
+      configurable: true,
+      value: function erExtremeBoundedPush(...items) {
+        const limit = Math.max(1, Number(limitGetter() || 32));
+        for (const item of items) {
+          if (this.length < limit || !item || typeof item !== "object") nativePush.call(this, item);
+          else nativePush.call(this, recycleInto(this.shift(), item));
+        }
+        return this.length;
+      }
+    });
+  }
+
+  function countParticles() {
+    let count = 0;
+    try { count += Array.isArray(projectiles) ? projectiles.length : 0; } catch (error) {}
+    try { count += Array.isArray(enemyProjectiles) ? enemyProjectiles.length : 0; } catch (error) {}
+    try { count += Array.isArray(floatingTexts) ? floatingTexts.length : 0; } catch (error) {}
+    try { count += Array.isArray(shockwaves) ? shockwaves.length : 0; } catch (error) {}
+    try { count += Array.isArray(dashTrails) ? dashTrails.length : 0; } catch (error) {}
+    try { count += Array.isArray(healBursts) ? healBursts.length : 0; } catch (error) {}
+    try { if (typeof visualEffects !== "undefined" && Array.isArray(visualEffects)) count += visualEffects.length; } catch (error) {}
+    try { if (typeof elementalSwordEffects !== "undefined" && Array.isArray(elementalSwordEffects)) count += elementalSwordEffects.length; } catch (error) {}
+    try { if (typeof staffGameplayFx !== "undefined" && Array.isArray(staffGameplayFx)) count += staffGameplayFx.length; } catch (error) {}
+    perfState.particleCount = count;
+    return count;
+  }
+
+  function pruneRuntimeLists(profile) {
+    const margin = profile.mobile ? 120 : 220;
+    const activeProjectile = (obj) => !obj || obj.type === "bossWave" || isVisibleOrNear(obj, margin) || centerDistanceToPlayer(obj) < profile.bossWakeDistance;
+    try { trimArray(projectiles, profile.projectileLimit, activeProjectile); } catch (error) {}
+    try { trimArray(enemyProjectiles, profile.enemyProjectileLimit, activeProjectile); } catch (error) {}
+    try { trimArray(floatingTexts, profile.textLimit, (obj) => isVisibleOrNear(obj, margin)); } catch (error) {}
+    try { trimArray(lootItems, profile.lootLimit, (obj) => !obj || !obj.collected); } catch (error) {}
+    try { trimArray(hazardZones, profile.hazardLimit, (obj) => isVisibleOrNear({ x: obj.x - obj.radius, y: obj.y - obj.radius, width: obj.radius * 2, height: obj.radius * 2 }, margin)); } catch (error) {}
+    try { trimArray(dashTrails, profile.trailLimit, (obj) => isVisibleOrNear({ x: obj.x, y: obj.y, width: 28, height: 28 }, margin)); } catch (error) {}
+    try { trimArray(shockwaves, profile.burstLimit, (obj) => isVisibleOrNear({ x: obj.x - obj.radius, y: obj.y - obj.radius, width: obj.radius * 2, height: obj.radius * 2 }, margin)); } catch (error) {}
+    try { trimArray(healBursts, profile.burstLimit, (obj) => isVisibleOrNear({ x: obj.x - 40, y: obj.y - 40, width: 80, height: 80 }, margin)); } catch (error) {}
+    try { if (typeof visualEffects !== "undefined") trimArray(visualEffects, profile.fxLimit, (obj) => isVisibleOrNear(obj, margin)); } catch (error) {}
+    try { if (typeof elementalSwordEffects !== "undefined") trimArray(elementalSwordEffects, profile.fxLimit, (obj) => isVisibleOrNear(obj, margin)); } catch (error) {}
+    try { if (typeof staffGameplayFx !== "undefined") trimArray(staffGameplayFx, profile.fxLimit, (obj) => isVisibleOrNear(obj, margin)); } catch (error) {}
+    try { if (typeof infernalSwordFx !== "undefined") trimArray(infernalSwordFx, profile.fxLimit, (obj) => isVisibleOrNear(obj, margin)); } catch (error) {}
+    countParticles();
+  }
+
+  function patchPools() {
+    try { patchBoundedPush(projectiles, () => currentProfile().projectileLimit); } catch (error) {}
+    try { patchBoundedPush(enemyProjectiles, () => currentProfile().enemyProjectileLimit); } catch (error) {}
+    try { patchBoundedPush(floatingTexts, () => currentProfile().textLimit); } catch (error) {}
+    try { patchBoundedPush(shockwaves, () => currentProfile().burstLimit); } catch (error) {}
+    try { patchBoundedPush(dashTrails, () => currentProfile().trailLimit); } catch (error) {}
+    try { patchBoundedPush(healBursts, () => currentProfile().burstLimit); } catch (error) {}
+    try { patchBoundedPush(hazardZones, () => currentProfile().hazardLimit); } catch (error) {}
+    try { if (typeof visualEffects !== "undefined") patchBoundedPush(visualEffects, () => currentProfile().fxLimit); } catch (error) {}
+    try { if (typeof elementalSwordEffects !== "undefined") patchBoundedPush(elementalSwordEffects, () => currentProfile().fxLimit); } catch (error) {}
+    try { if (typeof staffGameplayFx !== "undefined") patchBoundedPush(staffGameplayFx, () => currentProfile().fxLimit); } catch (error) {}
+  }
+
+  function colliderGridKey() {
+    const length = Array.isArray(colliders) ? colliders.length : 0;
+    const first = length ? colliders[0] : null;
+    const last = length ? colliders[length - 1] : null;
+    return `${currentScene}:${length}:${Math.round(first?.x || 0)},${Math.round(first?.y || 0)}:${Math.round(last?.x || 0)},${Math.round(last?.y || 0)}`;
+  }
+
+  function addColliderToGrid(grid, obj) {
+    const rect = rectFor(obj);
+    if (!rect) return;
+    const left = Math.floor(rect.x / CELL_SIZE);
+    const right = Math.floor((rect.x + rect.width) / CELL_SIZE);
+    const top = Math.floor(rect.y / CELL_SIZE);
+    const bottom = Math.floor((rect.y + rect.height) / CELL_SIZE);
+    for (let y = top; y <= bottom; y += 1) {
+      for (let x = left; x <= right; x += 1) {
+        const key = `${x}:${y}`;
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(obj);
+      }
+    }
+  }
+
+  function buildColliderGrid() {
+    const key = colliderGridKey();
+    if (perfState.colliderCacheKey === key) return;
+    perfState.colliderCacheKey = key;
+    perfState.colliderGrid = new Map();
+    if (!Array.isArray(colliders)) return;
+    for (const obj of colliders) addColliderToGrid(perfState.colliderGrid, obj);
+  }
+
+  function nearbyColliders(rect, margin = 64) {
+    buildColliderGrid();
+    if (!perfState.colliderGrid.size) return colliders;
+    const expanded = { x: rect.x - margin, y: rect.y - margin, width: rect.width + margin * 2, height: rect.height + margin * 2 };
+    const left = Math.floor(expanded.x / CELL_SIZE);
+    const right = Math.floor((expanded.x + expanded.width) / CELL_SIZE);
+    const top = Math.floor(expanded.y / CELL_SIZE);
+    const bottom = Math.floor((expanded.y + expanded.height) / CELL_SIZE);
+    const seen = new Set();
+    const list = [];
+    for (let y = top; y <= bottom; y += 1) {
+      for (let x = left; x <= right; x += 1) {
+        const bucket = perfState.colliderGrid.get(`${x}:${y}`);
+        if (!bucket) continue;
+        for (const obj of bucket) {
+          if (seen.has(obj)) continue;
+          seen.add(obj);
+          list.push(obj);
+        }
+      }
+    }
+    return list;
+  }
+
+  const canMoveToBeforeExtreme = typeof canMoveTo === "function" ? canMoveTo : null;
+  if (canMoveToBeforeExtreme) {
+    canMoveTo = function canMoveToExtremeGrid(nextX, nextY) {
+      const profile = currentProfile();
+      const rect = typeof getPlayerRect === "function" ? getPlayerRect(nextX, nextY) : { x: nextX, y: nextY, width: player.width || 24, height: player.height || 28 };
+      const saved = colliders;
+      try {
+        colliders = nearbyColliders(rect, profile.collisionMargin);
+        return canMoveToBeforeExtreme(nextX, nextY);
+      } finally {
+        colliders = saved;
+      }
+    };
+  }
+
+  const canEntityMoveToBeforeExtreme = typeof canEntityMoveTo === "function" ? canEntityMoveTo : null;
+  if (canEntityMoveToBeforeExtreme) {
+    canEntityMoveTo = function canEntityMoveToExtremeGrid(entity, nextX, nextY) {
+      const profile = currentProfile();
+      const rect = { x: nextX, y: nextY, width: entity?.width || TILE, height: entity?.height || TILE };
+      const saved = colliders;
+      try {
+        colliders = nearbyColliders(rect, profile.collisionMargin);
+        return canEntityMoveToBeforeExtreme(entity, nextX, nextY);
+      } finally {
+        colliders = saved;
+      }
+    };
+  }
+
+  const isEntityCollidingBeforeExtreme = typeof isEntityColliding === "function" ? isEntityColliding : null;
+  if (isEntityCollidingBeforeExtreme) {
+    isEntityColliding = function isEntityCollidingExtremeGrid(obj) {
+      const profile = currentProfile();
+      const rect = rectFor(obj) || obj;
+      const saved = colliders;
+      try {
+        colliders = nearbyColliders(rect, profile.collisionMargin);
+        return isEntityCollidingBeforeExtreme(obj);
+      } finally {
+        colliders = saved;
+      }
+    };
+  }
+
+  function activeMapInfo() {
+    if (currentScene === "village" && Array.isArray(worldMap)) {
+      return { key: "village", map: worldMap, cols: worldMap[0]?.length || MAP_COLS, rows: worldMap.length || MAP_ROWS };
+    }
+    if (currentScene === "crystalDimension" && Array.isArray(crystalDimensionMap)) {
+      return { key: "crystalDimension", map: crystalDimensionMap, cols: crystalDimensionMap[0]?.length || CRYSTAL_COLS, rows: crystalDimensionMap.length || CRYSTAL_ROWS };
+    }
+    return null;
+  }
+
+  function tileColor(tile, x, y) {
+    const alt = ((x * 17 + y * 23) & 1) === 0;
+    if (tile === "D") return alt ? "#a35b42" : "#8f4b35";
+    if (tile === "W" || tile === "M") return alt ? "#2f82c5" : "#276eb0";
+    if (tile === "F") return alt ? "#4f944d" : "#458843";
+    if (tile === "P") return alt ? "#d9a56a" : "#c8945e";
+    if (tile === "I") return alt ? "#9d714e" : "#8d6446";
+    if (tile === "B") return alt ? "#3f3444" : "#352c3b";
+    if (tile === "R") return alt ? "#8e2f43" : "#742638";
+    if (tile === "C" || tile === "Q") return alt ? "#3a2765" : "#302155";
+    if (tile === "L") return alt ? "#bdeaff" : "#8fd5f6";
+    if (tile === "H") return alt ? "#335f35" : "#284d2e";
+    if (tile === "S") return alt ? "#caa365" : "#b48a4e";
+    if (tile === "V") return alt ? "#6b4c8d" : "#523b73";
+    return alt ? "#6fbd64" : "#65af5b";
+  }
+
+  function mapCacheFor(info, profile) {
+    const key = `${info.key}:${info.cols}x${info.rows}:${profile.quality}`;
+    if (!perfState.mapCaches.has(key)) perfState.mapCaches.set(key, { chunks: new Map(), key });
+    return perfState.mapCaches.get(key);
+  }
+
+  function renderMapChunk(info, profile, chunkX, chunkY) {
+    const canvasChunk = document.createElement("canvas");
+    canvasChunk.width = MAP_CHUNK_SIZE;
+    canvasChunk.height = MAP_CHUNK_SIZE;
+    const c = canvasChunk.getContext("2d");
+    if (!c) return canvasChunk;
+    c.imageSmoothingEnabled = false;
+    const startCol = chunkX * MAP_CHUNK_TILES;
+    const startRow = chunkY * MAP_CHUNK_TILES;
+    for (let row = 0; row < MAP_CHUNK_TILES; row += 1) {
+      const tileY = startRow + row;
+      if (tileY >= info.rows) break;
+      for (let col = 0; col < MAP_CHUNK_TILES; col += 1) {
+        const tileX = startCol + col;
+        if (tileX >= info.cols) break;
+        const tile = info.map[tileY]?.[tileX] || "G";
+        const px = col * TILE;
+        const py = row * TILE;
+        c.fillStyle = tileColor(tile, tileX, tileY);
+        c.fillRect(px, py, TILE, TILE);
+        if (!profile.low && ((tileX * 13 + tileY * 7) % 11) === 0 && (tile === "G" || tile === "F" || tile === "H")) {
+          c.fillStyle = "rgba(28,80,35,.22)";
+          c.fillRect(px + 7, py + 20, 4, 8);
+        }
+        if (!profile.low && (tile === "D" || tile === "S") && ((tileX + tileY) % 9) === 0) {
+          c.fillStyle = "rgba(255,226,140,.18)";
+          c.fillRect(px + 4, py + 9, 9, 2);
+        }
+        if (!profile.low && tile === "L" && ((tileX * 5 + tileY) % 7) === 0) {
+          c.fillStyle = "rgba(255,255,255,.32)";
+          c.fillRect(px + 7, py + 7, 10, 2);
+        }
+      }
+    }
+    return canvasChunk;
+  }
+
+  function drawCachedMap(profile) {
+    const info = activeMapInfo();
+    if (!info || !profile.useCachedMap) return false;
+    const cache = mapCacheFor(info, profile);
+    const view = viewRect(TILE);
+    const startChunkX = Math.max(0, Math.floor(view.x / MAP_CHUNK_SIZE));
+    const endChunkX = Math.min(Math.ceil(info.cols / MAP_CHUNK_TILES) - 1, Math.floor((view.x + view.width) / MAP_CHUNK_SIZE));
+    const startChunkY = Math.max(0, Math.floor(view.y / MAP_CHUNK_SIZE));
+    const endChunkY = Math.min(Math.ceil(info.rows / MAP_CHUNK_TILES) - 1, Math.floor((view.y + view.height) / MAP_CHUNK_SIZE));
+    ctx.imageSmoothingEnabled = false;
+    for (let cy = startChunkY; cy <= endChunkY; cy += 1) {
+      for (let cx = startChunkX; cx <= endChunkX; cx += 1) {
+        const chunkKey = `${cx}:${cy}`;
+        if (!cache.chunks.has(chunkKey)) cache.chunks.set(chunkKey, renderMapChunk(info, profile, cx, cy));
+        ctx.drawImage(cache.chunks.get(chunkKey), cx * MAP_CHUNK_SIZE, cy * MAP_CHUNK_SIZE);
+      }
+    }
+    return true;
+  }
+
+  const drawMapBeforeExtreme = typeof drawMap === "function" ? drawMap : null;
+  if (drawMapBeforeExtreme) {
+    drawMap = function drawMapExtremeCached() {
+      const profile = currentProfile();
+      if (drawCachedMap(profile)) return;
+      return drawMapBeforeExtreme();
+    };
+  }
+
+  const drawMiniMapBeforeExtreme = typeof drawMiniMap === "function" ? drawMiniMap : null;
+  if (drawMiniMapBeforeExtreme) {
+    drawMiniMap = function drawMiniMapExtremeThrottle(force = false) {
+      const profile = currentProfile();
+      const now = nativeNow();
+      if (!force && now - perfState.lastMiniAt < profile.minimapMs) return;
+      perfState.lastMiniAt = now;
+      return drawMiniMapBeforeExtreme();
+    };
+  }
+
+  const updateHudBeforeExtreme = typeof updateHud === "function" ? updateHud : null;
+  if (updateHudBeforeExtreme) {
+    updateHud = function updateHudExtremeSmart(force = false) {
+      const profile = currentProfile();
+      const now = nativeNow();
+      const signature = [
+        player?.name, player?.level, player?.xp, player?.xpToNextLevel,
+        player?.health, player?.maxHealth, Math.round(player?.mana || 0), player?.maxMana,
+        inventory?.moedas, inventory?.cristais, inventory?.fragmentos,
+        currentScene, equippedPower, currentWeaponIndex,
+        questProgressEl?.textContent, weaponHud?.textContent, bossNameHud?.textContent
+      ].join("|");
+      if (!force && signature === perfState.lastHudSignature && now - perfState.lastHudAt < profile.hudMs) return;
+      if (!force && now - perfState.lastHudAt < Math.min(profile.hudMs, 120)) return;
+      perfState.lastHudSignature = signature;
+      perfState.lastHudAt = now;
+      return updateHudBeforeExtreme(force);
+    };
+  }
+
+  const updateEnemiesBeforeExtreme = typeof updateEnemies === "function" ? updateEnemies : null;
+  if (updateEnemiesBeforeExtreme) {
+    updateEnemies = function updateEnemiesExtremeSleeping(delta) {
+      const profile = currentProfile();
+      if (currentScene !== "village" || !Array.isArray(villageObjects)) return updateEnemiesBeforeExtreme(delta);
+      const restore = withTemporaryListFilter(villageObjects, (obj) => keepForAi(obj, profile));
+      try {
+        perfState.activeEnemies = villageObjects.filter((obj) => obj && (obj.type === "enemy" || obj.boss) && obj.alive !== false).length;
+        return updateEnemiesBeforeExtreme(delta);
+      } finally {
+        restore?.();
+      }
+    };
+  }
+
+  const updateNpcsBeforeExtreme = typeof updateNpcs === "function" ? updateNpcs : null;
+  if (updateNpcsBeforeExtreme) {
+    updateNpcs = function updateNpcsExtremeSleeping(delta) {
+      const profile = currentProfile();
+      if (currentScene !== "village" || !Array.isArray(villageObjects)) return updateNpcsBeforeExtreme(delta);
+      const restore = withTemporaryListFilter(villageObjects, (obj) => {
+        if (!obj || obj.type !== "npc") return true;
+        return isVisibleOrNear(obj, profile.drawMargin) || centerDistanceToPlayer(obj) <= (profile.mobile ? 260 : 420);
+      });
+      try {
+        return updateNpcsBeforeExtreme(delta);
+      } finally {
+        restore?.();
+      }
+    };
+  }
+
+  const ensureCanvasSizeBeforeExtreme = typeof ensureCanvasSize === "function" ? ensureCanvasSize : null;
+  if (ensureCanvasSizeBeforeExtreme) {
+    ensureCanvasSize = function ensureCanvasSizeExtremeResolution(force = false) {
+      ensureCanvasSizeBeforeExtreme(force);
+      const profile = currentProfile();
+      if (!canvas) return;
+      const cssW = Math.max(320, Math.round(window.visualViewport?.width || canvas.clientWidth || window.innerWidth || canvas.width || 960));
+      const cssH = Math.max(240, Math.round(window.visualViewport?.height || canvas.clientHeight || window.innerHeight || canvas.height || 640));
+      let targetW = Math.max(360, cssW);
+      let targetH = Math.max(240, cssH);
+      const pixels = targetW * targetH;
+      if (pixels > profile.pixelBudget) {
+        const scale = Math.sqrt(profile.pixelBudget / pixels);
+        targetW = Math.max(360, Math.floor(targetW * scale));
+        targetH = Math.max(240, Math.floor(targetH * scale));
+      }
+      if (profile.mobile) {
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+      }
+      if (Math.abs(canvas.width - targetW) > 2 || Math.abs(canvas.height - targetH) > 2) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        perfState.mapCaches.clear();
+      }
+      try {
+        ctx.imageSmoothingEnabled = false;
+        miniCtx.imageSmoothingEnabled = false;
+      } catch (error) {}
+    };
+  }
+
+  function updateFps(time) {
+    perfState.frameCount += 1;
+    if (!perfState.fpsLastAt) perfState.fpsLastAt = time;
+    if (time - perfState.fpsLastAt >= 500) {
+      perfState.fps = Math.round((perfState.frameCount * 1000) / Math.max(1, time - perfState.fpsLastAt));
+      perfState.frameCount = 0;
+      perfState.fpsLastAt = time;
+    }
+  }
+
+  function debugEnabledNow() {
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      return Boolean(params.get("debug") === "1" || params.get("perfdebug") === "1" || debugEnabled);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function ensureDebugOverlay() {
+    let el = document.getElementById("erExtremePerfDebug");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "erExtremePerfDebug";
+    el.className = "er-extreme-perf-debug hidden";
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function updateDebugOverlay() {
+    const el = ensureDebugOverlay();
+    const enabled = debugEnabledNow();
+    el.classList.toggle("hidden", !enabled);
+    if (!enabled) return;
+    const now = nativeNow();
+    if (now - perfState.debugLastAt < 250) return;
+    perfState.debugLastAt = now;
+    const profile = currentProfile();
+    el.innerHTML = [
+      `<b>FPS</b> ${perfState.fps}`,
+      `<b>Grafico</b> ${profile.quality}${profile.mobile ? " mobile" : " pc"}`,
+      `<b>Objetos</b> ${perfState.drawnObjects}`,
+      `<b>Particulas</b> ${perfState.particleCount}`,
+      `<b>IA ativa</b> ${perfState.activeEnemies}`
+    ].join("<br>");
+  }
+
+  const drawBeforeExtreme = typeof draw === "function" ? draw : null;
+  if (drawBeforeExtreme) {
+    draw = function drawExtremeCulled() {
+      const profile = currentProfile();
+      const restorers = [];
+      let drawn = 0;
+      try {
+        const objectPredicate = (obj) => {
+          const keep = keepForDraw(obj, profile);
+          if (keep) drawn += 1;
+          return keep;
+        };
+        if (currentScene === "village" && Array.isArray(villageObjects)) restorers.push(withTemporaryListFilter(villageObjects, objectPredicate));
+        if (Array.isArray(objects) && objects !== villageObjects) restorers.push(withTemporaryListFilter(objects, objectPredicate));
+        try { restorers.push(withTemporaryListFilter(projectiles, (obj) => keepForDraw(obj, profile), profile.projectileLimit)); } catch (error) {}
+        try { restorers.push(withTemporaryListFilter(enemyProjectiles, (obj) => obj?.type === "bossWave" || keepForDraw(obj, profile), profile.enemyProjectileLimit)); } catch (error) {}
+        try { restorers.push(withTemporaryListFilter(floatingTexts, (obj) => keepForDraw(obj, profile), profile.textLimit)); } catch (error) {}
+        try { restorers.push(withTemporaryListFilter(lootItems, (obj) => !obj?.collected && keepForDraw(obj, profile), profile.lootLimit)); } catch (error) {}
+        try { restorers.push(withTemporaryListFilter(hazardZones, (obj) => keepForDraw({ x: obj.x - obj.radius, y: obj.y - obj.radius, width: obj.radius * 2, height: obj.radius * 2 }, profile), profile.hazardLimit)); } catch (error) {}
+        if (profile.reduceEffects) {
+          try { restorers.push(withTemporaryListFilter(dashTrails, (obj) => keepForDraw({ x: obj.x, y: obj.y, width: 28, height: 28 }, profile), profile.trailLimit)); } catch (error) {}
+          try { restorers.push(withTemporaryListFilter(shockwaves, (obj) => keepForDraw({ x: obj.x - obj.radius, y: obj.y - obj.radius, width: obj.radius * 2, height: obj.radius * 2 }, profile), profile.burstLimit)); } catch (error) {}
+          try { restorers.push(withTemporaryListFilter(healBursts, (obj) => keepForDraw({ x: obj.x - 40, y: obj.y - 40, width: 80, height: 80 }, profile), profile.burstLimit)); } catch (error) {}
+        }
+        const oldShadow = ctx.shadowBlur;
+        const oldFilter = ctx.filter;
+        const oldSmoothing = ctx.imageSmoothingEnabled;
+        if (profile.reduceEffects) {
+          ctx.shadowBlur = 0;
+          ctx.filter = "none";
+        }
+        ctx.imageSmoothingEnabled = false;
+        try {
+          return drawBeforeExtreme();
+        } finally {
+          ctx.shadowBlur = oldShadow;
+          ctx.filter = oldFilter;
+          ctx.imageSmoothingEnabled = oldSmoothing;
+        }
+      } finally {
+        for (let i = restorers.length - 1; i >= 0; i -= 1) {
+          try { restorers[i]?.(); } catch (error) {}
+        }
+        perfState.drawnObjects = drawn;
+        countParticles();
+        updateDebugOverlay();
+      }
+    };
+  }
+
+  const updateBeforeExtreme = typeof update === "function" ? update : null;
+  if (updateBeforeExtreme) {
+    update = function updateExtremeRuntime(delta) {
+      const profile = currentProfile();
+      const safeDelta = Math.min(Math.max(Number(delta) || 0.016, 0.001), profile.maxDelta);
+      const result = updateBeforeExtreme(safeDelta);
+      pruneRuntimeLists(profile);
+      return result;
+    };
+  }
+
+  function preloadCoreAssets() {
+    if (perfState.preloadStarted || typeof Image === "undefined") return;
+    perfState.preloadStarted = true;
+    const assets = [
+      "player-house-mansion-game.png",
+      "village-house-blue-game.png",
+      "village-house-clay-game.png",
+      "hero-bedroom.png",
+      "cave-map.png",
+      "acid-dimension-map.png",
+      "infernal-sword-game.png",
+      "glacial-sword-game.png",
+      "shadow-sword-game.png",
+      "storm-sword-game.png",
+      "fire-orb-power-game.png",
+      "ice-crystal-power-game.png",
+      "healing-cross-power-game.png",
+      "poison-skull-power-game.png"
+    ];
+    const load = () => {
+      for (const src of assets) {
+        try {
+          const img = new Image();
+          img.decoding = "async";
+          img.src = `${src}?v=${PATCH_ID}`;
+        } catch (error) {}
+      }
+    };
+    if ("requestIdleCallback" in window) window.requestIdleCallback(load, { timeout: 1800 });
+    else setTimeout(load, 400);
+  }
+
+  function installMainLoop() {
+    let lastFrame = 0;
+    gameLoop = function gameLoopExtremeAntiLag(time) {
+      const profile = currentProfile();
+      if (document.hidden) {
+        lastTime = time;
+        lastFrame = time;
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      const frameMs = 1000 / profile.targetFps;
+      if (time - lastFrame < frameMs) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      if (!lastTime) lastTime = time;
+      const delta = Math.min(Math.max((time - lastTime) / 1000, 0.001), profile.maxDelta);
+      lastTime = time;
+      lastFrame = time;
+      try {
+        update(delta);
+        draw();
+        updateFps(time);
+      } catch (error) {
+        showErrorMessage(error);
+      }
+      requestAnimationFrame(gameLoop);
+    };
+  }
+
+  function bootExtremePerf() {
+    const profile = currentProfile();
+    patchPools();
+    preloadCoreAssets();
+    try { ensureCanvasSize?.(true); } catch (error) {}
+    try { updateHud?.(true); } catch (error) {}
+    if (!perfState.bootToastShown) {
+      perfState.bootToastShown = true;
+      setTimeout(() => {
+        try { showHudToast?.("Otimização extrema ativa: PC/Mobile anti-lag 20260706", 3.2); } catch (error) {}
+      }, 700);
+    }
+    return profile;
+  }
+
+  window.addEventListener("resize", () => {
+    perfState.profile = null;
+    perfState.colliderCacheKey = "";
+    perfState.mapCaches.clear();
+    setTimeout(() => {
+      try { ensureCanvasSize?.(true); bootExtremePerf(); } catch (error) {}
+    }, 120);
+  }, { passive: true });
+
+  window.addEventListener("orientationchange", () => {
+    perfState.profile = null;
+    perfState.colliderCacheKey = "";
+    perfState.mapCaches.clear();
+    setTimeout(() => {
+      try { ensureCanvasSize?.(true); bootExtremePerf(); } catch (error) {}
+    }, 260);
+  }, { passive: true });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      try { bootExtremePerf(); } catch (error) {}
+    }
+  });
+
+  installMainLoop();
+  bootExtremePerf();
+  setTimeout(bootExtremePerf, 500);
 })();
