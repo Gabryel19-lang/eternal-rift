@@ -1,0 +1,15 @@
+ETERNAL RIFT - HITBOX MELHORADA 2026-07-06
+- espada, arco e cajado com hitbox direcional melhorada
+- projeteis de arco/cajado saem melhor alinhados
+- mantida a correcao da espada duplicada
+
+- small-enemy-reference-sprites-20260706-1: inimigos menores com sprites reais enviados pelo usuario.
+
+Hotfix: mobile anti-lag extremo sem remover conteúdo.
+
+- mobile-ultra-real-anti-lag-20260706-2: modo ultra real para celular fraco, sem remover conteúdo.
+
+- HUD mobile estilo MMORPG igual à foto de referência, sem gerar imagem nova.
+
+- FINAL REAL: HUD da foto ativado em PC e mobile.
+- FINAL REAL: mobile potato/ultra com canvas menor, mapa leve, IA distante dormindo, HUD/mini mapa com throttle e FPS estável.
