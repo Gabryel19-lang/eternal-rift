@@ -715,3 +715,273 @@ Esta versao deixa o Eternal Rift com clima de jogo 2D de exploracao, mineracao e
 - Adicionados presets mobile: Mobile Pequeno, Mobile Medio, Mobile Grande, Competitivo e Limpo.
 - Camera mobile recebeu leve antecipacao na direcao do movimento/alvo.
 - PC, saves, HUD, inventario, hotbar, classes, contratos, biomas, som e Firebase foram preservados.
+
+
+## Atualização extra - Quarto exatamente igual à imagem de referência
+- Adicionado `hero-bedroom.png` como cenário real do interior da casa do jogador.
+- A casa agora desenha a imagem inteira como fundo, sem recriar cama, parede, janela, armário, mesa ou tapete por código.
+- Foram adicionadas colisões invisíveis por cima da imagem para paredes, camas, armário e mesa.
+- O tapete ficou apenas visual e não trava o jogador.
+- A entrada e saída da casa foram alinhadas com a porta da imagem.
+- O jogador aparece por cima da imagem e pode andar normalmente pelo quarto.
+
+## Atualizacao - Quarto exato interativo
+- Mantido o quarto usando `hero-bedroom.png` como imagem real de fundo, sem redesenhar os moveis por codigo.
+- Adicionadas interacoes alinhadas com a imagem:
+  - camas recuperam vida, mana e oxigenio, e salvam o jogo;
+  - armario troca conjunto visual e abre equipamentos;
+  - mesa de estudos concede XP com cooldown e mostra anotacoes;
+  - cadeiras recuperam um pouco de mana;
+  - luminaria liga/desliga a luz do quarto;
+  - janela abre/fecha com brilho suave;
+  - quadro abre lore do quarto;
+  - tapete esconde 7 moedas uma unica vez;
+  - saida inferior continua levando para a vila.
+- Adicionado brilho discreto no objeto interativo mais proximo, sem estragar o visual da imagem.
+- `node --check app.js` passou sem erro.
+
+## Atualizacao extra - quarto com acoes visuais do personagem
+- O quarto continua usando `hero-bedroom.png` como cenário real, para manter o visual idêntico à referência.
+- Interações agora mostram o personagem fazendo a ação, não apenas uma mensagem:
+  - dormir: personagem deitado na cama, respirando e com Zzz;
+  - estudar: personagem sentado na mesa, escrevendo/lendo com livro e +XP visual;
+  - sentar: personagem sentado na cadeira;
+  - armário: personagem troca equipamento com brilho e porta visual abrindo;
+  - luminária, janela e quadro: personagem aponta/interage com o objeto;
+  - tapete: personagem se abaixa e procura moedas.
+- Enquanto a ação acontece, o personagem fica preso na pose correta por alguns segundos.
+- Ao terminar, o personagem volta para uma posição segura ao lado do objeto.
+- `node --check app.js` passou sem erro.
+
+## Correção - controle do jogador durante ações do quarto
+- Corrigido o problema em que o personagem ficava preso sem conseguir andar depois de interagir com cama, mesa, cadeira, armário, janela, luminária, quadro ou tapete.
+- Agora a animação visual da ação aparece normalmente, mas se o jogador apertar qualquer tecla de movimento ou usar o joystick, a pose é cancelada e o controle volta imediatamente.
+- O personagem é devolvido para a posição segura onde estava antes da ação, evitando ficar preso dentro da cama, mesa ou cadeira.
+- `node --check app.js` passou sem erro após a correção.
+
+## Correção do quarto interativo animado - mesa/cadeiras sem travar
+- Corrigida a área da mesa e das cadeiras onde o personagem podia ficar preso.
+- As zonas de interação de estudar e sentar continuam funcionando.
+- A colisão grande e sobreposta da mesa/cadeiras foi removida.
+- Foi mantido apenas um bloqueio pequeno no tampo da mesa, sem canto invisível prendendo o jogador.
+- Se o jogador carregar o save já encostado nessa área, o código empurra o personagem para uma posição segura.
+- `node --check app.js` passou sem erro.
+
+## Atualizacao extra - Espada Infernal com combate animado
+- Adicionada `infernal-sword.png` como sprite transparente, criada a partir da imagem de referencia enviada pelo usuario.
+- A espada padrao agora aparece como uma espada infernal de fogo na mao do personagem.
+- A Espada Vulcanica tambem usa o visual infernal reforcado.
+- Ataques de espada agora mostram rastro flamejante, faiscas e impacto de fogo.
+- Ao acertar inimigos, a espada aplica queimadura e efeitos visuais de chama.
+- A Espada Vulcanica causa uma pequena explosao em inimigos proximos.
+- O inventario mostra a miniatura da espada infernal nos slots de espada.
+- Tudo foi integrado por Canvas/codigo e sprite local, sem gerar imagem nova por IA.
+- `node --check app.js` passou sem erro.
+
+## Correção da Espada Infernal
+- A imagem enviada agora cria uma arma separada chamada Espada Infernal do Rift.
+- A Espada curta voltou a ser normal.
+- As espadas elementais/boss continuam com seus próprios visuais.
+- Somente a Espada Infernal do Rift usa o sprite `infernal-sword.png`, rastro de fogo, faíscas, impacto flamejante e queimadura.
+- A Espada Infernal fica desbloqueada junto das armas do jogador para teste.
+- `node --check app.js` passou sem erro após a correção.
+
+## Atualizacao extra - tres espadas de referencia
+- Adicionadas as tres novas espadas enviadas pelo usuario sem gerar imagem por IA.
+- `glacial-sword.png` agora e usado como sprite real da Espada Glacial Cristalina.
+- `shadow-sword.png` agora e usado como sprite real da Espada Sombria Abissal.
+- `storm-sword.png` agora e usado como sprite real da Espada Celeste da Tempestade.
+- As sprites aparecem na mao do personagem, nos baus elementais e no inventario.
+- Mantidas as interacoes de combate: gelo congela/desacelera, sombra marca/rouba vida e tempestade cria raios em cadeia.
+- As espadas continuam separadas da Espada Infernal do Rift e das espadas comuns.
+- `node --check app.js` passou sem erro.
+
+## Correção - espadas elementais sem depender de bosses
+- O jogador informou que não encontrou os bosses indicados para pegar as novas espadas.
+- Agora as três espadas novas também aparecem em baús fixos dentro do quarto do jogador.
+- Para pegar: entrar no quarto/casa, chegar perto dos baús elementais e apertar E; no celular, usar Interagir.
+- Os baús não têm colisão sólida, então não prendem o personagem no quarto.
+- Cada baú desbloqueia uma espada: Espada Celeste da Tempestade, Espada Glacial Cristalina e Espada Sombria Abissal.
+- Os bosses/recompensas antigas não foram removidos, mas agora existe um caminho garantido para pegar as armas.
+- `node --check app.js` passou sem erro.
+
+## Hotfix - baús das espadas visíveis no quarto
+- Corrigido o problema em que os baús das espadas elementais podiam não aparecer.
+- Agora os 3 baús ficam sempre visíveis em cima do tapete vermelho do quarto do jogador.
+- Baús adicionados: RAIO, GELO e SOMBRA.
+- Se a espada já estiver desbloqueada no save, o baú aparece aberto e informa que a espada já foi coletada.
+- Os baús não possuem colisão, então não prendem o personagem.
+- Ao entrar no quarto, aparece aviso indicando onde estão os baús.
+- `node --check app.js` passou sem erro.
+
+## Hotfix - baús elementais e tapete do quarto
+- Corrigido o problema em que o tapete vermelho interceptava a interação dos baús elementais.
+- Agora, quando o jogador estiver perto dos baús RAIO, GELO ou SOMBRA, apertar E/Interagir prioriza o baú, não o tapete.
+- O tapete vermelho continua visual, mas não rouba mais a interação enquanto os baús existem no quarto.
+- A área de interação dos baús foi aumentada para facilitar no PC e no mobile.
+- `node --check app.js` passou sem erro.
+
+## Atualizacao final - bau unico das 3 espadas
+- Removidos os 3 baus separados do quarto.
+- Agora existe apenas 1 bau elemental no quarto, colocado no tapete vermelho.
+- O bau unico mostra as 3 sprites/imagens das espadas juntas: Glacial, Sombria e Tempestade.
+- Ao abrir o bau, o jogador recebe as 3 espadas de uma vez.
+- As espadas continuam usando as imagens enviadas como sprites reais, igual ao funcionamento da espada de fogo/infernal.
+- O tapete nao rouba a interacao do bau unico.
+- `node --check app.js` passou sem erro.
+
+## Correção final das espadas por imagem
+- Corrigido o visual das espadas elementais em combate: elas não usam mais o cone/lâmina branca genérica durante o golpe.
+- Adicionadas sprites pequenas de combate derivadas das imagens enviadas: `glacial-sword-game.png`, `shadow-sword-game.png`, `storm-sword-game.png` e `infernal-sword-game.png`.
+- O jogo continua usando as imagens originais grandes no inventário e a versão game-ready na mão do personagem para preservar o desenho sem distorcer.
+- O ataque agora mostra a espada real acompanhando o arco do golpe, com rastro elemental fino, sem cobrir a sprite.
+- Mantido o baú único do quarto que entrega as três espadas de uma vez.
+- `node --check app.js` passou sem erro.
+
+## Adição dos 10 cajados por imagem
+- Adicionados 10 cajados novos usando as imagens reais enviadas, sem gerar arte nova.
+- Os arquivos foram tratados com fundo transparente e versões game-ready pequenas para o combate.
+- Novos arquivos adicionados: `fire-crystal-staff.png`, `frost-crystal-staff.png`, `nature-vine-staff.png`, `necro-skull-staff.png`, `holy-seraph-staff.png`, `storm-orb-staff.png`, `arcane-crystal-staff.png`, `venom-serpent-staff.png`, `solar-scarab-staff.png`, `infernal-demon-staff.png` e suas versões `-game.png`.
+- Os cajados aparecem com a imagem real na mão do personagem, no inventário e nos detalhes do item.
+- Nesta versão os 10 cajados foram liberados diretamente no inventário para testar/equipar rápido.
+- `node --check app.js` passou sem erro.
+
+## Poderes dos cajados com imagens exatas
+- Cada um dos 10 cajados agora dispara/usa o poder visual correspondente às imagens enviadas pelo usuário.
+- As imagens dos poderes foram tratadas com fundo transparente e versões `-game.png` para aparecerem no combate sem virar quadrado ou bolinha genérica.
+- Mapeamento aplicado:
+  - Cajado de Cristal Flamejante: `fire-orb-power.png`.
+  - Cajado Glacial Cristalino: `ice-crystal-power.png` com vórtice visual `ice-tornado-power.png` como aura de gelo.
+  - Cajado da Natureza Viva: `healing-cross-power.png` e cura o jogador ao usar.
+  - Cajado Necrótico do Crânio: `shadow-slash-power.png`.
+  - Cajado do Serafim Radiante: `holy-gate-power.png`.
+  - Cajado da Orbe da Tempestade: `lightning-orb-power.png`.
+  - Cajado Arcano de Cristal: `arcane-crystal-power.png`.
+  - Cajado da Serpente Venenosa: `poison-skull-power.png`.
+  - Cajado Solar do Escaravelho: `earth-crystal-power.png`.
+  - Cajado Infernal Demoníaco: `shadow-slash-power.png` como corte demoníaco.
+- O disparo dos cajados não usa mais bolinhas genéricas para esses cajados: a imagem real do poder aparece no mapa durante o combate.
+- `node --check app.js` passou sem erro.
+
+## Correção dos poderes dos cajados: efeitos vivos, não imagem dura
+- Corrigido o comportamento anterior em que o projétil parecia uma imagem dura colada no jogo.
+- As imagens enviadas agora são usadas como referência visual de cor, silhueta e tema, mas o poder em combate é desenhado com efeitos vivos no Canvas.
+- Cada cajado recebeu poder animado próprio com aura, partículas, brilho, rastro e movimento:
+  - Cajado de Cristal Flamejante: orbe de fogo espiral com chamas e faíscas.
+  - Cajado Glacial Cristalino: cristal de gelo com shards, neve e vórtice frio.
+  - Cajado da Natureza Viva: selo de cura com cruz, folhas, círculo e pulsação verde.
+  - Cajado Necrótico do Crânio: corte sombrio/necromante com fumaça roxa.
+  - Cajado do Serafim Radiante: portão sagrado com raios dourados e estrelas.
+  - Cajado da Orbe da Tempestade: orbe elétrica com raios azuis/amarelos.
+  - Cajado Arcano de Cristal: cristal arcano com anéis rúnicos e fragmentos flutuantes.
+  - Cajado da Serpente Venenosa: caveira/veneno com bolhas verdes e névoa tóxica.
+  - Cajado Solar do Escaravelho: ruptura terrestre com cristais/rochas e brilho solar.
+  - Cajado Infernal Demoníaco: corte infernal vermelho/preto com faíscas demoníacas.
+- O inventário ainda mantém as imagens dos cajados e poderes como referência/ícone, mas o combate agora usa efeitos animados vivos.
+- `node --check app.js` passou sem erro.
+
+## Correção de gameplay dos poderes dos cajados
+- Os poderes dos 10 cajados agora não são só visuais: cada elemento aplica efeito real em combate.
+- Cajado de Cristal Flamejante: aplica queimadura com dano contínuo e pequena área de fogo.
+- Cajado Glacial Cristalino: congela/desacelera inimigos e atrasa ataques.
+- Cajado da Natureza Viva: cura o personagem e prende inimigos com raízes.
+- Cajado Necrótico do Crânio: amaldiçoa, drena vida dos inimigos e cura o jogador.
+- Cajado do Serafim Radiante: cura e cria escudo sagrado que reduz dano recebido.
+- Cajado da Orbe da Tempestade: atordoa e cria raios em cadeia.
+- Cajado Arcano de Cristal: deixa inimigos frágeis, aumentando dano recebido.
+- Cajado da Serpente Venenosa: envenena inimigos com dano contínuo.
+- Cajado Solar do Escaravelho: prende inimigos no chão e quebra defesa.
+- Cajado Infernal Demoníaco: aplica fogo infernal, medo/controle e dano contínuo forte.
+- `node --check app.js` passou sem erro.
+
+
+## Boneco de treino na vila
+- Adicionado um Boneco de Treino fixo na vila, perto da área de treino.
+- O boneco é imortal, não dá dano e não dropa moedas/XP.
+- Serve para testar espadas, cajados, dano, queimadura, congelamento, veneno, stun, cura/roubo de vida e outros efeitos.
+- O boneco mostra pequenos indicadores visuais dos status aplicados.
+- `node --check app.js` passou sem erro.
+
+
+## Mais baús pelo mapa e inimigos iniciais mais fortes
+- Adicionados 10 baús extras espalhados pela vila/mundo principal.
+- Baús novos têm recompensas salvas: moedas, poções, flechas, XP, orbes de mana e chaves raras nos baús mais fortes.
+- Baús novos ficam abertos depois de coletados e não travam o personagem.
+- Inimigos pequenos/iniciais ficaram mais fortes: slimes, morcego, aranha, goblin e arqueiro goblin.
+- Esses inimigos agora têm mais vida, mais dano, um pouco mais de velocidade, mais alcance de agressão e dão mais XP/moedas.
+- `node --check app.js` passou sem erro.
+
+
+## Correção do boneco de treino
+- O boneco de treino agora tem física/colisão real.
+- Corrigida a hitbox para espada e projéteis acertarem corretamente.
+- O boneco continua imortal, mas agora dá para bater, travar colisão e testar dano/efeitos sem atravessar.
+- `node --check app.js` passou sem erro.
+
+
+## Respawn de inimigos em 1 minuto
+- Agora, quando um inimigo comum é derrotado, ele renasce após 60 segundos.
+- O timer de respawn também é salvo no save.
+- Bosses e o boneco de treino não entram no respawn automático.
+- `node --check app.js` passou sem erro.
+
+
+## Exteriores das casas da vila com imagem real
+- As casas da vila agora usam as duas imagens enviadas como sprites reais.
+- Fundo branco das imagens foi recortado e convertido para transparente.
+- Casas normais alternam entre telhado azul e telhado de barro; casa do jogador/loja usam visual especial.
+- Não foi gerada imagem nova, apenas uso direto das referências como assets do jogo.
+- `node --check app.js` passou sem erro.
+
+
+## Remoção do diálogo das casas
+- Removido o diálogo automático das casas da vila.
+- As casas continuam usando as imagens reais enviadas como sprites.
+- Agora chegar perto das casas não abre a caixa de texto de exterior renovado.
+- `node --check app.js` passou sem erro.
+
+
+## Zoom da tela com mouse e mobile
+- Scroll do mouse agora aproxima ou afasta a câmera do jogo.
+- O zoom muda a câmera real do Canvas, não apenas o CSS.
+- Mobile ganhou botões + e - e suporte a pinça com dois dedos.
+- A mira do mouse e o toque no mobile foram ajustados para funcionar com zoom.
+- O zoom fica salvo no navegador.
+- `node --check app.js` passou sem erro.
+
+
+## Zoom por scroll e mobile
+- Scroll do mouse aumenta/diminui o zoom real da câmera do jogo.
+- Mobile tem botões + e - na tela e suporte a gesto de pinça com dois dedos.
+- A mira do mouse, o toque no mobile, a câmera e o carregamento do mapa foram ajustados para respeitar o zoom.
+- O zoom fica salvo no navegador.
+- `node --check app.js` passou sem erro.
+
+
+## Casa do jogador com visual de mansao
+- Apenas a casa do jogador agora usa o visual da mansao azul enviada como referencia.
+- As outras casas da vila permanecem como antes.
+- O tamanho visual da mansao foi ajustado para ficar bonita sem apertar o espaco da vila.
+- O dialogo da casa continua desativado.
+
+
+## Hotfix visual do jogador
+- Corrigido erro `premiumWorldShadow is not defined`.
+- Adicionadas versões seguras das funções visuais usadas pelo novo jogador.
+- Mantida a animação de ataque melhorada.
+- `node --check app.js` passou sem erro.
+
+
+## Hotfix do jogador: sem fundo preto e com animação vertical
+- Corrigido o fundo preto das sprites do jogador, agora transparente.
+- Adicionados frames derivados das próprias sprites enviadas para caminhada subindo e descendo.
+- Mantida a animação melhorada de ataque sem gerar imagem nova.
+- `node --check app.js` passou sem erro.
+
+
+## Hotfix do jogador: transparência precisa
+- Corrigida a remoção agressiva de fundo que apagava partes do corpo.
+- As sprites foram refeitas a partir das imagens originais com preservação de contorno, cabelo, braços, pernas e roupa.
+- Mantida a animação para subir/descer e a animação de ataque melhorada.
+- Atualizado cache-buster dos sprites para o navegador não usar os antigos.
+- `node --check app.js` passou sem erro.

@@ -1,4 +1,42 @@
 
+
+/* ==================================================
+   HOTFIX: corrigir erro premiumWorldShadow/premiumRect
+   - Algumas funções visuais estavam presas em outro patch.
+   - Agora existem versões globais seguras para evitar tela de erro.
+   ================================================== */
+function premiumRect(x, y, w, h, color) {
+  try {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  } catch (error) {}
+}
+
+function premiumWorldShadow(x, y, w, h, alpha = 0.28) {
+  try {
+    ctx.save();
+    ctx.fillStyle = `rgba(8, 10, 20, ${alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(
+      x + w / 2,
+      y + h / 2,
+      Math.max(1, w / 2),
+      Math.max(1, h / 2),
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+    ctx.restore();
+  } catch (error) {}
+}
+
+if (typeof window !== "undefined") {
+  window.premiumRect = window.premiumRect || premiumRect;
+  window.premiumWorldShadow = window.premiumWorldShadow || premiumWorldShadow;
+}
+
+
 /* ETERNAL_RIFT_VERSION_MARKER_minimap-brutal-interativo-20260702-2148 */
 (function eternalRiftVersionMarker() {
   try {
@@ -2003,8 +2041,10 @@ function update(delta) {
   updateFloatingTexts(delta);
   updateVisualEffects(delta);
 
-  camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, getSceneWidth() - canvas.width);
-  camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, getSceneHeight() - canvas.height);
+  const erViewW = getZoomedViewWidth();
+  const erViewH = getZoomedViewHeight();
+  camera.x = clamp(player.x + player.width / 2 - erViewW / 2, 0, Math.max(0, getSceneWidth() - erViewW));
+  camera.y = clamp(player.y + player.height / 2 - erViewH / 2, 0, Math.max(0, getSceneHeight() - erViewH));
 
   playerPositionEl.textContent = getAreaName();
   checkAreaDiscovery();
@@ -3372,7 +3412,7 @@ function draw() {
   ensureCanvasSize();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
-  ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+  applyGameCameraTransform(ctx);
 
   drawMap();
   if (currentScene === "crystalDimension") drawDimensionAmbient();
@@ -3411,9 +3451,9 @@ function draw() {
 function isOnCamera(obj, margin = 64) {
   return (
     obj.x + obj.width >= camera.x - margin &&
-    obj.x <= camera.x + canvas.width + margin &&
+    obj.x <= camera.x + getZoomedViewWidth() + margin &&
     obj.y + obj.height >= camera.y - margin &&
-    obj.y <= camera.y + canvas.height + margin
+    obj.y <= camera.y + getZoomedViewHeight() + margin
   );
 }
 
@@ -3433,9 +3473,9 @@ function drawMap() {
   }
 
   const startCol = Math.floor(camera.x / TILE) - 1;
-  const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+  const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
   const startRow = Math.floor(camera.y / TILE) - 1;
-  const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+  const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
 
   for (let y = startRow; y <= endRow; y++) {
     for (let x = startCol; x <= endCol; x++) {
@@ -3565,7 +3605,7 @@ function drawDimensionAmbient() {
     const particle = dimensionParticles[i];
     const px = particle.x + Math.sin(time * particle.speed + particle.phase) * 14;
     const py = particle.y + Math.cos(time * particle.speed + particle.phase) * 10;
-    if (px < camera.x - 8 || px > camera.x + canvas.width + 8 || py < camera.y - 8 || py > camera.y + canvas.height + 8) continue;
+    if (px < camera.x - 8 || px > camera.x + getZoomedViewWidth() + 8 || py < camera.y - 8 || py > camera.y + getZoomedViewHeight() + 8) continue;
     ctx.fillStyle = particle.size === 2 ? "rgba(129, 239, 255, 0.55)" : "rgba(255, 242, 100, 0.45)";
     ctx.fillRect(px, py, particle.size, particle.size);
   }
@@ -6595,8 +6635,8 @@ function updateMouseAim(event) {
   const scaleY = canvas.height / rect.height;
   mouseAim.screenX = (event.clientX - rect.left) * scaleX;
   mouseAim.screenY = (event.clientY - rect.top) * scaleY;
-  mouseAim.worldX = mouseAim.screenX + camera.x;
-  mouseAim.worldY = mouseAim.screenY + camera.y;
+  mouseAim.worldX = mouseAim.screenX / getGameCameraZoom() + camera.x;
+  mouseAim.worldY = mouseAim.screenY / getGameCameraZoom() + camera.y;
   mouseAim.angle = Math.atan2(
     mouseAim.worldY - (player.y + player.height / 2),
     mouseAim.worldX - (player.x + player.width / 2)
@@ -6631,8 +6671,8 @@ function selectMobileTargetFromPoint(event) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
-  const worldX = (event.clientX - rect.left) * scaleX + camera.x;
-  const worldY = (event.clientY - rect.top) * scaleY + camera.y;
+  const worldX = ((event.clientX - rect.left) * scaleX) / getGameCameraZoom() + camera.x;
+  const worldY = ((event.clientY - rect.top) * scaleY) / getGameCameraZoom() + camera.y;
   const tapRect = { x: worldX - 18, y: worldY - 18, width: 36, height: 36 };
 
   const target = villageObjects.find((obj) => (
@@ -8356,7 +8396,7 @@ function drawVillageGroundDetailsV2() {
   for (const [tx, ty, kind] of details) {
     const x = tx * TILE;
     const y = ty * TILE;
-    if (x < camera.x - 48 || x > camera.x + canvas.width + 48 || y < camera.y - 48 || y > camera.y + canvas.height + 48) continue;
+    if (x < camera.x - 48 || x > camera.x + getZoomedViewWidth() + 48 || y < camera.y - 48 || y > camera.y + getZoomedViewHeight() + 48) continue;
     if (kind === "flowerBlue") drawTinyFlowerPatchV2(x, y, "#55c4ff");
     if (kind === "flowerPink") drawTinyFlowerPatchV2(x, y, "#ff7ab5");
     if (kind === "flowerYellow") drawTinyFlowerPatchV2(x, y, "#fff264");
@@ -8926,7 +8966,7 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_SANCTUARY_PATCH) {
     for (const [tx, ty, kind] of gardens) {
       const px = tx * TILE;
       const py = ty * TILE;
-      if (px < camera.x - 40 || px > camera.x + canvas.width + 40 || py < camera.y - 40 || py > camera.y + canvas.height + 40) continue;
+      if (px < camera.x - 40 || px > camera.x + getZoomedViewWidth() + 40 || py < camera.y - 40 || py > camera.y + getZoomedViewHeight() + 40) continue;
       if (kind === "flowers") drawSanctuaryFlowerCluster(px, py);
       if (kind === "shrub") drawSanctuaryShrub(px, py);
     }
@@ -8937,7 +8977,7 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_SANCTUARY_PATCH) {
       const particle = dimensionParticles[i];
       const px = particle.x + Math.sin(time * particle.speed + particle.phase) * 12;
       const py = particle.y + Math.cos(time * particle.speed + particle.phase) * 8;
-      if (px < camera.x - 8 || px > camera.x + canvas.width + 8 || py < camera.y - 8 || py > camera.y + canvas.height + 8) continue;
+      if (px < camera.x - 8 || px > camera.x + getZoomedViewWidth() + 8 || py < camera.y - 8 || py > camera.y + getZoomedViewHeight() + 8) continue;
       const tone = i % 3 === 0 ? "rgba(255, 242, 100, 0.48)" : i % 3 === 1 ? "rgba(233, 255, 255, 0.52)" : "rgba(85, 228, 255, 0.46)";
       drawSanctuaryLight(px, py, tone);
     }
@@ -9673,7 +9713,7 @@ function drawWeaponDebugVisual() {
       ctx.stroke();
     }
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    applyGameCameraTransform(ctx);
   }
 
   ctx.font = "bold 12px Trebuchet MS, Arial";
@@ -9752,7 +9792,7 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_WEAPON_VISUALS_PATCH) 
     try {
       drawBeforeWeaponVisuals();
       ctx.save();
-      ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+      applyGameCameraTransform(ctx);
       drawEquippedWeapon();
       drawWeaponDebugVisual();
       ctx.restore();
@@ -10406,7 +10446,7 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_ELEMENTAL_BOSS_SWORDS_
     drawBeforeElementalSwords();
     try {
       ctx.save();
-      ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+      applyGameCameraTransform(ctx);
       drawElementalSwordEffects();
       ctx.restore();
     } catch (error) {
@@ -10613,7 +10653,7 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_REFERENCE_TEXTURE_PATC
     for (const [tx, ty, kind] of details) {
       const x = tx * TILE;
       const y = ty * TILE;
-      if (x < camera.x - 48 || x > camera.x + canvas.width + 48 || y < camera.y - 48 || y > camera.y + canvas.height + 48) continue;
+      if (x < camera.x - 48 || x > camera.x + getZoomedViewWidth() + 48 || y < camera.y - 48 || y > camera.y + getZoomedViewHeight() + 48) continue;
       if (kind === "flowerBlue") drawTinyFlowerPatchV2(x, y, "#55c4ff");
       if (kind === "flowerPink") drawTinyFlowerPatchV2(x, y, "#ff7ab5");
       if (kind === "flowerYellow") drawTinyFlowerPatchV2(x, y, "#fff264");
@@ -11470,9 +11510,9 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_MEGA_BIOME_EXPANSION_P
     const cols = getVillageMapCols();
     const rows = getVillageMapRows();
     const startCol = Math.floor(camera.x / TILE) - 1;
-    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
     const startRow = Math.floor(camera.y / TILE) - 1;
-    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
     for (let y = startRow; y <= endRow; y++) {
       for (let x = startCol; x <= endCol; x++) {
         if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
@@ -12127,8 +12167,8 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_MEGA_BIOME_EXPANSION_P
         }
       }
     }
-    camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, getSceneWidth() - canvas.width);
-    camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, getSceneHeight() - canvas.height);
+    camera.x = clamp(player.x + player.width / 2 - getZoomedViewWidth() / 2, 0, Math.max(0, getSceneWidth() - getZoomedViewWidth()));
+    camera.y = clamp(player.y + player.height / 2 - getZoomedViewHeight() / 2, 0, Math.max(0, getSceneHeight() - getZoomedViewHeight()));
     playerPositionEl.textContent = getAreaName();
   };
 
@@ -13262,9 +13302,9 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_CELESTIAL_DIMENSION_PA
     if (currentScene !== "celestialDimension") return drawMapBeforeCelestialPatch();
 
     const startCol = Math.floor(camera.x / TILE) - 1;
-    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
     const startRow = Math.floor(camera.y / TILE) - 1;
-    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
 
     for (let y = startRow; y <= endRow; y++) {
       for (let x = startCol; x <= endCol; x++) {
@@ -13875,7 +13915,7 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_CELESTIAL_DIMENSION_PA
         player.mana = Math.min(player.maxMana, player.mana + delta * 0.9);
         player.health = Math.min(player.maxHealth, player.health + delta * 0.12);
       } else if (celestialCurrentEvent === "chuvaEstrelas" && Math.random() < delta * 0.25) {
-        spawnFloatingText("*", camera.x + 40 + Math.random() * (canvas.width - 80), camera.y + 20 + Math.random() * (canvas.height - 40), "#fff4ac");
+        spawnFloatingText("*", camera.x + 40 + Math.random() * (getZoomedViewWidth() - 80), camera.y + 20 + Math.random() * (getZoomedViewHeight() - 40), "#fff4ac");
       }
       if (celestialEventDuration <= 0) celestialCurrentEvent = "";
     }
@@ -14213,13 +14253,13 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_CELESTIAL_RUNTIME_SAFE
           player.mana = Math.min(player.maxMana, player.mana + delta * 0.9);
           player.health = Math.min(player.maxHealth, player.health + delta * 0.12);
         } else if (celestialCurrentEvent === "chuvaEstrelas" && Math.random() < delta * 0.25) {
-          spawnFloatingText("*", camera.x + 40 + Math.random() * Math.max(20, canvas.width - 80), camera.y + 20 + Math.random() * Math.max(20, canvas.height - 40), "#fff4ac");
+          spawnFloatingText("*", camera.x + 40 + Math.random() * Math.max(20, getZoomedViewWidth() - 80), camera.y + 20 + Math.random() * Math.max(20, getZoomedViewHeight() - 40), "#fff4ac");
         }
         if (celestialEventDuration <= 0) celestialCurrentEvent = "";
       }
 
-      camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, Math.max(0, getSceneWidth() - canvas.width));
-      camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, Math.max(0, getSceneHeight() - canvas.height));
+      camera.x = clamp(player.x + player.width / 2 - getZoomedViewWidth() / 2, 0, Math.max(0, getSceneWidth() - getZoomedViewWidth()));
+      camera.y = clamp(player.y + player.height / 2 - getZoomedViewHeight() / 2, 0, Math.max(0, getSceneHeight() - getZoomedViewHeight()));
 
       playerPositionEl.textContent = getAreaName();
       updateHud();
@@ -14498,13 +14538,13 @@ if (typeof window !== "undefined" && !window.ETERNAL_RIFT_CELESTIAL_RUNTIME_SAFE
           player.mana = Math.min(player.maxMana, player.mana + delta * 0.9);
           player.health = Math.min(player.maxHealth, player.health + delta * 0.12);
         } else if (celestialSafe.eventName === "chuvaEstrelas" && Math.random() < delta * 0.25) {
-          spawnFloatingText("*", camera.x + 40 + Math.random() * Math.max(20, canvas.width - 80), camera.y + 20 + Math.random() * Math.max(20, canvas.height - 40), "#fff4ac");
+          spawnFloatingText("*", camera.x + 40 + Math.random() * Math.max(20, getZoomedViewWidth() - 80), camera.y + 20 + Math.random() * Math.max(20, getZoomedViewHeight() - 40), "#fff4ac");
         }
         if (celestialSafe.eventDuration <= 0) celestialSafe.eventName = "";
       }
 
-      camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, Math.max(0, getSceneWidth() - canvas.width));
-      camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, Math.max(0, getSceneHeight() - canvas.height));
+      camera.x = clamp(player.x + player.width / 2 - getZoomedViewWidth() / 2, 0, Math.max(0, getSceneWidth() - getZoomedViewWidth()));
+      camera.y = clamp(player.y + player.height / 2 - getZoomedViewHeight() / 2, 0, Math.max(0, getSceneHeight() - getZoomedViewHeight()));
 
       playerPositionEl.textContent = getAreaName();
       updateHud();
@@ -20556,8 +20596,8 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     updateFloatingTexts(delta);
     updateVisualEffects(delta);
 
-    camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, CAVE_WIDTH - canvas.width);
-    camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, CAVE_HEIGHT - canvas.height);
+    camera.x = clamp(player.x + player.width / 2 - getZoomedViewWidth() / 2, 0, Math.max(0, CAVE_WIDTH - getZoomedViewWidth()));
+    camera.y = clamp(player.y + player.height / 2 - getZoomedViewHeight() / 2, 0, Math.max(0, CAVE_HEIGHT - getZoomedViewHeight()));
 
     playerPositionEl.textContent = getAreaName();
     updateQuestProgress();
@@ -20635,9 +20675,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
 
   function drawProceduralCaveTiles() {
     const startCol = Math.floor(camera.x / TILE) - 1;
-    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
     const startRow = Math.floor(camera.y / TILE) - 1;
-    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
 
     for (let y = startRow; y <= endRow; y++) {
       for (let x = startCol; x <= endCol; x++) {
@@ -20707,7 +20747,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     for (const [tx, ty] of lights) {
       const x = tx * TILE;
       const y = ty * TILE;
-      if (x < camera.x - 120 || x > camera.x + canvas.width + 120 || y < camera.y - 120 || y > camera.y + canvas.height + 120) continue;
+      if (x < camera.x - 120 || x > camera.x + getZoomedViewWidth() + 120 || y < camera.y - 120 || y > camera.y + getZoomedViewHeight() + 120) continue;
       const grad = ctx.createRadialGradient(x + 16, y + 16, 4, x + 16, y + 16, 90);
       grad.addColorStop(0, `rgba(85, 232, 255, ${glow + 0.10})`);
       grad.addColorStop(0.52, `rgba(132, 79, 255, ${glow})`);
@@ -20724,7 +20764,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       const particle = caveParticles[i];
       const px = particle.x + Math.sin(t * particle.speed + particle.phase) * 18;
       const py = particle.y + Math.cos(t * particle.speed + particle.phase) * 12;
-      if (px < camera.x - 8 || px > camera.x + canvas.width + 8 || py < camera.y - 8 || py > camera.y + canvas.height + 8) continue;
+      if (px < camera.x - 8 || px > camera.x + getZoomedViewWidth() + 8 || py < camera.y - 8 || py > camera.y + getZoomedViewHeight() + 8) continue;
       ctx.fillStyle = particle.size === 1 ? "rgba(85, 232, 255, 0.34)" : "rgba(255, 242, 100, 0.26)";
       ctx.fillRect(px, py, particle.size, particle.size);
     }
@@ -21104,8 +21144,8 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
-      x: (event.clientX - rect.left) * scaleX + camera.x,
-      y: (event.clientY - rect.top) * scaleY + camera.y
+      x: ((event.clientX - rect.left) * scaleX) / getGameCameraZoom() + camera.x,
+      y: ((event.clientY - rect.top) * scaleY) / getGameCameraZoom() + camera.y
     };
   }
 
@@ -22536,7 +22576,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     for (const particle of acidParticles) {
       const px = particle.x;
       const py = particle.y + Math.sin(time * particle.speed + particle.phase) * 12;
-      if (px < camera.x - 10 || py < camera.y - 10 || px > camera.x + canvas.width + 10 || py > camera.y + canvas.height + 10) continue;
+      if (px < camera.x - 10 || py < camera.y - 10 || px > camera.x + getZoomedViewWidth() + 10 || py > camera.y + getZoomedViewHeight() + 10) continue;
       ctx.fillStyle = `rgba(154,255,114,${particle.alpha})`;
       ctx.fillRect(px, py, particle.size, particle.size);
     }
@@ -22554,7 +22594,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     ];
 
     for (const [gx, gy, radius, alphaBase] of glowPoints) {
-      if (gx < camera.x - radius || gy < camera.y - radius || gx > camera.x + canvas.width + radius || gy > camera.y + canvas.height + radius) continue;
+      if (gx < camera.x - radius || gy < camera.y - radius || gx > camera.x + getZoomedViewWidth() + radius || gy > camera.y + getZoomedViewHeight() + radius) continue;
       const alpha = alphaBase + Math.sin(time * 2.2 + gx * 0.01 + gy * 0.01) * 0.04;
       const gradient = ctx.createRadialGradient(gx, gy, 8, gx, gy, radius);
       gradient.addColorStop(0, `rgba(178,255,96,${alpha})`);
@@ -22568,7 +22608,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     for (let i = 0; i < 20; i++) {
       const bx = ((i * 149) % ACID_WIDTH) + Math.sin(time * 1.5 + i) * 8;
       const by = ((i * 211) % ACID_HEIGHT) + Math.cos(time * 1.2 + i) * 14;
-      if (bx < camera.x - 12 || by < camera.y - 12 || bx > camera.x + canvas.width + 12 || by > camera.y + canvas.height + 12) continue;
+      if (bx < camera.x - 12 || by < camera.y - 12 || bx > camera.x + getZoomedViewWidth() + 12 || by > camera.y + getZoomedViewHeight() + 12) continue;
       const size = 3 + (i % 4);
       ctx.fillRect(bx, by, size, size);
     }
@@ -22733,8 +22773,8 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     updateFloatingTexts(delta);
     updateVisualEffects(delta);
 
-    camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, Math.max(0, ACID_WIDTH - canvas.width));
-    camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, Math.max(0, ACID_HEIGHT - canvas.height));
+    camera.x = clamp(player.x + player.width / 2 - getZoomedViewWidth() / 2, 0, Math.max(0, ACID_WIDTH - getZoomedViewWidth()));
+    camera.y = clamp(player.y + player.height / 2 - getZoomedViewHeight() / 2, 0, Math.max(0, ACID_HEIGHT - getZoomedViewHeight()));
 
     playerPositionEl.textContent = getAreaName();
     updateQuestProgress();
@@ -22750,8 +22790,8 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     return {
-      x: (event.clientX - rect.left) * scaleX + camera.x,
-      y: (event.clientY - rect.top) * scaleY + camera.y
+      x: ((event.clientX - rect.left) * scaleX) / getGameCameraZoom() + camera.x,
+      y: ((event.clientY - rect.top) * scaleY) / getGameCameraZoom() + camera.y
     };
   }
 
@@ -25233,7 +25273,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       // Névoa fria azulada passando por cima do gelo.
       for (let i = 0; i < 7; i++) {
         const fx = camera.x + ((i * 151 + t * 18) % (canvas.width + 180)) - 90;
-        const fy = camera.y + 18 + ((i * 67) % Math.max(1, canvas.height - 40));
+        const fy = camera.y + 18 + ((i * 67) % Math.max(1, getZoomedViewHeight() - 40));
         ctx.fillStyle = "rgba(210,240,255,0.075)";
         ctx.fillRect(fx, fy, 92, 10);
         ctx.fillStyle = "rgba(130,210,255,0.045)";
@@ -25611,9 +25651,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     if (currentScene !== "village" || !Array.isArray(worldMap)) return;
 
     const startX = Math.max(0, Math.floor(camera.x / TILE) - 1);
-    const endX = Math.min(worldMap[0]?.length || 0, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const endX = Math.min(worldMap[0]?.length || 0, Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1);
     const startY = Math.max(0, Math.floor(camera.y / TILE) - 1);
-    const endY = Math.min(worldMap.length || 0, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+    const endY = Math.min(worldMap.length || 0, Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1);
 
     for (let ty = startY; ty < endY; ty++) {
       const row = worldMap[ty];
@@ -25636,7 +25676,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     if (area === "Vila Congelada") {
       for (let i = 0; i < 10; i++) {
         const fx = camera.x + ((i * 151 + t * 20) % (canvas.width + 180)) - 90;
-        const fy = camera.y + 18 + ((i * 67) % Math.max(1, canvas.height - 40));
+        const fy = camera.y + 18 + ((i * 67) % Math.max(1, getZoomedViewHeight() - 40));
         ctx.fillStyle = "rgba(210,240,255,0.075)";
         ctx.fillRect(fx, fy, 100, 10);
       }
@@ -25953,9 +25993,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
 
     // Desenha só quando a câmera realmente encosta no deserto.
     const camLeft = camera.x;
-    const camRight = camera.x + canvas.width;
+    const camRight = camera.x + getZoomedViewWidth();
     const camTop = camera.y;
-    const camBottom = camera.y + canvas.height;
+    const camBottom = camera.y + getZoomedViewHeight();
     const desertLeft = DESERT_EXT.x1 * TILE;
     const desertRight = (DESERT_EXT.x2 + 1) * TILE;
     const desertTop = DESERT_EXT.y1 * TILE;
@@ -25963,9 +26003,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     if (camRight < desertLeft || camLeft > desertRight || camBottom < desertTop || camTop > desertBottom) return;
 
     const startX = Math.max(DESERT_EXT.x1, Math.floor(camera.x / TILE) - 1);
-    const endX = Math.min(DESERT_EXT.x2 + 1, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const endX = Math.min(DESERT_EXT.x2 + 1, Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1);
     const startY = Math.max(DESERT_EXT.y1, Math.floor(camera.y / TILE) - 1);
-    const endY = Math.min(DESERT_EXT.y2 + 1, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+    const endY = Math.min(DESERT_EXT.y2 + 1, Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1);
 
     for (let ty = startY; ty < endY; ty++) {
       const row = worldMap[ty];
@@ -26282,9 +26322,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
   function cameraTouchesDesert() {
     if (currentScene !== "village") return false;
     const left = camera.x;
-    const right = camera.x + canvas.width;
+    const right = camera.x + getZoomedViewWidth();
     const top = camera.y;
-    const bottom = camera.y + canvas.height;
+    const bottom = camera.y + getZoomedViewHeight();
     return !(
       right < DESERT_PERF.x1 * TILE ||
       left > (DESERT_PERF.x2 + 1) * TILE ||
@@ -26407,9 +26447,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     const cols = worldMap[0]?.length || MAP_COLS;
     const rows = worldMap.length || MAP_ROWS;
     const startX = Math.max(0, Math.floor(camera.x / TILE) - 1);
-    const endX = Math.min(cols, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const endX = Math.min(cols, Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1);
     const startY = Math.max(0, Math.floor(camera.y / TILE) - 1);
-    const endY = Math.min(rows, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+    const endY = Math.min(rows, Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1);
 
     for (let ty = startY; ty < endY; ty++) {
       const row = worldMap[ty];
@@ -26582,9 +26622,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
   function cameraTouchesDesertCache() {
     if (currentScene !== "village") return false;
     return !(
-      camera.x + canvas.width < DESERT_CACHE.x1 * TILE ||
+      camera.x + getZoomedViewWidth() < DESERT_CACHE.x1 * TILE ||
       camera.x > (DESERT_CACHE.x2 + 1) * TILE ||
-      camera.y + canvas.height < DESERT_CACHE.y1 * TILE ||
+      camera.y + getZoomedViewHeight() < DESERT_CACHE.y1 * TILE ||
       camera.y > (DESERT_CACHE.y2 + 1) * TILE
     );
   }
@@ -26713,9 +26753,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     const cols = worldMap[0]?.length || MAP_COLS;
     const rows = worldMap.length || MAP_ROWS;
     const startX = Math.max(0, Math.floor(camera.x / TILE) - 1);
-    const endX = Math.min(cols, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const endX = Math.min(cols, Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1);
     const startY = Math.max(0, Math.floor(camera.y / TILE) - 1);
-    const endY = Math.min(rows, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+    const endY = Math.min(rows, Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1);
 
     for (let ty = startY; ty < endY; ty++) {
       const row = worldMap[ty];
@@ -27361,9 +27401,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
   function drawSecretDungeonMap() {
     const def = DUNGEON_DEFS[currentDungeonKind] || DUNGEON_DEFS.desertTemple;
     const startCol = Math.floor(camera.x / TILE) - 1;
-    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
     const startRow = Math.floor(camera.y / TILE) - 1;
-    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
 
     for (let ty = startRow; ty <= endRow; ty++) {
       for (let tx = startCol; tx <= endCol; tx++) {
@@ -27998,7 +28038,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     // Barra grande de boss.
     if (obj.maxHp > 0) {
       const ratio = Math.max(0, obj.hp / obj.maxHp);
-      const bx = camera.x + canvas.width / 2 - 170;
+      const bx = camera.x + getZoomedViewWidth() / 2 - 170;
       const by = camera.y + 20;
       ctx.fillStyle = "rgba(39,48,82,0.92)";
       ctx.fillRect(bx, by, 340, 30);
@@ -31733,7 +31773,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     drawBeforeLegendarySwordWorldFx();
 
     ctx.save();
-    ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    applyGameCameraTransform(ctx);
 
     for (const fx of legendarySwordFx) {
       const progress = 1 - clamp(fx.timer / Math.max(0.001, fx.maxTimer || 0.5), 0, 1);
@@ -35673,9 +35713,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
   function forVisibleRoyalTiles(drawTile) {
     const config = getRoyalConfig();
     const startCol = Math.max(0, Math.floor(camera.x / TILE) - 1);
-    const endCol = Math.min(config.cols - 1, Math.ceil((camera.x + canvas.width) / TILE) + 1);
+    const endCol = Math.min(config.cols - 1, Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1);
     const startRow = Math.max(0, Math.floor(camera.y / TILE) - 1);
-    const endRow = Math.min(config.rows - 1, Math.ceil((camera.y + canvas.height) / TILE) + 1);
+    const endRow = Math.min(config.rows - 1, Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1);
     for (let ty = startRow; ty <= endRow; ty++) {
       for (let tx = startCol; tx <= endCol; tx++) {
         drawTile(tx * TILE, ty * TILE, tx, ty);
@@ -36053,7 +36093,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       const p = royalParticles[i];
       const px = (p.x % getRoyalWidth()) + Math.sin(time * p.speed + p.phase) * 10;
       const py = (p.y % getRoyalHeight()) + Math.cos(time * p.speed + p.phase) * 8;
-      if (px < camera.x - 8 || px > camera.x + canvas.width + 8 || py < camera.y - 8 || py > camera.y + canvas.height + 8) continue;
+      if (px < camera.x - 8 || px > camera.x + getZoomedViewWidth() + 8 || py < camera.y - 8 || py > camera.y + getZoomedViewHeight() + 8) continue;
       ctx.fillStyle = sceneMagic ? `${p.color}88` : "rgba(255,244,172,0.28)";
       ctx.fillRect(px, py, 2, 2);
     }
@@ -37555,8 +37595,8 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       try { handleMapTransitions?.(); } catch (error) {}
       try { updateSwimming?.(Math.min(Math.max(delta || 0, 0), 0.05)); } catch (error) {}
       try {
-        camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, Math.max(0, getSceneWidth() - canvas.width));
-        camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, Math.max(0, getSceneHeight() - canvas.height));
+        camera.x = clamp(player.x + player.width / 2 - getZoomedViewWidth() / 2, 0, Math.max(0, getSceneWidth() - getZoomedViewWidth()));
+        camera.y = clamp(player.y + player.height / 2 - getZoomedViewHeight() / 2, 0, Math.max(0, getSceneHeight() - getZoomedViewHeight()));
       } catch (error) {}
     }
 
@@ -37607,8 +37647,8 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       player.frame = savedFrame;
       player.animTimer = savedAnimTimer;
       try {
-        camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, Math.max(0, getSceneWidth() - canvas.width));
-        camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, Math.max(0, getSceneHeight() - canvas.height));
+        camera.x = clamp(player.x + player.width / 2 - getZoomedViewWidth() / 2, 0, Math.max(0, getSceneWidth() - getZoomedViewWidth()));
+        camera.y = clamp(player.y + player.height / 2 - getZoomedViewHeight() / 2, 0, Math.max(0, getSceneHeight() - getZoomedViewHeight()));
       } catch (error) {}
     } else {
       player.moving = savedMoving && !movementBlockedFinal();
@@ -41896,7 +41936,7 @@ canMoveTo = function canMoveToVillageGateExitFix(nextX, nextY) {
     drawBeforeBeautifulElementFX();
     try {
       ctx.save();
-      ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+      applyGameCameraTransform(ctx);
       drawElementParticles();
       ctx.restore();
     } catch (error) {
@@ -41916,7 +41956,7 @@ canMoveTo = function canMoveToVillageGateExitFix(nextX, nextY) {
   const VILLAGE_INNER_ZONE = { left: 17 * TILE, right: 56 * TILE, top: 6 * TILE, bottom: 40 * TILE };
 
   function isVillageDecoVisible(x, y, margin = 64) {
-    return !(x < camera.x - margin || x > camera.x + canvas.width + margin || y < camera.y - margin || y > camera.y + canvas.height + margin);
+    return !(x < camera.x - margin || x > camera.x + getZoomedViewWidth() + margin || y < camera.y - margin || y > camera.y + getZoomedViewHeight() + margin);
   }
 
   function drawFancyPlanter(x, y, w = 24, h = 12, bloom = '#ff7ab5', bloom2 = '#fff264') {
@@ -42250,7 +42290,7 @@ canMoveTo = function canMoveToVillageGateExitFix(nextX, nextY) {
       const x = tx * TILE;
       const y = ty * TILE;
       if (!inInnerVillagePx(x, y)) continue;
-      if (x < camera.x - 80 || x > camera.x + canvas.width + 80 || y < camera.y - 100 || y > camera.y + canvas.height + 80) continue;
+      if (x < camera.x - 80 || x > camera.x + getZoomedViewWidth() + 80 || y < camera.y - 100 || y > camera.y + getZoomedViewHeight() + 80) continue;
       drawLuxuryCherryTreeAt(x, y, true);
     }
   }
@@ -42263,7 +42303,7 @@ canMoveTo = function canMoveToVillageGateExitFix(nextX, nextY) {
     ];
     for (const [tx, ty] of flowerSpots) {
       const x = tx * TILE, y = ty * TILE;
-      if (x < camera.x - 40 || x > camera.x + canvas.width + 40 || y < camera.y - 40 || y > camera.y + canvas.height + 40) continue;
+      if (x < camera.x - 40 || x > camera.x + getZoomedViewWidth() + 40 || y < camera.y - 40 || y > camera.y + getZoomedViewHeight() + 40) continue;
       luxuryFlower(x, y, (tx + ty) % 2 === 0 ? '#ff9fd2' : '#55c4ff', (tx + ty) % 3 === 0 ? '#fff264' : '#fff3d6');
     }
 
@@ -42299,7 +42339,7 @@ canMoveTo = function canMoveToVillageGateExitFix(nextX, nextY) {
   };
 
   function luxuryLight(cx, cy, radius, inner, outer) {
-    if (cx < camera.x - radius || cx > camera.x + canvas.width + radius || cy < camera.y - radius || cy > camera.y + canvas.height + radius) return;
+    if (cx < camera.x - radius || cx > camera.x + getZoomedViewWidth() + radius || cy < camera.y - radius || cy > camera.y + getZoomedViewHeight() + radius) return;
     radialGlow(cx, cy, radius, inner, outer);
   }
 
@@ -42328,7 +42368,7 @@ canMoveTo = function canMoveToVillageGateExitFix(nextX, nextY) {
     previousDrawLuxuryPatch();
     if (currentScene !== 'village') return;
     ctx.save();
-    ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    applyGameCameraTransform(ctx);
     drawVillageLuxuryLighting();
     ctx.restore();
   };
@@ -42668,7 +42708,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     for (const [tx, ty] of dimensionLanterns) {
       const px = tx * TILE;
       const py = ty * TILE;
-      if (px < camera.x - 80 || px > camera.x + canvas.width + 80 || py < camera.y - 80 || py > camera.y + canvas.height + 80) continue;
+      if (px < camera.x - 80 || px > camera.x + getZoomedViewWidth() + 80 || py < camera.y - 80 || py > camera.y + getZoomedViewHeight() + 80) continue;
       radialGlow(px, py, 42, 'rgba(255,241,176,0.18)', 'rgba(255,190,120,0.04)');
       fillPixelV2(px - 2, py - 2, 4, 4, '#fff3d6');
     }
@@ -42677,7 +42717,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     for (const [tx, ty] of extraCrystalLights) {
       const px = tx * TILE;
       const py = ty * TILE;
-      if (px < camera.x - 80 || px > camera.x + canvas.width + 80 || py < camera.y - 80 || py > camera.y + canvas.height + 80) continue;
+      if (px < camera.x - 80 || px > camera.x + getZoomedViewWidth() + 80 || py < camera.y - 80 || py > camera.y + getZoomedViewHeight() + 80) continue;
       radialGlow(px, py, 55, 'rgba(85,228,255,0.14)', 'rgba(85,228,255,0.03)');
     }
 
@@ -42685,7 +42725,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     for (let i = 0; i < 10; i++) {
       const px = 6 * TILE + ((i * 111) % (CRYSTAL_WIDTH - 12 * TILE));
       const py = 7 * TILE + ((i * 73) % (CRYSTAL_HEIGHT - 12 * TILE));
-      if (px < camera.x - 60 || px > camera.x + canvas.width + 60 || py < camera.y - 60 || py > camera.y + canvas.height + 60) continue;
+      if (px < camera.x - 60 || px > camera.x + getZoomedViewWidth() + 60 || py < camera.y - 60 || py > camera.y + getZoomedViewHeight() + 60) continue;
       if (((i + Math.floor(time * 2)) % 2) === 0) {
         fillPixelV2(px, py, 3, 3, 'rgba(255,255,255,0.40)');
         fillPixelV2(px + 2, py + 2, 2, 2, 'rgba(85,228,255,0.40)');
@@ -42698,7 +42738,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       const p = dimensionPetals[i];
       const px = p.x + Math.sin(time * 0.8 + p.phase) * p.drift;
       const py = ((p.y + time * p.speed * 12) % (CRYSTAL_HEIGHT + 24)) - 12;
-      if (px < camera.x - 10 || px > camera.x + canvas.width + 10 || py < camera.y - 10 || py > camera.y + canvas.height + 10) continue;
+      if (px < camera.x - 10 || px > camera.x + getZoomedViewWidth() + 10 || py < camera.y - 10 || py > camera.y + getZoomedViewHeight() + 10) continue;
       const color = p.tone === 0 ? '#ffd9ed' : p.tone === 1 ? '#f7aed4' : '#fff0f8';
       fillPixelV2(px, py, 3, 2, color);
       fillPixelV2(px + 1, py + 2, 2, 1, 'rgba(233,153,192,0.65)');
@@ -43609,7 +43649,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
   drawMiniMap = function drawMiniMapOnlinePatch() {
     try {
       ctx.save();
-      ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+      applyGameCameraTransform(ctx);
       drawOnlineProjectilesWorld();
       drawOnlinePlayersWorld();
       ctx.restore();
@@ -44953,9 +44993,9 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     const cols = worldMap[0]?.length || MAP_COLS;
     const rows = worldMap.length || MAP_ROWS;
     const startCol = Math.floor(camera.x / TILE) - 1;
-    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
     const startRow = Math.floor(camera.y / TILE) - 1;
-    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
     for (let y = startRow; y <= endRow; y++) {
       for (let x = startCol; x <= endCol; x++) {
         if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
@@ -45741,7 +45781,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       }
 
       const state = player.epicBiomeState || {};
-      const hudX = camera.x + canvas.width - 182;
+      const hudX = camera.x + getZoomedViewWidth() - 182;
       const hudY = camera.y + 14;
       if (area === EPIC_BIOMES.ocean.title) {
         ctx.fillStyle = "rgba(8, 23, 41, 0.72)";
@@ -46409,9 +46449,9 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     const cols = worldMap?.[0]?.length || MAP_COLS;
     const rows = worldMap?.length || MAP_ROWS;
     const startCol = Math.floor(camera.x / TILE) - 1;
-    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
     const startRow = Math.floor(camera.y / TILE) - 1;
-    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
     for (let y = startRow; y <= endRow; y += 1) {
       for (let x = startCol; x <= endCol; x += 1) {
         if (x < 0 || y < 0 || x >= cols || y >= rows) continue;
@@ -46928,9 +46968,9 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       window.matchMedia?.("(max-width: 880px), (pointer: coarse)")?.matches
     );
     const startCol = Math.floor(camera.x / TILE) - 1;
-    const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
+    const endCol = Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1;
     const startRow = Math.floor(camera.y / TILE) - 1;
-    const endRow = Math.ceil((camera.y + canvas.height) / TILE) + 1;
+    const endRow = Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1;
     const now = performance.now() / 1000;
     const tileStep = perfLite ? 2 : 1;
 
@@ -46989,7 +47029,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
   function drawPremiumVillageFountain(now) {
     const x = 32 * TILE - 8;
     const y = 22 * TILE - 8;
-    if (x + 80 < camera.x || x > camera.x + canvas.width || y + 74 < camera.y || y > camera.y + canvas.height) return;
+    if (x + 80 < camera.x || x > camera.x + getZoomedViewWidth() || y + 74 < camera.y || y > camera.y + getZoomedViewHeight()) return;
     premiumWorldShadow(x + 8, y + 50, 62, 10, 0.24);
     premiumRect(x + 8, y + 40, 64, 12, "#7d756c");
     premiumRect(x + 14, y + 34, 52, 12, "#b9ada0");
@@ -47021,7 +47061,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
         const yy = camera.y + 40 + i * 70 + Math.sin(now + i) * 6;
         ctx.beginPath();
         ctx.moveTo(camera.x, yy);
-        ctx.lineTo(camera.x + canvas.width, yy + Math.sin(now + i) * 10);
+        ctx.lineTo(camera.x + getZoomedViewWidth(), yy + Math.sin(now + i) * 10);
         ctx.stroke();
       }
       ctx.restore();
@@ -51384,7 +51424,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     if (!target) return;
 
     ctx.save();
-    ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+    applyGameCameraTransform(ctx);
     ctx.lineWidth = 2;
     ctx.strokeStyle = "rgba(255, 242, 100, 0.82)";
     ctx.fillStyle = "rgba(255, 242, 100, 0.10)";
@@ -51432,4 +51472,8805 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     bootMobileComfort();
     if (state.mobile) showHudToast?.("Mobile melhorado: joystick, botoes, hotbar e mira assistida.");
   }, 900);
+})();
+
+/* ETERNAL RIFT MOBILE BUGFIX - COMPACT INTERACTION HINT */
+(function eternalRiftMobileInteractionHintCleanup20260704() {
+  if (window.ETERNAL_RIFT_MOBILE_INTERACTION_HINT_CLEANUP_20260704) return;
+  window.ETERNAL_RIFT_MOBILE_INTERACTION_HINT_CLEANUP_20260704 = true;
+
+  const HUD_LAYOUT_KEY = "eternal-rift-hud-layout-freefire-v1";
+
+  function isMobileView() {
+    try {
+      return Boolean(
+        document.body?.classList.contains("is-mobile") ||
+        document.body?.classList.contains("mobile-controls-fixed") ||
+        document.body?.classList.contains("er-mobile-real-fix") ||
+        document.body?.classList.contains("er-mobile-gameplay-v2") ||
+        window.matchMedia?.("(pointer: coarse)")?.matches ||
+        window.matchMedia?.("(max-width: 920px)")?.matches
+      );
+    } catch (error) {
+      return window.innerWidth <= 920;
+    }
+  }
+
+  function clearSavedInteractionHintLayout() {
+    try {
+      const raw = localStorage.getItem(HUD_LAYOUT_KEY);
+      if (!raw) return;
+      const layout = JSON.parse(raw);
+      if (!layout || !Object.prototype.hasOwnProperty.call(layout, "interactionHint")) return;
+      delete layout.interactionHint;
+      localStorage.setItem(HUD_LAYOUT_KEY, JSON.stringify(layout));
+    } catch (error) {}
+  }
+
+  function compactInteractionHint() {
+    if (!isMobileView()) return;
+    const hint = document.getElementById("interactionHint");
+    if (!hint) return;
+
+    hint.classList.remove("hud-editor-target", "hud-editor-selected", "hud-editor-hidden-preview", "hud-editor-force-show");
+    hint.removeAttribute("data-hud-editor-label");
+
+    const resetProps = [
+      "inset", "left", "right", "top", "bottom", "width", "height", "min-width", "min-height",
+      "max-width", "max-height", "transform", "transform-origin", "will-change", "z-index",
+      "display", "visibility", "opacity", "pointer-events"
+    ];
+    resetProps.forEach((prop) => hint.style.removeProperty(prop));
+
+    if (hint.classList.contains("hidden")) {
+      hint.style.setProperty("display", "none", "important");
+      hint.style.setProperty("visibility", "hidden", "important");
+      hint.style.setProperty("opacity", "0", "important");
+      return;
+    }
+
+    hint.style.setProperty("position", "fixed", "important");
+    hint.style.setProperty("left", "50%", "important");
+    hint.style.setProperty("right", "auto", "important");
+    hint.style.setProperty("top", "auto", "important");
+    hint.style.setProperty("bottom", "calc(max(12px, env(safe-area-inset-bottom)) + 118px)", "important");
+    hint.style.setProperty("transform", "translateX(-50%)", "important");
+    hint.style.setProperty("display", "inline-flex", "important");
+    hint.style.setProperty("width", "auto", "important");
+    hint.style.setProperty("height", "auto", "important");
+    hint.style.setProperty("min-width", "0", "important");
+    hint.style.setProperty("min-height", "0", "important");
+    hint.style.setProperty("max-width", "min(310px, calc(100vw - 28px))", "important");
+    hint.style.setProperty("max-height", "42px", "important");
+    hint.style.setProperty("overflow", "hidden", "important");
+    hint.style.setProperty("pointer-events", "none", "important");
+    hint.style.setProperty("z-index", "178", "important");
+    hint.style.setProperty("visibility", "visible", "important");
+    hint.style.setProperty("opacity", "1", "important");
+  }
+
+  const updateInteractionHintBeforeCompactMobile = typeof updateInteractionHint === "function" ? updateInteractionHint : null;
+  if (updateInteractionHintBeforeCompactMobile) {
+    updateInteractionHint = function updateInteractionHintMobileCompactBugfix() {
+      const result = updateInteractionHintBeforeCompactMobile();
+      compactInteractionHint();
+      return result;
+    };
+  }
+
+  function bootCompactHintFix() {
+    clearSavedInteractionHintLayout();
+    compactInteractionHint();
+  }
+
+  window.addEventListener("resize", () => setTimeout(bootCompactHintFix, 80), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(bootCompactHintFix, 180), { passive: true });
+  bootCompactHintFix();
+  setTimeout(bootCompactHintFix, 300);
+  setInterval(compactInteractionHint, 900);
+})();
+
+
+/* ==================================================
+   PATCH FINAL: quarto do heroi EXATO por imagem
+   - Usa hero-bedroom.png como cenário real da casa.
+   - Não redesenha móveis por código na casa.
+   - Mantém colisões invisíveis por cima da imagem.
+   ================================================== */
+(function heroBedroomExactImageMapPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_EXACT_IMAGE_MAP_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_EXACT_IMAGE_MAP_PATCH = true;
+
+  const EXACT_ROOM_SOURCE_WIDTH = 429;
+  const EXACT_ROOM_SOURCE_HEIGHT = 280;
+  const EXACT_ROOM_SCALE = 2;
+  const EXACT_ROOM_WIDTH = EXACT_ROOM_SOURCE_WIDTH * EXACT_ROOM_SCALE;
+  const EXACT_ROOM_HEIGHT = EXACT_ROOM_SOURCE_HEIGHT * EXACT_ROOM_SCALE;
+  const EXACT_ROOM_X = Math.round((HOME_WIDTH - EXACT_ROOM_WIDTH) / 2);
+  const EXACT_ROOM_Y = 40;
+
+  const exactHeroBedroomImage = new Image();
+  exactHeroBedroomImage.src = "hero-bedroom.png?v=exact-room-20260706";
+
+  function exactRoomRectFromSource(id, sx, sy, sw, sh, solid = true, message = "") {
+    return {
+      type: "block",
+      exactHeroRoomCollider: true,
+      id,
+      x: Math.round(EXACT_ROOM_X + sx * EXACT_ROOM_SCALE),
+      y: Math.round(EXACT_ROOM_Y + sy * EXACT_ROOM_SCALE),
+      width: Math.round(sw * EXACT_ROOM_SCALE),
+      height: Math.round(sh * EXACT_ROOM_SCALE),
+      solid,
+      message
+    };
+  }
+
+  function resetHomeMapForExactImage() {
+    if (!Array.isArray(homeMap)) return;
+    for (let y = 0; y < HOME_ROWS; y++) {
+      for (let x = 0; x < HOME_COLS; x++) homeMap[y][x] = "I";
+    }
+  }
+
+  function rebuildExactHeroBedroomObjects() {
+    resetHomeMapForExactImage();
+    homeObjects.length = 0;
+
+    homeObjects.push(
+      // Limites do quarto, em cima da imagem original ampliada 2x.
+      exactRoomRectFromSource("exact-room-wall-top", 0, 0, 429, 54, true),
+      exactRoomRectFromSource("exact-room-wall-left", 0, 0, 37, 280, true),
+      exactRoomRectFromSource("exact-room-wall-right", 373, 0, 56, 280, true),
+      exactRoomRectFromSource("exact-room-bottom-left", 0, 258, 286, 22, true),
+      exactRoomRectFromSource("exact-room-bottom-right", 335, 258, 94, 22, true),
+
+      // Móveis principais: invisíveis no código, visíveis pela imagem.
+      exactRoomRectFromSource("exact-room-painting-left", 38, 23, 68, 28, true, "Quadro antigo: uma lembrança silenciosa do quarto."),
+      exactRoomRectFromSource("exact-room-left-bed", 38, 82, 57, 52, true, "Cama: pressione E para descansar e recuperar vida e mana."),
+      exactRoomRectFromSource("exact-room-wardrobe", 108, 50, 43, 74, true, "Armário: madeira escura, roupas e equipamentos do herói."),
+      exactRoomRectFromSource("exact-room-table-chair-set", 168, 88, 82, 52, true, "Mesa de estudos: mapas, anotações e planos de aventura."),
+      exactRoomRectFromSource("exact-room-right-bed", 311, 82, 58, 52, true, "Cama lateral: tudo alinhado com o quarto da referência."),
+      exactRoomRectFromSource("exact-room-stone-corner", 370, 42, 59, 112, true),
+      exactRoomRectFromSource("exact-room-left-furniture-bottom", 0, 210, 36, 50, true),
+
+      // Interações sem desenho, para não estragar a imagem.
+      exactRoomRectFromSource("exact-room-exit-hint", 286, 248, 49, 28, false, "Saída: caminhe para baixo pela abertura para voltar à vila."),
+      exactRoomRectFromSource("exact-room-rug-hint", 63, 160, 129, 68, false, "Tapete vermelho: agora é só visual, sem travar o personagem.")
+    );
+
+    refreshExactHeroBedroomScene();
+  }
+
+  function refreshExactHeroBedroomScene() {
+    if (currentScene !== "home") return;
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  function drawExactHeroBedroomBackground() {
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    fillPixelV2(camera.x, camera.y, canvas.width, canvas.height, "#05040a");
+
+    if (exactHeroBedroomImage.complete && exactHeroBedroomImage.naturalWidth > 0) {
+      ctx.drawImage(exactHeroBedroomImage, EXACT_ROOM_X, EXACT_ROOM_Y, EXACT_ROOM_WIDTH, EXACT_ROOM_HEIGHT);
+    } else {
+      // Fallback escuro só enquanto a imagem carrega, sem desenhar móveis falsos.
+      fillPixelV2(EXACT_ROOM_X, EXACT_ROOM_Y, EXACT_ROOM_WIDTH, EXACT_ROOM_HEIGHT, "#16110d");
+      fillPixelV2(EXACT_ROOM_X + 36 * EXACT_ROOM_SCALE, EXACT_ROOM_Y + 54 * EXACT_ROOM_SCALE, 335 * EXACT_ROOM_SCALE, 204 * EXACT_ROOM_SCALE, "#3a2618");
+    }
+    ctx.restore();
+  }
+
+  const drawInteriorRoomBackdropBeforeExactImage = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorRoomBackdropExactImage(scene) {
+    if (scene === "home") {
+      drawExactHeroBedroomBackground();
+      return;
+    }
+    return drawInteriorRoomBackdropBeforeExactImage(scene);
+  };
+
+  const enterHomeBeforeExactImage = enterHome;
+  enterHome = function enterHomeExactImage() {
+    lastVillagePosition = { x: player.x, y: player.y };
+    setActiveScene("home");
+    player.x = Math.round(EXACT_ROOM_X + 306 * EXACT_ROOM_SCALE);
+    player.y = Math.round(EXACT_ROOM_Y + 236 * EXACT_ROOM_SCALE);
+    player.direction = "up";
+    refreshExactHeroBedroomScene();
+  };
+
+  const handleMapTransitionsBeforeExactImage = handleMapTransitions;
+  handleMapTransitions = function handleMapTransitionsExactImage() {
+    if (currentScene === "home") {
+      const playerCenter = {
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        width: 1,
+        height: 1
+      };
+      const exactExitDoor = {
+        x: Math.round(EXACT_ROOM_X + 286 * EXACT_ROOM_SCALE),
+        y: Math.round(EXACT_ROOM_Y + 248 * EXACT_ROOM_SCALE),
+        width: Math.round(49 * EXACT_ROOM_SCALE),
+        height: Math.round(32 * EXACT_ROOM_SCALE)
+      };
+      if (rectsOverlap(playerCenter, exactExitDoor)) exitHome();
+      return;
+    }
+    return handleMapTransitionsBeforeExactImage();
+  };
+
+  const setActiveSceneBeforeExactImage = setActiveScene;
+  setActiveScene = function setActiveSceneExactImage(scene) {
+    const result = setActiveSceneBeforeExactImage(scene);
+    if (currentScene === "home") refreshExactHeroBedroomScene();
+    return result;
+  };
+
+  const getQuestMessageBeforeExactImage = getQuestMessage;
+  getQuestMessage = function getQuestMessageExactImage(obj) {
+    if (obj?.exactHeroRoomCollider && obj.id === "exact-room-left-bed") {
+      player.health = player.maxHealth;
+      player.mana = player.maxMana;
+      if (player.maxOxygen !== undefined) player.oxygen = player.maxOxygen;
+      updateHud?.(true);
+      playSound?.("heal");
+      return "Você descansou na cama. Vida, mana e oxigênio foram recuperados.";
+    }
+    if (obj?.exactHeroRoomCollider && obj.message) return obj.message;
+    return getQuestMessageBeforeExactImage(obj);
+  };
+
+  rebuildExactHeroBedroomObjects();
+  exactHeroBedroomImage.onload = function onExactHeroBedroomLoaded() {
+    if (currentScene === "home") showHudToast?.("Quarto exato carregado pela imagem.", 1.8);
+  };
+})();
+
+/* ==================================================
+   PATCH FINAL EXTRA: quarto EXATO com interacoes reais
+   - Mantem hero-bedroom.png como cenario perfeito.
+   - Adiciona acoes em cama, armario, mesa, janela, luminaria, quadro e tapete.
+   - Nao desenha moveis por cima da imagem.
+   ================================================== */
+(function heroBedroomExactInteractiveActionsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_EXACT_INTERACTIVE_ACTIONS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_EXACT_INTERACTIVE_ACTIONS_PATCH = true;
+
+  const ROOM_S = 2;
+  const ROOM_X = Math.round((HOME_WIDTH - 429 * ROOM_S) / 2);
+  const ROOM_Y = 40;
+
+  function ensureExactRoomState() {
+    if (!questBook.heroBedroomExact || typeof questBook.heroBedroomExact !== "object") {
+      questBook.heroBedroomExact = {
+        rests: 0,
+        outfit: 0,
+        lightsOn: true,
+        windowOpen: false,
+        deskReads: 0,
+        wardrobeUses: 0,
+        rugChecked: false,
+        cooldowns: {}
+      };
+    }
+    if (!questBook.heroBedroomExact.cooldowns || typeof questBook.heroBedroomExact.cooldowns !== "object") {
+      questBook.heroBedroomExact.cooldowns = {};
+    }
+    return questBook.heroBedroomExact;
+  }
+
+  function cooldownReady(key, ms) {
+    const state = ensureExactRoomState();
+    const now = Date.now();
+    const last = Number(state.cooldowns[key] || 0);
+    if (now - last < ms) return false;
+    state.cooldowns[key] = now;
+    return true;
+  }
+
+  function exactObj(id, sx, sy, sw, sh, solid, action, message) {
+    return {
+      type: "block",
+      id,
+      exactHeroRoomCollider: true,
+      exactHeroRoomInteractive: Boolean(action || message),
+      heroRoomAction: action || "look",
+      x: Math.round(ROOM_X + sx * ROOM_S),
+      y: Math.round(ROOM_Y + sy * ROOM_S),
+      width: Math.round(sw * ROOM_S),
+      height: Math.round(sh * ROOM_S),
+      solid: Boolean(solid),
+      message: message || ""
+    };
+  }
+
+  function resetExactHomeMapTiles() {
+    if (!Array.isArray(homeMap)) return;
+    for (let y = 0; y < HOME_ROWS; y++) {
+      for (let x = 0; x < HOME_COLS; x++) homeMap[y][x] = "I";
+    }
+  }
+
+  function rebuildExactInteractiveRoom() {
+    resetExactHomeMapTiles();
+    homeObjects.length = 0;
+    homeObjects.push(
+      // Paredes e bloqueios invisiveis. A imagem e o visual real.
+      exactObj("exact-room-wall-top", 0, 0, 429, 54, true, "", ""),
+      exactObj("exact-room-wall-left", 0, 0, 37, 280, true, "", ""),
+      exactObj("exact-room-wall-right", 373, 0, 56, 280, true, "", ""),
+      exactObj("exact-room-bottom-left", 0, 258, 286, 22, true, "", ""),
+      exactObj("exact-room-bottom-right", 335, 258, 94, 22, true, "", ""),
+      exactObj("exact-room-stone-corner", 370, 42, 59, 112, true, "", ""),
+      exactObj("exact-room-left-furniture-bottom", 0, 210, 36, 50, true, "", ""),
+
+      // Objetos interativos alinhados na imagem original.
+      exactObj("exact-room-painting-left", 38, 20, 70, 34, false, "painting", "Quadro antigo: pressione E para ler a lembranca na parede."),
+      exactObj("exact-room-lamp", 199, 28, 24, 34, false, "lamp", "Luminaria: pressione E para ligar/desligar a luz quente do quarto."),
+      exactObj("exact-room-window", 203, 25, 88, 42, false, "window", "Janela: pressione E para abrir ou fechar a janela."),
+      exactObj("exact-room-left-bed", 38, 82, 57, 52, true, "sleep", "Cama esquerda: pressione E para dormir e recuperar tudo."),
+      exactObj("exact-room-right-bed", 311, 82, 58, 52, true, "sleep", "Cama direita: pressione E para descansar e recuperar tudo."),
+      exactObj("exact-room-wardrobe", 108, 50, 43, 74, true, "wardrobe", "Armario: pressione E para trocar conjunto e abrir equipamentos."),
+      exactObj("exact-room-desk", 166, 86, 86, 54, true, "study", "Mesa de estudos: pressione E para estudar mapas e ganhar XP."),
+      exactObj("exact-room-left-chair", 168, 102, 24, 48, true, "sit", "Cadeira: pressione E para sentar e recuperar um pouco de mana."),
+      exactObj("exact-room-right-chair", 221, 102, 24, 48, true, "sit", "Cadeira: pressione E para sentar e recuperar um pouco de mana."),
+      exactObj("exact-room-rug", 63, 160, 129, 68, false, "rug", "Tapete vermelho: pressione E para procurar um detalhe escondido."),
+      exactObj("exact-room-exit-hint", 286, 248, 49, 28, false, "exitHint", "Saida: caminhe pela abertura inferior para voltar a vila.")
+    );
+
+    if (currentScene === "home") {
+      objects = homeObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  function recoverAllFromRoom() {
+    player.health = player.maxHealth;
+    player.mana = player.maxMana;
+    if (player.maxOxygen !== undefined) player.oxygen = player.maxOxygen;
+    updateHud?.(true);
+  }
+
+  function openInventoryTab(tab) {
+    try {
+      inventoryTab = tab || "all";
+      toggleInventory?.(true);
+      renderInventory?.();
+    } catch (error) {}
+  }
+
+  const getQuestMessageBeforeExactInteractive = getQuestMessage;
+  getQuestMessage = function getQuestMessageExactInteractive(obj) {
+    if (!obj?.exactHeroRoomInteractive) return getQuestMessageBeforeExactInteractive(obj);
+
+    const state = ensureExactRoomState();
+    const action = obj.heroRoomAction || "look";
+
+    if (action === "sleep") {
+      state.rests = Number(state.rests || 0) + 1;
+      recoverAllFromRoom();
+      playSound?.("heal");
+      saveGame?.();
+      showHudToast?.("Descanso completo salvo.", 1.6);
+      return `Voce dormiu no quarto do heroi. Vida, mana e oxigenio recuperados. O jogo foi salvo. Descansos: ${state.rests}.`;
+    }
+
+    if (action === "wardrobe") {
+      state.outfit = (Number(state.outfit || 0) + 1) % 4;
+      state.wardrobeUses = Number(state.wardrobeUses || 0) + 1;
+      playSound?.("selectItem");
+      showHudToast?.(`Conjunto visual ${state.outfit + 1}`, 1.6);
+      openInventoryTab("armas");
+      return `Voce abriu o armario. Conjunto visual ${state.outfit + 1} selecionado. O inventario de equipamentos foi aberto.`;
+    }
+
+    if (action === "study") {
+      state.deskReads = Number(state.deskReads || 0) + 1;
+      if (cooldownReady("study", 45000)) {
+        awardXp?.(45, "Estudo no quarto");
+        playSound?.("selectItem");
+        return "Voce estudou mapas, rotas, baus e monstros na mesa. Ganhou 45 XP.";
+      }
+      showInfo?.("Mesa de Estudos", "Anotacoes do heroi:\n- Visitar a Mina Cristalina\n- Conferir a Dimensao Acida\n- Abrir baus diarios\n- Melhorar armas e mana\n- Ficar de olho nos bosses");
+      return "Voce revisou as anotacoes da mesa. Ainda falta um pouco para ganhar XP estudando de novo.";
+    }
+
+    if (action === "sit") {
+      player.mana = Math.min(player.maxMana || player.mana, Number(player.mana || 0) + 1);
+      updateHud?.(true);
+      return "Voce sentou um instante. Mana +1. Pequeno descanso, grande respiro.";
+    }
+
+    if (action === "lamp") {
+      state.lightsOn = !state.lightsOn;
+      playSound?.("selectItem");
+      showHudToast?.(state.lightsOn ? "Luz ligada" : "Luz reduzida", 1.3);
+      return state.lightsOn ? "Voce acendeu a luminaria. O quarto ganhou brilho quente." : "Voce diminuiu a luz. O quarto ficou mais escuro e calmo.";
+    }
+
+    if (action === "window") {
+      state.windowOpen = !state.windowOpen;
+      playSound?.("selectItem");
+      return state.windowOpen ? "Voce abriu a janela. Entrou ar fresco da vila." : "Voce fechou a janela. O quarto ficou mais silencioso.";
+    }
+
+    if (action === "painting") {
+      showInfo?.("Quadro Antigo", "A imagem parece registrar uma casa antiga antes da Fenda Eterna. O quarto guarda memoria, descanso e preparacao para a proxima aventura.");
+      return "Voce observou o quadro antigo. Ele parece esconder parte da historia do Eternal Rift.";
+    }
+
+    if (action === "rug") {
+      if (!state.rugChecked) {
+        state.rugChecked = true;
+        inventory.moedas = Number(inventory.moedas || 0) + 7;
+        updateHud?.(true);
+        playSound?.("coin");
+        return "Voce levantou uma pontinha do tapete e encontrou 7 moedas esquecidas.";
+      }
+      return "Voce olhou debaixo do tapete. Agora nao tem mais nada escondido ali.";
+    }
+
+    if (action === "exitHint") return "Saida do quarto: caminhe pela abertura inferior para voltar a vila.";
+    return obj.message || "Voce interagiu com o quarto do heroi.";
+  };
+
+  const setActiveSceneBeforeExactInteractive = setActiveScene;
+  setActiveScene = function setActiveSceneExactInteractive(scene) {
+    const result = setActiveSceneBeforeExactInteractive(scene);
+    if (currentScene === "home") rebuildExactInteractiveRoom();
+    return result;
+  };
+
+  const enterHomeBeforeExactInteractive = enterHome;
+  enterHome = function enterHomeExactInteractive() {
+    const result = enterHomeBeforeExactInteractive();
+    rebuildExactInteractiveRoom();
+    return result;
+  };
+
+  const loadGameBeforeExactInteractive = loadGame;
+  loadGame = function loadGameExactInteractivePatch() {
+    const result = loadGameBeforeExactInteractive();
+    ensureExactRoomState();
+    if (currentScene === "home") rebuildExactInteractiveRoom();
+    return result;
+  };
+
+  const saveGameBeforeExactInteractive = saveGame;
+  saveGame = function saveGameExactInteractivePatch() {
+    ensureExactRoomState();
+    return saveGameBeforeExactInteractive();
+  };
+
+  function drawTargetSparkle() {
+    if (currentScene !== "home") return;
+    let target = null;
+    try { target = findInteraction?.(); } catch (error) { target = null; }
+    if (!target?.exactHeroRoomInteractive) return;
+    const t = performance.now() / 1000;
+    const cx = target.x + target.width / 2;
+    const cy = target.y - 8 + Math.sin(t * 5) * 3;
+    ctx.save();
+    ctx.globalAlpha = 0.82;
+    ctx.fillStyle = "rgba(255, 242, 100, 0.95)";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 7);
+    ctx.lineTo(cx + 5, cy);
+    ctx.lineTo(cx, cy + 7);
+    ctx.lineTo(cx - 5, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(105, 232, 255, 0.72)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(Math.round(target.x - 2) + 0.5, Math.round(target.y - 2) + 0.5, target.width + 4, target.height + 4);
+    ctx.restore();
+  }
+
+  const drawInteriorRoomBackdropBeforeExactInteractive = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorRoomBackdropExactInteractive(scene) {
+    drawInteriorRoomBackdropBeforeExactInteractive(scene);
+    if (scene !== "home") return;
+    const state = ensureExactRoomState();
+    if (!state.lightsOn) {
+      ctx.save();
+      ctx.fillStyle = "rgba(4, 4, 10, 0.28)";
+      ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+      ctx.restore();
+    }
+    if (state.windowOpen) {
+      ctx.save();
+      ctx.fillStyle = "rgba(185, 245, 255, 0.10)";
+      ctx.fillRect(ROOM_X + 200 * ROOM_S, ROOM_Y + 55 * ROOM_S, 92 * ROOM_S, 80 * ROOM_S);
+      ctx.restore();
+    }
+    drawTargetSparkle();
+  };
+
+  rebuildExactInteractiveRoom();
+})();
+
+/* ==================================================
+   PATCH FINAL: quarto EXATO com acoes VISUAIS do personagem
+   - Dormir: personagem deitado na cama com respiracao e Zzz.
+   - Estudar: personagem sentado escrevendo/lendo na mesa.
+   - Sentar: pose sentada nas cadeiras.
+   - Armario: troca visual com brilho e porta abrindo.
+   - Janela, luminaria, quadro e tapete: pose propria de interacao.
+   ================================================== */
+(function heroBedroomVisualActionPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_VISUAL_ACTION_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_VISUAL_ACTION_PATCH = true;
+
+  const visualActionState = {
+    active: null,
+    lastEndedAt: 0
+  };
+
+  const ACTION_DURATIONS = {
+    sleep: 5200,
+    study: 4300,
+    sit: 3000,
+    wardrobe: 3400,
+    lamp: 2300,
+    window: 2400,
+    painting: 3000,
+    rug: 3000,
+    exitHint: 1200,
+    look: 1800
+  };
+
+  const ACTION_LABELS = {
+    sleep: "Dormindo...",
+    study: "Estudando...",
+    sit: "Sentado...",
+    wardrobe: "Trocando equipamento...",
+    lamp: "Mexendo na luminaria...",
+    window: "Abrindo/fechando janela...",
+    painting: "Observando o quadro...",
+    rug: "Procurando no tapete...",
+    exitHint: "Saida do quarto",
+    look: "Interagindo..."
+  };
+
+  function nowMs() {
+    try { return performance.now(); } catch (error) { return Date.now(); }
+  }
+
+  function cloneTarget(obj) {
+    return {
+      id: String(obj?.id || ""),
+      x: Number(obj?.x || 0),
+      y: Number(obj?.y || 0),
+      width: Number(obj?.width || 0),
+      height: Number(obj?.height || 0)
+    };
+  }
+
+  function getActionName(obj) {
+    return String(obj?.heroRoomAction || obj?.homeAction || obj?.kind || "look");
+  }
+
+  function getStandingSpot(action, target) {
+    const centerX = target.x + target.width / 2 - player.width / 2;
+    const belowY = target.y + target.height + 6;
+    const aboveY = target.y - player.height - 8;
+
+    if (action === "sleep") {
+      return { x: centerX, y: target.y + target.height + 8, direction: "up" };
+    }
+    if (action === "study") {
+      return { x: centerX, y: target.y + target.height - 18, direction: "up" };
+    }
+    if (action === "sit") {
+      return { x: centerX, y: target.y + target.height - 24, direction: "up" };
+    }
+    if (action === "wardrobe") {
+      return { x: centerX, y: belowY, direction: "up" };
+    }
+    if (action === "lamp" || action === "window" || action === "painting") {
+      return { x: centerX, y: Math.max(target.y + target.height + 16, target.y + 70), direction: "up" };
+    }
+    if (action === "rug") {
+      return { x: centerX, y: target.y + target.height / 2 - 6, direction: "down" };
+    }
+    return { x: centerX, y: Math.max(aboveY, belowY), direction: "up" };
+  }
+
+  function getLockedPoseSpot(action, target) {
+    const centerX = target.x + target.width / 2 - player.width / 2;
+    if (action === "sleep") {
+      return { x: centerX, y: target.y + target.height * 0.28, direction: "down" };
+    }
+    if (action === "study") {
+      return { x: centerX, y: target.y + target.height - 30, direction: "up" };
+    }
+    if (action === "sit") {
+      return { x: centerX, y: target.y + target.height - 30, direction: "up" };
+    }
+    if (action === "wardrobe") {
+      return { x: centerX, y: target.y + target.height + 2, direction: "up" };
+    }
+    if (action === "lamp" || action === "window" || action === "painting") {
+      return { x: centerX, y: target.y + target.height + 20, direction: "up" };
+    }
+    if (action === "rug") {
+      return { x: centerX, y: target.y + target.height / 2 - 8, direction: "down" };
+    }
+    return getStandingSpot(action, target);
+  }
+
+  function isActionAlive() {
+    const act = visualActionState.active;
+    if (!act) return false;
+    if (nowMs() <= act.endsAt) return true;
+    finishHeroRoomVisualAction();
+    return false;
+  }
+
+  function currentAction() {
+    return isActionAlive() ? visualActionState.active : null;
+  }
+
+  function lockPlayerToPose(act) {
+    if (!act || currentScene !== "home") return;
+    const pose = getLockedPoseSpot(act.action, act.target);
+    player.x = Math.round(pose.x);
+    player.y = Math.round(pose.y);
+    player.direction = pose.direction;
+    player.moving = false;
+    player.frame = 0;
+    if (typeof attackTimer !== "undefined") attackTimer = 0;
+    if (typeof currentMeleeAttack !== "undefined") currentMeleeAttack = null;
+  }
+
+  function finishHeroRoomVisualAction() {
+    const act = visualActionState.active;
+    visualActionState.active = null;
+    visualActionState.lastEndedAt = nowMs();
+    if (!act || currentScene !== "home") return;
+    const spot = getStandingSpot(act.action, act.target);
+    player.x = Math.round(spot.x);
+    player.y = Math.round(spot.y);
+    player.direction = spot.direction;
+    player.moving = false;
+  }
+
+  function startHeroRoomVisualAction(obj) {
+    if (!obj || currentScene !== "home") return;
+    const action = getActionName(obj);
+    if (action === "exitHint") return;
+    const target = cloneTarget(obj);
+    const startedAt = nowMs();
+    const duration = ACTION_DURATIONS[action] || ACTION_DURATIONS.look;
+    visualActionState.active = {
+      action,
+      target,
+      startedAt,
+      endsAt: startedAt + duration,
+      duration,
+      id: target.id,
+      startPlayerX: player.x,
+      startPlayerY: player.y
+    };
+    lockPlayerToPose(visualActionState.active);
+  }
+
+  function px(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function outlineRect(x, y, w, h, fill, stroke) {
+    px(x, y, w, h, stroke || "#151018");
+    px(x + 1, y + 1, w - 2, h - 2, fill);
+  }
+
+  function drawActionShadow(x, y, w, h, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha || 0.28;
+    ctx.fillStyle = "#000000";
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawHeroHead(x, y, faceDown) {
+    outlineRect(x + 4, y + 2, 16, 13, "#f1bd8b", "#22131a");
+    px(x + 3, y, 18, 5, "#6a3724");
+    px(x + 2, y + 4, 5, 8, "#8b4a2d");
+    px(x + 18, y + 4, 4, 7, "#8b4a2d");
+    if (faceDown) {
+      px(x + 8, y + 8, 2, 2, "#111827");
+      px(x + 15, y + 8, 2, 2, "#111827");
+      px(x + 11, y + 12, 5, 1, "#9d5f54");
+    } else {
+      px(x + 7, y + 7, 11, 2, "#4a271c");
+    }
+  }
+
+  function drawSleepingHero(act, progress, t) {
+    const bed = act.target;
+    const breathe = Math.sin(t * 3.2) * 1.2;
+    const cx = bed.x + bed.width / 2;
+    const bodyX = cx - 16;
+    const bodyY = bed.y + bed.height * 0.30 + breathe;
+
+    drawActionShadow(cx - 24, bodyY + 43, 48, 8, 0.16);
+
+    // Travesseiro e corpo deitado por cima da cama original.
+    ctx.save();
+    ctx.globalAlpha = 0.94;
+    outlineRect(cx - 20, bed.y + 17, 40, 18, "#e5f1ff", "#3a3028");
+    drawHeroHead(cx - 12, bed.y + 20 + breathe * 0.5, true);
+    outlineRect(bodyX, bodyY + 24, 32, 48, "#224b9e", "#111827");
+    px(bodyX + 2, bodyY + 28, 28, 9, "#3fb8ff");
+    px(bodyX + 12, bodyY + 24, 4, 48, "#f2c96e");
+    px(bodyX + 5, bodyY + 66, 8, 8, "#4b2f24");
+    px(bodyX + 19, bodyY + 66, 8, 8, "#4b2f24");
+    ctx.restore();
+
+    const zAlpha = Math.max(0.1, 1 - progress * 0.75);
+    ctx.save();
+    ctx.globalAlpha = zAlpha;
+    ctx.font = "bold 15px monospace";
+    ctx.fillStyle = "#fff3b0";
+    ctx.strokeStyle = "rgba(0,0,0,0.45)";
+    ctx.lineWidth = 3;
+    const zY = bed.y + 10 - Math.sin(t * 2) * 5;
+    ctx.strokeText("Zzz", cx + 16, zY);
+    ctx.fillText("Zzz", cx + 16, zY);
+    ctx.restore();
+  }
+
+  function drawStudyingHero(act, progress, t) {
+    const desk = act.target;
+    const cx = desk.x + desk.width / 2;
+    const y = desk.y + desk.height - 35;
+    const write = Math.round(Math.sin(t * 12) * 2);
+
+    drawActionShadow(cx - 18, y + 38, 38, 8, 0.23);
+    // Livro e folhas no tampo da mesa.
+    outlineRect(cx - 30, desk.y + 22, 26, 18, "#fff2cf", "#322018");
+    outlineRect(cx + 4, desk.y + 20, 28, 20, "#dff6ff", "#322018");
+    px(cx - 28, desk.y + 28, 20, 2, "#7b5a3b");
+    px(cx + 8, desk.y + 27, 20, 2, "#315db5");
+    px(cx + 8, desk.y + 33, 16, 2, "#315db5");
+
+    // Personagem sentado escrevendo, olhando para a mesa.
+    outlineRect(cx - 13, y + 12, 26, 20, "#214fa1", "#101827");
+    px(cx - 10, y + 16, 20, 5, "#4fbfff");
+    px(cx - 1, y + 12, 3, 20, "#f2c96e");
+    drawHeroHead(cx - 12, y - 4, false);
+    px(cx - 18, y + 18 + write, 9, 4, "#f0b486");
+    px(cx + 10, y + 18 - write, 9, 4, "#f0b486");
+    px(cx + 18, y + 17 - write, 10, 2, "#ffdf7a");
+    px(cx - 8, y + 31, 7, 8, "#2b1d22");
+    px(cx + 4, y + 31, 7, 8, "#2b1d22");
+
+    ctx.save();
+    ctx.globalAlpha = 0.65 + Math.sin(t * 6) * 0.18;
+    ctx.font = "bold 13px monospace";
+    ctx.fillStyle = "#69e4ff";
+    ctx.fillText("+XP", cx + 28, y + 2);
+    ctx.restore();
+  }
+
+  function drawSittingHero(act, progress, t) {
+    const chair = act.target;
+    const cx = chair.x + chair.width / 2;
+    const y = chair.y + chair.height - 38;
+    const bob = Math.sin(t * 2.4) * 0.5;
+
+    drawActionShadow(cx - 16, y + 39, 34, 7, 0.22);
+    outlineRect(cx - 13, y + 15 + bob, 26, 18, "#214fa1", "#101827");
+    px(cx - 9, y + 18 + bob, 18, 4, "#4fbfff");
+    drawHeroHead(cx - 12, y + bob, true);
+    px(cx - 16, y + 26, 8, 9, "#2b1d22");
+    px(cx + 8, y + 26, 8, 9, "#2b1d22");
+    px(cx - 19, y + 18, 5, 13, "#7b4a2f");
+    px(cx + 15, y + 18, 5, 13, "#7b4a2f");
+  }
+
+  function drawWardrobeHero(act, progress, t) {
+    const wardrobe = act.target;
+    const cx = wardrobe.x + wardrobe.width / 2;
+    const y = wardrobe.y + wardrobe.height + 4;
+    const door = Math.min(1, progress * 2.2);
+
+    // Porta visual abrindo por cima da imagem, para ficar claro que o armario reagiu.
+    ctx.save();
+    ctx.globalAlpha = 0.78;
+    outlineRect(wardrobe.x + 4, wardrobe.y + 8, wardrobe.width * 0.38 * door, wardrobe.height - 14, "#5a3525", "#21130f");
+    px(wardrobe.x + 8 + wardrobe.width * 0.30 * door, wardrobe.y + wardrobe.height * 0.48, 4, 8, "#f2c96e");
+    ctx.restore();
+
+    drawActionShadow(cx - 17, y + 29, 38, 8, 0.24);
+    outlineRect(cx - 13, y + 12, 26, 21, progress < 0.5 ? "#214fa1" : "#3f2a7e", "#101827");
+    px(cx - 10, y + 15, 20, 5, "#4fbfff");
+    drawHeroHead(cx - 12, y - 2, true);
+    px(cx - 21, y + 15 + Math.sin(t * 8) * 2, 8, 5, "#f0b486");
+    px(cx + 13, y + 15 - Math.sin(t * 8) * 2, 8, 5, "#f0b486");
+    px(cx - 8, y + 31, 7, 8, "#2b1d22");
+    px(cx + 4, y + 31, 7, 8, "#2b1d22");
+
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    for (let i = 0; i < 6; i++) {
+      const a = t * 2.8 + i * Math.PI / 3;
+      const sx = cx + Math.cos(a) * 28;
+      const sy = y + 14 + Math.sin(a) * 18;
+      px(sx, sy, 4, 4, i % 2 ? "#ffd76b" : "#69e4ff");
+    }
+    ctx.restore();
+  }
+
+  function drawReachHero(act, progress, t) {
+    const target = act.target;
+    const action = act.action;
+    const cx = target.x + target.width / 2;
+    const y = target.y + target.height + 22;
+    const armLift = Math.sin(Math.min(1, progress) * Math.PI);
+
+    drawActionShadow(cx - 16, y + 31, 36, 7, 0.22);
+    outlineRect(cx - 13, y + 12, 26, 20, "#214fa1", "#101827");
+    px(cx - 10, y + 15, 20, 4, "#4fbfff");
+    drawHeroHead(cx - 12, y - 2, false);
+    px(cx - 8, y + 30, 7, 8, "#2b1d22");
+    px(cx + 4, y + 30, 7, 8, "#2b1d22");
+
+    // Braco apontando para o objeto.
+    px(cx + 10, y + 13 - armLift * 8, 5, 18, "#f0b486");
+    px(cx + 13, y + 8 - armLift * 11, 14, 4, "#f0b486");
+
+    ctx.save();
+    if (action === "lamp") {
+      ctx.globalAlpha = 0.45 + Math.sin(t * 10) * 0.12;
+      ctx.fillStyle = "rgba(255, 232, 130, 0.32)";
+      ctx.beginPath();
+      ctx.arc(target.x + target.width / 2, target.y + target.height / 2, 42 + Math.sin(t * 8) * 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (action === "window") {
+      ctx.globalAlpha = 0.42;
+      ctx.fillStyle = "rgba(185, 245, 255, 0.28)";
+      ctx.fillRect(target.x - 8, target.y + target.height, target.width + 16, 92);
+    } else if (action === "painting") {
+      ctx.globalAlpha = 0.82;
+      ctx.font = "bold 18px monospace";
+      ctx.fillStyle = "#fff3b0";
+      ctx.fillText("?", target.x + target.width + 8, target.y + 8 + Math.sin(t * 5) * 3);
+    }
+    ctx.restore();
+  }
+
+  function drawRugHero(act, progress, t) {
+    const rug = act.target;
+    const cx = rug.x + rug.width / 2;
+    const y = rug.y + rug.height / 2;
+    const lean = Math.sin(t * 7) * 1.2;
+
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    outlineRect(rug.x + 12, rug.y + rug.height - 18, 54, 10, "#7b221b", "#2a1110");
+    ctx.restore();
+
+    drawActionShadow(cx - 18, y + 28, 38, 7, 0.24);
+    outlineRect(cx - 14, y + 10 + lean, 28, 15, "#214fa1", "#101827");
+    drawHeroHead(cx - 12, y + lean - 2, true);
+    px(cx - 21, y + 20, 10, 5, "#f0b486");
+    px(cx + 12, y + 20, 10, 5, "#f0b486");
+    px(cx - 9, y + 25, 8, 8, "#2b1d22");
+    px(cx + 3, y + 25, 8, 8, "#2b1d22");
+
+    if (progress < 0.65) {
+      ctx.save();
+      ctx.globalAlpha = 0.75 + Math.sin(t * 12) * 0.15;
+      px(cx + 28, y + 12, 7, 7, "#ffd76b");
+      px(cx + 38, y + 17, 5, 5, "#f2a94e");
+      ctx.restore();
+    }
+  }
+
+  function drawActionLabel(act, progress, t) {
+    const target = act.target;
+    const label = ACTION_LABELS[act.action] || ACTION_LABELS.look;
+    const x = target.x + target.width / 2;
+    const y = target.y - 24 + Math.sin(t * 3) * 2;
+    const pct = Math.max(0, Math.min(1, progress));
+
+    ctx.save();
+    ctx.font = "bold 12px monospace";
+    const width = Math.max(90, ctx.measureText(label).width + 18);
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = "rgba(8, 12, 24, 0.82)";
+    ctx.fillRect(Math.round(x - width / 2), Math.round(y - 14), width, 24);
+    ctx.strokeStyle = "rgba(242, 201, 110, 0.88)";
+    ctx.strokeRect(Math.round(x - width / 2) + 0.5, Math.round(y - 14) + 0.5, width, 24);
+    ctx.fillStyle = "#fff2cf";
+    ctx.fillText(label, Math.round(x - width / 2 + 9), Math.round(y + 2));
+    ctx.fillStyle = "rgba(105, 228, 255, 0.74)";
+    ctx.fillRect(Math.round(x - width / 2), Math.round(y + 12), Math.round(width * pct), 3);
+    ctx.restore();
+  }
+
+  function drawHeroRoomAction(act) {
+    const t = nowMs() / 1000;
+    const progress = Math.max(0, Math.min(1, (nowMs() - act.startedAt) / Math.max(1, act.duration)));
+
+    if (act.action === "sleep") drawSleepingHero(act, progress, t);
+    else if (act.action === "study") drawStudyingHero(act, progress, t);
+    else if (act.action === "sit") drawSittingHero(act, progress, t);
+    else if (act.action === "wardrobe") drawWardrobeHero(act, progress, t);
+    else if (act.action === "lamp" || act.action === "window" || act.action === "painting") drawReachHero(act, progress, t);
+    else if (act.action === "rug") drawRugHero(act, progress, t);
+    else drawSittingHero(act, progress, t);
+
+    drawActionLabel(act, progress, t);
+  }
+
+  const getQuestMessageBeforeVisualActions = getQuestMessage;
+  getQuestMessage = function getQuestMessageHeroBedroomVisualAction(obj) {
+    if (obj?.exactHeroRoomInteractive && currentScene === "home") {
+      startHeroRoomVisualAction(obj);
+    }
+    return getQuestMessageBeforeVisualActions(obj);
+  };
+
+  const updateBeforeVisualActions = update;
+  update = function updateHeroBedroomVisualAction(delta) {
+    const result = updateBeforeVisualActions(delta);
+    const act = currentAction();
+    if (act && currentScene === "home") lockPlayerToPose(act);
+    return result;
+  };
+
+  const drawPlayerBeforeVisualActions = drawPlayer;
+  drawPlayer = function drawPlayerHeroBedroomVisualAction() {
+    const act = currentAction();
+    if (act && currentScene === "home") {
+      drawHeroRoomAction(act);
+      return;
+    }
+    return drawPlayerBeforeVisualActions();
+  };
+
+  const setActiveSceneBeforeVisualActions = setActiveScene;
+  setActiveScene = function setActiveSceneHeroBedroomVisualAction(scene) {
+    const result = setActiveSceneBeforeVisualActions(scene);
+    if (currentScene !== "home") visualActionState.active = null;
+    return result;
+  };
+
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_HERO_ROOM_VISUAL_ACTION = visualActionState;
+  }
+})();
+
+/* ==================================================
+   PATCH CORRECAO: cancelar animacao do quarto ao andar
+   - Antes a acao visual prendia o jogador ate acabar.
+   - Agora qualquer tentativa de movimento cancela a pose e devolve o controle.
+   - Se o jogador nao se mover, a animacao continua normalmente.
+   ================================================== */
+(function heroBedroomVisualActionMovementCancelPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_ACTION_MOVEMENT_CANCEL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_ACTION_MOVEMENT_CANCEL_PATCH = true;
+
+  const MOVE_KEYS = new Set(["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"]);
+
+  function getVisualActionStateSafe() {
+    try {
+      return typeof window !== "undefined" ? window.ETERNAL_RIFT_HERO_ROOM_VISUAL_ACTION : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function hasMovementIntentSafe() {
+    try {
+      if (keys && typeof keys.has === "function") {
+        for (const key of MOVE_KEYS) {
+          if (keys.has(key)) return true;
+        }
+      }
+    } catch (error) {}
+
+    try {
+      if (joystick && Number(joystick.strength || 0) > 0.08) return true;
+    } catch (error) {}
+
+    try {
+      if (typeof getMovementInput === "function") {
+        const input = getMovementInput();
+        if (Number(input?.strength || 0) > 0.08) return true;
+      }
+    } catch (error) {}
+
+    return false;
+  }
+
+  function restorePlayerBeforeAction(act) {
+    if (!act || typeof player !== "object") return;
+    const fallbackTarget = act.target || {};
+    const safeX = Number.isFinite(act.startPlayerX) ? act.startPlayerX : Number(fallbackTarget.x || player.x);
+    const safeY = Number.isFinite(act.startPlayerY) ? act.startPlayerY : Number((fallbackTarget.y || player.y) + (fallbackTarget.height || 0) + 10);
+    player.x = Math.round(safeX);
+    player.y = Math.round(safeY);
+    player.moving = false;
+  }
+
+  function cancelVisualActionBecausePlayerMoved() {
+    const state = getVisualActionStateSafe();
+    const act = state?.active;
+    if (!act || currentScene !== "home") return false;
+
+    restorePlayerBeforeAction(act);
+    state.active = null;
+    state.lastEndedAt = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    return true;
+  }
+
+  const updateBeforeMovementCancel = update;
+  update = function updateHeroBedroomActionMovementCancel(delta) {
+    if (currentScene === "home" && hasMovementIntentSafe()) {
+      cancelVisualActionBecausePlayerMoved();
+    }
+    return updateBeforeMovementCancel(delta);
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("keydown", function cancelBedroomActionOnMoveKey(event) {
+      const key = String(event.key || "").toLowerCase();
+      if (MOVE_KEYS.has(key)) cancelVisualActionBecausePlayerMoved();
+    }, true);
+  }
+})();
+
+/* ==================================================
+   PATCH CORRECAO: quarto sem prender na mesa/cadeiras
+   - A area apontada na imagem ficava travando porque a mesa e as cadeiras
+     tinham colisoes grandes e sobrepostas.
+   - Mantem as interacoes de estudar e sentar.
+   - Remove a colisao pesada desses objetos e deixa apenas um bloqueio pequeno
+     no tampo da mesa, sem criar canto que prende o personagem.
+   ================================================== */
+(function heroBedroomDeskChairNoTrapPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_DESK_CHAIR_NO_TRAP_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_DESK_CHAIR_NO_TRAP_PATCH = true;
+
+  const ROOM_S = 2;
+  const ROOM_X = Math.round((HOME_WIDTH - 429 * ROOM_S) / 2);
+  const ROOM_Y = 40;
+  let lastNoTrapApply = 0;
+
+  function makeSmallCollider(id, sx, sy, sw, sh) {
+    return {
+      type: "block",
+      id,
+      exactHeroRoomCollider: true,
+      bedroomNoTrapCollider: true,
+      x: Math.round(ROOM_X + sx * ROOM_S),
+      y: Math.round(ROOM_Y + sy * ROOM_S),
+      width: Math.round(sw * ROOM_S),
+      height: Math.round(sh * ROOM_S),
+      solid: true,
+      message: ""
+    };
+  }
+
+  function refreshRoomLists() {
+    try {
+      objects = homeObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    } catch (error) {}
+  }
+
+  function rectOverlapSafe(a, b) {
+    try {
+      if (typeof rectsOverlap === "function") return rectsOverlap(a, b);
+    } catch (error) {}
+    return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+  }
+
+  function movePlayerOutOfTinyTableCollider() {
+    if (currentScene !== "home" || !player) return;
+    const tinyTable = homeObjects.find((obj) => obj.id === "exact-room-desk-small-solid");
+    if (!tinyTable) return;
+    const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height };
+    if (!rectOverlapSafe(playerRect, tinyTable)) return;
+
+    // Empurra para baixo da mesa, onde a imagem tem espaco livre para andar.
+    player.y = Math.round(tinyTable.y + tinyTable.height + 10);
+    player.x = Math.round(Math.max(ROOM_X + 150 * ROOM_S, Math.min(player.x, ROOM_X + 255 * ROOM_S)));
+    playerKnockbackX = 0;
+    playerKnockbackY = 0;
+  }
+
+  function applyDeskChairNoTrapFix(force = false) {
+    if (currentScene !== "home" || !Array.isArray(homeObjects)) return;
+
+    const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    if (!force && now - lastNoTrapApply < 350) return;
+    lastNoTrapApply = now;
+
+    const noTrapIds = new Set(["exact-room-desk", "exact-room-left-chair", "exact-room-right-chair"]);
+    for (const obj of homeObjects) {
+      if (!obj || !noTrapIds.has(obj.id)) continue;
+      obj.solid = false;
+      obj.noTrapInteractionZone = true;
+      obj.exactHeroRoomInteractive = true;
+    }
+
+    // Remove colisoes antigas deste patch para evitar duplicar ao entrar/sair da casa.
+    for (let i = homeObjects.length - 1; i >= 0; i--) {
+      if (homeObjects[i]?.bedroomNoTrapCollider) homeObjects.splice(i, 1);
+    }
+
+    // Pequeno bloqueio so no tampo alto da mesa. As cadeiras ficam livres para
+    // aproximar, sentar e sair sem prender em canto invisivel.
+    homeObjects.push(makeSmallCollider("exact-room-desk-small-solid", 179, 86, 68, 18));
+
+    refreshRoomLists();
+    movePlayerOutOfTinyTableCollider();
+  }
+
+  const setActiveSceneBeforeDeskChairNoTrap = setActiveScene;
+  setActiveScene = function setActiveSceneDeskChairNoTrap(scene) {
+    const result = setActiveSceneBeforeDeskChairNoTrap(scene);
+    applyDeskChairNoTrapFix(true);
+    return result;
+  };
+
+  const enterHomeBeforeDeskChairNoTrap = enterHome;
+  enterHome = function enterHomeDeskChairNoTrap() {
+    const result = enterHomeBeforeDeskChairNoTrap();
+    applyDeskChairNoTrapFix(true);
+    return result;
+  };
+
+  const loadGameBeforeDeskChairNoTrap = loadGame;
+  loadGame = function loadGameDeskChairNoTrap() {
+    const result = loadGameBeforeDeskChairNoTrap();
+    applyDeskChairNoTrapFix(true);
+    return result;
+  };
+
+  const updateBeforeDeskChairNoTrap = update;
+  update = function updateDeskChairNoTrap(delta) {
+    applyDeskChairNoTrapFix(false);
+    return updateBeforeDeskChairNoTrap(delta);
+  };
+
+  applyDeskChairNoTrapFix(true);
+})();
+
+
+// === Infernal sword reference patch ===
+// Usa a imagem enviada como sprite transparente e adiciona combate com chamas.
+// Nao gera arte nova: o jogo carrega infernal-sword.png e anima pelo Canvas.
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_INFERNAL_REFERENCE_SWORD_PATCH) {
+  window.ETERNAL_RIFT_INFERNAL_REFERENCE_SWORD_PATCH = true;
+
+  const INFERNAL_SWORD_VERSION = "20260706-0904";
+  const infernalSwordImage = new Image();
+  infernalSwordImage.src = `infernal-sword.png?v=${INFERNAL_SWORD_VERSION}`;
+  const INFERNAL_SWORD_KEYS = new Set(["infernalSword"]);
+  const infernalSwordFx = [];
+
+  function registerInfernalReferenceSword(shouldEquip = false) {
+    try {
+      if (!weapons?.infernalSword) {
+        const baseSword = weapons?.sword || { name: "Espada curta", damage: 2, range: 48, cooldown: 0.32, arc: Math.PI * 0.72, kind: "melee", damageType: "fisico" };
+        weapons.infernalSword = {
+          ...baseSword,
+          name: "Espada Infernal do Rift",
+          shortName: "Infernal",
+          damage: Math.max(Number(baseSword.damage || 2), 4),
+          range: Math.max(Number(baseSword.range || 48), 62),
+          cooldown: Math.min(Number(baseSword.cooldown || 0.32), 0.34),
+          arc: Math.max(Number(baseSword.arc || Math.PI * 0.72), Math.PI * 0.86),
+          kind: "melee",
+          damageType: "fogo",
+          customWeapon: true,
+          infernalReference: true
+        };
+      }
+      if (Array.isArray(weaponOrder) && !weaponOrder.includes("infernalSword")) {
+        const swordIndex = weaponOrder.indexOf("sword");
+        weaponOrder.splice(swordIndex >= 0 ? swordIndex + 1 : weaponOrder.length, 0, "infernalSword");
+      }
+      if (!Array.isArray(player.unlockedWeapons)) player.unlockedWeapons = ["sword", "bow", "staff", "spear"];
+      if (!player.unlockedWeapons.includes("infernalSword")) {
+        const swordIndex = player.unlockedWeapons.indexOf("sword");
+        player.unlockedWeapons.splice(swordIndex >= 0 ? swordIndex + 1 : player.unlockedWeapons.length, 0, "infernalSword");
+      }
+      if (shouldEquip || player.equippedWeaponKey === "sword") {
+        player.equippedWeaponKey = "infernalSword";
+        currentWeaponIndex = Math.max(0, player.unlockedWeapons.indexOf("infernalSword"));
+      } else {
+        currentWeaponIndex = clamp(currentWeaponIndex, 0, player.unlockedWeapons.length - 1);
+      }
+    } catch (error) {}
+  }
+
+  registerInfernalReferenceSword(false);
+
+  function isInfernalReferenceSword(weaponKey) {
+    return INFERNAL_SWORD_KEYS.has(weaponKey);
+  }
+
+  function addInfernalSwordFx(kind, x, y, radius = 34, power = 1) {
+    infernalSwordFx.push({ kind, x, y, radius, power, timer: 0.42, maxTimer: 0.42, seed: Math.random() * 1000 });
+    if (infernalSwordFx.length > 34) infernalSwordFx.splice(0, infernalSwordFx.length - 34);
+  }
+
+  function drawInfernalSwordFallback(scale = 1, progress = 0) {
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.rotate(Math.PI / 2);
+    const flamePulse = 0.65 + Math.sin(performance.now() / 95) * 0.25 + Math.sin(Math.min(1, progress) * Math.PI) * 0.25;
+
+    ctx.fillStyle = `rgba(255, 79, 37, ${0.25 + flamePulse * 0.18})`;
+    ctx.fillRect(-14, -62, 28, 74);
+
+    // Lamina larga com ponta triangular, em pixel art por Canvas.
+    ctx.fillStyle = "#5c120f";
+    ctx.beginPath();
+    ctx.moveTo(0, -76);
+    ctx.lineTo(18, -54);
+    ctx.lineTo(15, -5);
+    ctx.lineTo(9, 12);
+    ctx.lineTo(-9, 12);
+    ctx.lineTo(-15, -5);
+    ctx.lineTo(-18, -54);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#ff3f19";
+    ctx.beginPath();
+    ctx.moveTo(0, -70);
+    ctx.lineTo(13, -51);
+    ctx.lineTo(10, -5);
+    ctx.lineTo(5, 7);
+    ctx.lineTo(-5, 7);
+    ctx.lineTo(-10, -5);
+    ctx.lineTo(-13, -51);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "#fff264";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, -68);
+    ctx.lineTo(0, 6);
+    ctx.moveTo(-9, -45);
+    ctx.lineTo(0, -34);
+    ctx.lineTo(9, -48);
+    ctx.moveTo(-8, -22);
+    ctx.lineTo(0, -10);
+    ctx.lineTo(8, -24);
+    ctx.stroke();
+
+    // Espinhos laterais da lamina.
+    ctx.fillStyle = "#ff8d4a";
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 13, -43);
+      ctx.lineTo(side * 25, -37);
+      ctx.lineTo(side * 13, -31);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(side * 12, -19);
+      ctx.lineTo(side * 23, -13);
+      ctx.lineTo(side * 12, -8);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Guarda, joia e cabo.
+    ctx.fillStyle = "#241921";
+    ctx.fillRect(-24, 8, 48, 9);
+    ctx.fillStyle = "#5c413c";
+    ctx.fillRect(-29, 3, 13, 14);
+    ctx.fillRect(16, 3, 13, 14);
+    ctx.fillStyle = "#ff4f25";
+    ctx.fillRect(-20, 10, 40, 3);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(-4, 5, 8, 12);
+    ctx.fillStyle = "#7d4d38";
+    ctx.fillRect(-5, 17, 10, 34);
+    ctx.fillStyle = "#20152f";
+    ctx.fillRect(-7, 48, 14, 10);
+    ctx.fillStyle = "#ff4f25";
+    ctx.fillRect(-3, 50, 6, 6);
+
+    // Faiscas.
+    ctx.fillStyle = "#fff264";
+    const t = performance.now() / 130;
+    for (let i = 0; i < 5; i++) {
+      const px = Math.sin(t + i * 1.7) * 22;
+      const py = -56 + i * 13 + Math.cos(t * 1.3 + i) * 4;
+      ctx.fillRect(px, py, i % 2 ? 2 : 3, i % 2 ? 2 : 3);
+    }
+    ctx.restore();
+  }
+
+  function drawInfernalReferenceSwordSprite(progress = 0, inventoryMode = false) {
+    const loaded = infernalSwordImage.complete && infernalSwordImage.naturalWidth > 0;
+    const swingBoost = progress > 0 ? Math.sin(Math.min(1, progress) * Math.PI) : 0;
+    const scale = inventoryMode ? 0.021 : 0.052 + swingBoost * 0.007;
+    const glowAlpha = 0.24 + Math.sin(performance.now() / 120) * 0.08 + swingBoost * 0.22;
+
+    ctx.save();
+    if (!inventoryMode) ctx.translate(5 + swingBoost * 8, 0);
+
+    // Halo antes da lamina para a espada parecer viva no combate.
+    ctx.save();
+    ctx.rotate(Math.PI / 2);
+    ctx.fillStyle = `rgba(255, 79, 37, ${glowAlpha})`;
+    ctx.fillRect(-15, -66, 30, 74 + swingBoost * 18);
+    ctx.fillStyle = `rgba(255, 242, 100, ${glowAlpha * 0.55})`;
+    ctx.fillRect(-6, -66, 12, 70 + swingBoost * 18);
+    ctx.restore();
+
+    if (loaded) {
+      const w = infernalSwordImage.naturalWidth;
+      const h = infernalSwordImage.naturalHeight;
+      const anchorX = w * 0.5;
+      const anchorY = h * 0.84;
+      ctx.save();
+      ctx.rotate(Math.PI / 2);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(infernalSwordImage, -anchorX * scale, -anchorY * scale, w * scale, h * scale);
+      ctx.restore();
+    } else {
+      drawInfernalSwordFallback(inventoryMode ? 0.52 : 1, progress);
+    }
+
+    if (!inventoryMode) {
+      ctx.fillStyle = `rgba(255, 242, 100, ${0.55 + swingBoost * 0.35})`;
+      const t = performance.now() / 105;
+      for (let i = 0; i < 6; i++) {
+        const px = 24 + Math.sin(t + i * 1.9) * (8 + i);
+        const py = -18 + i * 7 + Math.cos(t * 1.4 + i) * 5;
+        ctx.fillRect(px, py, i % 2 ? 2 : 3, i % 2 ? 2 : 3);
+      }
+    }
+    ctx.restore();
+  }
+
+  const drawSwordInHandBeforeInfernalReference = typeof drawSwordInHand === "function" ? drawSwordInHand : null;
+  drawSwordInHand = function drawSwordInHandInfernalReference(progress, weaponKey) {
+    const key = weaponKey || safeCurrentWeaponKeyForVisual?.() || "sword";
+    if (!isInfernalReferenceSword(key)) return drawSwordInHandBeforeInfernalReference?.(progress, weaponKey);
+    try {
+      drawInfernalReferenceSwordSprite(progress || 0, false);
+    } catch (error) {
+      if (drawSwordInHandBeforeInfernalReference) drawSwordInHandBeforeInfernalReference(progress, weaponKey);
+    }
+  };
+
+  const drawElementalSwordInHandBeforeInfernalReference = typeof drawElementalSwordInHand === "function" ? drawElementalSwordInHand : null;
+  drawElementalSwordInHand = function drawElementalSwordInHandInfernalReference(weaponKey, progress = 0) {
+    if (!isInfernalReferenceSword(weaponKey)) {
+      return drawElementalSwordInHandBeforeInfernalReference?.(weaponKey, progress);
+    }
+    try {
+      drawInfernalReferenceSwordSprite(progress || 0, false);
+    } catch (error) {
+      drawElementalSwordInHandBeforeInfernalReference?.(weaponKey, progress);
+    }
+  };
+
+  const drawSwordSwingEffectBeforeInfernalReference = typeof drawSwordSwingEffect === "function" ? drawSwordSwingEffect : null;
+  drawSwordSwingEffect = function drawSwordSwingEffectInfernalReference(attack, progress) {
+    const weaponKey = attack?.weaponKey || safeCurrentWeaponKeyForVisual?.() || "sword";
+    if (!isInfernalReferenceSword(weaponKey)) return drawSwordSwingEffectBeforeInfernalReference?.(attack, progress);
+    const range = Math.max(attack?.range || 62, 62);
+    const arc = Math.max(attack?.arc || Math.PI * 0.86, Math.PI * 0.86);
+    const sweep = -arc / 2 + arc * progress;
+    const flame = Math.sin(Math.min(1, progress) * Math.PI);
+
+    ctx.strokeStyle = "rgba(255, 79, 37, 0.92)";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(0, 0, range + flame * 10, sweep - 0.46, sweep + 0.46);
+    ctx.stroke();
+
+    ctx.strokeStyle = "rgba(255, 242, 100, 0.72)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, range + 2 + flame * 12, sweep - 0.30, sweep + 0.30);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255, 79, 37, 0.26)";
+    ctx.beginPath();
+    ctx.arc(range * 0.62, 0, 18 + flame * 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(255, 242, 100, 0.82)";
+    for (let i = 0; i < 7; i++) {
+      const a = sweep - 0.40 + i * 0.13;
+      const r = range * (0.56 + i * 0.045) + flame * 8;
+      ctx.fillRect(Math.cos(a) * r - 1, Math.sin(a) * r - 1, 3, 3);
+    }
+  };
+
+  const drawElementalSwordSwingEffectBeforeInfernalReference = typeof drawElementalSwordSwingEffect === "function" ? drawElementalSwordSwingEffect : null;
+  drawElementalSwordSwingEffect = function drawElementalSwordSwingEffectInfernalReference(attack, progress) {
+    if (isInfernalReferenceSword(attack?.weaponKey)) {
+      return drawSwordSwingEffect(attack, progress);
+    }
+    return drawElementalSwordSwingEffectBeforeInfernalReference?.(attack, progress);
+  };
+
+  function applyInfernalReferenceSwordHit(target, weaponKey) {
+    if (!target || !target.alive) return;
+    const tx = target.x + target.width / 2;
+    const ty = target.y + target.height / 2;
+    addInfernalSwordFx("hit", tx, ty, 48, 1);
+
+    target.burnTimer = Math.max(Number(target.burnTimer || 0), 1.8);
+    target.burnTick = Math.min(Number(target.burnTick || 0.2), 0.12);
+
+  }
+
+  const damageEnemyBeforeInfernalReferenceSword = typeof damageEnemy === "function" ? damageEnemy : null;
+  damageEnemy = function damageEnemyInfernalReferenceSword(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = "fisico") {
+    const weaponKey = currentMeleeAttack?.weaponKey || safeCurrentWeaponKeyForVisual?.() || "sword";
+    const infernalHit = Boolean(currentMeleeAttack && isInfernalReferenceSword(weaponKey));
+    const ok = damageEnemyBeforeInfernalReferenceSword
+      ? damageEnemyBeforeInfernalReferenceSword(obj, amount, sourceX, sourceY, knockbackPower, damageType)
+      : false;
+    if (ok && infernalHit && obj?.alive) applyInfernalReferenceSwordHit(obj, weaponKey);
+    return ok;
+  };
+
+  const updateAttackBeforeInfernalReferenceSword = typeof updateAttack === "function" ? updateAttack : null;
+  updateAttack = function updateAttackInfernalReferenceSword(delta) {
+    for (let i = infernalSwordFx.length - 1; i >= 0; i--) {
+      infernalSwordFx[i].timer -= delta;
+      if (infernalSwordFx[i].timer <= 0) infernalSwordFx.splice(i, 1);
+    }
+    return updateAttackBeforeInfernalReferenceSword?.(delta);
+  };
+
+  function drawInfernalReferenceSwordFx() {
+    for (const fx of infernalSwordFx) {
+      const progress = 1 - clamp(fx.timer / Math.max(0.001, fx.maxTimer), 0, 1);
+      const alpha = clamp(fx.timer / Math.max(0.001, fx.maxTimer), 0, 1);
+      const radius = fx.radius * (0.35 + progress * 0.95);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = fx.kind === "eruption" ? "rgba(255, 79, 37, 0.34)" : "rgba(255, 79, 37, 0.25)";
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 242, 100, 0.88)";
+      ctx.lineWidth = fx.kind === "eruption" ? 4 : 3;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, radius * 0.72, progress * Math.PI * 2, progress * Math.PI * 2 + Math.PI * 1.55);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255, 242, 100, 0.90)";
+      for (let i = 0; i < 8; i++) {
+        const a = fx.seed + progress * 4 + i * Math.PI * 0.25;
+        const r = radius * (0.24 + (i % 4) * 0.15);
+        ctx.fillRect(fx.x + Math.cos(a) * r - 1, fx.y + Math.sin(a) * r - 1, 3, 3);
+      }
+      ctx.restore();
+    }
+  }
+
+  const drawBeforeInfernalReferenceSword = typeof draw === "function" ? draw : null;
+  draw = function drawWithInfernalReferenceSwordFx() {
+    drawBeforeInfernalReferenceSword?.();
+    try {
+      ctx.save();
+      applyGameCameraTransform(ctx);
+      drawInfernalReferenceSwordFx();
+      ctx.restore();
+    } catch (error) {
+      if (typeof drawWeaponPatchError === "function") drawWeaponPatchError("Erro espada infernal: " + (error?.message || error));
+    }
+  };
+
+  const getWeaponDescriptionBeforeInfernalReferenceSword = typeof getWeaponDescription === "function" ? getWeaponDescription : null;
+  getWeaponDescription = function getWeaponDescriptionInfernalReferenceSword(weaponKey) {
+    if (weaponKey === "infernalSword") return "Espada de fogo inspirada na referencia enviada: aparece na mao do personagem, balanca no ataque e queima inimigos atingidos.";
+    return getWeaponDescriptionBeforeInfernalReferenceSword?.(weaponKey) || "Arma do Eternal Rift.";
+  };
+
+  const renderInventoryGridBeforeInfernalReferenceSword = typeof renderInventoryGrid === "function" ? renderInventoryGrid : null;
+  renderInventoryGrid = function renderInventoryGridInfernalReferenceSword(filteredItems, totalItems) {
+    renderInventoryGridBeforeInfernalReferenceSword?.(filteredItems, totalItems);
+    if (!inventoryGrid) return;
+    for (const item of filteredItems || []) {
+      if (!item?.weaponKey || !isInfernalReferenceSword(item.weaponKey)) continue;
+      const safeId = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(item.id) : String(item.id).replace(/"/g, '\"');
+      const slot = inventoryGrid.querySelector(`[data-item-id="${safeId}"] .item-icon`);
+      if (slot) {
+        slot.innerHTML = `<span class="inventory-icon-wrap infernal-sword-inventory-icon"><img src="infernal-sword.png?v=${INFERNAL_SWORD_VERSION}" alt="" aria-hidden="true"></span>`;
+      }
+    }
+  };
+
+  const renderItemDetailsBeforeInfernalReferenceSword = typeof renderItemDetails === "function" ? renderItemDetails : null;
+  renderItemDetails = function renderItemDetailsInfernalReferenceSword(item) {
+    renderItemDetailsBeforeInfernalReferenceSword?.(item);
+    if (!itemDetailName || !item?.weaponKey || !isInfernalReferenceSword(item.weaponKey)) return;
+    itemDetailName.innerHTML = `<span class="item-detail-icon-preview infernal-sword-detail-icon"><img src="infernal-sword.png?v=${INFERNAL_SWORD_VERSION}" alt="" aria-hidden="true"></span><span>${item.name}</span>`;
+  };
+
+  const loadGameBeforeInfernalReferenceSword = typeof loadGame === "function" ? loadGame : null;
+  if (loadGameBeforeInfernalReferenceSword) {
+    loadGame = function loadGameInfernalReferenceSword() {
+      const ok = loadGameBeforeInfernalReferenceSword();
+      registerInfernalReferenceSword(false);
+      return ok;
+    };
+  }
+
+  const resetProgressForNewGameBeforeInfernalReferenceSword = typeof resetProgressForNewGame === "function" ? resetProgressForNewGame : null;
+  if (resetProgressForNewGameBeforeInfernalReferenceSword) {
+    resetProgressForNewGame = function resetProgressForNewGameInfernalReferenceSword(name) {
+      const result = resetProgressForNewGameBeforeInfernalReferenceSword(name);
+      registerInfernalReferenceSword(false);
+      return result;
+    };
+  }
+
+  function injectInfernalSwordInventoryCss() {
+    if (document.getElementById("infernal-sword-inventory-css")) return;
+    const style = document.createElement("style");
+    style.id = "infernal-sword-inventory-css";
+    style.textContent = `
+      .infernal-sword-inventory-icon img,
+      .infernal-sword-detail-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 0 5px rgba(255, 79, 37, .8));
+      }
+      .infernal-sword-detail-icon img {
+        width: 28px;
+        height: 32px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  infernalSwordImage.onload = function infernalSwordLoaded() {
+    try {
+      renderInventory?.();
+      updateHud?.();
+    } catch (error) {}
+  };
+  injectInfernalSwordInventoryCss();
+  try {
+    renderInventory?.();
+    updateHud?.();
+  } catch (error) {}
+}
+
+
+// === Reference elemental sword sprites patch ===
+// Usa as tres imagens enviadas como sprites reais das espadas de gelo, sombra e tempestade.
+// Nao gera imagem nova: apenas carrega os PNGs transparentes derivados dos arquivos enviados.
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_REFERENCE_ELEMENTAL_SWORDS_PATCH) {
+  window.ETERNAL_RIFT_REFERENCE_ELEMENTAL_SWORDS_PATCH = true;
+
+  const REFERENCE_ELEMENTAL_SWORDS_VERSION = "20260706-0934";
+  const REFERENCE_ELEMENTAL_SWORD_ASSETS = {
+    iceSword: {
+      src: `glacial-sword.png?v=${REFERENCE_ELEMENTAL_SWORDS_VERSION}`,
+      color: "#73d5ff",
+      core: "#e9ffff",
+      glow: "rgba(115, 213, 255, 0.35)",
+      label: "Glacial"
+    },
+    shadowSword: {
+      src: `shadow-sword.png?v=${REFERENCE_ELEMENTAL_SWORDS_VERSION}`,
+      color: "#9b5fc7",
+      core: "#d9a8ff",
+      glow: "rgba(155, 95, 199, 0.35)",
+      label: "Sombria"
+    },
+    stormSword: {
+      src: `storm-sword.png?v=${REFERENCE_ELEMENTAL_SWORDS_VERSION}`,
+      color: "#55e8ff",
+      core: "#fff264",
+      glow: "rgba(85, 232, 255, 0.35)",
+      label: "Tempestade"
+    }
+  };
+
+  for (const [weaponKey, asset] of Object.entries(REFERENCE_ELEMENTAL_SWORD_ASSETS)) {
+    const image = new Image();
+    image.src = asset.src;
+    asset.image = image;
+    image.onload = function referenceElementalSwordLoaded() {
+      try {
+        renderInventory?.();
+        updateHud?.();
+      } catch (error) {}
+    };
+  }
+
+  function isReferenceElementalSword(weaponKey) {
+    return Boolean(REFERENCE_ELEMENTAL_SWORD_ASSETS[weaponKey]);
+  }
+
+  function drawReferenceElementalSwordSprite(weaponKey, scale = 1, progress = 0, inventoryMode = false) {
+    const asset = REFERENCE_ELEMENTAL_SWORD_ASSETS[weaponKey];
+    if (!asset) return false;
+
+    const image = asset.image;
+    const loaded = image && image.complete && image.naturalWidth > 0;
+    const swingBoost = progress > 0 ? Math.sin(Math.min(1, progress) * Math.PI) : 0;
+    const imageScale = inventoryMode ? 0.021 : (0.09 * scale) + swingBoost * 0.005;
+    const glowAlpha = 0.20 + Math.sin(performance.now() / 130) * 0.08 + swingBoost * 0.22;
+
+    ctx.save();
+    if (!inventoryMode) ctx.translate(6 + swingBoost * 7, 0);
+
+    // Halo no eixo da espada, para o golpe parecer vivo no combate.
+    ctx.save();
+    ctx.rotate(Math.PI / 2);
+    ctx.fillStyle = asset.glow.replace("0.35", String(Math.max(0.12, Math.min(0.58, glowAlpha))));
+    ctx.fillRect(-15, -66, 30, 74 + swingBoost * 18);
+    ctx.fillStyle = asset.core;
+    ctx.globalAlpha = 0.18 + swingBoost * 0.18;
+    ctx.fillRect(-5, -64, 10, 70 + swingBoost * 15);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    if (loaded) {
+      const w = image.naturalWidth;
+      const h = image.naturalHeight;
+      const anchorX = w * 0.5;
+      const anchorY = h * 0.84;
+      ctx.save();
+      ctx.rotate(Math.PI / 2);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(image, -anchorX * imageScale, -anchorY * imageScale, w * imageScale, h * imageScale);
+      ctx.restore();
+    } else if (typeof drawMiniElementalSwordSpriteBeforeReferenceElemental === "function") {
+      drawMiniElementalSwordSpriteBeforeReferenceElemental(weaponKey, scale, false);
+    }
+
+    if (!inventoryMode) {
+      const t = performance.now() / 110;
+      ctx.fillStyle = asset.core;
+      for (let i = 0; i < 7; i++) {
+        const px = 28 + Math.sin(t + i * 1.7) * (7 + i);
+        const py = -17 + i * 6 + Math.cos(t * 1.3 + i) * 5;
+        ctx.globalAlpha = 0.38 + (i % 3) * 0.17;
+        ctx.fillRect(px, py, i % 2 ? 2 : 3, i % 2 ? 2 : 3);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+    return true;
+  }
+
+  var drawMiniElementalSwordSpriteBeforeReferenceElemental = typeof drawMiniElementalSwordSprite === "function" ? drawMiniElementalSwordSprite : null;
+  drawMiniElementalSwordSprite = function drawMiniElementalSwordSpriteReferenceImage(weaponKey, scale = 1, chestMode = false) {
+    if (isReferenceElementalSword(weaponKey)) {
+      try {
+        return drawReferenceElementalSwordSprite(weaponKey, scale, 0, Boolean(chestMode));
+      } catch (error) {
+        if (drawMiniElementalSwordSpriteBeforeReferenceElemental) return drawMiniElementalSwordSpriteBeforeReferenceElemental(weaponKey, scale, chestMode);
+        return;
+      }
+    }
+    return drawMiniElementalSwordSpriteBeforeReferenceElemental?.(weaponKey, scale, chestMode);
+  };
+
+  var drawElementalSwordInHandBeforeReferenceElemental = typeof drawElementalSwordInHand === "function" ? drawElementalSwordInHand : null;
+  drawElementalSwordInHand = function drawElementalSwordInHandReferenceImage(weaponKey, progress = 0) {
+    if (isReferenceElementalSword(weaponKey)) {
+      try {
+        return drawReferenceElementalSwordSprite(weaponKey, 0.58, progress || 0, false);
+      } catch (error) {
+        return drawElementalSwordInHandBeforeReferenceElemental?.(weaponKey, progress);
+      }
+    }
+    return drawElementalSwordInHandBeforeReferenceElemental?.(weaponKey, progress);
+  };
+
+  var drawElementalSwordSwingEffectBeforeReferenceElemental = typeof drawElementalSwordSwingEffect === "function" ? drawElementalSwordSwingEffect : null;
+  drawElementalSwordSwingEffect = function drawElementalSwordSwingEffectReferenceImage(attack, progress) {
+    const weaponKey = attack?.weaponKey;
+    const asset = REFERENCE_ELEMENTAL_SWORD_ASSETS[weaponKey];
+    if (!asset) return drawElementalSwordSwingEffectBeforeReferenceElemental?.(attack, progress);
+
+    const range = Math.max(attack?.range || 62, 62);
+    const arc = Math.max(attack?.arc || Math.PI * 0.78, Math.PI * 0.82);
+    const sweep = -arc / 2 + arc * progress;
+    const pulse = Math.sin(Math.min(1, progress) * Math.PI);
+
+    ctx.strokeStyle = asset.color + "dd";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(0, 0, range + pulse * 10, sweep - 0.42, sweep + 0.42);
+    ctx.stroke();
+
+    ctx.strokeStyle = asset.core + "aa";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, range + 4 + pulse * 11, sweep - 0.26, sweep + 0.26);
+    ctx.stroke();
+
+    if (weaponKey === "iceSword") {
+      ctx.fillStyle = "rgba(233, 255, 255, 0.52)";
+      for (let i = 0; i < 5; i++) {
+        const a = sweep - 0.28 + i * 0.14;
+        const r = range * (0.52 + i * 0.08) + pulse * 8;
+        ctx.save();
+        ctx.translate(Math.cos(a) * r, Math.sin(a) * r);
+        ctx.rotate(a);
+        ctx.fillRect(-3, -9, 6, 18);
+        ctx.restore();
+      }
+    } else if (weaponKey === "shadowSword") {
+      ctx.strokeStyle = "rgba(155, 95, 199, 0.48)";
+      ctx.lineWidth = 17;
+      ctx.beginPath();
+      ctx.arc(0, 0, range - 10, sweep - 0.15, sweep + 0.15);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(32, 21, 47, 0.32)";
+      ctx.beginPath();
+      ctx.arc(range * 0.58, 0, 14 + pulse * 13, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (weaponKey === "stormSword") {
+      ctx.strokeStyle = "rgba(233, 255, 255, 0.85)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(range * 0.40, -15);
+      ctx.lineTo(range * 0.55, 1);
+      ctx.lineTo(range * 0.44, 15);
+      ctx.lineTo(range * 0.70, -2);
+      ctx.lineTo(range * 0.80, 11);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = asset.core;
+    for (let i = 0; i < 8; i++) {
+      const a = sweep - 0.36 + i * 0.11;
+      const r = range * (0.58 + i * 0.04) + pulse * 10;
+      ctx.globalAlpha = 0.48 + (i % 3) * 0.16;
+      ctx.fillRect(Math.cos(a) * r - 1, Math.sin(a) * r - 1, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  var elementalSwordInventoryIconHtmlBeforeReferenceElemental = typeof elementalSwordInventoryIconHtml === "function" ? elementalSwordInventoryIconHtml : null;
+  elementalSwordInventoryIconHtml = function elementalSwordInventoryIconHtmlReferenceImage(weaponKey) {
+    const asset = REFERENCE_ELEMENTAL_SWORD_ASSETS[weaponKey];
+    if (!asset) return elementalSwordInventoryIconHtmlBeforeReferenceElemental?.(weaponKey) || "";
+    return `<span class="inventory-icon-wrap reference-elemental-sword-inventory-icon reference-${weaponKey}-icon"><img src="${asset.src}" alt="" aria-hidden="true"></span>`;
+  };
+
+  var renderInventoryGridBeforeReferenceElementalSwordImages = typeof renderInventoryGrid === "function" ? renderInventoryGrid : null;
+  renderInventoryGrid = function renderInventoryGridReferenceElementalSwordImages(filteredItems, totalItems) {
+    renderInventoryGridBeforeReferenceElementalSwordImages?.(filteredItems, totalItems);
+    if (!inventoryGrid) return;
+    for (const item of filteredItems || []) {
+      if (!item?.weaponKey || !isReferenceElementalSword(item.weaponKey)) continue;
+      const asset = REFERENCE_ELEMENTAL_SWORD_ASSETS[item.weaponKey];
+      const safeId = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(item.id) : String(item.id).replace(/"/g, '\\"');
+      const slot = inventoryGrid.querySelector(`[data-item-id="${safeId}"] .item-icon`);
+      if (slot) slot.innerHTML = `<span class="inventory-icon-wrap reference-elemental-sword-inventory-icon reference-${item.weaponKey}-icon"><img src="${asset.src}" alt="" aria-hidden="true"></span>`;
+    }
+  };
+
+  var renderItemDetailsBeforeReferenceElementalSwordImages = typeof renderItemDetails === "function" ? renderItemDetails : null;
+  renderItemDetails = function renderItemDetailsReferenceElementalSwordImages(item) {
+    renderItemDetailsBeforeReferenceElementalSwordImages?.(item);
+    if (!itemDetailName || !item?.weaponKey || !isReferenceElementalSword(item.weaponKey)) return;
+    const asset = REFERENCE_ELEMENTAL_SWORD_ASSETS[item.weaponKey];
+    itemDetailName.innerHTML = `<span class="item-detail-icon-preview reference-elemental-sword-detail-icon reference-${item.weaponKey}-detail"><img src="${asset.src}" alt="" aria-hidden="true"></span><span>${item.name}</span>`;
+  };
+
+  var getWeaponDescriptionBeforeReferenceElementalSwordImages = typeof getWeaponDescription === "function" ? getWeaponDescription : null;
+  getWeaponDescription = function getWeaponDescriptionReferenceElementalSwordImages(weaponKey) {
+    if (weaponKey === "iceSword") return "Espada Glacial Cristalina: usa a sprite azul enviada, congela e deixa inimigos lentos no combate.";
+    if (weaponKey === "shadowSword") return "Espada Sombria Abissal: usa a sprite roxa enviada, marca inimigos e pode roubar vida.";
+    if (weaponKey === "stormSword") return "Espada Celeste da Tempestade: usa a sprite azul/dourada enviada, cria raios que pulam entre inimigos.";
+    return getWeaponDescriptionBeforeReferenceElementalSwordImages?.(weaponKey) || "Arma do Eternal Rift.";
+  };
+
+  function injectReferenceElementalSwordCss() {
+    if (document.getElementById("reference-elemental-sword-css")) return;
+    const style = document.createElement("style");
+    style.id = "reference-elemental-sword-css";
+    style.textContent = `
+      .reference-elemental-sword-inventory-icon img,
+      .reference-elemental-sword-detail-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+      .reference-iceSword-icon img,
+      .reference-iceSword-detail img { filter: drop-shadow(0 0 5px rgba(115, 213, 255, .85)); }
+      .reference-shadowSword-icon img,
+      .reference-shadowSword-detail img { filter: drop-shadow(0 0 5px rgba(155, 95, 199, .85)); }
+      .reference-stormSword-icon img,
+      .reference-stormSword-detail img { filter: drop-shadow(0 0 5px rgba(85, 232, 255, .85)); }
+      .reference-elemental-sword-detail-icon img {
+        width: 28px;
+        height: 32px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  injectReferenceElementalSwordCss();
+  try {
+    registerElementalBossSwords?.();
+    syncElementalWeaponsFromSave?.();
+    ensureElementalBossChests?.();
+    renderInventory?.();
+    updateHud?.();
+  } catch (error) {}
+}
+
+/* ==================================================
+   PATCH CORRECAO: espadas elementais sem boss obrigatorio
+   - O jogador avisou que os bosses nao aparecem na versao testada.
+   - Agora as tres espadas enviadas ficam em baus fixos dentro do quarto.
+   - Nao remove os bosses do jogo; apenas cria um caminho garantido para pegar.
+   ================================================== */
+(function bedroomElementalSwordChestsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BEDROOM_ELEMENTAL_SWORD_CHESTS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BEDROOM_ELEMENTAL_SWORD_CHESTS_PATCH = true;
+
+  const ROOM_S = 2;
+  const ROOM_X = Math.round((HOME_WIDTH - 429 * ROOM_S) / 2);
+  const ROOM_Y = 40;
+  const BEDROOM_SWORD_CHEST_POSITIONS = {
+    stormSword: [205, 185],
+    iceSword: [252, 185],
+    shadowSword: [299, 185]
+  };
+  const BEDROOM_SWORD_ORDER = ["stormSword", "iceSword", "shadowSword"];
+
+  function bedroomSwordChestKey(weaponKey) {
+    return `bedroomElementalSword:${weaponKey}`;
+  }
+
+  function getBedroomSwordRewardByWeapon(weaponKey) {
+    try {
+      return ELEMENTAL_SWORD_BY_WEAPON?.[weaponKey] || Object.values(ELEMENTAL_BOSS_SWORDS || {}).find((reward) => reward.weaponKey === weaponKey) || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function makeBedroomSwordChest(weaponKey) {
+    const reward = getBedroomSwordRewardByWeapon(weaponKey);
+    const pos = BEDROOM_SWORD_CHEST_POSITIONS[weaponKey];
+    if (!reward || !pos) return null;
+    const [sx, sy] = pos;
+    return {
+      type: "elementalBossChest",
+      id: bedroomSwordChestKey(weaponKey),
+      chestId: bedroomSwordChestKey(weaponKey),
+      bedroomElementalSwordChest: true,
+      noBossRequired: true,
+      bossKind: reward.bossKind,
+      weaponKey: reward.weaponKey,
+      x: Math.round(ROOM_X + sx * ROOM_S),
+      y: Math.round(ROOM_Y + sy * ROOM_S),
+      width: TILE * 2,
+      height: TILE,
+      solid: false,
+      opened: false,
+      message: `Bau de espada: pressione E para pegar ${reward.name}.`
+    };
+  }
+
+  function removeBedroomSwordChest(weaponKey) {
+    if (!Array.isArray(homeObjects)) return;
+    const id = bedroomSwordChestKey(weaponKey);
+    for (let i = homeObjects.length - 1; i >= 0; i--) {
+      const obj = homeObjects[i];
+      if (obj?.id === id || (obj?.bedroomElementalSwordChest && obj.weaponKey === weaponKey)) {
+        homeObjects.splice(i, 1);
+      }
+    }
+  }
+
+  function refreshBedroomSwordLists() {
+    if (currentScene !== "home") return;
+    try {
+      objects = homeObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    } catch (error) {}
+  }
+
+  function ensureBedroomSwordChests() {
+    try {
+      registerElementalBossSwords?.();
+      syncElementalWeaponsFromSave?.();
+    } catch (error) {}
+
+    if (!Array.isArray(homeObjects)) return;
+    if (!questBook.openedChests || typeof questBook.openedChests !== "object") questBook.openedChests = {};
+
+    for (const weaponKey of BEDROOM_SWORD_ORDER) {
+      const reward = getBedroomSwordRewardByWeapon(weaponKey);
+      if (!reward) continue;
+
+      const bossChestOpened = Boolean(questBook.openedChests[elementalChestKey(reward.bossKind)]);
+      const bedroomChestOpened = Boolean(questBook.openedChests[bedroomSwordChestKey(weaponKey)]);
+      const alreadyUnlocked = typeof elementalWeaponAlreadyUnlocked === "function" && elementalWeaponAlreadyUnlocked(weaponKey);
+
+      if (alreadyUnlocked || bossChestOpened || bedroomChestOpened) {
+        removeBedroomSwordChest(weaponKey);
+        continue;
+      }
+
+      const exists = homeObjects.some((obj) => obj?.bedroomElementalSwordChest && obj.weaponKey === weaponKey);
+      if (!exists) {
+        const chest = makeBedroomSwordChest(weaponKey);
+        if (chest) homeObjects.push(chest);
+      }
+    }
+
+    refreshBedroomSwordLists();
+  }
+
+  function openBedroomSwordChest(chestObj) {
+    const reward = getBedroomSwordRewardByWeapon(chestObj?.weaponKey);
+    if (!reward) return "Bau de espada: energia desconhecida.";
+
+    if (!questBook.openedChests || typeof questBook.openedChests !== "object") questBook.openedChests = {};
+
+    const bossKey = elementalChestKey(reward.bossKind);
+    const bedroomKey = bedroomSwordChestKey(reward.weaponKey);
+
+    if (questBook.openedChests[bossKey] || questBook.openedChests[bedroomKey] || elementalWeaponAlreadyUnlocked(reward.weaponKey)) {
+      removeBedroomSwordChest(reward.weaponKey);
+      refreshBedroomSwordLists();
+      return `${reward.name} ja esta desbloqueada.`;
+    }
+
+    questBook.openedChests[bedroomKey] = true;
+    questBook.openedChests[bossKey] = true;
+    chestObj.opened = true;
+
+    unlockElementalWeapon(reward.weaponKey);
+
+    if (!Array.isArray(inventory.itensBoss)) inventory.itensBoss = [];
+    if (!inventory.itensBoss.includes(reward.itemName)) inventory.itensBoss.push(reward.itemName);
+    inventory.fragmentos = Number(inventory.fragmentos || 0) + 2;
+    player.mana = player.maxMana;
+
+    try { awardXp?.(250, `Espada ${reward.shortName}`); } catch (error) {}
+    try { playSound?.("chest"); } catch (error) {}
+    try { spawnFloatingText?.(`Nova espada: ${reward.shortName}!`, chestObj.x, chestObj.y - 24, reward.color); } catch (error) {}
+    try { showHudToast?.(`${reward.name} desbloqueada! Use Tab para trocar de arma.`); } catch (error) {}
+
+    removeBedroomSwordChest(reward.weaponKey);
+    refreshBedroomSwordLists();
+    updateHud?.();
+    renderInventory?.();
+
+    return `Voce abriu o bau do quarto e recebeu ${reward.name}. Poder: ${getElementalSwordPowerText(reward.weaponKey)}`;
+  }
+
+  const getQuestMessageBeforeBedroomElementalSwords = getQuestMessage;
+  getQuestMessage = function getQuestMessageBedroomElementalSwords(obj) {
+    if (obj?.bedroomElementalSwordChest) return openBedroomSwordChest(obj);
+    return getQuestMessageBeforeBedroomElementalSwords(obj);
+  };
+
+  const setActiveSceneBeforeBedroomElementalSwords = setActiveScene;
+  setActiveScene = function setActiveSceneBedroomElementalSwords(scene) {
+    const result = setActiveSceneBeforeBedroomElementalSwords(scene);
+    if (currentScene === "home") ensureBedroomSwordChests();
+    return result;
+  };
+
+  const enterHomeBeforeBedroomElementalSwords = enterHome;
+  enterHome = function enterHomeBedroomElementalSwords() {
+    const result = enterHomeBeforeBedroomElementalSwords();
+    ensureBedroomSwordChests();
+    showHudToast?.("Baus das espadas elementais estao no quarto. Aproxime e aperte E.", 3.2);
+    return result;
+  };
+
+  const updateBeforeBedroomElementalSwords = update;
+  update = function updateBedroomElementalSwords(delta) {
+    if (currentScene === "home") ensureBedroomSwordChests();
+    return updateBeforeBedroomElementalSwords(delta);
+  };
+
+  try {
+    if (currentScene === "home") ensureBedroomSwordChests();
+  } catch (error) {}
+})();
+
+/* ==================================================
+   PATCH HOTFIX: baus das espadas elementais visiveis no quarto
+   - O patch anterior dependia de estado/save e podia esconder os baus.
+   - Agora sempre aparecem 3 baus grandes e brilhantes no tapete do quarto.
+   - Se a espada ja estiver desbloqueada, o bau fica aberto e informa isso.
+   ================================================== */
+(function visibleBedroomElementalSwordChestsHotfix() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_VISIBLE_BEDROOM_SWORD_CHESTS_HOTFIX) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_VISIBLE_BEDROOM_SWORD_CHESTS_HOTFIX = true;
+
+  const ROOM_S = 2;
+  const ROOM_X = Math.round((HOME_WIDTH - 429 * ROOM_S) / 2);
+  const ROOM_Y = 40;
+  const CHEST_VERSION = "20260706-visible-bedroom-swords";
+  const VISIBLE_CHESTS = [
+    { weaponKey: "stormSword",  sourceX: 76,  sourceY: 199, label: "RAIO" },
+    { weaponKey: "iceSword",    sourceX: 128, sourceY: 199, label: "GELO" },
+    { weaponKey: "shadowSword", sourceX: 180, sourceY: 199, label: "SOMBRA" }
+  ];
+
+  function visibleChestId(weaponKey) {
+    return `visibleBedroomSwordChest:${weaponKey}`;
+  }
+
+  function getVisibleSwordReward(weaponKey) {
+    try {
+      return ELEMENTAL_SWORD_BY_WEAPON?.[weaponKey]
+        || Object.values(ELEMENTAL_BOSS_SWORDS || {}).find((reward) => reward.weaponKey === weaponKey)
+        || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function isVisibleSwordUnlocked(weaponKey) {
+    try {
+      if (Array.isArray(player?.unlockedWeapons) && player.unlockedWeapons.includes(weaponKey)) return true;
+      if (questBook?.openedChests?.[visibleChestId(weaponKey)]) return true;
+      const reward = getVisibleSwordReward(weaponKey);
+      if (reward && typeof elementalChestKey === "function" && questBook?.openedChests?.[elementalChestKey(reward.bossKind)]) return true;
+    } catch (error) {}
+    return false;
+  }
+
+  function makeVisibleBedroomSwordChest(def) {
+    const reward = getVisibleSwordReward(def.weaponKey);
+    if (!reward) return null;
+    const x = Math.round(ROOM_X + def.sourceX * ROOM_S);
+    const y = Math.round(ROOM_Y + def.sourceY * ROOM_S);
+    const opened = isVisibleSwordUnlocked(def.weaponKey);
+    return {
+      type: "visibleBedroomSwordChest",
+      id: visibleChestId(def.weaponKey),
+      chestId: visibleChestId(def.weaponKey),
+      weaponKey: def.weaponKey,
+      bossKind: reward.bossKind,
+      label: def.label,
+      color: reward.color,
+      core: reward.core,
+      dark: reward.dark,
+      x,
+      y,
+      width: 46,
+      height: 34,
+      solid: false,
+      opened,
+      message: opened
+        ? `${reward.name}: ja desbloqueada.`
+        : `Bau ${def.label}: pressione E para pegar ${reward.name}.`
+    };
+  }
+
+  function removeOldBedroomSwordChests() {
+    if (!Array.isArray(homeObjects)) return;
+    for (let i = homeObjects.length - 1; i >= 0; i--) {
+      const obj = homeObjects[i];
+      if (obj?.bedroomElementalSwordChest || obj?.type === "visibleBedroomSwordChest") {
+        homeObjects.splice(i, 1);
+      }
+    }
+  }
+
+  function refreshHomeSceneLists() {
+    if (currentScene !== "home") return;
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj.solid);
+    interactables = objects.filter((obj) => obj.message);
+  }
+
+  function ensureVisibleBedroomSwordChests() {
+    try {
+      registerElementalBossSwords?.();
+      syncElementalWeaponsFromSave?.();
+    } catch (error) {}
+
+    if (!Array.isArray(homeObjects)) return;
+    removeOldBedroomSwordChests();
+
+    for (const def of VISIBLE_CHESTS) {
+      const chest = makeVisibleBedroomSwordChest(def);
+      if (chest) homeObjects.push(chest);
+    }
+
+    refreshHomeSceneLists();
+  }
+
+  function unlockVisibleBedroomSword(weaponKey) {
+    const reward = getVisibleSwordReward(weaponKey);
+    if (!reward) return "Bau elemental: energia desconhecida.";
+
+    try { registerElementalBossSwords?.(); } catch (error) {}
+    if (!questBook.openedChests || typeof questBook.openedChests !== "object") questBook.openedChests = {};
+
+    if (isVisibleSwordUnlocked(weaponKey)) {
+      ensureVisibleBedroomSwordChests();
+      return `${reward.name} ja esta desbloqueada. Use Tab para equipar/trocar.`;
+    }
+
+    questBook.openedChests[visibleChestId(weaponKey)] = true;
+    if (typeof elementalChestKey === "function") questBook.openedChests[elementalChestKey(reward.bossKind)] = true;
+
+    if (typeof unlockElementalWeapon === "function") {
+      unlockElementalWeapon(weaponKey);
+    } else {
+      if (!Array.isArray(player.unlockedWeapons)) player.unlockedWeapons = ["sword", "bow", "staff", "spear"];
+      if (!player.unlockedWeapons.includes(weaponKey)) player.unlockedWeapons.push(weaponKey);
+      currentWeaponIndex = Math.max(0, player.unlockedWeapons.indexOf(weaponKey));
+    }
+
+    if (!Array.isArray(inventory.itensBoss)) inventory.itensBoss = [];
+    if (reward.itemName && !inventory.itensBoss.includes(reward.itemName)) inventory.itensBoss.push(reward.itemName);
+    inventory.fragmentos = Number(inventory.fragmentos || 0) + 2;
+    player.mana = player.maxMana;
+
+    try { awardXp?.(250, `Bau do quarto - ${reward.shortName}`); } catch (error) {}
+    try { playSound?.("chest"); } catch (error) {}
+    try { spawnFloatingText?.(`Nova espada: ${reward.shortName}!`, player.x, player.y - 34, reward.color); } catch (error) {}
+    try { showHudToast?.(`${reward.name} desbloqueada! Use Tab para trocar.`, 3); } catch (error) {}
+    try { updateHud?.(); } catch (error) {}
+    try { renderInventory?.(); } catch (error) {}
+    try { saveGame?.(); } catch (error) {}
+
+    ensureVisibleBedroomSwordChests();
+    return `Voce abriu o bau ${reward.shortName} e recebeu ${reward.name}. Poder: ${getElementalSwordPowerText?.(weaponKey) || "espada elemental especial"}.`;
+  }
+
+  function drawVisibleBedroomSwordChest(obj) {
+    const reward = getVisibleSwordReward(obj.weaponKey) || { color: obj.color || "#fff264", core: obj.core || "#ffffff", dark: obj.dark || "#273052" };
+    const opened = isVisibleSwordUnlocked(obj.weaponKey);
+    const x = Math.round(obj.x);
+    const y = Math.round(obj.y);
+    const w = Math.round(obj.width || 46);
+    const h = Math.round(obj.height || 34);
+    const pulse = 0.72 + Math.sin(performance.now() / 180) * 0.18;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    // brilho para ficar impossivel passar despercebido
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.05 * pulse})`;
+    ctx.fillRect(x - 7, y - 12, w + 14, h + 20);
+    ctx.fillStyle = reward.color;
+    ctx.globalAlpha = 0.15 + 0.10 * pulse;
+    ctx.fillRect(x - 10, y + h - 4, w + 20, 10);
+    ctx.globalAlpha = 1;
+
+    try { drawSoftShadow?.(x + 3, y + h - 4, w - 6, 8, 0.24); } catch (error) {}
+
+    // corpo do bau
+    ctx.fillStyle = "#2b1a1f";
+    ctx.fillRect(x + 2, y + 12, w - 4, h - 13);
+    ctx.fillStyle = opened ? "#5b3d44" : "#8f5a3f";
+    ctx.fillRect(x + 5, y + 15, w - 10, h - 18);
+    ctx.fillStyle = opened ? "#f5ce79" : reward.dark;
+    ctx.fillRect(x + 8, y + 17, w - 16, 5);
+    ctx.fillStyle = reward.core;
+    ctx.fillRect(x + Math.floor(w / 2) - 3, y + 21, 6, 7);
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.fillRect(x + 7, y + 16, w - 14, 2);
+
+    // tampa aberta/fechada
+    ctx.fillStyle = "#2b1a1f";
+    if (opened) {
+      ctx.fillRect(x + 5, y + 2, w - 10, 9);
+      ctx.fillStyle = "#f5ce79";
+      ctx.fillRect(x + 8, y + 4, w - 16, 4);
+      ctx.fillStyle = `rgba(255, 242, 100, ${0.20 + 0.15 * pulse})`;
+      ctx.fillRect(x + 10, y + 11, w - 20, 10);
+    } else {
+      ctx.fillRect(x + 4, y + 6, w - 8, 13);
+      ctx.fillStyle = reward.color;
+      ctx.fillRect(x + 7, y + 8, w - 14, 8);
+      ctx.fillStyle = reward.core;
+      ctx.fillRect(x + Math.floor(w / 2) - 2, y + 7, 4, 10);
+    }
+
+    // espada/icone em cima do bau
+    ctx.save();
+    ctx.translate(x + 5, y - 3);
+    if (typeof drawMiniElementalSwordSprite === "function") {
+      drawMiniElementalSwordSprite(obj.weaponKey, 0.46, true);
+    } else {
+      ctx.fillStyle = reward.color;
+      ctx.fillRect(18, -16, 6, 26);
+      ctx.fillStyle = reward.core;
+      ctx.fillRect(20, -14, 2, 22);
+    }
+    ctx.restore();
+
+    // etiqueta curta
+    ctx.font = "bold 10px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0,0,0,0.78)";
+    ctx.fillStyle = reward.core || "#fff3d6";
+    ctx.strokeText(obj.label || "BAU", x + w / 2, y + h + 9);
+    ctx.fillText(obj.label || "BAU", x + w / 2, y + h + 9);
+
+    ctx.restore();
+  }
+
+  const getQuestMessageBeforeVisibleBedroomSwordChests = getQuestMessage;
+  getQuestMessage = function getQuestMessageVisibleBedroomSwordChests(obj) {
+    if (obj?.type === "visibleBedroomSwordChest") return unlockVisibleBedroomSword(obj.weaponKey);
+    return getQuestMessageBeforeVisibleBedroomSwordChests(obj);
+  };
+
+  const drawObjectBeforeVisibleBedroomSwordChests = drawObject;
+  drawObject = function drawObjectVisibleBedroomSwordChests(obj) {
+    if (obj?.type === "visibleBedroomSwordChest") return drawVisibleBedroomSwordChest(obj);
+    // Esconde os baus antigos do patch anterior para nao duplicar/bugar.
+    if (obj?.bedroomElementalSwordChest) return;
+    return drawObjectBeforeVisibleBedroomSwordChests(obj);
+  };
+
+  const setActiveSceneBeforeVisibleBedroomSwordChests = setActiveScene;
+  setActiveScene = function setActiveSceneVisibleBedroomSwordChests(scene) {
+    const result = setActiveSceneBeforeVisibleBedroomSwordChests(scene);
+    if (currentScene === "home") ensureVisibleBedroomSwordChests();
+    return result;
+  };
+
+  const enterHomeBeforeVisibleBedroomSwordChests = enterHome;
+  enterHome = function enterHomeVisibleBedroomSwordChests() {
+    const result = enterHomeBeforeVisibleBedroomSwordChests();
+    ensureVisibleBedroomSwordChests();
+    showHudToast?.("Os 3 baus das espadas estao em cima do tapete vermelho do quarto.", 4);
+    return result;
+  };
+
+  const updateBeforeVisibleBedroomSwordChests = update;
+  update = function updateVisibleBedroomSwordChests(delta) {
+    const result = updateBeforeVisibleBedroomSwordChests(delta);
+    if (currentScene === "home") ensureVisibleBedroomSwordChests();
+    return result;
+  };
+
+  try { if (currentScene === "home") ensureVisibleBedroomSwordChests(); } catch (error) {}
+  console.log("Eternal Rift hotfix carregado:", CHEST_VERSION);
+})();
+
+/* ==================================================
+   HOTFIX: baus elementais com prioridade sobre o tapete
+   - O tapete vermelho nao rouba mais a interacao dos baus.
+   - Ao apertar E/Interagir em cima do tapete, o jogo prioriza RAIO, GELO e SOMBRA.
+   ================================================== */
+(function bedroomSwordChestTapetePriorityHotfix() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BEDROOM_SWORD_CHEST_TAPETE_PRIORITY_HOTFIX) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BEDROOM_SWORD_CHEST_TAPETE_PRIORITY_HOTFIX = true;
+
+  function playerCenterRect() {
+    return {
+      x: player.x + player.width / 2,
+      y: player.y + player.height / 2,
+      width: 1,
+      height: 1
+    };
+  }
+
+  function interactionRangeForChest(obj) {
+    return {
+      x: obj.x - 42,
+      y: obj.y - 44,
+      width: (obj.width || 46) + 84,
+      height: (obj.height || 34) + 86
+    };
+  }
+
+  function findNearestBedroomSwordChest() {
+    if (currentScene !== "home" || !Array.isArray(homeObjects)) return null;
+    const center = playerCenterRect();
+    let nearest = null;
+    let nearestDistance = Infinity;
+
+    for (const obj of homeObjects) {
+      if (obj?.type !== "visibleBedroomSwordChest") continue;
+      if (!rectsOverlap(center, interactionRangeForChest(obj))) continue;
+      const objCenterX = obj.x + (obj.width || 46) / 2;
+      const objCenterY = obj.y + (obj.height || 34) / 2;
+      const distance = Math.hypot(objCenterX - center.x, objCenterY - center.y);
+      if (distance < nearestDistance) {
+        nearest = obj;
+        nearestDistance = distance;
+      }
+    }
+
+    return nearest;
+  }
+
+  function disableTapeteHintWhenSwordChestsExist() {
+    if (!Array.isArray(homeObjects)) return;
+    const hasSwordChest = homeObjects.some((obj) => obj?.type === "visibleBedroomSwordChest");
+    if (!hasSwordChest) return;
+    for (const obj of homeObjects) {
+      if (obj?.id === "exact-room-rug-hint") {
+        obj.message = "";
+        obj.exactHeroRoomInteractive = false;
+        obj.heroRoomAction = "";
+      }
+    }
+    if (currentScene === "home") {
+      objects = homeObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    }
+  }
+
+  const findInteractionBeforeTapetePriority = findInteraction;
+  findInteraction = function findInteractionBedroomSwordChestTapetePriority() {
+    const swordChest = findNearestBedroomSwordChest();
+    if (swordChest) return swordChest;
+    return findInteractionBeforeTapetePriority ? findInteractionBeforeTapetePriority() : null;
+  };
+
+  const updateInteractionHintBeforeTapetePriority = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintBedroomSwordChestTapetePriority() {
+    const swordChest = findNearestBedroomSwordChest();
+    if (swordChest && interactionHint) {
+      interactionHint.classList.remove("hidden");
+      interactionHint.textContent = swordChest.opened
+        ? `Pressione E para verificar o bau ${swordChest.label || "elemental"}`
+        : `Pressione E para abrir o bau ${swordChest.label || "elemental"}`;
+      if (touchActionButton) touchActionButton.classList.add("is-context-ready");
+      if (touchContextLabel) touchContextLabel.textContent = "Abrir";
+      return;
+    }
+    if (updateInteractionHintBeforeTapetePriority) updateInteractionHintBeforeTapetePriority();
+  };
+
+  const enterHomeBeforeTapetePriority = enterHome;
+  enterHome = function enterHomeBedroomSwordChestTapetePriority() {
+    const result = enterHomeBeforeTapetePriority ? enterHomeBeforeTapetePriority() : undefined;
+    disableTapeteHintWhenSwordChestsExist();
+    try { showHudToast?.("Baus corrigidos: agora o tapete nao rouba a interacao.", 3); } catch (error) {}
+    return result;
+  };
+
+  const setActiveSceneBeforeTapetePriority = setActiveScene;
+  setActiveScene = function setActiveSceneBedroomSwordChestTapetePriority(scene) {
+    const result = setActiveSceneBeforeTapetePriority ? setActiveSceneBeforeTapetePriority(scene) : undefined;
+    if (currentScene === "home") disableTapeteHintWhenSwordChestsExist();
+    return result;
+  };
+
+  const updateBeforeTapetePriority = update;
+  update = function updateBedroomSwordChestTapetePriority(delta) {
+    const result = updateBeforeTapetePriority ? updateBeforeTapetePriority(delta) : undefined;
+    if (currentScene === "home") disableTapeteHintWhenSwordChestsExist();
+    return result;
+  };
+
+  try { disableTapeteHintWhenSwordChestsExist(); } catch (error) {}
+  console.log("Eternal Rift hotfix carregado: baus-elementais-prioridade-tapete-20260706");
+})();
+
+/* ==================================================
+   HOTFIX FINAL: um unico bau com as 3 espadas elementais
+   - Remove os 3 baus separados do quarto.
+   - Mantem somente 1 bau grande no tapete.
+   - O bau mostra as 3 imagens/sprites das espadas juntas.
+   - Ao abrir, entrega Glacial, Sombria e Tempestade de uma vez.
+   ================================================== */
+(function singleBedroomElementalSwordChestFinalPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_SINGLE_BEDROOM_SWORD_CHEST_FINAL_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_SINGLE_BEDROOM_SWORD_CHEST_FINAL_PATCH = true;
+
+  const PATCH_VERSION = "bau-unico-3-espadas-20260706";
+  const ROOM_S = 2;
+  const ROOM_X = Math.round((HOME_WIDTH - 429 * ROOM_S) / 2);
+  const ROOM_Y = 40;
+  const SINGLE_CHEST_ID = "singleBedroomElementalSwordChest:threeSwords";
+  const SINGLE_CHEST_WEAPONS = ["iceSword", "shadowSword", "stormSword"];
+  const SINGLE_CHEST_LABELS = {
+    iceSword: "GELO",
+    shadowSword: "SOMBRA",
+    stormSword: "RAIO"
+  };
+
+  function singleChestWorldX() {
+    return Math.round(ROOM_X + 126 * ROOM_S);
+  }
+
+  function singleChestWorldY() {
+    return Math.round(ROOM_Y + 193 * ROOM_S);
+  }
+
+  function getSingleChestReward(weaponKey) {
+    try {
+      return ELEMENTAL_SWORD_BY_WEAPON?.[weaponKey]
+        || Object.values(ELEMENTAL_BOSS_SWORDS || {}).find((reward) => reward.weaponKey === weaponKey)
+        || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function singleChestKey() {
+    return SINGLE_CHEST_ID;
+  }
+
+  function singleWeaponCollectedKey(weaponKey) {
+    return `singleBedroomSwordChest:${weaponKey}`;
+  }
+
+  function ensureElementalSwordRegisteredSafe() {
+    try { registerElementalBossSwords?.(); } catch (error) {}
+    if (!Array.isArray(player.unlockedWeapons)) player.unlockedWeapons = ["sword", "bow", "staff", "spear"];
+  }
+
+  function isSingleChestWeaponUnlocked(weaponKey) {
+    try {
+      if (Array.isArray(player?.unlockedWeapons) && player.unlockedWeapons.includes(weaponKey)) return true;
+      if (questBook?.openedChests?.[singleWeaponCollectedKey(weaponKey)]) return true;
+      if (questBook?.openedChests?.[singleChestKey()]) return true;
+      const reward = getSingleChestReward(weaponKey);
+      if (reward && typeof elementalChestKey === "function" && questBook?.openedChests?.[elementalChestKey(reward.bossKind)]) return true;
+    } catch (error) {}
+    return false;
+  }
+
+  function allSingleChestWeaponsUnlocked() {
+    return SINGLE_CHEST_WEAPONS.every((weaponKey) => isSingleChestWeaponUnlocked(weaponKey));
+  }
+
+  function removeSeparatedBedroomSwordChests() {
+    if (!Array.isArray(homeObjects)) return;
+    for (let i = homeObjects.length - 1; i >= 0; i--) {
+      const obj = homeObjects[i];
+      if (
+        obj?.bedroomElementalSwordChest ||
+        obj?.type === "visibleBedroomSwordChest" ||
+        obj?.type === "singleBedroomElementalSwordChest" ||
+        String(obj?.id || "").startsWith("bedroomSwordChest:") ||
+        String(obj?.id || "").startsWith("visibleBedroomSwordChest:")
+      ) {
+        homeObjects.splice(i, 1);
+      }
+    }
+  }
+
+  function makeSingleBedroomSwordChest() {
+    const opened = allSingleChestWeaponsUnlocked();
+    return {
+      type: "singleBedroomElementalSwordChest",
+      id: SINGLE_CHEST_ID,
+      chestId: SINGLE_CHEST_ID,
+      x: singleChestWorldX(),
+      y: singleChestWorldY(),
+      width: 84,
+      height: 42,
+      solid: false,
+      opened,
+      message: opened
+        ? "Bau elemental: as 3 espadas ja foram coletadas."
+        : "Bau elemental: pressione E para obter as 3 espadas lendarias."
+    };
+  }
+
+  function refreshSingleChestLists() {
+    if (currentScene !== "home") return;
+    try {
+      objects = homeObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message);
+    } catch (error) {}
+  }
+
+  function ensureSingleBedroomSwordChest() {
+    ensureElementalSwordRegisteredSafe();
+    if (!Array.isArray(homeObjects)) return;
+    removeSeparatedBedroomSwordChests();
+    if (!homeObjects.some((obj) => obj?.type === "singleBedroomElementalSwordChest")) {
+      homeObjects.push(makeSingleBedroomSwordChest());
+    }
+    for (const obj of homeObjects) {
+      if (obj?.type === "singleBedroomElementalSwordChest") {
+        obj.opened = allSingleChestWeaponsUnlocked();
+        obj.message = obj.opened
+          ? "Bau elemental: as 3 espadas ja foram coletadas."
+          : "Bau elemental: pressione E para obter as 3 espadas lendarias.";
+      }
+    }
+    refreshSingleChestLists();
+  }
+
+  function drawSingleSwordRewardPreview(weaponKey, x, y, scale, owned) {
+    const reward = getSingleChestReward(weaponKey) || { color: "#73d5ff", core: "#e9ffff" };
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.globalAlpha = owned ? 0.50 : 1;
+    try {
+      if (typeof drawMiniElementalSwordSprite === "function") {
+        ctx.save();
+        ctx.rotate(-Math.PI / 2);
+        drawMiniElementalSwordSprite(weaponKey, scale, true);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = reward.color;
+        ctx.fillRect(-4, -34, 8, 42);
+        ctx.fillStyle = reward.core;
+        ctx.fillRect(-1, -31, 2, 36);
+      }
+    } catch (error) {
+      ctx.fillStyle = reward.color;
+      ctx.fillRect(-4, -34, 8, 42);
+      ctx.fillStyle = reward.core;
+      ctx.fillRect(-1, -31, 2, 36);
+    }
+    if (owned) {
+      ctx.strokeStyle = "rgba(255,255,255,0.70)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-9, 12);
+      ctx.lineTo(-2, 19);
+      ctx.lineTo(13, 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawSingleBedroomSwordChest(obj) {
+    const x = Math.round(obj.x);
+    const y = Math.round(obj.y);
+    const w = Math.round(obj.width || 84);
+    const h = Math.round(obj.height || 42);
+    const opened = allSingleChestWeaponsUnlocked();
+    const pulse = 0.74 + Math.sin(performance.now() / 170) * 0.20;
+    const centerX = x + w / 2;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    // Aura unica com as tres cores misturadas.
+    ctx.globalAlpha = 0.18 + pulse * 0.08;
+    ctx.fillStyle = "#73d5ff";
+    ctx.fillRect(x - 14, y - 22, w + 28, h + 38);
+    ctx.fillStyle = "#9b5fc7";
+    ctx.fillRect(x - 4, y - 28, w + 8, h + 46);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 10, y - 18, w - 20, h + 30);
+    ctx.globalAlpha = 1;
+
+    try { drawSoftShadow?.(x + 4, y + h - 4, w - 8, 9, 0.28); } catch (error) {}
+
+    // Corpo grande do bau.
+    ctx.fillStyle = "#20152f";
+    ctx.fillRect(x + 2, y + 14, w - 4, h - 14);
+    ctx.fillStyle = opened ? "#5b3d44" : "#8f5a3f";
+    ctx.fillRect(x + 7, y + 17, w - 14, h - 20);
+    ctx.fillStyle = "#f5ce79";
+    ctx.fillRect(x + 10, y + 20, w - 20, 5);
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(x + 14, y + 28, 15, 4);
+    ctx.fillStyle = "#9b5fc7";
+    ctx.fillRect(centerX - 8, y + 28, 16, 4);
+    ctx.fillStyle = "#73d5ff";
+    ctx.fillRect(x + w - 29, y + 28, 15, 4);
+
+    // Fechadura tripla.
+    ctx.fillStyle = "#fff3d6";
+    ctx.fillRect(centerX - 5, y + 24, 10, 12);
+    ctx.fillStyle = opened ? "#65dc83" : "#fff264";
+    ctx.fillRect(centerX - 2, y + 27, 4, 6);
+
+    // Tampa aberta/fechada.
+    ctx.fillStyle = "#20152f";
+    if (opened) {
+      ctx.fillRect(x + 8, y + 1, w - 16, 13);
+      ctx.fillStyle = "#f5ce79";
+      ctx.fillRect(x + 12, y + 4, w - 24, 5);
+      ctx.fillStyle = `rgba(255, 242, 100, ${0.24 + pulse * 0.13})`;
+      ctx.fillRect(x + 13, y + 13, w - 26, 13);
+    } else {
+      ctx.fillRect(x + 6, y + 7, w - 12, 16);
+      ctx.fillStyle = "#273052";
+      ctx.fillRect(x + 10, y + 10, w - 20, 9);
+      ctx.fillStyle = "#55e8ff";
+      ctx.fillRect(x + 14, y + 11, 15, 7);
+      ctx.fillStyle = "#9b5fc7";
+      ctx.fillRect(centerX - 8, y + 11, 16, 7);
+      ctx.fillStyle = "#73d5ff";
+      ctx.fillRect(x + w - 29, y + 11, 15, 7);
+    }
+
+    // As 3 imagens/sprites ficam no mesmo bau.
+    drawSingleSwordRewardPreview("iceSword", centerX - 26, y - 6 + Math.sin(performance.now() / 260) * 2, 0.34, isSingleChestWeaponUnlocked("iceSword"));
+    drawSingleSwordRewardPreview("shadowSword", centerX, y - 12 + Math.sin(performance.now() / 280 + 1) * 2, 0.34, isSingleChestWeaponUnlocked("shadowSword"));
+    drawSingleSwordRewardPreview("stormSword", centerX + 26, y - 6 + Math.sin(performance.now() / 260 + 2) * 2, 0.34, isSingleChestWeaponUnlocked("stormSword"));
+
+    // Etiqueta pequena.
+    ctx.font = "bold 10px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0,0,0,0.78)";
+    ctx.fillStyle = opened ? "#65dc83" : "#fff3d6";
+    const label = opened ? "COLETADO" : "3 ESPADAS";
+    ctx.strokeText(label, centerX, y + h + 9);
+    ctx.fillText(label, centerX, y + h + 9);
+
+    ctx.restore();
+  }
+
+  function unlockAllSingleChestSwords() {
+    ensureElementalSwordRegisteredSafe();
+    if (!questBook.openedChests || typeof questBook.openedChests !== "object") questBook.openedChests = {};
+
+    const unlockedNow = [];
+    for (const weaponKey of SINGLE_CHEST_WEAPONS) {
+      const reward = getSingleChestReward(weaponKey);
+      if (!reward) continue;
+      const wasUnlocked = isSingleChestWeaponUnlocked(weaponKey);
+
+      questBook.openedChests[singleWeaponCollectedKey(weaponKey)] = true;
+      if (typeof elementalChestKey === "function") questBook.openedChests[elementalChestKey(reward.bossKind)] = true;
+
+      if (!wasUnlocked) {
+        if (typeof unlockElementalWeapon === "function") {
+          unlockElementalWeapon(weaponKey);
+        } else if (!player.unlockedWeapons.includes(weaponKey)) {
+          player.unlockedWeapons.push(weaponKey);
+        }
+        unlockedNow.push(reward);
+      }
+
+      if (!Array.isArray(inventory.itensBoss)) inventory.itensBoss = [];
+      if (reward.itemName && !inventory.itensBoss.includes(reward.itemName)) inventory.itensBoss.push(reward.itemName);
+    }
+
+    questBook.openedChests[singleChestKey()] = true;
+    inventory.fragmentos = Number(inventory.fragmentos || 0) + Math.max(1, unlockedNow.length) * 2;
+    player.mana = player.maxMana;
+
+    if (unlockedNow.length > 0) {
+      try { awardXp?.(650, "Bau das 3 espadas"); } catch (error) {}
+      try { playSound?.("chest"); } catch (error) {}
+      try { spawnFloatingText?.("3 espadas desbloqueadas!", player.x, player.y - 40, "#fff264"); } catch (error) {}
+      try { showHudToast?.("Bau unico aberto: Glacial, Sombria e Tempestade desbloqueadas! Use Tab.", 4); } catch (error) {}
+    } else {
+      try { showHudToast?.("As 3 espadas desse bau ja estao desbloqueadas.", 3); } catch (error) {}
+    }
+
+    try { updateHud?.(); } catch (error) {}
+    try { renderInventory?.(); } catch (error) {}
+    try { saveGame?.(); } catch (error) {}
+    ensureSingleBedroomSwordChest();
+
+    if (unlockedNow.length <= 0) {
+      return "Bau elemental: voce ja coletou as 3 espadas. Use Tab para trocar de arma.";
+    }
+
+    return "Bau elemental unico aberto! Voce recebeu as 3 espadas: Espada Glacial Cristalina, Espada Sombria Abissal e Espada Celeste da Tempestade.";
+  }
+
+  function findSingleBedroomSwordChestNearby() {
+    if (currentScene !== "home" || !Array.isArray(homeObjects)) return null;
+    let nearest = null;
+    let nearestDistance = Infinity;
+    const px = player.x + player.width / 2;
+    const py = player.y + player.height / 2;
+
+    for (const obj of homeObjects) {
+      if (obj?.type !== "singleBedroomElementalSwordChest") continue;
+      const cx = obj.x + (obj.width || 84) / 2;
+      const cy = obj.y + (obj.height || 42) / 2;
+      const distance = Math.hypot(cx - px, cy - py);
+      if (distance < 96 && distance < nearestDistance) {
+        nearest = obj;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  function disableRugWhenSingleChestExists() {
+    if (!Array.isArray(homeObjects)) return;
+    const hasSingleChest = homeObjects.some((obj) => obj?.type === "singleBedroomElementalSwordChest");
+    if (!hasSingleChest) return;
+    for (const obj of homeObjects) {
+      if (obj?.id === "exact-room-rug-hint") {
+        obj.message = "";
+        obj.exactHeroRoomInteractive = false;
+        obj.heroRoomAction = "";
+      }
+    }
+    refreshSingleChestLists();
+  }
+
+  const getQuestMessageBeforeSingleChest = getQuestMessage;
+  getQuestMessage = function getQuestMessageSingleBedroomSwordChest(obj) {
+    if (obj?.type === "singleBedroomElementalSwordChest") return unlockAllSingleChestSwords();
+    // Impede que baus separados antigos funcionem caso algum patch anterior tente recria-los.
+    if (obj?.type === "visibleBedroomSwordChest" || obj?.bedroomElementalSwordChest) {
+      ensureSingleBedroomSwordChest();
+      return unlockAllSingleChestSwords();
+    }
+    return getQuestMessageBeforeSingleChest ? getQuestMessageBeforeSingleChest(obj) : "";
+  };
+
+  const drawObjectBeforeSingleChest = drawObject;
+  drawObject = function drawObjectSingleBedroomSwordChest(obj) {
+    if (obj?.type === "singleBedroomElementalSwordChest") return drawSingleBedroomSwordChest(obj);
+    if (obj?.type === "visibleBedroomSwordChest" || obj?.bedroomElementalSwordChest) return;
+    return drawObjectBeforeSingleChest ? drawObjectBeforeSingleChest(obj) : undefined;
+  };
+
+  const findInteractionBeforeSingleChest = findInteraction;
+  findInteraction = function findInteractionSingleBedroomSwordChest() {
+    const chest = findSingleBedroomSwordChestNearby();
+    if (chest) return chest;
+    return findInteractionBeforeSingleChest ? findInteractionBeforeSingleChest() : null;
+  };
+
+  const updateInteractionHintBeforeSingleChest = updateInteractionHint;
+  updateInteractionHint = function updateInteractionHintSingleBedroomSwordChest() {
+    const chest = findSingleBedroomSwordChestNearby();
+    if (chest && interactionHint) {
+      interactionHint.classList.remove("hidden");
+      interactionHint.textContent = allSingleChestWeaponsUnlocked()
+        ? "Pressione E para verificar o bau das 3 espadas"
+        : "Pressione E para abrir o bau das 3 espadas";
+      if (touchActionButton) touchActionButton.classList.add("is-context-ready");
+      if (touchContextLabel) touchContextLabel.textContent = "Abrir";
+      return;
+    }
+    if (updateInteractionHintBeforeSingleChest) updateInteractionHintBeforeSingleChest();
+  };
+
+  const enterHomeBeforeSingleChest = enterHome;
+  enterHome = function enterHomeSingleBedroomSwordChest() {
+    const result = enterHomeBeforeSingleChest ? enterHomeBeforeSingleChest() : undefined;
+    ensureSingleBedroomSwordChest();
+    disableRugWhenSingleChestExists();
+    try { showHudToast?.("Agora existe 1 bau unico no quarto com as 3 espadas.", 3.5); } catch (error) {}
+    return result;
+  };
+
+  const setActiveSceneBeforeSingleChest = setActiveScene;
+  setActiveScene = function setActiveSceneSingleBedroomSwordChest(scene) {
+    const result = setActiveSceneBeforeSingleChest ? setActiveSceneBeforeSingleChest(scene) : undefined;
+    if (currentScene === "home") {
+      ensureSingleBedroomSwordChest();
+      disableRugWhenSingleChestExists();
+    }
+    return result;
+  };
+
+  const updateBeforeSingleChest = update;
+  update = function updateSingleBedroomSwordChest(delta) {
+    const result = updateBeforeSingleChest ? updateBeforeSingleChest(delta) : undefined;
+    if (currentScene === "home") {
+      ensureSingleBedroomSwordChest();
+      disableRugWhenSingleChestExists();
+    }
+    return result;
+  };
+
+  const loadGameBeforeSingleChest = loadGame;
+  loadGame = function loadGameSingleBedroomSwordChest() {
+    const ok = loadGameBeforeSingleChest ? loadGameBeforeSingleChest() : false;
+    ensureElementalSwordRegisteredSafe();
+    if (currentScene === "home") ensureSingleBedroomSwordChest();
+    return ok;
+  };
+
+  try {
+    ensureElementalSwordRegisteredSafe();
+    if (currentScene === "home") {
+      ensureSingleBedroomSwordChest();
+      disableRugWhenSingleChestExists();
+    }
+  } catch (error) {}
+  console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+})();
+
+/* ==================================================
+   HOTFIX FINAL: espadas exatamente pelas imagens enviadas
+   - Corrige o visual em combate que estava virando uma lamina branca/generica.
+   - Usa sprites game-ready pequenos, derivados dos PNGs enviados, para evitar distorcao.
+   - Remove o cone branco grande das espadas elementais e desenha a espada real durante o golpe.
+   ================================================== */
+(function exactReferenceSwordCombatSpritePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EXACT_REFERENCE_SWORD_COMBAT_SPRITE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EXACT_REFERENCE_SWORD_COMBAT_SPRITE_PATCH = true;
+
+  const PATCH_VERSION = "espadas-imagem-exata-combate-20260706-2";
+  const EXACT_SWORD_ASSETS = {
+    infernalSword: {
+      src: `infernal-sword-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `infernal-sword.png?v=${PATCH_VERSION}`,
+      color: "rgba(255, 79, 37, 0.82)",
+      core: "rgba(255, 242, 100, 0.90)",
+      glow: "rgba(255, 79, 37, 0.28)",
+      name: "Infernal"
+    },
+    fireSword: {
+      src: `infernal-sword-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `infernal-sword.png?v=${PATCH_VERSION}`,
+      color: "rgba(255, 79, 37, 0.82)",
+      core: "rgba(255, 242, 100, 0.90)",
+      glow: "rgba(255, 79, 37, 0.28)",
+      name: "Vulcanica"
+    },
+    iceSword: {
+      src: `glacial-sword-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `glacial-sword.png?v=${PATCH_VERSION}`,
+      color: "rgba(115, 213, 255, 0.86)",
+      core: "rgba(233, 255, 255, 0.92)",
+      glow: "rgba(115, 213, 255, 0.28)",
+      name: "Glacial"
+    },
+    shadowSword: {
+      src: `shadow-sword-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `shadow-sword.png?v=${PATCH_VERSION}`,
+      color: "rgba(155, 95, 199, 0.86)",
+      core: "rgba(217, 168, 255, 0.92)",
+      glow: "rgba(155, 95, 199, 0.30)",
+      name: "Sombria"
+    },
+    stormSword: {
+      src: `storm-sword-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `storm-sword.png?v=${PATCH_VERSION}`,
+      color: "rgba(85, 232, 255, 0.86)",
+      core: "rgba(255, 242, 100, 0.92)",
+      glow: "rgba(85, 232, 255, 0.30)",
+      name: "Tempestade"
+    }
+  };
+
+  for (const asset of Object.values(EXACT_SWORD_ASSETS)) {
+    const image = new Image();
+    image.src = asset.src;
+    asset.image = image;
+    const bigImage = new Image();
+    bigImage.src = asset.bigSrc;
+    asset.bigImage = bigImage;
+  }
+
+  function nowMs() {
+    try { return performance.now(); } catch (error) { return Date.now(); }
+  }
+
+  function clamp01(value) {
+    return Math.max(0, Math.min(1, Number(value) || 0));
+  }
+
+  function currentVisualWeaponKeySafe() {
+    try { return safeCurrentWeaponKeyForVisual?.() || getCurrentWeaponKey?.() || player?.equippedWeaponKey || "sword"; }
+    catch (error) { return "sword"; }
+  }
+
+  function exactAssetForWeapon(weaponKey) {
+    return EXACT_SWORD_ASSETS[weaponKey] || null;
+  }
+
+  function drawExactSwordImageLocal(weaponKey, progress = 0, options = {}) {
+    const asset = exactAssetForWeapon(weaponKey);
+    if (!asset) return false;
+    const image = asset.image;
+    const loaded = image && image.complete && image.naturalWidth > 0;
+    if (!loaded) return false;
+
+    const p = clamp01(progress);
+    const swing = Math.sin(p * Math.PI);
+    const mini = options.mini === true;
+    const combat = options.combat === true;
+    const alpha = Number.isFinite(options.alpha) ? options.alpha : 1;
+    const baseScale = Number.isFinite(options.scale) ? options.scale : (mini ? 0.36 : 1);
+    const thrust = mini ? 0 : (5 + swing * (combat ? 10 : 7));
+    const pulse = 0.68 + Math.sin(nowMs() / 120) * 0.18 + swing * 0.25;
+
+    const w = image.naturalWidth;
+    const h = image.naturalHeight;
+    const anchorX = w * 0.5;
+    const anchorY = h * 0.86;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(thrust, 0);
+
+    // Brilho atras da sprite, fino o suficiente para nao cobrir o desenho real.
+    if (!mini) {
+      ctx.save();
+      ctx.rotate(Math.PI / 2);
+      ctx.globalAlpha = Math.min(0.46, 0.18 + pulse * 0.18);
+      ctx.fillStyle = asset.glow;
+      ctx.fillRect(-Math.max(10, w * baseScale * 0.62), -h * baseScale * 0.88, Math.max(20, w * baseScale * 1.24), h * baseScale * 0.94);
+      ctx.globalAlpha = 0.12 + swing * 0.14;
+      ctx.fillStyle = asset.core;
+      ctx.fillRect(-Math.max(3, w * baseScale * 0.16), -h * baseScale * 0.84, Math.max(6, w * baseScale * 0.32), h * baseScale * 0.84);
+      ctx.restore();
+    }
+
+    // A imagem original e vertical. Rotacionamos 90 graus para a ponta seguir a direcao do ataque.
+    ctx.save();
+    ctx.rotate(Math.PI / 2);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, -anchorX * baseScale, -anchorY * baseScale, w * baseScale, h * baseScale);
+    ctx.restore();
+
+    if (!mini) {
+      const t = nowMs() / 115;
+      ctx.fillStyle = asset.core;
+      for (let i = 0; i < 5; i++) {
+        ctx.globalAlpha = 0.34 + (i % 3) * 0.13 + swing * 0.12;
+        const px = 24 + Math.sin(t + i * 1.57) * (5 + i * 2) + swing * 8;
+        const py = -14 + i * 7 + Math.cos(t * 1.25 + i) * 4;
+        ctx.fillRect(Math.round(px), Math.round(py), i % 2 ? 2 : 3, i % 2 ? 2 : 3);
+      }
+      ctx.globalAlpha = alpha;
+    }
+
+    ctx.restore();
+    return true;
+  }
+
+  const drawSwordInHandBeforeExactReference = typeof drawSwordInHand === "function" ? drawSwordInHand : null;
+  drawSwordInHand = function drawSwordInHandExactReferenceImage(progress, weaponKey) {
+    const key = weaponKey || currentVisualWeaponKeySafe();
+    if (exactAssetForWeapon(key)) {
+      try {
+        if (drawExactSwordImageLocal(key, progress || 0, { scale: 1 })) return;
+      } catch (error) {}
+    }
+    return drawSwordInHandBeforeExactReference?.(progress, weaponKey);
+  };
+
+  const drawElementalSwordInHandBeforeExactReference = typeof drawElementalSwordInHand === "function" ? drawElementalSwordInHand : null;
+  drawElementalSwordInHand = function drawElementalSwordInHandExactReferenceImage(weaponKey, progress = 0) {
+    if (exactAssetForWeapon(weaponKey)) {
+      try {
+        if (drawExactSwordImageLocal(weaponKey, progress || 0, { scale: 1 })) return;
+      } catch (error) {}
+    }
+    return drawElementalSwordInHandBeforeExactReference?.(weaponKey, progress);
+  };
+
+  const drawMiniElementalSwordSpriteBeforeExactReference = typeof drawMiniElementalSwordSprite === "function" ? drawMiniElementalSwordSprite : null;
+  drawMiniElementalSwordSprite = function drawMiniElementalSwordSpriteExactReferenceImage(weaponKey, scale = 1, chestMode = false) {
+    if (exactAssetForWeapon(weaponKey)) {
+      try {
+        if (drawExactSwordImageLocal(weaponKey, 0, { mini: true, scale })) return;
+      } catch (error) {}
+    }
+    return drawMiniElementalSwordSpriteBeforeExactReference?.(weaponKey, scale, chestMode);
+  };
+
+  const drawAttackBeforeExactReferenceSword = typeof drawAttack === "function" ? drawAttack : null;
+  drawAttack = function drawAttackExactReferenceSword() {
+    if (!currentMeleeAttack || attackTimer <= 0) return;
+    const weaponKey = currentMeleeAttack.weaponKey || currentVisualWeaponKeySafe();
+    const asset = exactAssetForWeapon(weaponKey);
+    if (!asset) return drawAttackBeforeExactReferenceSword?.();
+
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const totalTimer = Math.max(0.001, currentMeleeAttack.maxTimer || attackTimer || 0.45);
+    const progress = 1 - clamp01((currentMeleeAttack.timer || 0) / totalTimer);
+    const range = Math.max(currentMeleeAttack.range || 62, 62);
+    const arc = Math.max(currentMeleeAttack.arc || Math.PI * 0.78, Math.PI * 0.80);
+    const sweep = -arc * 0.46 + arc * 0.92 * progress;
+    const swing = Math.sin(progress * Math.PI);
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(currentMeleeAttack.angle || 0);
+
+    // Rastro fino e transparente. Nao desenha mais o triangulo branco que escondia a espada.
+    ctx.strokeStyle = asset.glow;
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.arc(0, 0, range + swing * 9, sweep - 0.22, sweep + 0.22);
+    ctx.stroke();
+
+    ctx.strokeStyle = asset.color;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, 0, range + 4 + swing * 7, sweep - 0.14, sweep + 0.14);
+    ctx.stroke();
+
+    ctx.strokeStyle = asset.core;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, range + 8 + swing * 5, sweep - 0.08, sweep + 0.08);
+    ctx.stroke();
+
+    // A espada real acompanha o arco do golpe.
+    ctx.save();
+    ctx.rotate(sweep);
+    drawExactSwordImageLocal(weaponKey, progress, { combat: true, scale: 1.05 });
+    ctx.restore();
+
+    // Particulas no fim do corte.
+    const tipX = Math.cos(sweep) * (range + 10);
+    const tipY = Math.sin(sweep) * (range + 10);
+    ctx.fillStyle = asset.core;
+    for (let i = 0; i < 9; i++) {
+      const a = sweep - 0.5 + i * 0.12;
+      const r = 8 + i * 2 + swing * 10;
+      ctx.globalAlpha = 0.38 + (i % 3) * 0.16;
+      ctx.fillRect(Math.round(tipX + Math.cos(a) * r - 1), Math.round(tipY + Math.sin(a) * r - 1), 3, 3);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  };
+
+  const elementalSwordInventoryIconHtmlBeforeExactReference = typeof elementalSwordInventoryIconHtml === "function" ? elementalSwordInventoryIconHtml : null;
+  elementalSwordInventoryIconHtml = function elementalSwordInventoryIconHtmlExactReference(weaponKey) {
+    const asset = exactAssetForWeapon(weaponKey);
+    if (!asset || !asset.bigSrc) return elementalSwordInventoryIconHtmlBeforeExactReference?.(weaponKey) || "";
+    return `<span class="inventory-icon-wrap reference-elemental-sword-inventory-icon exact-reference-${weaponKey}-icon"><img src="${asset.bigSrc}" alt="" aria-hidden="true"></span>`;
+  };
+
+  const renderInventoryGridBeforeExactReference = typeof renderInventoryGrid === "function" ? renderInventoryGrid : null;
+  renderInventoryGrid = function renderInventoryGridExactReferenceSwords(filteredItems, totalItems) {
+    renderInventoryGridBeforeExactReference?.(filteredItems, totalItems);
+    if (!inventoryGrid) return;
+    for (const item of filteredItems || []) {
+      const asset = item?.weaponKey ? exactAssetForWeapon(item.weaponKey) : null;
+      if (!asset || !asset.bigSrc) continue;
+      const safeId = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(item.id) : String(item.id).replace(/"/g, '\\"');
+      const slot = inventoryGrid.querySelector(`[data-item-id="${safeId}"] .item-icon`);
+      if (slot) slot.innerHTML = `<span class="inventory-icon-wrap reference-elemental-sword-inventory-icon exact-reference-${item.weaponKey}-icon"><img src="${asset.bigSrc}" alt="" aria-hidden="true"></span>`;
+    }
+  };
+
+  const renderItemDetailsBeforeExactReference = typeof renderItemDetails === "function" ? renderItemDetails : null;
+  renderItemDetails = function renderItemDetailsExactReferenceSwords(item) {
+    renderItemDetailsBeforeExactReference?.(item);
+    const asset = item?.weaponKey ? exactAssetForWeapon(item.weaponKey) : null;
+    if (!asset || !asset.bigSrc || !itemDetailName) return;
+    itemDetailName.innerHTML = `<span class="item-detail-icon-preview reference-elemental-sword-detail-icon exact-reference-${item.weaponKey}-detail"><img src="${asset.bigSrc}" alt="" aria-hidden="true"></span><span>${item.name}</span>`;
+  };
+
+  function injectExactReferenceSwordCss() {
+    if (typeof document === "undefined" || document.getElementById("exact-reference-sword-css")) return;
+    const style = document.createElement("style");
+    style.id = "exact-reference-sword-css";
+    style.textContent = `
+      .exact-reference-iceSword-icon img,
+      .exact-reference-shadowSword-icon img,
+      .exact-reference-stormSword-icon img,
+      .exact-reference-infernalSword-icon img,
+      .exact-reference-fireSword-icon img,
+      .exact-reference-iceSword-detail img,
+      .exact-reference-shadowSword-detail img,
+      .exact-reference-stormSword-detail img,
+      .exact-reference-infernalSword-detail img,
+      .exact-reference-fireSword-detail img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+      .exact-reference-iceSword-icon img,
+      .exact-reference-iceSword-detail img { filter: drop-shadow(0 0 5px rgba(115, 213, 255, .9)); }
+      .exact-reference-shadowSword-icon img,
+      .exact-reference-shadowSword-detail img { filter: drop-shadow(0 0 5px rgba(155, 95, 199, .9)); }
+      .exact-reference-stormSword-icon img,
+      .exact-reference-stormSword-detail img { filter: drop-shadow(0 0 5px rgba(85, 232, 255, .9)); }
+      .exact-reference-infernalSword-icon img,
+      .exact-reference-infernalSword-detail img,
+      .exact-reference-fireSword-icon img,
+      .exact-reference-fireSword-detail img { filter: drop-shadow(0 0 5px rgba(255, 79, 37, .9)); }
+    `;
+    document.head.appendChild(style);
+  }
+
+  for (const asset of Object.values(EXACT_SWORD_ASSETS)) {
+    asset.image.onload = function exactSwordLoaded() {
+      try { renderInventory?.(); updateHud?.(); } catch (error) {}
+    };
+  }
+  injectExactReferenceSwordCss();
+  try { renderInventory?.(); updateHud?.(); } catch (error) {}
+  console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+})();
+
+
+/* ==================================================
+   HOTFIX FINAL: 10 cajados exatamente pelas imagens enviadas
+   - Adiciona todos os cajados usando as sprites reais enviadas.
+   - Nao gera desenho novo; usa os arquivos tratados e transparentes.
+   - Mostra os cajados reais na mao do personagem, no inventario e nos detalhes.
+   - Libera os 10 cajados diretamente no inventario nesta versao.
+   ================================================== */
+(function exactReferenceStaffArmoryPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EXACT_REFERENCE_STAFF_ARMORY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EXACT_REFERENCE_STAFF_ARMORY_PATCH = true;
+
+  const PATCH_VERSION = "cajados-imagem-exata-20260706-1";
+  const EXACT_STAFF_ASSETS = {
+    fireCrystalStaff: {
+      src: `fire-crystal-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `fire-crystal-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado de Cristal Flamejante",
+      rarity: "epico",
+      projectile: "fireCrystalBolt",
+      damageType: "fireCrystalStaff",
+      damage: 6,
+      range: 430,
+      cooldown: 0.48,
+      projectileSpeed: 360,
+      color: "rgba(255, 109, 46, 0.88)",
+      core: "rgba(255, 234, 140, 0.95)",
+      glow: "rgba(255, 109, 46, 0.30)",
+      description: "Dispara um disparo flamejante usando a imagem exata enviada."
+    },
+    frostCrystalStaff: {
+      src: `frost-crystal-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `frost-crystal-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado Glacial Cristalino",
+      rarity: "epico",
+      projectile: "frostCrystalBolt",
+      damageType: "frostCrystalStaff",
+      damage: 6,
+      range: 435,
+      cooldown: 0.47,
+      projectileSpeed: 365,
+      color: "rgba(115, 213, 255, 0.88)",
+      core: "rgba(233, 255, 255, 0.95)",
+      glow: "rgba(115, 213, 255, 0.30)",
+      description: "Dispara energia gelada com o visual identico ao cajado azul enviado."
+    },
+    natureVineStaff: {
+      src: `nature-vine-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `nature-vine-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado da Natureza Viva",
+      rarity: "raro",
+      projectile: "natureVineBolt",
+      damageType: "natureVineStaff",
+      damage: 5,
+      range: 420,
+      cooldown: 0.45,
+      projectileSpeed: 350,
+      color: "rgba(118, 226, 85, 0.86)",
+      core: "rgba(235, 255, 196, 0.94)",
+      glow: "rgba(118, 226, 85, 0.30)",
+      description: "Canaliza energia verde viva atraves do cajado de cipos enviado."
+    },
+    necroSkullStaff: {
+      src: `necro-skull-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `necro-skull-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado Necrotico do Cranio",
+      rarity: "lendario",
+      projectile: "necroSkullBolt",
+      damageType: "necroSkullStaff",
+      damage: 7,
+      range: 440,
+      cooldown: 0.50,
+      projectileSpeed: 370,
+      color: "rgba(175, 108, 255, 0.88)",
+      core: "rgba(213, 168, 255, 0.96)",
+      glow: "rgba(109, 255, 156, 0.18)",
+      description: "Cajado sombrio com cranio e fogo violeta, igual a imagem enviada."
+    },
+    holySeraphStaff: {
+      src: `holy-seraph-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `holy-seraph-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado do Serafim Radiante",
+      rarity: "divino",
+      projectile: "holySeraphBolt",
+      damageType: "holySeraphStaff",
+      damage: 7,
+      range: 445,
+      cooldown: 0.46,
+      projectileSpeed: 380,
+      color: "rgba(255, 229, 140, 0.90)",
+      core: "rgba(255, 255, 244, 0.98)",
+      glow: "rgba(255, 229, 140, 0.32)",
+      description: "Usa o cajado angelical dourado exatamente como na referencia enviada."
+    },
+    stormOrbStaff: {
+      src: `storm-orb-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `storm-orb-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado da Orbe da Tempestade",
+      rarity: "lendario",
+      projectile: "stormOrbBolt",
+      damageType: "stormOrbStaff",
+      damage: 7,
+      range: 450,
+      cooldown: 0.47,
+      projectileSpeed: 390,
+      color: "rgba(85, 232, 255, 0.90)",
+      core: "rgba(255, 242, 100, 0.95)",
+      glow: "rgba(85, 232, 255, 0.32)",
+      description: "Cajado eletrico azul e dourado com orbe central, fiel a imagem enviada."
+    },
+    arcaneCrystalStaff: {
+      src: `arcane-crystal-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `arcane-crystal-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado Arcano de Cristal",
+      rarity: "epico",
+      projectile: "arcaneCrystalBolt",
+      damageType: "arcaneCrystalStaff",
+      damage: 6,
+      range: 440,
+      cooldown: 0.44,
+      projectileSpeed: 385,
+      color: "rgba(162, 118, 255, 0.90)",
+      core: "rgba(235, 224, 255, 0.97)",
+      glow: "rgba(162, 118, 255, 0.30)",
+      description: "Canaliza energia arcana com o cristal flutuante roxo/azul da imagem enviada."
+    },
+    venomSerpentStaff: {
+      src: `venom-serpent-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `venom-serpent-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado da Serpente Venenosa",
+      rarity: "lendario",
+      projectile: "venomSerpentBolt",
+      damageType: "venomSerpentStaff",
+      damage: 7,
+      range: 435,
+      cooldown: 0.49,
+      projectileSpeed: 360,
+      color: "rgba(154, 226, 64, 0.90)",
+      core: "rgba(233, 255, 170, 0.96)",
+      glow: "rgba(154, 226, 64, 0.30)",
+      description: "Cajado de cobra venenosa exatamente no visual da imagem enviada."
+    },
+    solarScarabStaff: {
+      src: `solar-scarab-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `solar-scarab-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado Solar do Escaravelho",
+      rarity: "lendario",
+      projectile: "solarScarabBolt",
+      damageType: "solarScarabStaff",
+      damage: 7,
+      range: 440,
+      cooldown: 0.46,
+      projectileSpeed: 375,
+      color: "rgba(255, 207, 90, 0.90)",
+      core: "rgba(255, 244, 190, 0.98)",
+      glow: "rgba(255, 207, 90, 0.32)",
+      description: "Cajado dourado solar com escaravelho, igual a referencia enviada."
+    },
+    infernalDemonStaff: {
+      src: `infernal-demon-staff-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `infernal-demon-staff.png?v=${PATCH_VERSION}`,
+      name: "Cajado Infernal Demoniaco",
+      rarity: "mitico",
+      projectile: "infernalDemonBolt",
+      damageType: "infernalDemonStaff",
+      damage: 8,
+      range: 455,
+      cooldown: 0.50,
+      projectileSpeed: 390,
+      color: "rgba(255, 79, 37, 0.92)",
+      core: "rgba(255, 204, 120, 0.96)",
+      glow: "rgba(255, 79, 37, 0.34)",
+      description: "Cajado demoníaco vermelho/preto com cranio, fiel a imagem enviada."
+    }
+  };
+
+  const EXACT_STAFF_KEYS = Object.keys(EXACT_STAFF_ASSETS);
+
+  for (const asset of Object.values(EXACT_STAFF_ASSETS)) {
+    const image = new Image();
+    image.src = asset.src;
+    asset.image = image;
+    const bigImage = new Image();
+    bigImage.src = asset.bigSrc;
+    asset.bigImage = bigImage;
+  }
+
+  function exactStaffAssetForWeapon(weaponKey) {
+    return EXACT_STAFF_ASSETS[weaponKey] || null;
+  }
+
+  function clamp01(value) {
+    return Math.max(0, Math.min(1, Number(value) || 0));
+  }
+
+  function nowMs() {
+    try { return performance.now(); } catch (error) { return Date.now(); }
+  }
+
+  function currentExactStaffWeaponKey() {
+    const visualKey = weaponVisualState?.weaponKey;
+    if (visualKey && EXACT_STAFF_ASSETS[visualKey]) return visualKey;
+    const safeKey = (typeof safeCurrentWeaponKeyForVisual === "function" ? safeCurrentWeaponKeyForVisual() : null)
+      || (typeof getCurrentWeaponKey === "function" ? getCurrentWeaponKey() : null)
+      || player?.equippedWeaponKey
+      || null;
+    return EXACT_STAFF_ASSETS[safeKey] ? safeKey : null;
+  }
+
+  function exactStaffInventoryHtml(weaponKey) {
+    const asset = exactStaffAssetForWeapon(weaponKey);
+    if (!asset || !asset.bigSrc) return "";
+    return `<span class="inventory-icon-wrap exact-reference-staff-inventory-icon exact-reference-${weaponKey}-icon"><img src="${asset.bigSrc}" alt="" aria-hidden="true"></span>`;
+  }
+
+  function registerExactStaffWeapons() {
+    if (typeof weapons !== "object" || !weapons) return;
+    for (const [weaponKey, asset] of Object.entries(EXACT_STAFF_ASSETS)) {
+      const base = weapons[weaponKey] || {};
+      weapons[weaponKey] = {
+        name: asset.name,
+        damage: asset.damage,
+        range: asset.range,
+        cooldown: asset.cooldown,
+        projectile: asset.projectile,
+        projectileSpeed: asset.projectileSpeed,
+        kind: "projectile",
+        damageType: asset.damageType,
+        customWeapon: true,
+        exactStaffWeapon: true,
+        weaponKey,
+        family: "staff",
+        rarity: asset.rarity,
+        description: asset.description,
+        ...base
+      };
+      weapons[weaponKey].name = asset.name;
+      weapons[weaponKey].damage = asset.damage;
+      weapons[weaponKey].range = asset.range;
+      weapons[weaponKey].cooldown = asset.cooldown;
+      weapons[weaponKey].projectile = asset.projectile;
+      weapons[weaponKey].projectileSpeed = asset.projectileSpeed;
+      weapons[weaponKey].kind = "projectile";
+      weapons[weaponKey].damageType = asset.damageType;
+      weapons[weaponKey].customWeapon = true;
+      weapons[weaponKey].exactStaffWeapon = true;
+      weapons[weaponKey].weaponKey = weaponKey;
+      weapons[weaponKey].family = "staff";
+      weapons[weaponKey].rarity = asset.rarity;
+      weapons[weaponKey].description = asset.description;
+    }
+  }
+
+  function ensurePlayerHasExactStaffWeapons() {
+    registerExactStaffWeapons();
+    if (!player) return;
+    if (!Array.isArray(player.unlockedWeapons)) player.unlockedWeapons = ["sword", "bow", "staff", "spear"];
+    for (const weaponKey of EXACT_STAFF_KEYS) {
+      if (!player.unlockedWeapons.includes(weaponKey)) player.unlockedWeapons.push(weaponKey);
+    }
+    player.unlockedWeapons = [...new Set(player.unlockedWeapons)].filter((key) => key === "unarmed" || weapons[key]);
+    if (!player.equippedWeaponKey || (!weapons[player.equippedWeaponKey] && player.equippedWeaponKey !== "unarmed")) {
+      player.equippedWeaponKey = EXACT_STAFF_KEYS[0];
+    }
+  }
+
+  function drawExactStaffImageLocal(weaponKey, progress = 0, options = {}) {
+    const asset = exactStaffAssetForWeapon(weaponKey);
+    if (!asset) return false;
+    const image = asset.image;
+    if (!image || !image.complete || image.naturalWidth <= 0) return false;
+
+    const p = clamp01(progress);
+    const swing = Math.sin(p * Math.PI);
+    const alpha = Number.isFinite(options.alpha) ? options.alpha : 1;
+    const mini = options.mini === true;
+    const baseScale = Number.isFinite(options.scale) ? options.scale : (mini ? 0.33 : 0.60);
+    const reach = mini ? 0 : (6 + swing * 8);
+    const w = image.naturalWidth;
+    const h = image.naturalHeight;
+    const anchorX = w * 0.46;
+    const anchorY = h * 0.88;
+    const pulse = 0.58 + Math.sin(nowMs() / 135) * 0.16 + swing * 0.16;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(7 + reach, 0);
+
+    if (!mini) {
+      ctx.save();
+      ctx.rotate(Math.PI / 2);
+      ctx.globalAlpha = Math.min(0.44, 0.16 + pulse * 0.20);
+      ctx.fillStyle = asset.glow;
+      ctx.fillRect(-Math.max(12, w * baseScale * 0.62), -h * baseScale * 0.92, Math.max(24, w * baseScale * 1.24), h * baseScale * 0.98);
+      ctx.globalAlpha = 0.10 + swing * 0.12;
+      ctx.fillStyle = asset.core;
+      ctx.fillRect(-Math.max(4, w * baseScale * 0.18), -h * baseScale * 0.90, Math.max(7, w * baseScale * 0.34), h * baseScale * 0.90);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.rotate(Math.PI / 2);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, -anchorX * baseScale, -anchorY * baseScale, w * baseScale, h * baseScale);
+    ctx.restore();
+
+    if (!mini) {
+      const t = nowMs() / 120;
+      ctx.fillStyle = asset.core;
+      for (let i = 0; i < 5; i++) {
+        ctx.globalAlpha = 0.30 + (i % 3) * 0.12 + swing * 0.08;
+        const px = 22 + Math.sin(t + i * 1.38) * (4 + i * 2) + swing * 7;
+        const py = -12 + i * 6 + Math.cos(t * 1.22 + i) * 4;
+        ctx.fillRect(Math.round(px), Math.round(py), i % 2 ? 2 : 3, i % 2 ? 2 : 3);
+      }
+      ctx.globalAlpha = alpha;
+    }
+
+    ctx.restore();
+    return true;
+  }
+
+  const getPlayerProjectileColorBeforeExactStaffs = typeof getPlayerProjectileColor === "function" ? getPlayerProjectileColor : null;
+  getPlayerProjectileColor = function getPlayerProjectileColorExactStaffs(type) {
+    for (const asset of Object.values(EXACT_STAFF_ASSETS)) {
+      if (asset.projectile === type) {
+        return { glow: asset.glow, main: asset.color, core: asset.core };
+      }
+    }
+    return getPlayerProjectileColorBeforeExactStaffs ? getPlayerProjectileColorBeforeExactStaffs(type) : { glow: "rgba(85,232,255,.34)", main: "#3f8fe5", core: "#e9ffff" };
+  };
+
+  const drawStaffInHandBeforeExactStaffs = typeof drawStaffInHand === "function" ? drawStaffInHand : null;
+  drawStaffInHand = function drawStaffInHandExactStaffReference(progress) {
+    const key = currentExactStaffWeaponKey();
+    if (key) {
+      try {
+        if (drawExactStaffImageLocal(key, progress || 0, { scale: 0.62 })) return;
+      } catch (error) {}
+    }
+    return drawStaffInHandBeforeExactStaffs?.(progress);
+  };
+
+  const fireWeaponProjectileBeforeExactStaffs = typeof fireWeaponProjectile === "function" ? fireWeaponProjectile : null;
+  fireWeaponProjectile = function fireWeaponProjectileExactStaffs(weapon, aim) {
+    const inferredKey = weapon?.weaponKey || (typeof getCurrentWeaponKey === "function" ? getCurrentWeaponKey() : player?.equippedWeaponKey) || null;
+    fireWeaponProjectileBeforeExactStaffs?.(weapon, aim);
+    if (inferredKey && EXACT_STAFF_ASSETS[inferredKey] && typeof weaponVisualState === "object" && weaponVisualState) {
+      weaponVisualState.weaponKey = inferredKey;
+      weaponVisualState.kind = EXACT_STAFF_ASSETS[inferredKey].projectile;
+    }
+  };
+
+  const getInventoryIconHtmlBeforeExactStaffs = typeof getInventoryIconHtml === "function" ? getInventoryIconHtml : null;
+  getInventoryIconHtml = function getInventoryIconHtmlExactStaffs(item) {
+    const weaponKey = item?.weaponKey || item?.id || "";
+    if (EXACT_STAFF_ASSETS[weaponKey]) return exactStaffInventoryHtml(weaponKey);
+    return getInventoryIconHtmlBeforeExactStaffs ? getInventoryIconHtmlBeforeExactStaffs(item) : "";
+  };
+
+  const renderInventoryGridBeforeExactStaffs = typeof renderInventoryGrid === "function" ? renderInventoryGrid : null;
+  renderInventoryGrid = function renderInventoryGridExactStaffs(filteredItems, totalItems) {
+    renderInventoryGridBeforeExactStaffs?.(filteredItems, totalItems);
+    if (!inventoryGrid) return;
+    for (const item of filteredItems || []) {
+      const weaponKey = item?.weaponKey || item?.id || "";
+      const asset = exactStaffAssetForWeapon(weaponKey);
+      if (!asset) continue;
+      const safeId = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(item.id) : String(item.id).replace(/"/g, '\\"');
+      const slot = inventoryGrid.querySelector(`[data-item-id="${safeId}"] .item-icon`);
+      if (slot) slot.innerHTML = exactStaffInventoryHtml(weaponKey);
+    }
+  };
+
+  const renderItemDetailsBeforeExactStaffs = typeof renderItemDetails === "function" ? renderItemDetails : null;
+  renderItemDetails = function renderItemDetailsExactStaffs(item) {
+    renderItemDetailsBeforeExactStaffs?.(item);
+    const weaponKey = item?.weaponKey || item?.id || "";
+    const asset = exactStaffAssetForWeapon(weaponKey);
+    if (!asset || !itemDetailName) return;
+    itemDetailName.innerHTML = `<span class="item-detail-icon-preview exact-reference-staff-detail-icon exact-reference-${weaponKey}-detail"><img src="${asset.bigSrc}" alt="" aria-hidden="true"></span><span>${item.name}</span>`;
+  };
+
+  const getWeaponDescriptionBeforeExactStaffs = typeof getWeaponDescription === "function" ? getWeaponDescription : null;
+  if (typeof getWeaponDescription === "function") {
+    getWeaponDescription = function getWeaponDescriptionExactStaffs(weaponKey) {
+      const asset = exactStaffAssetForWeapon(weaponKey);
+      if (asset) return asset.description;
+      return getWeaponDescriptionBeforeExactStaffs ? getWeaponDescriptionBeforeExactStaffs(weaponKey) : "";
+    };
+  }
+
+  function injectExactStaffCss() {
+    if (typeof document === "undefined" || document.getElementById("exact-reference-staff-css")) return;
+    const style = document.createElement("style");
+    style.id = "exact-reference-staff-css";
+    style.textContent = `
+      .exact-reference-staff-inventory-icon img,
+      .exact-reference-staff-detail-icon img,
+      .exact-reference-fireCrystalStaff-icon img,
+      .exact-reference-frostCrystalStaff-icon img,
+      .exact-reference-natureVineStaff-icon img,
+      .exact-reference-necroSkullStaff-icon img,
+      .exact-reference-holySeraphStaff-icon img,
+      .exact-reference-stormOrbStaff-icon img,
+      .exact-reference-arcaneCrystalStaff-icon img,
+      .exact-reference-venomSerpentStaff-icon img,
+      .exact-reference-solarScarabStaff-icon img,
+      .exact-reference-infernalDemonStaff-icon img,
+      .exact-reference-fireCrystalStaff-detail img,
+      .exact-reference-frostCrystalStaff-detail img,
+      .exact-reference-natureVineStaff-detail img,
+      .exact-reference-necroSkullStaff-detail img,
+      .exact-reference-holySeraphStaff-detail img,
+      .exact-reference-stormOrbStaff-detail img,
+      .exact-reference-arcaneCrystalStaff-detail img,
+      .exact-reference-venomSerpentStaff-detail img,
+      .exact-reference-solarScarabStaff-detail img,
+      .exact-reference-infernalDemonStaff-detail img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+      .exact-reference-fireCrystalStaff-icon img,
+      .exact-reference-fireCrystalStaff-detail img,
+      .exact-reference-infernalDemonStaff-icon img,
+      .exact-reference-infernalDemonStaff-detail img { filter: drop-shadow(0 0 5px rgba(255, 92, 37, .92)); }
+      .exact-reference-frostCrystalStaff-icon img,
+      .exact-reference-frostCrystalStaff-detail img,
+      .exact-reference-stormOrbStaff-icon img,
+      .exact-reference-stormOrbStaff-detail img { filter: drop-shadow(0 0 5px rgba(115, 213, 255, .92)); }
+      .exact-reference-natureVineStaff-icon img,
+      .exact-reference-natureVineStaff-detail img,
+      .exact-reference-venomSerpentStaff-icon img,
+      .exact-reference-venomSerpentStaff-detail img { filter: drop-shadow(0 0 5px rgba(154, 226, 64, .92)); }
+      .exact-reference-necroSkullStaff-icon img,
+      .exact-reference-necroSkullStaff-detail img,
+      .exact-reference-arcaneCrystalStaff-icon img,
+      .exact-reference-arcaneCrystalStaff-detail img { filter: drop-shadow(0 0 5px rgba(175, 108, 255, .92)); }
+      .exact-reference-holySeraphStaff-icon img,
+      .exact-reference-holySeraphStaff-detail img,
+      .exact-reference-solarScarabStaff-icon img,
+      .exact-reference-solarScarabStaff-detail img { filter: drop-shadow(0 0 5px rgba(255, 223, 123, .94)); }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const loadGameBeforeExactStaffs = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameExactStaffs() {
+    const ok = loadGameBeforeExactStaffs ? loadGameBeforeExactStaffs() : false;
+    ensurePlayerHasExactStaffWeapons();
+    try { renderInventory?.(); updateHud?.(); } catch (error) {}
+    return ok;
+  };
+
+  const setActiveSceneBeforeExactStaffs = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneExactStaffs(scene) {
+    const result = setActiveSceneBeforeExactStaffs ? setActiveSceneBeforeExactStaffs(scene) : undefined;
+    ensurePlayerHasExactStaffWeapons();
+    return result;
+  };
+
+  const enterHomeBeforeExactStaffs = typeof enterHome === "function" ? enterHome : null;
+  enterHome = function enterHomeExactStaffs() {
+    const result = enterHomeBeforeExactStaffs ? enterHomeBeforeExactStaffs() : undefined;
+    ensurePlayerHasExactStaffWeapons();
+    return result;
+  };
+
+  for (const asset of Object.values(EXACT_STAFF_ASSETS)) {
+    asset.image.onload = function exactStaffLoaded() {
+      try { renderInventory?.(); updateHud?.(); } catch (error) {}
+    };
+  }
+
+  injectExactStaffCss();
+  try {
+    registerExactStaffWeapons();
+    ensurePlayerHasExactStaffWeapons();
+    renderInventory?.();
+    updateHud?.();
+  } catch (error) {}
+  console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+})();
+
+/* ==================================================
+   HOTFIX FINAL: poderes dos cajados exatamente pelas imagens enviadas
+   - Cada cajado dispara/usa o poder visual correspondente enviado pelo usuario.
+   - Nao gera imagem nova: usa sprites reais tratadas com fundo transparente.
+   - O poder aparece como imagem real no disparo, nao como bolinha generica.
+   ================================================== */
+(function exactReferenceStaffPowersPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EXACT_REFERENCE_STAFF_POWERS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EXACT_REFERENCE_STAFF_POWERS_PATCH = true;
+
+  const PATCH_VERSION = "poderes-cajados-imagem-exata-20260706-1";
+  const EXACT_POWER_ASSETS = {
+    fireCrystalBolt: {
+      src: `fire-orb-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `fire-orb-power.png?v=${PATCH_VERSION}`,
+      staffKey: "fireCrystalStaff",
+      name: "Poder de Fogo",
+      visualSize: 52,
+      color: "rgba(255, 109, 46, 0.90)",
+      core: "rgba(255, 245, 160, 0.98)",
+      glow: "rgba(255, 109, 46, 0.34)",
+      rotate: true
+    },
+    frostCrystalBolt: {
+      src: `ice-crystal-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `ice-crystal-power.png?v=${PATCH_VERSION}`,
+      companionSrc: `ice-tornado-power-game.png?v=${PATCH_VERSION}`,
+      companionBigSrc: `ice-tornado-power.png?v=${PATCH_VERSION}`,
+      staffKey: "frostCrystalStaff",
+      name: "Poder de Gelo",
+      visualSize: 54,
+      color: "rgba(115, 213, 255, 0.90)",
+      core: "rgba(235, 255, 255, 0.98)",
+      glow: "rgba(115, 213, 255, 0.34)",
+      rotate: false
+    },
+    stormOrbBolt: {
+      src: `lightning-orb-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `lightning-orb-power.png?v=${PATCH_VERSION}`,
+      staffKey: "stormOrbStaff",
+      name: "Poder de Tempestade",
+      visualSize: 56,
+      color: "rgba(85, 232, 255, 0.90)",
+      core: "rgba(255, 242, 100, 0.96)",
+      glow: "rgba(85, 232, 255, 0.36)",
+      rotate: true
+    },
+    natureVineBolt: {
+      src: `healing-cross-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `healing-cross-power.png?v=${PATCH_VERSION}`,
+      staffKey: "natureVineStaff",
+      name: "Poder de Cura",
+      visualSize: 54,
+      color: "rgba(118, 226, 85, 0.90)",
+      core: "rgba(255, 255, 210, 0.96)",
+      glow: "rgba(118, 226, 85, 0.34)",
+      rotate: false,
+      healsPlayer: true
+    },
+    venomSerpentBolt: {
+      src: `poison-skull-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `poison-skull-power.png?v=${PATCH_VERSION}`,
+      staffKey: "venomSerpentStaff",
+      name: "Poder Venenoso",
+      visualSize: 52,
+      color: "rgba(154, 226, 64, 0.90)",
+      core: "rgba(235, 255, 170, 0.96)",
+      glow: "rgba(154, 226, 64, 0.34)",
+      rotate: true
+    },
+    necroSkullBolt: {
+      src: `shadow-slash-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `shadow-slash-power.png?v=${PATCH_VERSION}`,
+      staffKey: "necroSkullStaff",
+      name: "Poder Necrotico Sombrio",
+      visualSize: 58,
+      color: "rgba(175, 108, 255, 0.90)",
+      core: "rgba(235, 205, 255, 0.96)",
+      glow: "rgba(125, 68, 220, 0.36)",
+      rotate: true
+    },
+    holySeraphBolt: {
+      src: `holy-gate-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `holy-gate-power.png?v=${PATCH_VERSION}`,
+      staffKey: "holySeraphStaff",
+      name: "Poder Sagrado",
+      visualSize: 56,
+      color: "rgba(255, 225, 120, 0.92)",
+      core: "rgba(255, 255, 240, 0.99)",
+      glow: "rgba(255, 225, 120, 0.36)",
+      rotate: false
+    },
+    arcaneCrystalBolt: {
+      src: `arcane-crystal-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `arcane-crystal-power.png?v=${PATCH_VERSION}`,
+      staffKey: "arcaneCrystalStaff",
+      name: "Poder Arcano",
+      visualSize: 54,
+      color: "rgba(162, 118, 255, 0.92)",
+      core: "rgba(235, 224, 255, 0.98)",
+      glow: "rgba(162, 118, 255, 0.34)",
+      rotate: false
+    },
+    solarScarabBolt: {
+      src: `earth-crystal-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `earth-crystal-power.png?v=${PATCH_VERSION}`,
+      staffKey: "solarScarabStaff",
+      name: "Poder Terrestre Solar",
+      visualSize: 56,
+      color: "rgba(214, 167, 84, 0.92)",
+      core: "rgba(255, 238, 145, 0.98)",
+      glow: "rgba(214, 167, 84, 0.34)",
+      rotate: false
+    },
+    infernalDemonBolt: {
+      src: `shadow-slash-power-game.png?v=${PATCH_VERSION}`,
+      bigSrc: `shadow-slash-power.png?v=${PATCH_VERSION}`,
+      staffKey: "infernalDemonStaff",
+      name: "Poder Infernal Demoniaco",
+      visualSize: 58,
+      color: "rgba(255, 79, 37, 0.92)",
+      core: "rgba(255, 204, 120, 0.96)",
+      glow: "rgba(255, 79, 37, 0.36)",
+      rotate: true
+    }
+  };
+
+  for (const asset of Object.values(EXACT_POWER_ASSETS)) {
+    const image = new Image();
+    image.src = asset.src;
+    asset.image = image;
+    const bigImage = new Image();
+    bigImage.src = asset.bigSrc;
+    asset.bigImage = bigImage;
+    if (asset.companionSrc) {
+      const companion = new Image();
+      companion.src = asset.companionSrc;
+      asset.companionImage = companion;
+      const companionBig = new Image();
+      companionBig.src = asset.companionBigSrc;
+      asset.companionBigImage = companionBig;
+    }
+  }
+
+  function exactPowerAssetForType(type) {
+    return EXACT_POWER_ASSETS[type] || null;
+  }
+
+  function nowMs() {
+    try { return performance.now(); } catch (error) { return Date.now(); }
+  }
+
+  function drawExactPowerImage(obj, asset) {
+    if (!asset?.image || !asset.image.complete || asset.image.naturalWidth <= 0) return false;
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const age = Number(obj.age || 0);
+    const pulse = 1 + Math.sin(nowMs() / 110 + age * 8) * 0.08;
+    const size = Number(obj.visualSize || asset.visualSize || 52) * pulse;
+    const angle = Number.isFinite(obj.angle) ? obj.angle : Math.atan2(Number(obj.vy || 0), Number(obj.vx || 1));
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    if (asset.companionImage && asset.companionImage.complete && asset.companionImage.naturalWidth > 0) {
+      const companionSize = size * 1.08;
+      ctx.save();
+      ctx.globalAlpha = 0.46 + Math.sin(nowMs() / 140) * 0.10;
+      ctx.rotate(nowMs() / 420);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(asset.companionImage, -companionSize / 2, -companionSize / 2, companionSize, companionSize);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.globalAlpha = 0.32;
+    ctx.fillStyle = asset.glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.52, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    if (asset.rotate) ctx.rotate(angle);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(asset.image, -size / 2, -size / 2, size, size);
+
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = asset.core;
+    const t = nowMs() / 125;
+    for (let i = 0; i < 4; i++) {
+      ctx.globalAlpha = 0.28 + (i % 2) * 0.18;
+      const px = cx + Math.cos(t + i * 1.7) * (size * 0.48 + i * 2);
+      const py = cy + Math.sin(t * 1.2 + i * 1.4) * (size * 0.38 + i * 2);
+      ctx.fillRect(Math.round(px - 1), Math.round(py - 1), i % 2 ? 2 : 3, i % 2 ? 2 : 3);
+    }
+    ctx.restore();
+    return true;
+  }
+
+  const spawnPlayerProjectileBeforeExactPowers = typeof spawnPlayerProjectile === "function" ? spawnPlayerProjectile : null;
+  spawnPlayerProjectile = function spawnPlayerProjectileExactStaffPowers(config) {
+    const cfg = { ...(config || {}) };
+    const asset = exactPowerAssetForType(cfg.type);
+    if (asset) {
+      const oldW = Number(cfg.width || 11);
+      const oldH = Number(cfg.height || 11);
+      const newSize = Math.max(22, Math.round((asset.visualSize || 52) * 0.42));
+      cfg.x = Number(cfg.x || 0) + oldW / 2 - newSize / 2;
+      cfg.y = Number(cfg.y || 0) + oldH / 2 - newSize / 2;
+      cfg.width = newSize;
+      cfg.height = newSize;
+      cfg.visualSize = asset.visualSize || 52;
+      cfg.exactPowerVisual = true;
+      cfg.powerName = asset.name;
+      cfg.angle = Number.isFinite(cfg.angle) ? cfg.angle : Math.atan2(Number(cfg.vy || 0), Number(cfg.vx || 1));
+    }
+    return spawnPlayerProjectileBeforeExactPowers?.(cfg);
+  };
+
+  const getPlayerProjectileColorBeforeExactPowers = typeof getPlayerProjectileColor === "function" ? getPlayerProjectileColor : null;
+  getPlayerProjectileColor = function getPlayerProjectileColorExactStaffPowers(type) {
+    const asset = exactPowerAssetForType(type);
+    if (asset) return { glow: asset.glow, main: asset.color, core: asset.core };
+    return getPlayerProjectileColorBeforeExactPowers ? getPlayerProjectileColorBeforeExactPowers(type) : { glow: "rgba(85,232,255,.34)", main: "#3f8fe5", core: "#e9ffff" };
+  };
+
+  const fireWeaponProjectileBeforeExactPowers = typeof fireWeaponProjectile === "function" ? fireWeaponProjectile : null;
+  let lastNatureHealTime = 0;
+  fireWeaponProjectile = function fireWeaponProjectileExactStaffPowerImages(weapon, aim) {
+    const weaponKey = weapon?.weaponKey || (typeof getCurrentWeaponKey === "function" ? getCurrentWeaponKey() : player?.equippedWeaponKey) || null;
+    const result = fireWeaponProjectileBeforeExactPowers?.(weapon, aim);
+    const projectileType = weapon?.projectile;
+    const asset = exactPowerAssetForType(projectileType);
+    if (asset) {
+      try { showHudToast?.(`${asset.name} conjurado`, 1.2); } catch (error) {}
+      if (asset.healsPlayer && player && Number(player.health) < Number(player.maxHealth || player.health)) {
+        const now = nowMs();
+        if (now - lastNatureHealTime > 850) {
+          lastNatureHealTime = now;
+          player.health = Math.min(player.maxHealth, player.health + 1);
+          try { spawnFloatingText?.("+ Cura", player.x + 6, player.y - 20, "#9cff7a"); } catch (error) {}
+          try { updateHud?.(); } catch (error) {}
+        }
+      }
+      if (weaponVisualState && weaponKey && EXACT_POWER_ASSETS[projectileType]) {
+        weaponVisualState.weaponKey = weaponKey;
+        weaponVisualState.kind = projectileType;
+      }
+    }
+    return result;
+  };
+
+  drawProjectiles = function drawProjectilesExactStaffPowerImages() {
+    for (const obj of projectiles) {
+      const exact = exactPowerAssetForType(obj.type);
+      if (exact && drawExactPowerImage(obj, exact)) continue;
+
+      const color = getPlayerProjectileColor(obj.type);
+      ctx.fillStyle = color.glow;
+      ctx.fillRect(obj.x - 5, obj.y - 5, obj.width + 10, obj.height + 10);
+
+      if (obj.type === "arrow") {
+        ctx.save();
+        ctx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+        ctx.rotate(Math.atan2(obj.vy, obj.vx));
+        ctx.fillStyle = "#273052";
+        ctx.fillRect(-8, -2, 16, 4);
+        ctx.fillStyle = "#f0b276";
+        ctx.fillRect(-6, -1, 11, 2);
+        ctx.fillStyle = "#fff3d6";
+        ctx.fillRect(4, -3, 4, 6);
+        ctx.restore();
+        continue;
+      }
+
+      ctx.fillStyle = color.main;
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.fillStyle = color.core;
+      ctx.fillRect(obj.x + 3, obj.y + 3, Math.max(2, obj.width - 6), Math.max(2, obj.height - 6));
+    }
+
+    for (const obj of enemyProjectiles) {
+      if (obj.type === "bossWave") {
+        ctx.strokeStyle = "rgba(255, 79, 98, 0.85)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        continue;
+      }
+
+      const color = getEnemyProjectileColor(obj.type);
+      ctx.fillStyle = color.glow;
+      ctx.fillRect(obj.x - 4, obj.y - 4, obj.width + 8, obj.height + 8);
+      ctx.fillStyle = color.main;
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.fillStyle = color.core;
+      ctx.fillRect(obj.x + 3, obj.y + 3, Math.max(2, obj.width - 6), Math.max(2, obj.height - 6));
+    }
+  };
+
+  const getWeaponDescriptionBeforeExactPowerImages = typeof getWeaponDescription === "function" ? getWeaponDescription : null;
+  if (typeof getWeaponDescription === "function") {
+    getWeaponDescription = function getWeaponDescriptionExactPowerImages(weaponKey) {
+      const weapon = typeof weapons === "object" && weapons ? weapons[weaponKey] : null;
+      const asset = weapon?.projectile ? exactPowerAssetForType(weapon.projectile) : null;
+      if (asset) return `${weapon.name}: usa o ${asset.name} igual a imagem enviada, com sprite real no disparo.`;
+      return getWeaponDescriptionBeforeExactPowerImages ? getWeaponDescriptionBeforeExactPowerImages(weaponKey) : "";
+    };
+  }
+
+  function injectExactPowerCss() {
+    if (typeof document === "undefined" || document.getElementById("exact-reference-staff-power-css")) return;
+    const style = document.createElement("style");
+    style.id = "exact-reference-staff-power-css";
+    style.textContent = `
+      .exact-reference-staff-power-note {
+        color: #fff2cf;
+        text-shadow: 0 0 8px rgba(255, 242, 100, .18);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  injectExactPowerCss();
+  try { renderInventory?.(); updateHud?.(); } catch (error) {}
+  console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+})();
+
+
+/* ==================================================
+   HOTFIX DEFINITIVO: poderes dos 10 cajados com EFEITOS VIVOS
+   - As imagens enviadas agora sao referencia de estilo, cor e silhueta.
+   - O combate nao cola PNG duro no projétil: desenha energia animada por Canvas.
+   - Cada cajado tem efeito proprio: fogo espiral, gelo/cristais, raio, cura,
+     veneno/caveira, corte sombrio, sagrado, arcano, terra e infernal.
+   ================================================== */
+(function animatedReferenceStaffPowersPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ANIMATED_REFERENCE_STAFF_POWERS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ANIMATED_REFERENCE_STAFF_POWERS_PATCH = true;
+
+  const PATCH_VERSION = "cajados-poderes-efeitos-vivos-20260706-1";
+
+  const STAFF_POWER_FX = {
+    fireCrystalBolt: {
+      staffKey: "fireCrystalStaff", name: "Poder de Fogo Vivo", style: "fireOrb",
+      glow: "rgba(255,92,24,.30)", main: "#ff5a18", mid: "#ffb020", core: "#fff5a8", dark: "#b71912", size: 38
+    },
+    frostCrystalBolt: {
+      staffKey: "frostCrystalStaff", name: "Cristal Glacial Vivo", style: "iceCrystal",
+      glow: "rgba(90,210,255,.30)", main: "#54d9ff", mid: "#1784df", core: "#f2ffff", dark: "#2360be", size: 40
+    },
+    stormOrbBolt: {
+      staffKey: "stormOrbStaff", name: "Orbe da Tempestade Viva", style: "lightningOrb",
+      glow: "rgba(71,220,255,.34)", main: "#36d9ff", mid: "#1b62de", core: "#fff067", dark: "#123b92", size: 40
+    },
+    natureVineBolt: {
+      staffKey: "natureVineStaff", name: "Selo de Cura Viva", style: "healSeal",
+      glow: "rgba(112,235,75,.32)", main: "#64e54a", mid: "#35a83b", core: "#fffbc0", dark: "#16752b", size: 40
+    },
+    venomSerpentBolt: {
+      staffKey: "venomSerpentStaff", name: "Veneno da Serpente Viva", style: "poisonSkull",
+      glow: "rgba(120,255,37,.30)", main: "#7cff25", mid: "#2d9f1e", core: "#eaff8e", dark: "#163f18", size: 40
+    },
+    necroSkullBolt: {
+      staffKey: "necroSkullStaff", name: "Corte Necrotico Vivo", style: "shadowSlash",
+      glow: "rgba(164,73,255,.30)", main: "#a14bff", mid: "#4d1bb0", core: "#f2d4ff", dark: "#120622", size: 44
+    },
+    holySeraphBolt: {
+      staffKey: "holySeraphStaff", name: "Portao Sagrado Vivo", style: "holyGate",
+      glow: "rgba(255,224,111,.34)", main: "#ffd45b", mid: "#e69c22", core: "#fffdf0", dark: "#9a6b18", size: 44
+    },
+    arcaneCrystalBolt: {
+      staffKey: "arcaneCrystalStaff", name: "Cristal Arcano Vivo", style: "arcaneCrystal",
+      glow: "rgba(166,112,255,.32)", main: "#a870ff", mid: "#514cff", core: "#e9ffff", dark: "#27115f", size: 42
+    },
+    solarScarabBolt: {
+      staffKey: "solarScarabStaff", name: "Ruptura Terrestre Solar", style: "earthCrystal",
+      glow: "rgba(218,164,67,.30)", main: "#d99b3a", mid: "#755132", core: "#d8ff86", dark: "#34291b", size: 44
+    },
+    infernalDemonBolt: {
+      staffKey: "infernalDemonStaff", name: "Corte Infernal Vivo", style: "infernalSlash",
+      glow: "rgba(255,62,28,.32)", main: "#ff3d1f", mid: "#7c0d20", core: "#ffc868", dark: "#10040a", size: 46
+    }
+  };
+
+  function powerFxForType(type) {
+    return STAFF_POWER_FX[type] || null;
+  }
+
+  function nowMs() {
+    try { return performance.now(); } catch (error) { return Date.now(); }
+  }
+
+  function clamp01(v) { return Math.max(0, Math.min(1, Number(v) || 0)); }
+
+  function safeAngle(obj) {
+    const vx = Number(obj?.vx || 0);
+    const vy = Number(obj?.vy || 0);
+    return Number.isFinite(obj?.angle) ? obj.angle : Math.atan2(vy, vx || 1);
+  }
+
+  function pixel(x, y, w, h, color, alpha = 1) {
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+    ctx.globalAlpha /= Math.max(0.0001, alpha);
+  }
+
+  function starPixel(x, y, color, scale = 1) {
+    ctx.fillStyle = color;
+    const s = Math.max(1, Math.round(scale));
+    ctx.fillRect(Math.round(x - s), Math.round(y), s * 2 + 1, s);
+    ctx.fillRect(Math.round(x), Math.round(y - s), s, s * 2 + 1);
+  }
+
+  function diamond(size, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(0, -size);
+    ctx.lineTo(size * 0.68, 0);
+    ctx.lineTo(0, size);
+    ctx.lineTo(-size * 0.68, 0);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = Math.max(1, Math.round(size * 0.08));
+      ctx.stroke();
+    }
+  }
+
+  function jaggedBolt(points, color, width = 3) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = "square";
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p[0], p[1]);
+      else ctx.lineTo(p[0], p[1]);
+    });
+    ctx.stroke();
+  }
+
+  function drawMovingTrail(obj, fx, angle, t) {
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const speedAngle = angle + Math.PI;
+    const len = 18 + Math.sin(t * 2) * 3;
+    ctx.save();
+    ctx.globalAlpha = 0.52;
+    for (let i = 0; i < 6; i++) {
+      const d = 8 + i * len / 5;
+      const side = Math.sin(t + i * 1.7) * (2 + i * 0.7);
+      const x = cx + Math.cos(speedAngle) * d + Math.cos(angle + Math.PI / 2) * side;
+      const y = cy + Math.sin(speedAngle) * d + Math.sin(angle + Math.PI / 2) * side;
+      const sz = Math.max(2, 7 - i);
+      pixel(x - sz / 2, y - sz / 2, sz, sz, i % 2 ? fx.main : fx.mid, 0.82 - i * 0.10);
+    }
+    ctx.restore();
+  }
+
+  function drawFireOrb(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let r = 0; r < 4; r++) {
+      ctx.globalAlpha = 0.18 - r * 0.025;
+      ctx.fillStyle = r % 2 ? fx.mid : fx.main;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * (0.62 + r * 0.16 + Math.sin(t + r) * 0.025), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < 18; i++) {
+      const a = t * 1.7 + i * 0.72;
+      const rr = size * (0.18 + (i % 5) * 0.075) + Math.sin(t * 2 + i) * 4;
+      const flame = 5 + (i % 4) * 2;
+      ctx.save();
+      ctx.translate(Math.cos(a) * rr, Math.sin(a) * rr);
+      ctx.rotate(a + Math.PI / 2);
+      ctx.fillStyle = i % 3 === 0 ? fx.core : i % 2 ? fx.mid : fx.main;
+      ctx.globalAlpha = 0.76;
+      ctx.beginPath();
+      ctx.moveTo(0, -flame * 1.7);
+      ctx.lineTo(flame * 0.55, flame * 0.25);
+      ctx.lineTo(0, flame);
+      ctx.lineTo(-flame * 0.55, flame * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fx.core;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * (0.26 + Math.sin(t * 3) * 0.025), 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 9; i++) {
+      const a = -t * 1.3 + i * 0.9;
+      const rr = size * (0.68 + Math.sin(i + t) * 0.18);
+      starPixel(Math.cos(a) * rr, Math.sin(a) * rr, i % 2 ? fx.core : fx.main, i % 3 === 0 ? 2 : 1);
+    }
+    ctx.restore();
+  }
+
+  function drawIceCrystal(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.22;
+    ctx.strokeStyle = fx.core;
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(0, 0, size * (0.62 + i * 0.16), t + i, t + i + Math.PI * 1.3);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.rotate(Math.sin(t * 0.8) * 0.16);
+    diamond(size * 0.48, fx.main, fx.core);
+    ctx.globalAlpha = 0.72;
+    diamond(size * 0.27, fx.mid, fx.core);
+    ctx.restore();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4 + Math.sin(t + i) * 0.18;
+      const rr = size * (0.46 + (i % 2) * 0.20);
+      ctx.save();
+      ctx.translate(Math.cos(a) * rr, Math.sin(a) * rr);
+      ctx.rotate(a + Math.PI / 2);
+      diamond(size * 0.14, i % 2 ? fx.core : fx.main, fx.dark);
+      ctx.restore();
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = -t + i * 0.88;
+      const rr = size * (0.75 + Math.sin(t + i) * 0.08);
+      starPixel(Math.cos(a) * rr, Math.sin(a) * rr, i % 2 ? fx.core : fx.main, 1);
+    }
+    ctx.restore();
+  }
+
+  function drawLightningOrb(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.28;
+    ctx.fillStyle = fx.glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.96;
+    ctx.fillStyle = fx.main;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.38 + Math.sin(t * 4) * 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = fx.core;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.20, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 8; i++) {
+      const a = t * 1.4 + i * Math.PI / 4;
+      const start = size * 0.34;
+      const end = size * (0.68 + (i % 3) * 0.06);
+      const p1 = [Math.cos(a) * start, Math.sin(a) * start];
+      const p2 = [Math.cos(a + 0.18) * (start + end) / 2, Math.sin(a + 0.18) * (start + end) / 2];
+      const p3 = [Math.cos(a - 0.13) * end, Math.sin(a - 0.13) * end];
+      jaggedBolt([p1, p2, p3], i % 2 ? fx.core : fx.mid, i % 2 ? 2 : 3);
+    }
+    for (let i = 0; i < 6; i++) starPixel(Math.cos(t + i) * size * .82, Math.sin(t * 1.4 + i * 2) * size * .72, fx.core, 1);
+    ctx.restore();
+  }
+
+  function drawHealSeal(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.32;
+    ctx.strokeStyle = fx.core;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.68 + Math.sin(t * 2) * 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.72;
+    for (let i = 0; i < 2; i++) {
+      ctx.beginPath();
+      ctx.arc(0, 0, size * (0.44 + i * 0.18), -t * (i + 1), Math.PI * 1.6 - t * (i + 1));
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fx.main;
+    const w = size * 0.42;
+    const h = size * 0.15;
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.fillRect(-h / 2, -w / 2, h, w);
+    ctx.strokeStyle = fx.core;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-w / 2, -h / 2, w, h);
+    ctx.strokeRect(-h / 2, -w / 2, h, w);
+    for (let i = 0; i < 8; i++) {
+      const a = t * .85 + i * Math.PI / 4;
+      const rr = size * (0.55 + Math.sin(t + i) * 0.08);
+      ctx.save();
+      ctx.translate(Math.cos(a) * rr, Math.sin(a) * rr);
+      ctx.rotate(a);
+      ctx.fillStyle = i % 2 ? fx.mid : fx.main;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 4, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawPoisonSkull(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.30;
+    ctx.fillStyle = fx.glow;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * .72, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 8; i++) {
+      const a = t * 0.9 + i * 0.78;
+      const rr = size * (0.56 + Math.sin(t + i) * .10);
+      ctx.fillStyle = i % 2 ? fx.main : fx.mid;
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * rr, Math.sin(a * 1.1) * rr, 3 + (i % 3), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.96;
+    ctx.fillStyle = fx.main;
+    ctx.beginPath();
+    ctx.arc(0, -size * .05, size * .33, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = fx.dark;
+    ctx.beginPath();
+    ctx.arc(-size * .12, -size * .08, size * .08, 0, Math.PI * 2);
+    ctx.arc(size * .12, -size * .08, size * .08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(-size * .05, size * .04, size * .10, size * .10);
+    ctx.fillRect(-size * .18, size * .14, size * .36, size * .07);
+    ctx.fillStyle = fx.core;
+    pixel(-size*.03, -size*.26, size*.06, size*.11, fx.core, .95);
+    for (let i = 0; i < 5; i++) pixel(-size*.20 + i*size*.10, size*.22 + Math.sin(t+i)*2, 3, 7, fx.main, .7);
+    ctx.restore();
+  }
+
+  function drawShadowSlash(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.rotate(Math.sin(t) * .14);
+    for (let i = 0; i < 4; i++) {
+      ctx.globalAlpha = 0.28 - i * .03;
+      ctx.strokeStyle = i % 2 ? fx.main : fx.mid;
+      ctx.lineWidth = 12 - i * 2;
+      ctx.beginPath();
+      ctx.moveTo(-size*.58 + i*4, size*.30 - i*2);
+      ctx.quadraticCurveTo(-size*.08, -size*.25 - i*2, size*.62 - i*3, -size*.44 + i*4);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = fx.core;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-size*.46, size*.22);
+    ctx.quadraticCurveTo(0, -size*.22, size*.56, -size*.38);
+    ctx.stroke();
+    for (let i = 0; i < 8; i++) {
+      const x = -size*.38 + i * size*.12;
+      const y = Math.sin(t*2+i) * size*.20 + (i%2? -size*.26: size*.14);
+      pixel(x, y, 3 + i%3, 3 + i%2, i%2 ? fx.main : fx.dark, .8);
+    }
+    ctx.restore();
+  }
+
+  function drawHolyGate(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.30;
+    ctx.strokeStyle = fx.core;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, size*.64, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.globalAlpha = .94;
+    ctx.fillStyle = fx.main;
+    ctx.fillRect(-size*.18, -size*.45, size*.12, size*.76);
+    ctx.fillRect(size*.06, -size*.45, size*.12, size*.76);
+    ctx.fillStyle = fx.core;
+    ctx.fillRect(-size*.21, -size*.50, size*.42, size*.06);
+    ctx.fillRect(-size*.04, -size*.63, size*.08, size*.24);
+    ctx.fillRect(-size*.14, -size*.54, size*.28, size*.04);
+    ctx.globalAlpha = .7;
+    for (let i=0;i<8;i++) {
+      const a = t*.75 + i*Math.PI/4;
+      starPixel(Math.cos(a)*size*.72, Math.sin(a)*size*.68, i%2?fx.core:fx.main, i%3===0?2:1);
+    }
+    ctx.restore();
+  }
+
+  function drawArcaneCrystal(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.rotate(Math.sin(t*.6)*.10);
+    ctx.globalAlpha = .32;
+    ctx.strokeStyle = fx.main;
+    for (let i=0;i<3;i++) {
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0,0,size*(.42+i*.14), t+i*1.1, t+i*1.1+Math.PI*1.25);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = .95;
+    diamond(size*.42, fx.mid, fx.core);
+    ctx.globalAlpha = .82;
+    diamond(size*.24, fx.main, fx.core);
+    for (let i=0;i<7;i++) {
+      const a=t+i*.95;
+      ctx.save();
+      ctx.translate(Math.cos(a)*size*.66, Math.sin(a*1.15)*size*.58);
+      ctx.rotate(a);
+      diamond(size*.10, i%2?fx.main:fx.core, fx.dark);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  function drawEarthCrystal(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = .30;
+    ctx.fillStyle = fx.glow;
+    ctx.beginPath();
+    ctx.arc(0,0,size*.75,0,Math.PI*2);
+    ctx.fill();
+    ctx.globalAlpha = .96;
+    for (let i=0;i<7;i++) {
+      const a = -Math.PI*.9 + i*Math.PI*.3;
+      const rr = size*(.20+(i%3)*.06);
+      ctx.save();
+      ctx.translate(Math.cos(a)*size*.20 + (i-3)*2, Math.sin(a)*size*.18 + size*.18);
+      ctx.rotate(a+Math.PI/2);
+      ctx.beginPath();
+      ctx.moveTo(0,-rr*1.7);
+      ctx.lineTo(rr*.62, rr*.4);
+      ctx.lineTo(0, rr);
+      ctx.lineTo(-rr*.62, rr*.4);
+      ctx.closePath();
+      ctx.fillStyle = i%2?fx.mid:fx.main;
+      ctx.fill();
+      ctx.strokeStyle = fx.core;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.fillStyle = fx.core;
+    for(let i=0;i<8;i++) pixel(-size*.44+i*size*.12, size*.48+Math.sin(t+i)*3, 5, 3, i%2?fx.mid:fx.core, .75);
+    ctx.restore();
+  }
+
+  function drawInfernalSlash(fx, t, age, size) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.rotate(Math.sin(t*1.2)*.12);
+    for (let i=0;i<5;i++) {
+      ctx.globalAlpha = .34 - i*.035;
+      ctx.strokeStyle = i%2 ? fx.main : fx.mid;
+      ctx.lineWidth = 14-i*2;
+      ctx.beginPath();
+      ctx.moveTo(-size*.50+i*3, size*.32-i*2);
+      ctx.quadraticCurveTo(-size*.05, -size*.35, size*.52, -size*.22+i*2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = .94;
+    ctx.strokeStyle = fx.core;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-size*.46,size*.24);
+    ctx.quadraticCurveTo(-size*.03,-size*.30,size*.46,-size*.20);
+    ctx.stroke();
+    for (let i=0;i<10;i++) {
+      const a=t*1.6+i*.67;
+      const rr=size*(.40+(i%4)*.07);
+      ctx.fillStyle=i%2?fx.core:fx.main;
+      ctx.globalAlpha=.74;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a)*rr, Math.sin(a*1.1)*rr, 2+i%3, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawAnimatedStaffPower(obj, fx) {
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const age = Number(obj.age || 0);
+    const t = nowMs() / 260 + Number(obj.fxSeed || 0);
+    const angle = safeAngle(obj);
+    const size = Number(obj.visualSize || fx.size || 40) * (0.92 + Math.sin(t*1.8) * .04);
+
+    drawMovingTrail(obj, fx, angle, t);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.fillStyle = fx.glow;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(0, 0, size * .72, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    switch (fx.style) {
+      case "fireOrb": drawFireOrb(fx, t, age, size); break;
+      case "iceCrystal": drawIceCrystal(fx, t, age, size); break;
+      case "lightningOrb": drawLightningOrb(fx, t, age, size); break;
+      case "healSeal": drawHealSeal(fx, t, age, size); break;
+      case "poisonSkull": drawPoisonSkull(fx, t, age, size); break;
+      case "shadowSlash": drawShadowSlash(fx, t, age, size); break;
+      case "holyGate": drawHolyGate(fx, t, age, size); break;
+      case "arcaneCrystal": drawArcaneCrystal(fx, t, age, size); break;
+      case "earthCrystal": drawEarthCrystal(fx, t, age, size); break;
+      case "infernalSlash": drawInfernalSlash(fx, t, age, size); break;
+      default: drawFireOrb(fx, t, age, size);
+    }
+    ctx.restore();
+    return true;
+  }
+
+  const spawnPlayerProjectileBeforeAnimatedStaffPowers = typeof spawnPlayerProjectile === "function" ? spawnPlayerProjectile : null;
+  spawnPlayerProjectile = function spawnPlayerProjectileAnimatedStaffPowers(config) {
+    const cfg = { ...(config || {}) };
+    const fx = powerFxForType(cfg.type);
+    if (fx) {
+      const oldW = Number(cfg.width || 11);
+      const oldH = Number(cfg.height || 11);
+      const collisionSize = Math.max(18, Math.round((fx.size || 40) * .42));
+      cfg.x = Number(cfg.x || 0) + oldW / 2 - collisionSize / 2;
+      cfg.y = Number(cfg.y || 0) + oldH / 2 - collisionSize / 2;
+      cfg.width = collisionSize;
+      cfg.height = collisionSize;
+      cfg.visualSize = fx.size || 40;
+      cfg.animatedStaffPower = true;
+      cfg.fxSeed = Math.random() * 1000;
+      cfg.angle = Number.isFinite(cfg.angle) ? cfg.angle : Math.atan2(Number(cfg.vy || 0), Number(cfg.vx || 1));
+    }
+    return spawnPlayerProjectileBeforeAnimatedStaffPowers?.(cfg);
+  };
+
+  const getPlayerProjectileColorBeforeAnimatedStaffPowers = typeof getPlayerProjectileColor === "function" ? getPlayerProjectileColor : null;
+  getPlayerProjectileColor = function getPlayerProjectileColorAnimatedStaffPowers(type) {
+    const fx = powerFxForType(type);
+    if (fx) return { glow: fx.glow, main: fx.main, core: fx.core };
+    return getPlayerProjectileColorBeforeAnimatedStaffPowers ? getPlayerProjectileColorBeforeAnimatedStaffPowers(type) : { glow: "rgba(85,232,255,.34)", main: "#3f8fe5", core: "#e9ffff" };
+  };
+
+  const fireWeaponProjectileBeforeAnimatedStaffPowers = typeof fireWeaponProjectile === "function" ? fireWeaponProjectile : null;
+  let lastNatureHealTime = 0;
+  fireWeaponProjectile = function fireWeaponProjectileAnimatedStaffPowers(weapon, aim) {
+    const result = fireWeaponProjectileBeforeAnimatedStaffPowers?.(weapon, aim);
+    const fx = powerFxForType(weapon?.projectile);
+    if (fx) {
+      try { showHudToast?.(`${fx.name} conjurado`, 1.0); } catch (error) {}
+      if (fx.style === "healSeal" && player && Number(player.health) < Number(player.maxHealth || player.health)) {
+        const now = nowMs();
+        if (now - lastNatureHealTime > 850) {
+          lastNatureHealTime = now;
+          player.health = Math.min(player.maxHealth, player.health + 1);
+          try { spawnFloatingText?.("+ Cura", player.x + 6, player.y - 20, "#9cff7a"); } catch (error) {}
+          try { updateHud?.(); } catch (error) {}
+        }
+      }
+    }
+    return result;
+  };
+
+  const drawProjectilesBeforeAnimatedStaffPowers = typeof drawProjectiles === "function" ? drawProjectiles : null;
+  drawProjectiles = function drawProjectilesAnimatedStaffPowers() {
+    for (const obj of projectiles) {
+      const fx = powerFxForType(obj.type);
+      if (fx && drawAnimatedStaffPower(obj, fx)) continue;
+
+      const color = getPlayerProjectileColor(obj.type);
+      ctx.fillStyle = color.glow;
+      ctx.fillRect(obj.x - 5, obj.y - 5, obj.width + 10, obj.height + 10);
+
+      if (obj.type === "arrow") {
+        ctx.save();
+        ctx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+        ctx.rotate(Math.atan2(obj.vy, obj.vx));
+        ctx.fillStyle = "#273052";
+        ctx.fillRect(-8, -2, 16, 4);
+        ctx.fillStyle = "#f0b276";
+        ctx.fillRect(-6, -1, 11, 2);
+        ctx.fillStyle = "#fff3d6";
+        ctx.fillRect(4, -3, 4, 6);
+        ctx.restore();
+        continue;
+      }
+
+      ctx.fillStyle = color.main;
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.fillStyle = color.core;
+      ctx.fillRect(obj.x + 3, obj.y + 3, Math.max(2, obj.width - 6), Math.max(2, obj.height - 6));
+    }
+
+    for (const obj of enemyProjectiles) {
+      if (obj.type === "bossWave") {
+        ctx.strokeStyle = "rgba(255, 79, 98, 0.85)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        continue;
+      }
+
+      const color = getEnemyProjectileColor(obj.type);
+      ctx.fillStyle = color.glow;
+      ctx.fillRect(obj.x - 4, obj.y - 4, obj.width + 8, obj.height + 8);
+      ctx.fillStyle = color.main;
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.fillStyle = color.core;
+      ctx.fillRect(obj.x + 3, obj.y + 3, Math.max(2, obj.width - 6), Math.max(2, obj.height - 6));
+    }
+  };
+
+  const getWeaponDescriptionBeforeAnimatedStaffPowers = typeof getWeaponDescription === "function" ? getWeaponDescription : null;
+  if (typeof getWeaponDescription === "function") {
+    getWeaponDescription = function getWeaponDescriptionAnimatedStaffPowers(weaponKey) {
+      const weapon = typeof weapons === "object" && weapons ? weapons[weaponKey] : null;
+      const fx = weapon?.projectile ? powerFxForType(weapon.projectile) : null;
+      if (fx) return `${weapon.name}: poder animado vivo inspirado na referencia, com aura, particulas, brilho e movimento proprio.`;
+      return getWeaponDescriptionBeforeAnimatedStaffPowers ? getWeaponDescriptionBeforeAnimatedStaffPowers(weaponKey) : "";
+    };
+  }
+
+  try { renderInventory?.(); updateHud?.(); } catch (error) {}
+  console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+})();
+
+/* ==================================================
+   HOTFIX FINAL: gameplay real dos poderes dos 10 cajados
+   - Mantem os poderes vivos/animados.
+   - Adiciona efeito mecanico em cada elemento: queimar, congelar, curar, envenenar, drenar, atordoar etc.
+   ================================================== */
+(function exactStaffGameplayEffectsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EXACT_STAFF_GAMEPLAY_EFFECTS_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EXACT_STAFF_GAMEPLAY_EFFECTS_PATCH = true;
+
+  const PATCH_VERSION = "cajados-poderes-gameplay-real-20260706-1";
+  const staffGameplayFx = [];
+  let natureHealCooldown = 0;
+  let holyShieldTimer = 0;
+  let holyShieldFlash = 0;
+
+  const STAFF_POWER_RULES = {
+    fireCrystalStaff: {
+      label: "QUEIMANDO",
+      color: "#ff6d2e",
+      core: "#fff264",
+      kind: "fire",
+      apply(target) {
+        target.staffBurnTimer = Math.max(Number(target.staffBurnTimer || 0), 3.3);
+        target.staffBurnTick = Math.min(Number(target.staffBurnTick || 0), 0.08);
+        target.attackCooldown = Math.max(Number(target.attackCooldown || 0), 0.25);
+      }
+    },
+    frostCrystalStaff: {
+      label: "CONGELADO",
+      color: "#73d5ff",
+      core: "#e9ffff",
+      kind: "ice",
+      apply(target) {
+        target.staffFreezeTimer = Math.max(Number(target.staffFreezeTimer || 0), 2.7);
+        target.freezeTimer = Math.max(Number(target.freezeTimer || 0), 2.7);
+        target.attackCooldown = Math.max(Number(target.attackCooldown || 0), 1.05);
+        target.knockbackX = (target.knockbackX || 0) * 0.35;
+        target.knockbackY = (target.knockbackY || 0) * 0.35;
+      }
+    },
+    natureVineStaff: {
+      label: "CURA",
+      color: "#7ee255",
+      core: "#ebffc4",
+      kind: "nature",
+      apply(target) {
+        target.staffRootTimer = Math.max(Number(target.staffRootTimer || 0), 1.8);
+        healPlayerFromStaff(1, "Cura da natureza", "#7ee255");
+      }
+    },
+    necroSkullStaff: {
+      label: "DRENADO",
+      color: "#af6cff",
+      core: "#6dff9c",
+      kind: "necro",
+      apply(target) {
+        target.staffCurseTimer = Math.max(Number(target.staffCurseTimer || 0), 3.2);
+        target.staffCurseTick = Math.min(Number(target.staffCurseTick || 0), 0.15);
+        healPlayerFromStaff(1, "Roubo de vida", "#af6cff");
+      }
+    },
+    holySeraphStaff: {
+      label: "LUZ SAGRADA",
+      color: "#ffe58c",
+      core: "#fffdf4",
+      kind: "holy",
+      apply(target) {
+        target.staffHolyTimer = Math.max(Number(target.staffHolyTimer || 0), 2.4);
+        holyShieldTimer = Math.max(holyShieldTimer, 5.0);
+        holyShieldFlash = 0.32;
+        healPlayerFromStaff(1, "Benção", "#ffe58c");
+      }
+    },
+    stormOrbStaff: {
+      label: "ATORDOADO",
+      color: "#55e8ff",
+      core: "#fff264",
+      kind: "storm",
+      apply(target) {
+        target.staffStunTimer = Math.max(Number(target.staffStunTimer || 0), 1.35);
+        target.attackCooldown = Math.max(Number(target.attackCooldown || 0), 1.25);
+        chainStaffLightning(target, 2);
+      }
+    },
+    arcaneCrystalStaff: {
+      label: "FRÁGIL",
+      color: "#a276ff",
+      core: "#ebe0ff",
+      kind: "arcane",
+      apply(target) {
+        target.staffFragileTimer = Math.max(Number(target.staffFragileTimer || 0), 3.4);
+        target.staffArcanePulseTimer = Math.max(Number(target.staffArcanePulseTimer || 0), 0.35);
+      }
+    },
+    venomSerpentStaff: {
+      label: "ENVENENADO",
+      color: "#9ae240",
+      core: "#e9ffaa",
+      kind: "venom",
+      apply(target) {
+        target.staffPoisonTimer = Math.max(Number(target.staffPoisonTimer || 0), 4.6);
+        target.staffPoisonTick = Math.min(Number(target.staffPoisonTick || 0), 0.10);
+        target.attackCooldown = Math.max(Number(target.attackCooldown || 0), 0.35);
+      }
+    },
+    solarScarabStaff: {
+      label: "PRESO NA TERRA",
+      color: "#d8b060",
+      core: "#b9ff77",
+      kind: "earth",
+      apply(target) {
+        target.staffEarthRootTimer = Math.max(Number(target.staffEarthRootTimer || 0), 2.2);
+        target.staffArmorCrackTimer = Math.max(Number(target.staffArmorCrackTimer || 0), 3.8);
+        target.attackCooldown = Math.max(Number(target.attackCooldown || 0), 0.75);
+      }
+    },
+    infernalDemonStaff: {
+      label: "INFERNAL",
+      color: "#ff4f25",
+      core: "#ffcc78",
+      kind: "infernal",
+      apply(target) {
+        target.staffInfernalTimer = Math.max(Number(target.staffInfernalTimer || 0), 3.7);
+        target.staffInfernalTick = Math.min(Number(target.staffInfernalTick || 0), 0.08);
+        target.staffDreadTimer = Math.max(Number(target.staffDreadTimer || 0), 1.6);
+        target.attackCooldown = Math.max(Number(target.attackCooldown || 0), 1.15);
+      }
+    }
+  };
+
+  const STAFF_DAMAGE_TO_KEY = {
+    fireCrystalStaff: "fireCrystalStaff",
+    frostCrystalStaff: "frostCrystalStaff",
+    natureVineStaff: "natureVineStaff",
+    necroSkullStaff: "necroSkullStaff",
+    holySeraphStaff: "holySeraphStaff",
+    stormOrbStaff: "stormOrbStaff",
+    arcaneCrystalStaff: "arcaneCrystalStaff",
+    venomSerpentStaff: "venomSerpentStaff",
+    solarScarabStaff: "solarScarabStaff",
+    infernalDemonStaff: "infernalDemonStaff"
+  };
+
+  function staffRuleFromDamageType(damageType) {
+    const key = STAFF_DAMAGE_TO_KEY[String(damageType || "")];
+    return key ? { key, rule: STAFF_POWER_RULES[key] } : null;
+  }
+
+  function centerOf(obj) {
+    return {
+      x: Number(obj?.x || 0) + Number(obj?.width || 0) / 2,
+      y: Number(obj?.y || 0) + Number(obj?.height || 0) / 2
+    };
+  }
+
+  function collectCurrentEnemiesForStaffEffects() {
+    const output = [];
+    const seen = new Set();
+    function addList(list) {
+      if (!Array.isArray(list)) return;
+      for (const obj of list) {
+        if (!obj || obj.type !== "enemy" || !obj.alive || seen.has(obj)) continue;
+        seen.add(obj);
+        output.push(obj);
+      }
+    }
+    try {
+      if (typeof getAttackableObjectsForCurrentScene === "function") addList(getAttackableObjectsForCurrentScene());
+    } catch (error) {}
+    try { addList(objects); } catch (error) {}
+    try { addList(villageObjects); } catch (error) {}
+    try { addList(crystalDimensionObjects); } catch (error) {}
+    try { addList(acidDimensionObjects); } catch (error) {}
+    return output;
+  }
+
+  function directStaffStatusDamage(target, amount, label, color, sourceX, sourceY) {
+    if (!target || target.type !== "enemy" || !target.alive) return false;
+    const fragileBonus = target.staffFragileTimer > 0 ? 1 : 0;
+    const armorCrackBonus = target.staffArmorCrackTimer > 0 ? 1 : 0;
+    const finalAmount = Math.max(1, Math.round(Number(amount || 1) + fragileBonus + armorCrackBonus));
+    target.hp -= finalAmount;
+    const c = centerOf(target);
+    try { spawnFloatingText(`${label} -${finalAmount}`, c.x, target.y - 12, color); } catch (error) {}
+    addStaffGameplayFx(label.toLowerCase(), c.x, c.y, color, color, 34);
+    if (Number.isFinite(sourceX) && Number.isFinite(sourceY)) {
+      const dx = c.x - sourceX;
+      const dy = c.y - sourceY;
+      const len = Math.hypot(dx, dy) || 1;
+      target.knockbackX = (dx / len) * 90;
+      target.knockbackY = (dy / len) * 90;
+    }
+    if (target.hp <= 0) {
+      try { defeatEnemy(target); } catch (error) { target.alive = false; }
+    }
+    return true;
+  }
+
+  function healPlayerFromStaff(amount, label, color) {
+    if (!player) return false;
+    if (player.health >= player.maxHealth && !String(label || "").includes("Escudo")) return false;
+    const before = player.health;
+    player.health = Math.min(player.maxHealth, player.health + Math.max(1, Number(amount || 1)));
+    if (player.health > before) {
+      try { spawnFloatingText(`+${player.health - before} vida`, player.x + player.width / 2, player.y - 18, color || "#7ee255"); } catch (error) {}
+      addStaffGameplayFx("heal", player.x + player.width / 2, player.y + player.height / 2, color || "#7ee255", "#fffdf4", 42);
+      try { updateHud?.(); } catch (error) {}
+      return true;
+    }
+    return false;
+  }
+
+  function addStaffGameplayFx(kind, x, y, color, core, radius = 38) {
+    staffGameplayFx.push({ kind, x, y, color, core, radius, timer: 0.58, maxTimer: 0.58, phase: Math.random() * 10 });
+  }
+
+  function chainStaffLightning(target, jumps = 2) {
+    const origin = centerOf(target);
+    const enemies = collectCurrentEnemiesForStaffEffects()
+      .filter((obj) => obj !== target && obj.alive)
+      .map((obj) => ({ obj, distance: Math.hypot(centerOf(obj).x - origin.x, centerOf(obj).y - origin.y) }))
+      .filter((entry) => entry.distance <= 125)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, jumps);
+    for (const entry of enemies) {
+      entry.obj.staffStunTimer = Math.max(Number(entry.obj.staffStunTimer || 0), 0.75);
+      entry.obj.attackCooldown = Math.max(Number(entry.obj.attackCooldown || 0), 0.85);
+      directStaffStatusDamage(entry.obj, 2, "RAIO", "#55e8ff", origin.x, origin.y);
+    }
+  }
+
+  function applyStaffGameplayEffect(target, damageType) {
+    const data = staffRuleFromDamageType(damageType);
+    if (!data || !data.rule || !target || !target.alive) return;
+    const { key, rule } = data;
+    const c = centerOf(target);
+
+    // Cajados frageis/elementais recebem um pouco mais de identidade mecanica no acerto.
+    if (target.staffFragileTimer > 0 && !["arcaneCrystalStaff"].includes(key)) {
+      directStaffStatusDamage(target, 1, "ARCANO", "#a276ff", c.x, c.y);
+    }
+
+    try { rule.apply(target); } catch (error) {}
+    addStaffGameplayFx(rule.kind, c.x, c.y, rule.color, rule.core, key === "stormOrbStaff" ? 50 : key === "holySeraphStaff" ? 56 : 42);
+    try { spawnFloatingText(rule.label, c.x, target.y - 26, rule.core || rule.color); } catch (error) {}
+
+    if (key === "fireCrystalStaff" || key === "infernalDemonStaff") {
+      for (const obj of collectCurrentEnemiesForStaffEffects()) {
+        if (obj === target || !obj.alive) continue;
+        const oc = centerOf(obj);
+        if (Math.hypot(oc.x - c.x, oc.y - c.y) <= 48) {
+          obj.staffBurnTimer = Math.max(Number(obj.staffBurnTimer || 0), key === "infernalDemonStaff" ? 2.4 : 1.8);
+          obj.staffBurnTick = Math.min(Number(obj.staffBurnTick || 0), 0.12);
+          directStaffStatusDamage(obj, key === "infernalDemonStaff" ? 2 : 1, key === "infernalDemonStaff" ? "INFERNO" : "FOGO", key === "infernalDemonStaff" ? "#ff4f25" : "#ff8d4a", c.x, c.y);
+        }
+      }
+    }
+  }
+
+  function updateStaffGameplayStatuses(delta) {
+    natureHealCooldown = Math.max(0, natureHealCooldown - delta);
+    holyShieldTimer = Math.max(0, holyShieldTimer - delta);
+    holyShieldFlash = Math.max(0, holyShieldFlash - delta);
+
+    for (const obj of collectCurrentEnemiesForStaffEffects()) {
+      if (!obj || !obj.alive) continue;
+      obj.staffFreezeTimer = Math.max(0, Number(obj.staffFreezeTimer || 0) - delta);
+      obj.staffRootTimer = Math.max(0, Number(obj.staffRootTimer || 0) - delta);
+      obj.staffStunTimer = Math.max(0, Number(obj.staffStunTimer || 0) - delta);
+      obj.staffDreadTimer = Math.max(0, Number(obj.staffDreadTimer || 0) - delta);
+      obj.staffCurseTimer = Math.max(0, Number(obj.staffCurseTimer || 0) - delta);
+      obj.staffFragileTimer = Math.max(0, Number(obj.staffFragileTimer || 0) - delta);
+      obj.staffArcanePulseTimer = Math.max(0, Number(obj.staffArcanePulseTimer || 0) - delta);
+      obj.staffEarthRootTimer = Math.max(0, Number(obj.staffEarthRootTimer || 0) - delta);
+      obj.staffArmorCrackTimer = Math.max(0, Number(obj.staffArmorCrackTimer || 0) - delta);
+      obj.staffHolyTimer = Math.max(0, Number(obj.staffHolyTimer || 0) - delta);
+
+      if (obj.staffBurnTimer > 0) {
+        obj.staffBurnTimer = Math.max(0, Number(obj.staffBurnTimer || 0) - delta);
+        obj.staffBurnTick = Math.max(0, Number(obj.staffBurnTick || 0) - delta);
+        if (obj.staffBurnTick <= 0) {
+          obj.staffBurnTick = 0.55;
+          directStaffStatusDamage(obj, 1, "QUEIMA", "#ff8d4a");
+        }
+      }
+
+      if (obj.staffPoisonTimer > 0) {
+        obj.staffPoisonTimer = Math.max(0, Number(obj.staffPoisonTimer || 0) - delta);
+        obj.staffPoisonTick = Math.max(0, Number(obj.staffPoisonTick || 0) - delta);
+        if (obj.staffPoisonTick <= 0) {
+          obj.staffPoisonTick = 0.72;
+          directStaffStatusDamage(obj, 1, "VENENO", "#9ae240");
+        }
+      }
+
+      if (obj.staffCurseTimer > 0) {
+        obj.staffCurseTick = Math.max(0, Number(obj.staffCurseTick || 0) - delta);
+        if (obj.staffCurseTick <= 0) {
+          obj.staffCurseTick = 0.85;
+          directStaffStatusDamage(obj, 1, "DRENO", "#af6cff");
+          healPlayerFromStaff(1, "Dreno", "#af6cff");
+        }
+      }
+
+      if (obj.staffInfernalTimer > 0) {
+        obj.staffInfernalTimer = Math.max(0, Number(obj.staffInfernalTimer || 0) - delta);
+        obj.staffInfernalTick = Math.max(0, Number(obj.staffInfernalTick || 0) - delta);
+        if (obj.staffInfernalTick <= 0) {
+          obj.staffInfernalTick = 0.48;
+          directStaffStatusDamage(obj, 2, "INFERNO", "#ff4f25");
+        }
+      }
+    }
+
+    for (let i = staffGameplayFx.length - 1; i >= 0; i--) {
+      staffGameplayFx[i].timer -= delta;
+      if (staffGameplayFx[i].timer <= 0) staffGameplayFx.splice(i, 1);
+    }
+  }
+
+  function drawStaffGameplayFx() {
+    for (const fx of staffGameplayFx) {
+      const p = 1 - Math.max(0, Math.min(1, fx.timer / Math.max(0.001, fx.maxTimer)));
+      const alpha = Math.max(0, Math.min(1, fx.timer / Math.max(0.001, fx.maxTimer)));
+      const r = fx.radius * (0.35 + p * 0.95);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(fx.x, fx.y);
+
+      if (String(fx.kind).includes("fire") || String(fx.kind).includes("infernal")) {
+        ctx.fillStyle = "rgba(255,79,37,0.25)";
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = fx.core || "#fff264";
+        for (let i = 0; i < 7; i++) {
+          const a = fx.phase + p * 6 + i * 0.9;
+          ctx.fillRect(Math.cos(a) * r * 0.55 - 2, Math.sin(a) * r * 0.55 - 2, 4, 4);
+        }
+      } else if (String(fx.kind).includes("ice")) {
+        ctx.strokeStyle = fx.core || "#e9ffff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-r / 2, -r / 2, r, r);
+        ctx.fillStyle = fx.color || "#73d5ff";
+        for (let i = 0; i < 6; i++) {
+          const a = i * Math.PI / 3 + p * 1.5;
+          ctx.fillRect(Math.cos(a) * r * 0.56 - 2, Math.sin(a) * r * 0.56 - 6, 4, 12);
+        }
+      } else if (String(fx.kind).includes("storm") || String(fx.kind).includes("raio")) {
+        ctx.strokeStyle = fx.core || "#fff264";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.55, -r * 0.2); ctx.lineTo(-r * 0.1, r * 0.06); ctx.lineTo(r * 0.1, -r * 0.32); ctx.lineTo(r * 0.32, r * 0.32); ctx.lineTo(r * 0.58, -r * 0.06);
+        ctx.stroke();
+        ctx.strokeStyle = fx.color || "#55e8ff";
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2); ctx.stroke();
+      } else if (String(fx.kind).includes("heal") || String(fx.kind).includes("holy") || String(fx.kind).includes("nature")) {
+        ctx.strokeStyle = fx.color || "#7ee255";
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = fx.core || "#fffdf4";
+        ctx.fillRect(-3, -r * 0.35, 6, r * 0.7);
+        ctx.fillRect(-r * 0.35, -3, r * 0.7, 6);
+      } else if (String(fx.kind).includes("venom") || String(fx.kind).includes("poison")) {
+        ctx.fillStyle = "rgba(154,226,64,0.22)";
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = fx.color || "#9ae240";
+        ctx.fillRect(-8, -7, 16, 12);
+        ctx.fillRect(-4, 5, 8, 9);
+        ctx.fillStyle = "rgba(20,55,24,0.8)";
+        ctx.fillRect(-5, -3, 3, 3); ctx.fillRect(3, -3, 3, 3); ctx.fillRect(-2, 2, 4, 2);
+      } else if (String(fx.kind).includes("arcane")) {
+        ctx.strokeStyle = fx.color || "#a276ff";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.72, p * Math.PI * 4, p * Math.PI * 4 + Math.PI * 1.6); ctx.stroke();
+        ctx.fillStyle = fx.core || "#ebe0ff";
+        ctx.fillRect(-5, -12, 10, 24);
+        ctx.fillRect(-12, -5, 24, 10);
+      } else if (String(fx.kind).includes("earth")) {
+        ctx.fillStyle = fx.color || "#d8b060";
+        for (let i = 0; i < 7; i++) {
+          const a = i * 0.9;
+          ctx.fillRect(Math.cos(a) * r * 0.55 - 4, Math.sin(a) * r * 0.36 - 4, 8, 8);
+        }
+        ctx.strokeStyle = fx.core || "#b9ff77";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-r * 0.38, -r * 0.26, r * 0.76, r * 0.52);
+      } else {
+        ctx.strokeStyle = fx.color || "#fff264";
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawStaffStatusOnEnemy(obj) {
+    if (!obj || obj.type !== "enemy" || !obj.alive) return;
+    const c = centerOf(obj);
+    ctx.save();
+    if (obj.staffFreezeTimer > 0 || obj.staffRootTimer > 0 || obj.staffEarthRootTimer > 0 || obj.staffStunTimer > 0) {
+      ctx.strokeStyle = obj.staffStunTimer > 0 ? "rgba(255,242,100,.85)" : obj.staffFreezeTimer > 0 ? "rgba(233,255,255,.82)" : "rgba(126,226,85,.78)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(obj.x - 4, obj.y - 5, obj.width + 8, obj.height + 10);
+    }
+    if (obj.staffBurnTimer > 0 || obj.staffInfernalTimer > 0) {
+      ctx.fillStyle = obj.staffInfernalTimer > 0 ? "rgba(255,79,37,.74)" : "rgba(255,141,74,.72)";
+      ctx.fillRect(c.x - 4, obj.y - 9, 8, 9);
+      ctx.fillStyle = "rgba(255,242,100,.85)";
+      ctx.fillRect(c.x - 1, obj.y - 13, 3, 6);
+    }
+    if (obj.staffPoisonTimer > 0) {
+      ctx.fillStyle = "rgba(154,226,64,.72)";
+      ctx.beginPath(); ctx.arc(c.x, obj.y - 7, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(c.x - 1, obj.y - 3, 2, 5);
+    }
+    if (obj.staffCurseTimer > 0 || obj.staffFragileTimer > 0 || obj.staffHolyTimer > 0) {
+      ctx.strokeStyle = obj.staffHolyTimer > 0 ? "rgba(255,229,140,.80)" : obj.staffFragileTimer > 0 ? "rgba(162,118,255,.78)" : "rgba(175,108,255,.78)";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(c.x, c.y, Math.max(obj.width, obj.height) / 2 + 7, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawHolyShieldOnPlayer() {
+    if (holyShieldTimer <= 0 || !player) return;
+    const c = centerOf(player);
+    ctx.save();
+    ctx.strokeStyle = holyShieldFlash > 0 ? "rgba(255,255,244,.95)" : "rgba(255,229,140,.45)";
+    ctx.lineWidth = holyShieldFlash > 0 ? 3 : 2;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y + 2, Math.max(player.width, player.height) + 8 + Math.sin((performance.now?.() || Date.now()) / 180) * 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const damageEnemyBeforeStaffGameplayEffects = typeof damageEnemy === "function" ? damageEnemy : null;
+  damageEnemy = function damageEnemyStaffGameplayEffects(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = "fisico") {
+    const data = staffRuleFromDamageType(damageType);
+    const boostedAmount = data && obj?.staffFragileTimer > 0 ? Number(amount || 1) + 1 : amount;
+    const ok = damageEnemyBeforeStaffGameplayEffects ? damageEnemyBeforeStaffGameplayEffects(obj, boostedAmount, sourceX, sourceY, knockbackPower, damageType) : false;
+    if (ok && data && obj?.alive) applyStaffGameplayEffect(obj, damageType);
+    return ok;
+  };
+
+  const fireWeaponProjectileBeforeStaffGameplayEffects = typeof fireWeaponProjectile === "function" ? fireWeaponProjectile : null;
+  fireWeaponProjectile = function fireWeaponProjectileStaffGameplayEffects(weapon, aim) {
+    const weaponKey = weapon?.weaponKey || (typeof getCurrentWeaponKey === "function" ? getCurrentWeaponKey() : player?.equippedWeaponKey) || "";
+    const result = fireWeaponProjectileBeforeStaffGameplayEffects ? fireWeaponProjectileBeforeStaffGameplayEffects(weapon, aim) : undefined;
+    if (weaponKey === "natureVineStaff") {
+      if (natureHealCooldown <= 0) {
+        healPlayerFromStaff(1, "Cura da natureza", "#7ee255");
+        natureHealCooldown = 1.25;
+      }
+    }
+    if (weaponKey === "holySeraphStaff") {
+      holyShieldTimer = Math.max(holyShieldTimer, 4.0);
+      holyShieldFlash = 0.24;
+      try { spawnFloatingText("Escudo sagrado", player.x + player.width / 2, player.y - 22, "#fffdf4"); } catch (error) {}
+    }
+    return result;
+  };
+
+  const updateEnemiesBeforeStaffGameplayEffects = typeof updateEnemies === "function" ? updateEnemies : null;
+  updateEnemies = function updateEnemiesStaffGameplayEffects(delta) {
+    updateStaffGameplayStatuses(delta);
+    return updateEnemiesBeforeStaffGameplayEffects ? updateEnemiesBeforeStaffGameplayEffects(delta) : undefined;
+  };
+
+  const moveEnemyTowardBeforeStaffGameplayEffects = typeof moveEnemyToward === "function" ? moveEnemyToward : null;
+  moveEnemyToward = function moveEnemyTowardStaffGameplayEffects(obj, dx, dy, delta, speedMultiplier = 1) {
+    let multiplier = speedMultiplier;
+    if (obj?.staffFreezeTimer > 0) multiplier *= 0.14;
+    if (obj?.staffRootTimer > 0) multiplier *= 0.08;
+    if (obj?.staffEarthRootTimer > 0) multiplier *= 0.05;
+    if (obj?.staffStunTimer > 0) multiplier *= 0.01;
+    if (obj?.staffDreadTimer > 0) multiplier *= 0.32;
+    if (obj?.staffPoisonTimer > 0) multiplier *= 0.82;
+    return moveEnemyTowardBeforeStaffGameplayEffects ? moveEnemyTowardBeforeStaffGameplayEffects(obj, dx, dy, delta, multiplier) : undefined;
+  };
+
+  const drawEnemyBeforeStaffGameplayEffects = typeof drawEnemy === "function" ? drawEnemy : null;
+  drawEnemy = function drawEnemyStaffGameplayEffects(obj) {
+    const result = drawEnemyBeforeStaffGameplayEffects ? drawEnemyBeforeStaffGameplayEffects(obj) : undefined;
+    drawStaffStatusOnEnemy(obj);
+    return result;
+  };
+
+  const takeDamageBeforeStaffGameplayEffects = typeof takeDamage === "function" ? takeDamage : null;
+  takeDamage = function takeDamageStaffHolyShield(amount, sourceX = player.x, sourceY = player.y) {
+    if (holyShieldTimer > 0) {
+      const reduced = Math.max(0, Number(amount || 0) - 1);
+      holyShieldFlash = 0.28;
+      try { spawnFloatingText("Escudo -1", player.x + player.width / 2, player.y - 26, "#fffdf4"); } catch (error) {}
+      if (reduced <= 0) return;
+      return takeDamageBeforeStaffGameplayEffects ? takeDamageBeforeStaffGameplayEffects(reduced, sourceX, sourceY) : undefined;
+    }
+    return takeDamageBeforeStaffGameplayEffects ? takeDamageBeforeStaffGameplayEffects(amount, sourceX, sourceY) : undefined;
+  };
+
+  const drawBeforeStaffGameplayEffects = typeof draw === "function" ? draw : null;
+  draw = function drawStaffGameplayEffectsPatch() {
+    const result = drawBeforeStaffGameplayEffects ? drawBeforeStaffGameplayEffects() : undefined;
+    try {
+      ctx.save();
+      applyGameCameraTransform(ctx);
+      drawStaffGameplayFx();
+      drawHolyShieldOnPlayer();
+      ctx.restore();
+    } catch (error) {}
+    return result;
+  };
+
+  try { console.log("Eternal Rift hotfix carregado:", PATCH_VERSION); } catch (error) {}
+})();
+
+
+/* ==================================================
+   HOTFIX: boneco de treino na vila
+   - Alvo parado, imortal e sem dano para testar armas, cajados e efeitos.
+   - Mostra status aplicados: queimando, congelado, veneno, stun, raiz, etc.
+   ================================================== */
+(function trainingDummyVillagePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_TRAINING_DUMMY_VILLAGE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_TRAINING_DUMMY_VILLAGE_PATCH = true;
+
+  const PATCH_VERSION = "boneco-treino-vila-20260706-1";
+  const DUMMY_ID = "village-training-dummy-main";
+
+  function isTrainingDummy(obj) {
+    return Boolean(obj && (obj.trainingDummy || obj.kind === "trainingDummy" || obj.id === DUMMY_ID || obj.saveId === DUMMY_ID));
+  }
+
+  function makeTrainingDummy() {
+    const x = 34 * TILE + 5;
+    const y = 31 * TILE + 2;
+    return {
+      id: DUMMY_ID,
+      saveId: DUMMY_ID,
+      type: "enemy",
+      kind: "trainingDummy",
+      name: "Boneco de Treino",
+      label: "Boneco de Treino",
+      x, y, spawnX: x, spawnY: y,
+      width: 28,
+      height: 42,
+      hp: 999999,
+      maxHp: 999999,
+      damage: 0.0001,
+      defense: 0,
+      speed: 0.0001,
+      coinReward: 0,
+      xpReward: 0,
+      aggroRange: 0.0001,
+      attackRange: 0.0001,
+      attackDelay: 999,
+      attackCooldown: 999,
+      attackTimer: 999,
+      alive: true,
+      solid: false,
+      trainingDummy: true,
+      noDrop: true,
+      noXp: true,
+      direction: "down",
+      state: "idle",
+      moveTimer: 999,
+      resistances: {
+        fisico: 1, magico: 1,
+        fireCrystalStaff: 1, frostCrystalStaff: 1, natureVineStaff: 1,
+        necroSkullStaff: 1, holySeraphStaff: 1, stormOrbStaff: 1,
+        arcaneCrystalStaff: 1, venomSerpentStaff: 1, solarScarabStaff: 1,
+        infernalDemonStaff: 1, fireSword: 1, iceSword: 1, shadowSword: 1, stormSword: 1
+      },
+      message: "Boneco de Treino: bata em mim para testar dano, cajados, espadas e efeitos.",
+      role: "trainingDummy"
+    };
+  }
+
+  function ensureTrainingDummy() {
+    if (!Array.isArray(villageObjects)) return null;
+    let dummy = villageObjects.find(isTrainingDummy);
+    if (!dummy) {
+      dummy = makeTrainingDummy();
+      villageObjects.push(dummy);
+    }
+
+    dummy.trainingDummy = true;
+    dummy.type = "enemy";
+    dummy.kind = "trainingDummy";
+    dummy.name = "Boneco de Treino";
+    dummy.label = "Boneco de Treino";
+    dummy.alive = true;
+    dummy.maxHp = 999999;
+    dummy.hp = Math.min(999999, Math.max(999800, Number(dummy.hp || 999999)));
+    dummy.width = 28;
+    dummy.height = 42;
+    dummy.damage = 0.0001;
+    dummy.speed = 0.0001;
+    dummy.coinReward = 0;
+    dummy.x = 34 * TILE + 5;
+    dummy.y = 31 * TILE + 2;
+    dummy.spawnX = dummy.x;
+    dummy.spawnY = dummy.y;
+    dummy.aggroRange = 0.0001;
+    dummy.attackRange = 0.0001;
+    dummy.attackDelay = 999;
+    dummy.attackCooldown = 999;
+    dummy.attackTimer = 999;
+    dummy.knockbackX = 0;
+    dummy.knockbackY = 0;
+    dummy.solid = false;
+    dummy.moveTimer = 999;
+    dummy.state = "idle";
+    dummy.message = "Boneco de Treino: bata em mim para testar dano, cajados, espadas e efeitos.";
+    return dummy;
+  }
+
+  function drawTrainingDummy(obj) {
+    const t = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
+    const x = obj.x;
+    const y = obj.y;
+
+    ctx.save();
+
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    ctx.beginPath();
+    ctx.ellipse(x + 14, y + 40, 18, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#5a3424";
+    ctx.fillRect(x + 11, y + 25, 6, 20);
+    ctx.fillStyle = "#8b5a32";
+    ctx.fillRect(x + 3, y + 41, 22, 5);
+    ctx.fillStyle = "#3b241a";
+    ctx.fillRect(x + 1, y + 45, 26, 4);
+
+    const bob = Math.sin(t * 4) * 1.2;
+    ctx.fillStyle = "#c39155";
+    ctx.fillRect(x + 6, y + 10 + bob, 16, 22);
+    ctx.fillStyle = "#e0b36b";
+    ctx.fillRect(x + 8, y + 12 + bob, 12, 18);
+    ctx.fillStyle = "#7a4b2a";
+    ctx.fillRect(x + 5, y + 17 + bob, 18, 3);
+    ctx.fillRect(x + 5, y + 26 + bob, 18, 3);
+
+    ctx.fillStyle = "#b7773e";
+    ctx.fillRect(x + 7, y + 0 + bob, 14, 13);
+    ctx.fillStyle = "#f1cb83";
+    ctx.fillRect(x + 9, y + 2 + bob, 10, 9);
+
+    ctx.fillStyle = "#2b1a1f";
+    ctx.fillRect(x + 10, y + 5 + bob, 2, 2);
+    ctx.fillRect(x + 16, y + 5 + bob, 2, 2);
+    ctx.fillStyle = "#ff4f62";
+    ctx.fillRect(x + 13, y + 19 + bob, 2, 2);
+    ctx.strokeStyle = "rgba(255,79,98,.85)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x + 14, y + 20 + bob, 7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + 14, y + 20 + bob, 3, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#2d3458";
+    ctx.fillRect(x - 18, y - 18, 64, 12);
+    ctx.strokeStyle = "#f5ce79";
+    ctx.strokeRect(x - 18, y - 18, 64, 12);
+    ctx.fillStyle = "#fff3d6";
+    ctx.font = "bold 7px Arial";
+    ctx.fillText("TREINO", x - 5, y - 9);
+
+    ctx.fillStyle = "rgba(26,31,61,.88)";
+    ctx.fillRect(x - 4, y - 4, 36, 4);
+    ctx.fillStyle = "#7ee255";
+    ctx.fillRect(x - 3, y - 3, 34, 2);
+
+    const statuses = [
+      [obj.staffBurnTimer, "#ff6d2e", "F"],
+      [obj.staffFreezeTimer, "#73d5ff", "G"],
+      [obj.staffPoisonTimer, "#9ae240", "V"],
+      [obj.staffCurseTimer, "#af6cff", "D"],
+      [obj.staffStunTimer, "#55e8ff", "R"],
+      [obj.staffRootTimer || obj.staffEarthRootTimer, "#7ee255", "Z"],
+      [obj.staffFragileTimer || obj.staffArmorCrackTimer, "#ffe58c", "Q"],
+      [obj.staffDreadTimer, "#ff4f62", "!"]
+    ];
+    let sx = x - 5;
+    for (const [timer, color, letter] of statuses) {
+      if (!(Number(timer || 0) > 0)) continue;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.82 + Math.sin(t * 8) * 0.12;
+      ctx.fillRect(sx, y - 31, 8, 8);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#111522";
+      ctx.font = "bold 6px Arial";
+      ctx.fillText(letter, sx + 2, y - 25);
+      sx += 10;
+    }
+
+    ctx.restore();
+  }
+
+  const getEnemyStatsBeforeTrainingDummy = typeof getEnemyStats === "function" ? getEnemyStats : null;
+  getEnemyStats = function getEnemyStatsTrainingDummy(kind) {
+    if (kind === "trainingDummy") {
+      return {
+        width: 28, height: 42, hp: 999999, damage: 0.0001, speed: 0.0001,
+        aggroRange: 0.0001, attackRange: 0.0001, attackDelay: 999,
+        coinReward: 0, projectileType: null, dropTable: {}, xpReward: 0
+      };
+    }
+    return getEnemyStatsBeforeTrainingDummy ? getEnemyStatsBeforeTrainingDummy(kind) : {
+      width: 22, height: 20, hp: 3, damage: 1, speed: 45,
+      aggroRange: 190, attackRange: 28, attackDelay: 1.1,
+      coinReward: 0, projectileType: null, dropTable: {}, xpReward: 0
+    };
+  };
+
+  const defeatEnemyBeforeTrainingDummy = typeof defeatEnemy === "function" ? defeatEnemy : null;
+  defeatEnemy = function defeatEnemyTrainingDummy(obj) {
+    if (isTrainingDummy(obj)) {
+      obj.alive = true;
+      obj.hp = obj.maxHp || 999999;
+      obj.knockbackX = 0;
+      obj.knockbackY = 0;
+      try { spawnFloatingText("Boneco resetado", obj.x + obj.width / 2, obj.y - 18, "#fff264"); } catch (error) {}
+      return;
+    }
+    return defeatEnemyBeforeTrainingDummy ? defeatEnemyBeforeTrainingDummy(obj) : undefined;
+  };
+
+  const damageEnemyBeforeTrainingDummy = typeof damageEnemy === "function" ? damageEnemy : null;
+  damageEnemy = function damageEnemyTrainingDummy(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = "fisico") {
+    const result = damageEnemyBeforeTrainingDummy ? damageEnemyBeforeTrainingDummy(obj, amount, sourceX, sourceY, isTrainingDummy(obj) ? 0 : knockbackPower, damageType) : false;
+    if (isTrainingDummy(obj)) {
+      obj.alive = true;
+      obj.hp = obj.maxHp || 999999;
+      obj.x = obj.spawnX;
+      obj.y = obj.spawnY;
+      obj.knockbackX = 0;
+      obj.knockbackY = 0;
+    }
+    return result;
+  };
+
+  const drawEnemyBeforeTrainingDummy = typeof drawEnemy === "function" ? drawEnemy : null;
+  drawEnemy = function drawEnemyTrainingDummy(obj) {
+    if (isTrainingDummy(obj)) {
+      drawTrainingDummy(obj);
+      return;
+    }
+    return drawEnemyBeforeTrainingDummy ? drawEnemyBeforeTrainingDummy(obj) : undefined;
+  };
+
+  const updateEnemiesBeforeTrainingDummy = typeof updateEnemies === "function" ? updateEnemies : null;
+  updateEnemies = function updateEnemiesTrainingDummy(delta) {
+    const dummy = ensureTrainingDummy();
+    if (dummy) {
+      dummy.x = dummy.spawnX;
+      dummy.y = dummy.spawnY;
+      dummy.knockbackX = 0;
+      dummy.knockbackY = 0;
+      dummy.alive = true;
+      dummy.damage = 0.0001;
+      dummy.attackCooldown = 999;
+      dummy.attackTimer = 999;
+    }
+    return updateEnemiesBeforeTrainingDummy ? updateEnemiesBeforeTrainingDummy(delta) : undefined;
+  };
+
+  const setActiveSceneBeforeTrainingDummy = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneTrainingDummy(scene) {
+    const result = setActiveSceneBeforeTrainingDummy ? setActiveSceneBeforeTrainingDummy(scene) : undefined;
+    ensureTrainingDummy();
+    return result;
+  };
+
+  const loadGameBeforeTrainingDummy = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameTrainingDummy() {
+    const ok = loadGameBeforeTrainingDummy ? loadGameBeforeTrainingDummy() : false;
+    ensureTrainingDummy();
+    return ok;
+  };
+
+  const drawBeforeTrainingDummy = typeof draw === "function" ? draw : null;
+  draw = function drawTrainingDummyPatch() {
+    ensureTrainingDummy();
+    return drawBeforeTrainingDummy ? drawBeforeTrainingDummy() : undefined;
+  };
+
+  try {
+    ensureTrainingDummy();
+    console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+  } catch (error) {}
+})();
+
+
+/* ==================================================
+   HOTFIX: mais baus pelo mapa + inimigos iniciais mais fortes
+   - Espalha baus de tesouro pela vila/mundo principal.
+   - Cada bau abre uma vez e fica salvo em questBook.openedChests.
+   - Buffa inimigos pequenos/iniciais: slimes, morcego, aranha e goblins.
+   ================================================== */
+(function moreChestsAndStrongerEarlyEnemiesPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MORE_CHESTS_STRONGER_EARLY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MORE_CHESTS_STRONGER_EARLY_PATCH = true;
+
+  const PATCH_VERSION = "baus-mapa-inimigos-iniciais-fortes-20260706-1";
+
+  const EXTRA_MAP_CHESTS = [
+    { id: "village_plaza", tileX: 33, tileY: 27, name: "Bau da Praca", rarity: "comum", coins: 18, potions: 1, arrows: 8, xp: 55, color: "#f5ce79" },
+    { id: "forest_edge", tileX: 8, tileY: 31, name: "Bau da Floresta", rarity: "incomum", coins: 26, potions: 1, arrows: 12, xp: 85, color: "#65dc83" },
+    { id: "old_cave", tileX: 12, tileY: 11, name: "Bau da Caverna", rarity: "raro", coins: 35, potions: 2, arrows: 14, xp: 120, manaOrbes: 1, color: "#58dfff" },
+    { id: "lake_echo", tileX: 61, tileY: 25, name: "Bau do Lago dos Ecos", rarity: "raro", coins: 42, potions: 1, arrows: 18, xp: 135, manaOrbes: 1, color: "#55e8ff" },
+    { id: "ancient_ruins", tileX: 64, tileY: 14, name: "Bau das Ruinas Antigas", rarity: "epico", coins: 55, potions: 2, arrows: 20, xp: 190, manaOrbes: 2, color: "#c076ff" },
+    { id: "deep_forest", tileX: 18, tileY: 54, name: "Bau da Floresta Profunda", rarity: "epico", coins: 64, potions: 2, arrows: 24, xp: 220, manaOrbes: 2, color: "#7ee255" },
+    { id: "arena_gate", tileX: 65, tileY: 45, name: "Bau da Arena", rarity: "lendario", coins: 85, potions: 3, arrows: 30, xp: 300, manaOrbes: 3, color: "#ffd76b" },
+    { id: "danger_zone", tileX: 76, tileY: 51, name: "Bau da Zona Perigosa", rarity: "mitico", coins: 110, potions: 3, arrows: 36, xp: 420, manaOrbes: 4, rareKeys: 1, color: "#ff7ab5" },
+    { id: "secret_path", tileX: 54, tileY: 53, name: "Bau do Caminho Secreto", rarity: "lendario", coins: 90, potions: 2, arrows: 28, xp: 320, manaOrbes: 3, rareKeys: 1, color: "#fff264" },
+    { id: "training_reward", tileX: 36, tileY: 31, name: "Bau do Treinamento", rarity: "raro", coins: 38, potions: 2, arrows: 18, xp: 140, manaOrbes: 1, color: "#55e8ff" }
+  ];
+
+  const EARLY_ENEMY_BUFFS = {
+    slime: { hpMul: 1.85, damageAdd: 1, speedMul: 1.12, xpMul: 1.45, coinAdd: 2 },
+    slimeVerde: { hpMul: 1.85, damageAdd: 1, speedMul: 1.12, xpMul: 1.45, coinAdd: 2 },
+    slimeVermelho: { hpMul: 1.75, damageAdd: 1, speedMul: 1.10, xpMul: 1.40, coinAdd: 3 },
+    slimeAzul: { hpMul: 1.70, damageAdd: 1, speedMul: 1.10, xpMul: 1.35, coinAdd: 3 },
+    morcego: { hpMul: 1.95, damageAdd: 1, speedMul: 1.08, xpMul: 1.45, coinAdd: 2 },
+    aranha: { hpMul: 1.85, damageAdd: 1, speedMul: 1.12, xpMul: 1.45, coinAdd: 3 },
+    goblin: { hpMul: 1.70, damageAdd: 1, speedMul: 1.10, xpMul: 1.35, coinAdd: 3 },
+    arqueiroGoblin: { hpMul: 1.60, damageAdd: 1, speedMul: 1.06, xpMul: 1.35, coinAdd: 3 }
+  };
+
+  function ensureChestSaveState() {
+    if (!questBook.openedChests || typeof questBook.openedChests !== "object") questBook.openedChests = {};
+    if (!questBook.extraMapChests || typeof questBook.extraMapChests !== "object") questBook.extraMapChests = {};
+    return questBook.extraMapChests;
+  }
+
+  function extraChestKey(chest) {
+    return `extraMapChest:${chest?.chestId || chest?.id || "unknown"}`;
+  }
+
+  function isExtraMapChest(obj) {
+    return Boolean(obj && obj.type === "extraMapChest");
+  }
+
+  function extraChestIsOpened(chest) {
+    const state = ensureChestSaveState();
+    const key = chest.chestId || chest.id;
+    return Boolean(chest.opened || state[key] || questBook.openedChests?.[extraChestKey(chest)]);
+  }
+
+  function createExtraMapChest(def) {
+    const state = ensureChestSaveState();
+    return {
+      type: "extraMapChest",
+      role: "mapTreasureChest",
+      chestId: def.id,
+      id: `extra-map-chest-${def.id}`,
+      name: def.name,
+      rarity: def.rarity,
+      reward: { ...def },
+      x: def.tileX * TILE,
+      y: def.tileY * TILE + 4,
+      width: TILE + 10,
+      height: TILE,
+      solid: false,
+      opened: Boolean(state[def.id]),
+      color: def.color,
+      message: `${def.name}: pressione E para abrir.`
+    };
+  }
+
+  function ensureExtraMapChests() {
+    if (!Array.isArray(villageObjects)) return;
+    ensureChestSaveState();
+
+    for (const def of EXTRA_MAP_CHESTS) {
+      let chest = villageObjects.find((obj) => isExtraMapChest(obj) && obj.chestId === def.id);
+      if (!chest) {
+        chest = createExtraMapChest(def);
+        villageObjects.push(chest);
+      } else {
+        chest.x = def.tileX * TILE;
+        chest.y = def.tileY * TILE + 4;
+        chest.width = TILE + 10;
+        chest.height = TILE;
+        chest.solid = false;
+        chest.name = def.name;
+        chest.rarity = def.rarity;
+        chest.color = def.color;
+        chest.reward = { ...def };
+        chest.message = `${def.name}: pressione E para abrir.`;
+      }
+      chest.opened = extraChestIsOpened(chest);
+    }
+
+    if (currentScene === "village") {
+      objects = villageObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message || obj.type === "npc" || obj.type === "rareChest" || obj.type === "extraMapChest");
+    }
+  }
+
+  function grantExtraChestReward(chest) {
+    const state = ensureChestSaveState();
+    const reward = chest.reward || {};
+    const id = chest.chestId || reward.id;
+    if (!id) return `${chest.name || "Bau"}: erro ao abrir.`;
+
+    if (extraChestIsOpened(chest)) {
+      return `${chest.name || "Bau"}: ele ja foi aberto. So sobrou um brilho fraco.`;
+    }
+
+    chest.opened = true;
+    state[id] = true;
+    questBook.openedChests[extraChestKey(chest)] = true;
+
+    inventory.moedas = Number(inventory.moedas || 0) + Number(reward.coins || 0);
+    inventory.pocoes = Number(inventory.pocoes || 0) + Number(reward.potions || 0);
+    inventory.flechas = Number(inventory.flechas || 0) + Number(reward.arrows || 0);
+    inventory.manaOrbes = Number(inventory.manaOrbes || 0) + Number(reward.manaOrbes || 0);
+    inventory.chavesRaras = Number(inventory.chavesRaras || 0) + Number(reward.rareKeys || 0);
+
+    if (reward.xp) awardXp(Number(reward.xp || 0), chest.name || "Bau do mapa");
+
+    try { playSound("chest"); } catch (error) {}
+    try { vibrate?.([18, 20, 18]); } catch (error) {}
+    updateHud();
+    renderInventory();
+
+    const rewardParts = [];
+    if (reward.coins) rewardParts.push(`${reward.coins} moedas`);
+    if (reward.potions) rewardParts.push(`${reward.potions} pocoes`);
+    if (reward.arrows) rewardParts.push(`${reward.arrows} flechas`);
+    if (reward.manaOrbes) rewardParts.push(`${reward.manaOrbes} orbe(s) de mana`);
+    if (reward.rareKeys) rewardParts.push(`${reward.rareKeys} chave rara`);
+    if (reward.xp) rewardParts.push(`${reward.xp} XP`);
+
+    try {
+      spawnFloatingText("Bau aberto!", chest.x + chest.width / 2, chest.y - 14, reward.color || "#fff264");
+      if (typeof showHudToast === "function") showHudToast(`${chest.name}: ${rewardParts.join(", ")}`);
+    } catch (error) {}
+
+    return `${chest.name} aberto! Voce recebeu ${rewardParts.join(", ")}.`;
+  }
+
+  function drawExtraMapChest(chest) {
+    const x = chest.x;
+    const y = chest.y;
+    const opened = extraChestIsOpened(chest);
+    const color = chest.color || "#f5ce79";
+    const pulse = Math.sin(performance.now() / 180) * 2;
+
+    ctx.save();
+
+    ctx.fillStyle = "rgba(0,0,0,.26)";
+    ctx.beginPath();
+    ctx.ellipse(x + chest.width / 2, y + chest.height + 5, chest.width / 2 + 4, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = opened ? 0.35 : 0.68;
+    ctx.fillStyle = color;
+    ctx.fillRect(x - 4, y - 8 + pulse, chest.width + 8, chest.height + 14);
+    ctx.globalAlpha = 1;
+
+    pixelRect(x, y + 10, chest.width, chest.height - 4, opened ? "#6f4b3a" : "#8f5a3f", "#1a1f3d");
+    pixelRect(x + 3, y + 1, chest.width - 6, 16, opened ? "#7a5a45" : "#d69a54", "#1a1f3d");
+
+    if (opened) {
+      pixelRect(x + 4, y - 5, chest.width - 8, 8, "#4a3028", "#1a1f3d");
+      ctx.fillStyle = "rgba(255,255,255,.35)";
+      ctx.fillRect(x + chest.width / 2 - 2, y + 8, 4, 4);
+    } else {
+      ctx.fillStyle = color;
+      ctx.fillRect(x + chest.width / 2 - 5, y + 14, 10, 8);
+      ctx.fillStyle = "#fff3d6";
+      ctx.fillRect(x + chest.width / 2 - 2, y + 16, 4, 3);
+      ctx.fillStyle = "rgba(255,255,255,.72)";
+      ctx.fillRect(x + 7, y + 5, 8, 2);
+      ctx.fillRect(x + chest.width - 13, y + 8, 5, 2);
+    }
+
+    ctx.fillStyle = opened ? "rgba(255,243,214,.65)" : "#fff3d6";
+    ctx.font = "bold 7px Arial";
+    const label = opened ? "ABERTO" : (String(chest.rarity || "BAU").toUpperCase().slice(0, 7));
+    ctx.fillText(label, x - 1, y - 9);
+
+    ctx.restore();
+  }
+
+  function applyEarlyBuffToEnemy(enemyObj) {
+    if (!enemyObj || enemyObj.type !== "enemy" || !enemyObj.alive || enemyObj.trainingDummy) return;
+    const kind = enemyObj.kind || "slime";
+    const buff = EARLY_ENEMY_BUFFS[kind];
+    if (!buff || enemyObj.earlyBuffApplied) return;
+
+    enemyObj.earlyBuffApplied = true;
+    enemyObj.maxHp = Math.max(Number(enemyObj.maxHp || enemyObj.hp || 1), Math.ceil(Number(enemyObj.maxHp || enemyObj.hp || 1) * buff.hpMul));
+    enemyObj.hp = Math.max(Number(enemyObj.hp || 1), enemyObj.maxHp);
+    enemyObj.damage = Math.max(1, Math.ceil(Number(enemyObj.damage || 1) + buff.damageAdd));
+    enemyObj.speed = Math.max(1, Math.round(Number(enemyObj.speed || 45) * buff.speedMul));
+    enemyObj.xpReward = Math.ceil(Number(enemyObj.xpReward || 2) * buff.xpMul);
+    enemyObj.coinReward = Math.ceil(Number(enemyObj.coinReward || 1) + buff.coinAdd);
+    enemyObj.aggroRange = Math.max(Number(enemyObj.aggroRange || 180), 230);
+    enemyObj.attackDelay = Math.max(0.72, Number(enemyObj.attackDelay || 1.1) * 0.88);
+  }
+
+  function buffEarlyEnemiesNow() {
+    const lists = [];
+    try { if (Array.isArray(villageObjects)) lists.push(villageObjects); } catch (error) {}
+    try { if (Array.isArray(objects) && objects !== villageObjects) lists.push(objects); } catch (error) {}
+    for (const list of lists) {
+      for (const obj of list) applyEarlyBuffToEnemy(obj);
+    }
+  }
+
+  const getEnemyStatsBeforeMoreChestsBuff = typeof getEnemyStats === "function" ? getEnemyStats : null;
+  getEnemyStats = function getEnemyStatsMoreChestsBuff(kind) {
+    const stats = getEnemyStatsBeforeMoreChestsBuff ? { ...getEnemyStatsBeforeMoreChestsBuff(kind) } : {
+      width: 22, height: 20, hp: 3, damage: 1, speed: 45,
+      aggroRange: 190, attackRange: 28, attackDelay: 1.1, coinReward: 3,
+      projectileType: null, dropTable: {}, xpReward: 2
+    };
+    const buff = EARLY_ENEMY_BUFFS[kind];
+    if (buff) {
+      stats.hp = Math.ceil(Number(stats.hp || 1) * buff.hpMul);
+      stats.damage = Math.ceil(Number(stats.damage || 1) + buff.damageAdd);
+      stats.speed = Math.round(Number(stats.speed || 45) * buff.speedMul);
+      stats.xpReward = Math.ceil(Number(stats.xpReward || 2) * buff.xpMul);
+      stats.coinReward = Math.ceil(Number(stats.coinReward || 1) + buff.coinAdd);
+      stats.aggroRange = Math.max(Number(stats.aggroRange || 180), 230);
+      stats.attackDelay = Math.max(0.72, Number(stats.attackDelay || 1.1) * 0.88);
+    }
+    return stats;
+  };
+
+  const normalizeEnemyBeforeMoreChestsBuff = typeof normalizeEnemy === "function" ? normalizeEnemy : null;
+  normalizeEnemy = function normalizeEnemyMoreChestsBuff(obj) {
+    const result = normalizeEnemyBeforeMoreChestsBuff ? normalizeEnemyBeforeMoreChestsBuff(obj) : undefined;
+    applyEarlyBuffToEnemy(obj);
+    return result;
+  };
+
+  const getQuestMessageBeforeMoreChests = typeof getQuestMessage === "function" ? getQuestMessage : null;
+  getQuestMessage = function getQuestMessageMoreChests(target) {
+    if (isExtraMapChest(target)) return grantExtraChestReward(target);
+    return getQuestMessageBeforeMoreChests ? getQuestMessageBeforeMoreChests(target) : "";
+  };
+
+  const drawObjectBeforeMoreChests = typeof drawObject === "function" ? drawObject : null;
+  drawObject = function drawObjectMoreChests(obj) {
+    if (isExtraMapChest(obj)) return drawExtraMapChest(obj);
+    return drawObjectBeforeMoreChests ? drawObjectBeforeMoreChests(obj) : undefined;
+  };
+
+  const findInteractionBeforeMoreChests = typeof findInteraction === "function" ? findInteraction : null;
+  findInteraction = function findInteractionMoreChests() {
+    if (currentScene === "village") {
+      ensureExtraMapChests();
+      const playerCenter = {
+        x: player.x + player.width / 2,
+        y: player.y + player.height / 2,
+        width: 1,
+        height: 1
+      };
+      const chest = villageObjects.find((obj) => {
+        if (!isExtraMapChest(obj)) return false;
+        const range = {
+          x: obj.x - 30,
+          y: obj.y - 30,
+          width: obj.width + 60,
+          height: obj.height + 60
+        };
+        return rectsOverlap(playerCenter, range);
+      });
+      if (chest) return chest;
+    }
+    return findInteractionBeforeMoreChests ? findInteractionBeforeMoreChests() : null;
+  };
+
+  const updateInteractionHintBeforeMoreChests = typeof updateInteractionHint === "function" ? updateInteractionHint : null;
+  updateInteractionHint = function updateInteractionHintMoreChests() {
+    const chest = currentScene === "village" ? (typeof findInteraction === "function" ? findInteraction() : null) : null;
+    if (isExtraMapChest(chest) && interactionHint) {
+      interactionHint.classList.remove("hidden");
+      interactionHint.textContent = extraChestIsOpened(chest) ? "Pressione E para verificar o bau aberto" : "Pressione E para abrir o bau do mapa";
+      if (touchActionButton) touchActionButton.classList.add("is-context-ready");
+      if (touchContextLabel) touchContextLabel.textContent = "Abrir";
+      return;
+    }
+    return updateInteractionHintBeforeMoreChests ? updateInteractionHintBeforeMoreChests() : undefined;
+  };
+
+  if (typeof rewardsForPremiumChest === "function") {
+    const rewardsForPremiumChestBeforeMoreChests = rewardsForPremiumChest;
+    rewardsForPremiumChest = function rewardsForPremiumChestMoreChests(target, resultText) {
+      if (isExtraMapChest(target)) {
+        const reward = target.reward || {};
+        const rarity = target.rarity || "raro";
+        const items = [];
+        if (reward.coins) items.push(rewardItem(`${reward.coins} moedas`, reward.coins, rarity, "Ouro"));
+        if (reward.potions) items.push(rewardItem(`${reward.potions} pocoes`, reward.potions, "raro", "Consumivel"));
+        if (reward.arrows) items.push(rewardItem(`${reward.arrows} flechas`, reward.arrows, "incomum", "Municao"));
+        if (reward.manaOrbes) items.push(rewardItem(`${reward.manaOrbes} orbe(s) de mana`, reward.manaOrbes, "epico", "Mana"));
+        if (reward.rareKeys) items.push(rewardItem(`${reward.rareKeys} chave rara`, reward.rareKeys, "lendario", "Chave"));
+        if (reward.xp) items.push(rewardItem(`${reward.xp} XP`, reward.xp, rarity, "Experiencia"));
+        return items.length ? items : [rewardItem("Tesouro", 1, rarity, "Recompensa")];
+      }
+      return rewardsForPremiumChestBeforeMoreChests(target, resultText);
+    };
+  }
+
+  const setActiveSceneBeforeMoreChests = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneMoreChests(scene) {
+    const result = setActiveSceneBeforeMoreChests ? setActiveSceneBeforeMoreChests(scene) : undefined;
+    ensureExtraMapChests();
+    buffEarlyEnemiesNow();
+    return result;
+  };
+
+  const loadGameBeforeMoreChests = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameMoreChests() {
+    const ok = loadGameBeforeMoreChests ? loadGameBeforeMoreChests() : false;
+    ensureExtraMapChests();
+    buffEarlyEnemiesNow();
+    return ok;
+  };
+
+  const updateBeforeMoreChests = typeof update === "function" ? update : null;
+  update = function updateMoreChests(delta) {
+    ensureExtraMapChests();
+    buffEarlyEnemiesNow();
+    return updateBeforeMoreChests ? updateBeforeMoreChests(delta) : undefined;
+  };
+
+  try {
+    ensureExtraMapChests();
+    buffEarlyEnemiesNow();
+    console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+  } catch (error) {}
+})();
+
+
+/* ==================================================
+   HOTFIX: boneco de treino com fisica e hitbox real
+   - Corrige o boneco de treino para ter colisao e poder ser acertado.
+   - Hitbox maior e deteccao generosa para espadas e projeteis.
+   ================================================== */
+(function trainingDummyPhysicsHitFixPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_TRAINING_DUMMY_HIT_FIX_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_TRAINING_DUMMY_HIT_FIX_PATCH = true;
+
+  const PATCH_VERSION = "boneco-treino-fisica-hitbox-20260706-1";
+  const DUMMY_ID = "village-training-dummy-main";
+
+  function isTrainingDummyFixed(obj) {
+    return Boolean(obj && (obj.trainingDummy || obj.kind === "trainingDummy" || obj.id === DUMMY_ID || obj.saveId === DUMMY_ID));
+  }
+
+  function getTrainingDummyFixed() {
+    if (!Array.isArray(villageObjects)) return null;
+    return villageObjects.find(isTrainingDummyFixed) || null;
+  }
+
+  function ensureTrainingDummyFixed() {
+    const dummy = getTrainingDummyFixed();
+    if (!dummy) return null;
+
+    dummy.trainingDummy = true;
+    dummy.type = "enemy";
+    dummy.kind = "trainingDummy";
+    dummy.name = "Boneco de Treino";
+    dummy.label = "Boneco de Treino";
+
+    // Posicao firme e hitbox mais confortavel.
+    dummy.x = 34 * TILE + 1;
+    dummy.y = 31 * TILE - 2;
+    dummy.spawnX = dummy.x;
+    dummy.spawnY = dummy.y;
+    dummy.width = 34;
+    dummy.height = 50;
+
+    // Agora tem fisica/colisao.
+    dummy.solid = true;
+    dummy.physics = true;
+    dummy.collider = true;
+
+    // Continua imortal e parado.
+    dummy.maxHp = 999999;
+    dummy.hp = dummy.maxHp;
+    dummy.alive = true;
+    dummy.damage = 0.0001;
+    dummy.speed = 0.0001;
+    dummy.attackCooldown = 999;
+    dummy.attackTimer = 999;
+    dummy.aggroRange = 0.0001;
+    dummy.attackRange = 0.0001;
+    dummy.knockbackX = 0;
+    dummy.knockbackY = 0;
+
+    if (Array.isArray(objects) && !objects.includes(dummy) && currentScene === "village") objects.push(dummy);
+    if (Array.isArray(colliders) && !colliders.includes(dummy)) colliders.push(dummy);
+    if (Array.isArray(interactables) && !interactables.includes(dummy)) interactables.push(dummy);
+
+    return dummy;
+  }
+
+  const resolveBasicAttackBeforeDummyFix = typeof resolveBasicAttack === "function" ? resolveBasicAttack : null;
+  resolveBasicAttack = function resolveBasicAttackTrainingDummyFix() {
+    if (!currentMeleeAttack) return resolveBasicAttackBeforeDummyFix ? resolveBasicAttackBeforeDummyFix() : undefined;
+
+    let hit = false;
+    const dummy = ensureTrainingDummyFixed();
+    if (dummy && dummy.alive) {
+      const centerX = player.x + player.width / 2;
+      const centerY = player.y + player.height / 2;
+      const dummyX = dummy.x + dummy.width / 2;
+      const dummyY = dummy.y + dummy.height / 2;
+      const dx = dummyX - centerX;
+      const dy = dummyY - centerY;
+      const distance = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx);
+      const diff = Math.abs(angleDifference(angle, currentMeleeAttack.angle));
+      const generousRange = (currentMeleeAttack.range || 48) + Math.max(dummy.width, dummy.height) * 0.72;
+      const generousArc = Math.min(Math.PI * 1.15, (currentMeleeAttack.arc || Math.PI * 0.72) + 0.46);
+
+      if (distance <= generousRange && diff <= generousArc / 2) {
+        const damage = getBasicAttackDamage(currentMeleeAttack.weaponKey);
+        const weapon = weapons[currentMeleeAttack.weaponKey] || weapons.sword;
+        if (damageEnemy(dummy, damage, centerX, centerY, 0, weapon.damageType)) {
+          hit = true;
+        }
+      }
+    }
+
+    const result = resolveBasicAttackBeforeDummyFix ? resolveBasicAttackBeforeDummyFix() : undefined;
+    if (hit) {
+      try { playSound("hitEnemy"); } catch (error) {}
+    }
+    return result;
+  };
+
+  const updateProjectilesBeforeDummyFix = typeof updateProjectiles === "function" ? updateProjectiles : null;
+  updateProjectiles = function updateProjectilesTrainingDummyFix(delta) {
+    const result = updateProjectilesBeforeDummyFix ? updateProjectilesBeforeDummyFix(delta) : undefined;
+
+    const dummy = ensureTrainingDummyFixed();
+    if (!dummy || !dummy.alive || !Array.isArray(projectiles)) return result;
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const obj = projectiles[i];
+      if (!obj) continue;
+      if (!rectsOverlap(obj, dummy)) continue;
+
+      const srcX = (obj.x || 0) + (obj.width || 0) / 2;
+      const srcY = (obj.y || 0) + (obj.height || 0) / 2;
+      if (damageEnemy(dummy, Number(obj.damage || 1), srcX, srcY, 0, obj.damageType || "fisico")) {
+        try { playSound("hitEnemy"); } catch (error) {}
+      }
+      projectiles.splice(i, 1);
+    }
+
+    return result;
+  };
+
+  const updateEnemiesBeforeDummyFix = typeof updateEnemies === "function" ? updateEnemies : null;
+  updateEnemies = function updateEnemiesTrainingDummyPhysicsFix(delta) {
+    const dummy = ensureTrainingDummyFixed();
+    if (dummy) {
+      dummy.x = dummy.spawnX;
+      dummy.y = dummy.spawnY;
+      dummy.knockbackX = 0;
+      dummy.knockbackY = 0;
+      dummy.solid = true;
+      dummy.alive = true;
+      dummy.hp = dummy.maxHp;
+      if (Array.isArray(colliders) && !colliders.includes(dummy)) colliders.push(dummy);
+    }
+    return updateEnemiesBeforeDummyFix ? updateEnemiesBeforeDummyFix(delta) : undefined;
+  };
+
+  const setActiveSceneBeforeDummyFix = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneTrainingDummyPhysicsFix(scene) {
+    const result = setActiveSceneBeforeDummyFix ? setActiveSceneBeforeDummyFix(scene) : undefined;
+    ensureTrainingDummyFixed();
+    return result;
+  };
+
+  const loadGameBeforeDummyFix = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameTrainingDummyPhysicsFix() {
+    const ok = loadGameBeforeDummyFix ? loadGameBeforeDummyFix() : false;
+    ensureTrainingDummyFixed();
+    return ok;
+  };
+
+  const drawBeforeDummyFix = typeof draw === "function" ? draw : null;
+  draw = function drawTrainingDummyPhysicsFix() {
+    ensureTrainingDummyFixed();
+    return drawBeforeDummyFix ? drawBeforeDummyFix() : undefined;
+  };
+
+  try {
+    ensureTrainingDummyFixed();
+    console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+  } catch (error) {}
+})();
+
+
+/* ==================================================
+   HOTFIX: inimigos renascem em 1 minuto
+   - Todo inimigo comum derrotado volta apos 60 segundos.
+   - O tempo continua salvo no save.
+   - Bosses e boneco de treino nao entram nisso.
+   ================================================== */
+(function enemyRespawnOneMinutePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ENEMY_RESPAWN_ONE_MINUTE_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ENEMY_RESPAWN_ONE_MINUTE_PATCH = true;
+
+  const PATCH_VERSION = "enemy-respawn-60s-20260706-1";
+  const RESPAWN_DELAY_SECONDS = 60;
+
+  function getAllEnemyListsForRespawnPatch() {
+    const lists = [];
+    try { if (Array.isArray(villageObjects)) lists.push(villageObjects); } catch (error) {}
+    try { if (Array.isArray(objects) && objects !== villageObjects) lists.push(objects); } catch (error) {}
+    try { if (Array.isArray(crystalDimensionObjects)) lists.push(crystalDimensionObjects); } catch (error) {}
+    try { if (Array.isArray(celestialObjects)) lists.push(celestialObjects); } catch (error) {}
+    try { if (Array.isArray(acidDimensionObjects)) lists.push(acidDimensionObjects); } catch (error) {}
+    return lists;
+  }
+
+  function getUniqueEnemiesForRespawnPatch() {
+    const seen = new Set();
+    const result = [];
+    for (const list of getAllEnemyListsForRespawnPatch()) {
+      for (const obj of list) {
+        if (!obj || obj.type !== "enemy" || seen.has(obj)) continue;
+        seen.add(obj);
+        result.push(obj);
+      }
+    }
+    return result;
+  }
+
+  function canAutoRespawnEnemy(obj) {
+    return Boolean(
+      obj &&
+      obj.type === "enemy" &&
+      !obj.boss &&
+      !obj.trainingDummy &&
+      obj.kind !== "trainingDummy"
+    );
+  }
+
+  function getEnemyRespawnKey(obj) {
+    try {
+      return typeof getSaveObjectKey === "function"
+        ? getSaveObjectKey(obj)
+        : `${obj.type}:${obj.kind}:${Math.round(obj.spawnX ?? obj.x)}:${Math.round(obj.spawnY ?? obj.y)}`;
+    } catch (error) {
+      return `${obj.type}:${obj.kind}:${Math.round(obj.spawnX ?? obj.x)}:${Math.round(obj.spawnY ?? obj.y)}`;
+    }
+  }
+
+  function ensureEnemyRespawnFields(obj) {
+    if (!obj) return obj;
+    if (!Number.isFinite(obj.spawnX)) obj.spawnX = obj.x;
+    if (!Number.isFinite(obj.spawnY)) obj.spawnY = obj.y;
+    if (!Number.isFinite(obj.respawnDelay)) obj.respawnDelay = RESPAWN_DELAY_SECONDS;
+    if (typeof obj.respawnEnabled !== "boolean") obj.respawnEnabled = canAutoRespawnEnemy(obj);
+    return obj;
+  }
+
+  function markEnemyForRespawn(obj) {
+    if (!canAutoRespawnEnemy(obj)) return;
+    ensureEnemyRespawnFields(obj);
+    obj.respawnEnabled = true;
+    obj.respawnDelay = RESPAWN_DELAY_SECONDS;
+    obj.respawnAt = Date.now() + RESPAWN_DELAY_SECONDS * 1000;
+    obj.respawnTimer = RESPAWN_DELAY_SECONDS;
+  }
+
+  function respawnEnemyNow(obj) {
+    if (!canAutoRespawnEnemy(obj)) return false;
+    ensureEnemyRespawnFields(obj);
+    const stats = typeof getEnemyStats === "function" ? getEnemyStats(obj.kind) : null;
+
+    obj.alive = true;
+    obj.maxHp = Number.isFinite(obj.maxHp) ? obj.maxHp : (stats?.hp ?? 3);
+    obj.hp = obj.maxHp;
+    obj.phase = 1;
+    obj.x = Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+    obj.y = Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+    obj.attackCooldown = 0;
+    obj.attackTimer = 0;
+    obj.invulnerableTimer = 0.35;
+    obj.knockbackX = 0;
+    obj.knockbackY = 0;
+    obj.state = "idle";
+    obj.targetX = obj.x;
+    obj.targetY = obj.y;
+    obj.respawnAt = 0;
+    obj.respawnTimer = 0;
+
+    try { normalizeEnemy(obj); } catch (error) {}
+
+    return true;
+  }
+
+  function processEnemyRespawns(delta = 0) {
+    for (const obj of getUniqueEnemiesForRespawnPatch()) {
+      ensureEnemyRespawnFields(obj);
+      if (!canAutoRespawnEnemy(obj) || obj.alive) continue;
+
+      if (Number.isFinite(obj.respawnAt) && obj.respawnAt > 0) {
+        obj.respawnTimer = Math.max(0, (obj.respawnAt - Date.now()) / 1000);
+      } else if (Number.isFinite(obj.respawnTimer)) {
+        obj.respawnTimer = Math.max(0, obj.respawnTimer - Math.max(0, Number(delta) || 0));
+      } else {
+        obj.respawnTimer = RESPAWN_DELAY_SECONDS;
+      }
+
+      if (obj.respawnTimer <= 0 || (Number.isFinite(obj.respawnAt) && obj.respawnAt > 0 && Date.now() >= obj.respawnAt)) {
+        if (respawnEnemyNow(obj)) {
+          try {
+            spawnFloatingText("Renasceu!", obj.x, obj.y - 14, "#7ee255");
+          } catch (error) {}
+        }
+      }
+    }
+  }
+
+  const normalizeEnemyBeforeRespawnPatch = typeof normalizeEnemy === "function" ? normalizeEnemy : null;
+  normalizeEnemy = function normalizeEnemyRespawnPatch(obj) {
+    const result = normalizeEnemyBeforeRespawnPatch ? normalizeEnemyBeforeRespawnPatch(obj) : undefined;
+    ensureEnemyRespawnFields(obj);
+    return result;
+  };
+
+  const defeatEnemyBeforeRespawnPatch = typeof defeatEnemy === "function" ? defeatEnemy : null;
+  defeatEnemy = function defeatEnemyRespawnPatch(obj) {
+    const result = defeatEnemyBeforeRespawnPatch ? defeatEnemyBeforeRespawnPatch(obj) : undefined;
+    if (obj && obj.alive === false) {
+      markEnemyForRespawn(obj);
+    }
+    return result;
+  };
+
+  const updateEnemiesBeforeRespawnPatch = typeof updateEnemies === "function" ? updateEnemies : null;
+  updateEnemies = function updateEnemiesRespawnPatch(delta) {
+    const result = updateEnemiesBeforeRespawnPatch ? updateEnemiesBeforeRespawnPatch(delta) : undefined;
+    processEnemyRespawns(delta);
+    return result;
+  };
+
+  const updateBeforeRespawnPatch = typeof update === "function" ? update : null;
+  update = function updateRespawnPatch(delta) {
+    const result = updateBeforeRespawnPatch ? updateBeforeRespawnPatch(delta) : undefined;
+    processEnemyRespawns(delta);
+    return result;
+  };
+
+  const saveGameBeforeRespawnPatch = typeof saveGame === "function" ? saveGame : null;
+  saveGame = function saveGameRespawnPatch() {
+    const result = saveGameBeforeRespawnPatch ? saveGameBeforeRespawnPatch() : undefined;
+
+    try {
+      const raw = typeof readSaveRaw === "function" ? readSaveRaw() : null;
+      if (!raw) return result;
+      const save = JSON.parse(raw);
+      const byKey = new Map();
+
+      for (const enemy of getUniqueEnemiesForRespawnPatch()) {
+        ensureEnemyRespawnFields(enemy);
+        byKey.set(getEnemyRespawnKey(enemy), {
+          respawnEnabled: Boolean(enemy.respawnEnabled),
+          respawnDelay: Number(enemy.respawnDelay || RESPAWN_DELAY_SECONDS),
+          respawnTimer: Number(enemy.respawnTimer || 0),
+          respawnAt: Number(enemy.respawnAt || 0),
+          spawnX: Number(enemy.spawnX ?? enemy.x),
+          spawnY: Number(enemy.spawnY ?? enemy.y)
+        });
+      }
+
+      save.enemies = (save.enemies || []).map((entry) => {
+        const extra = byKey.get(entry.key);
+        return extra ? { ...entry, ...extra } : entry;
+      });
+
+      if (typeof writeSaveRaw === "function") writeSaveRaw(JSON.stringify(save));
+    } catch (error) {}
+
+    return result;
+  };
+
+  const loadGameBeforeRespawnPatch = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameRespawnPatch() {
+    const ok = loadGameBeforeRespawnPatch ? loadGameBeforeRespawnPatch() : false;
+
+    try {
+      const raw = typeof readSaveRaw === "function" ? readSaveRaw() : null;
+      const save = raw ? JSON.parse(raw) : null;
+      const byKey = new Map((save?.enemies || []).map((entry) => [entry.key, entry]));
+
+      for (const enemy of getUniqueEnemiesForRespawnPatch()) {
+        ensureEnemyRespawnFields(enemy);
+        const entry = byKey.get(getEnemyRespawnKey(enemy));
+        if (!entry) continue;
+
+        enemy.spawnX = Number.isFinite(entry.spawnX) ? entry.spawnX : enemy.spawnX;
+        enemy.spawnY = Number.isFinite(entry.spawnY) ? entry.spawnY : enemy.spawnY;
+        enemy.respawnEnabled = typeof entry.respawnEnabled === "boolean" ? entry.respawnEnabled : canAutoRespawnEnemy(enemy);
+        enemy.respawnDelay = Number.isFinite(entry.respawnDelay) ? entry.respawnDelay : RESPAWN_DELAY_SECONDS;
+
+        if (!enemy.alive && canAutoRespawnEnemy(enemy)) {
+          if (Number.isFinite(entry.respawnAt) && entry.respawnAt > 0) {
+            enemy.respawnAt = entry.respawnAt;
+            enemy.respawnTimer = Math.max(0, (enemy.respawnAt - Date.now()) / 1000);
+          } else if (Number.isFinite(entry.respawnTimer) && entry.respawnTimer > 0) {
+            enemy.respawnTimer = entry.respawnTimer;
+            enemy.respawnAt = Date.now() + enemy.respawnTimer * 1000;
+          } else {
+            enemy.respawnTimer = RESPAWN_DELAY_SECONDS;
+            enemy.respawnAt = Date.now() + RESPAWN_DELAY_SECONDS * 1000;
+          }
+        }
+      }
+
+      processEnemyRespawns(0);
+    } catch (error) {}
+
+    return ok;
+  };
+
+  try {
+    for (const enemy of getUniqueEnemiesForRespawnPatch()) ensureEnemyRespawnFields(enemy);
+    processEnemyRespawns(0);
+    console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+  } catch (error) {}
+})();
+
+
+/* ==================================================
+   HOTFIX: exteriores das casas da vila iguais às imagens
+   - Usa as imagens reais enviadas como sprites das casas.
+   - Não gera arte nova: apenas recorta fundo e desenha no Canvas.
+   ================================================== */
+(function exactVillageHouseExteriorPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_EXACT_VILLAGE_HOUSES_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_EXACT_VILLAGE_HOUSES_PATCH = true;
+
+  const PATCH_VERSION = "casas-vila-imagem-exata-20260706-1";
+
+  const HOUSE_EXTERIOR_ASSETS = {
+    blue: {
+      src: `village-house-blue-game.png?v=${PATCH_VERSION}`,
+      fullSrc: `village-house-blue.png?v=${PATCH_VERSION}`,
+      w: 158,
+      h: 156,
+      roof: "azul"
+    },
+    clay: {
+      src: `village-house-clay-game.png?v=${PATCH_VERSION}`,
+      fullSrc: `village-house-clay.png?v=${PATCH_VERSION}`,
+      w: 153,
+      h: 156,
+      roof: "telha"
+    }
+  };
+
+  for (const asset of Object.values(HOUSE_EXTERIOR_ASSETS)) {
+    const img = new Image();
+    img.src = asset.src;
+    asset.image = img;
+    const full = new Image();
+    full.src = asset.fullSrc;
+    asset.fullImage = full;
+  }
+
+  function chooseVillageHouseAsset(obj) {
+    const title = String(obj?.title || obj?.name || "");
+    if (obj?.type === "playerHouse") return HOUSE_EXTERIOR_ASSETS.blue;
+    if (obj?.type === "shop") return HOUSE_EXTERIOR_ASSETS.blue;
+    if (/prefeito|loja|lia|estrela|armazem/i.test(title)) return HOUSE_EXTERIOR_ASSETS.blue;
+    const seed = Math.abs([...title].reduce((acc, ch) => ((acc << 5) - acc + ch.charCodeAt(0)) | 0, Math.round(obj?.x || 0)));
+    return seed % 2 === 0 ? HOUSE_EXTERIOR_ASSETS.clay : HOUSE_EXTERIOR_ASSETS.blue;
+  }
+
+  function drawExactVillageHouseSprite(obj, mode = "house") {
+    const asset = chooseVillageHouseAsset(obj);
+    const img = asset.image;
+
+    if (!img || !img.complete || img.naturalWidth <= 0) return false;
+
+    const naturalW = asset.w || img.naturalWidth;
+    const naturalH = asset.h || img.naturalHeight;
+
+    // Mantém a casa grande, bonita, mas alinhada ao collider antigo.
+    const visualW = mode === "shop" ? 166 : mode === "player" ? 164 : 158;
+    const visualH = Math.round(naturalH * (visualW / naturalW));
+
+    const drawX = Math.round(obj.x + obj.width / 2 - visualW / 2);
+    const drawY = Math.round(obj.y + obj.height - visualH + 10);
+
+    ctx.save();
+
+    // Sombra suave no chão para a sprite não ficar "colada".
+    ctx.fillStyle = "rgba(0,0,0,.24)";
+    ctx.beginPath();
+    ctx.ellipse(obj.x + obj.width / 2, obj.y + obj.height + 5, obj.width * 0.58, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pequeno brilho quente nas janelas da vila, respeitando a imagem original.
+    const pulse = 0.18 + Math.sin((performance.now?.() || Date.now()) / 320 + obj.x) * 0.06;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = "rgba(255, 209, 139, .55)";
+    ctx.fillRect(drawX + visualW * 0.28, drawY + visualH * 0.47, visualW * 0.15, visualH * 0.13);
+    ctx.fillRect(drawX + visualW * 0.66, drawY + visualH * 0.48, visualW * 0.13, visualH * 0.12);
+    ctx.globalAlpha = 1;
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, drawX, drawY, visualW, visualH);
+
+    // Destaque por tipo, bem discreto.
+    if (mode === "player") {
+      ctx.fillStyle = "rgba(255,242,100,.75)";
+      ctx.fillRect(drawX + Math.round(visualW * 0.48), drawY + Math.round(visualH * 0.55), 9, 3);
+      ctx.fillRect(drawX + Math.round(visualW * 0.50), drawY + Math.round(visualH * 0.53), 3, 9);
+    } else if (mode === "shop") {
+      ctx.fillStyle = "rgba(85,232,255,.78)";
+      ctx.fillRect(drawX + Math.round(visualW * 0.40), drawY + Math.round(visualH * 0.58), 30, 5);
+      ctx.fillStyle = "rgba(255,243,214,.9)";
+      ctx.font = "bold 7px Arial";
+      ctx.fillText("LOJA", drawX + Math.round(visualW * 0.43), drawY + Math.round(visualH * 0.62));
+    }
+
+    ctx.restore();
+    return true;
+  }
+
+  const drawHouseBeforeExactVillageHouse = typeof drawHouse === "function" ? drawHouse : null;
+  drawHouse = function drawHouseExactVillageExterior(obj) {
+    if (drawExactVillageHouseSprite(obj, "house")) return;
+    return drawHouseBeforeExactVillageHouse ? drawHouseBeforeExactVillageHouse(obj) : undefined;
+  };
+
+  const drawPlayerHouseBeforeExactVillageHouse = typeof drawPlayerHouse === "function" ? drawPlayerHouse : null;
+  drawPlayerHouse = function drawPlayerHouseExactVillageExterior(obj) {
+    if (drawExactVillageHouseSprite(obj, "player")) return;
+    return drawPlayerHouseBeforeExactVillageHouse ? drawPlayerHouseBeforeExactVillageHouse(obj) : undefined;
+  };
+
+  const drawShopBeforeExactVillageHouse = typeof drawShop === "function" ? drawShop : null;
+  drawShop = function drawShopExactVillageExterior(obj) {
+    if (drawExactVillageHouseSprite(obj, "shop")) return;
+    return drawShopBeforeExactVillageHouse ? drawShopBeforeExactVillageHouse(obj) : undefined;
+  };
+
+  function upgradeVillageHouseCollision() {
+    try {
+      if (!Array.isArray(villageObjects)) return;
+      for (const obj of villageObjects) {
+        if (!obj || !["house", "playerHouse", "shop"].includes(obj.type)) continue;
+        obj.houseExteriorExact = true;
+        obj.visualWidth = obj.type === "shop" ? 166 : 160;
+        obj.visualHeight = 158;
+        delete obj.message;
+      }
+      if (currentScene === "village") {
+        objects = villageObjects;
+        colliders = objects.filter((obj) => obj.solid);
+        interactables = objects.filter((obj) => obj.message || obj.type === "npc" || obj.type === "rareChest" || obj.type === "extraMapChest");
+      }
+    } catch (error) {}
+  }
+
+  const setActiveSceneBeforeExactVillageHouse = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneExactVillageHouse(scene) {
+    const result = setActiveSceneBeforeExactVillageHouse ? setActiveSceneBeforeExactVillageHouse(scene) : undefined;
+    upgradeVillageHouseCollision();
+    return result;
+  };
+
+  const loadGameBeforeExactVillageHouse = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameExactVillageHouse() {
+    const ok = loadGameBeforeExactVillageHouse ? loadGameBeforeExactVillageHouse() : false;
+    upgradeVillageHouseCollision();
+    return ok;
+  };
+
+  const drawBeforeExactVillageHouse = typeof draw === "function" ? draw : null;
+  draw = function drawExactVillageHousePatch() {
+    upgradeVillageHouseCollision();
+    return drawBeforeExactVillageHouse ? drawBeforeExactVillageHouse() : undefined;
+  };
+
+  try {
+    upgradeVillageHouseCollision();
+    console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+  } catch (error) {}
+})();
+
+
+/* ==================================================
+   HOTFIX: remover diálogo das casas da vila
+   - Casas continuam com sprites reais.
+   - Ao chegar perto delas, não abre mais caixa de diálogo "exterior renovado".
+   ================================================== */
+(function removeVillageHouseDialogPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_REMOVE_HOUSE_DIALOG_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_REMOVE_HOUSE_DIALOG_PATCH = true;
+
+  const PATCH_VERSION = "remover-dialogo-casas-20260706-1";
+
+  function isVillageHouseNoDialog(obj) {
+    return Boolean(obj && ["house", "playerHouse", "shop"].includes(obj.type));
+  }
+
+  function cleanVillageHouseDialogs() {
+    try {
+      if (!Array.isArray(villageObjects)) return;
+      for (const obj of villageObjects) {
+        if (!isVillageHouseNoDialog(obj)) continue;
+        delete obj.message;
+        obj.noDialog = true;
+        obj.noInteractionDialog = true;
+      }
+
+      if (currentScene === "village") {
+        objects = villageObjects;
+        colliders = objects.filter((obj) => obj.solid);
+        interactables = objects.filter((obj) => {
+          if (isVillageHouseNoDialog(obj)) return false;
+          return obj.message || obj.type === "npc" || obj.type === "rareChest" || obj.type === "extraMapChest";
+        });
+      }
+    } catch (error) {}
+  }
+
+  const findInteractionBeforeRemoveHouseDialog = typeof findInteraction === "function" ? findInteraction : null;
+  findInteraction = function findInteractionRemoveHouseDialog() {
+    const target = findInteractionBeforeRemoveHouseDialog ? findInteractionBeforeRemoveHouseDialog() : null;
+    if (isVillageHouseNoDialog(target)) return null;
+    return target;
+  };
+
+  const getQuestMessageBeforeRemoveHouseDialog = typeof getQuestMessage === "function" ? getQuestMessage : null;
+  getQuestMessage = function getQuestMessageRemoveHouseDialog(target) {
+    if (isVillageHouseNoDialog(target)) return "";
+    return getQuestMessageBeforeRemoveHouseDialog ? getQuestMessageBeforeRemoveHouseDialog(target) : "";
+  };
+
+  const setActiveSceneBeforeRemoveHouseDialog = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneRemoveHouseDialog(scene) {
+    const result = setActiveSceneBeforeRemoveHouseDialog ? setActiveSceneBeforeRemoveHouseDialog(scene) : undefined;
+    cleanVillageHouseDialogs();
+    return result;
+  };
+
+  const loadGameBeforeRemoveHouseDialog = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameRemoveHouseDialog() {
+    const ok = loadGameBeforeRemoveHouseDialog ? loadGameBeforeRemoveHouseDialog() : false;
+    cleanVillageHouseDialogs();
+    return ok;
+  };
+
+  const updateBeforeRemoveHouseDialog = typeof update === "function" ? update : null;
+  update = function updateRemoveHouseDialog(delta) {
+    cleanVillageHouseDialogs();
+    return updateBeforeRemoveHouseDialog ? updateBeforeRemoveHouseDialog(delta) : undefined;
+  };
+
+  try {
+    cleanVillageHouseDialogs();
+    console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+  } catch (error) {}
+})();
+
+
+/* ==================================================
+   HOTFIX: zoom da tela com scroll do mouse + mobile
+   - Scroll para cima aproxima, scroll para baixo afasta.
+   - Mobile: pinça com dois dedos e botões + / -.
+   - Zoom altera a câmera do jogo, não só o CSS.
+   ================================================== */
+const ER_CAMERA_ZOOM_STORAGE_KEY = "eternal-rift-camera-zoom-v1";
+let gameCameraZoom = (() => {
+  try {
+    const saved = Number(localStorage.getItem(ER_CAMERA_ZOOM_STORAGE_KEY));
+    return Number.isFinite(saved) ? Math.max(0.65, Math.min(2.0, saved)) : 1;
+  } catch (error) {
+    return 1;
+  }
+})();
+
+function getGameCameraZoom() {
+  return Math.max(0.65, Math.min(2.0, Number(gameCameraZoom || 1)));
+}
+
+function getZoomedViewWidth() {
+  return canvas.width / getGameCameraZoom();
+}
+
+function getZoomedViewHeight() {
+  return canvas.height / getGameCameraZoom();
+}
+
+function applyGameCameraTransform(targetCtx = ctx) {
+  const zoom = getGameCameraZoom();
+  targetCtx.scale(zoom, zoom);
+  targetCtx.translate(-Math.round(camera.x), -Math.round(camera.y));
+}
+
+function recenterCameraForZoom() {
+  try {
+    const viewW = getZoomedViewWidth();
+    const viewH = getZoomedViewHeight();
+    camera.x = clamp(player.x + player.width / 2 - viewW / 2, 0, Math.max(0, getSceneWidth() - viewW));
+    camera.y = clamp(player.y + player.height / 2 - viewH / 2, 0, Math.max(0, getSceneHeight() - viewH));
+  } catch (error) {}
+}
+
+function setGameCameraZoom(nextZoom, source = "zoom") {
+  const before = getGameCameraZoom();
+  const after = Math.max(0.65, Math.min(2.0, Number(nextZoom || 1)));
+  if (!Number.isFinite(after) || Math.abs(before - after) < 0.001) return before;
+
+  gameCameraZoom = Math.round(after * 100) / 100;
+  try { localStorage.setItem(ER_CAMERA_ZOOM_STORAGE_KEY, String(gameCameraZoom)); } catch (error) {}
+  recenterCameraForZoom();
+  updateZoomHudLabel();
+
+  if (source !== "silent") {
+    try {
+      const pct = Math.round(gameCameraZoom * 100);
+      if (typeof showHudToast === "function") showHudToast(`Zoom: ${pct}%`, 1.1);
+    } catch (error) {}
+  }
+
+  return gameCameraZoom;
+}
+
+function changeGameCameraZoom(delta, source = "zoom") {
+  const current = getGameCameraZoom();
+  const step = source === "wheel" ? 0.10 : 0.12;
+  return setGameCameraZoom(current + delta * step, source);
+}
+
+function updateZoomHudLabel() {
+  try {
+    const label = document.getElementById("erZoomLabel");
+    if (label) label.textContent = `${Math.round(getGameCameraZoom() * 100)}%`;
+  } catch (error) {}
+}
+
+function ensureZoomControls() {
+  if (document.getElementById("erZoomControls")) {
+    updateZoomHudLabel();
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = "erZoomControlsStyle";
+  style.textContent = `
+    #erZoomControls {
+      position: fixed;
+      right: 12px;
+      top: 88px;
+      z-index: 80;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 7px;
+      border: 2px solid rgba(255, 242, 100, .75);
+      border-radius: 14px;
+      background: rgba(22, 27, 54, .72);
+      box-shadow: 0 10px 24px rgba(0,0,0,.28);
+      backdrop-filter: blur(5px);
+      user-select: none;
+      touch-action: manipulation;
+    }
+    #erZoomControls button, #erZoomLabel {
+      width: 42px;
+      min-height: 34px;
+      border: 0;
+      border-radius: 10px;
+      font-family: Trebuchet MS, Arial, sans-serif;
+      font-weight: 900;
+      color: #1a1f3d;
+      background: #fff264;
+      box-shadow: inset 0 -3px 0 rgba(0,0,0,.18);
+      display: grid;
+      place-items: center;
+    }
+    #erZoomControls button {
+      cursor: pointer;
+      font-size: 20px;
+    }
+    #erZoomControls button:active {
+      transform: translateY(1px);
+      box-shadow: inset 0 -1px 0 rgba(0,0,0,.18);
+    }
+    #erZoomLabel {
+      min-height: 24px;
+      font-size: 11px;
+      background: rgba(255,255,255,.95);
+      color: #273052;
+    }
+    @media (max-width: 880px), (pointer: coarse) {
+      #erZoomControls {
+        right: 8px;
+        top: auto;
+        bottom: 156px;
+        transform: scale(.94);
+        transform-origin: bottom right;
+      }
+      body.inventory-open #erZoomControls,
+      body.dialog-open #erZoomControls {
+        opacity: .35;
+        pointer-events: none;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const panel = document.createElement("div");
+  panel.id = "erZoomControls";
+  panel.innerHTML = `
+    <button type="button" id="erZoomInButton" aria-label="Aumentar zoom">+</button>
+    <div id="erZoomLabel">100%</div>
+    <button type="button" id="erZoomOutButton" aria-label="Diminuir zoom">−</button>
+  `;
+  document.body.appendChild(panel);
+
+  document.getElementById("erZoomInButton")?.addEventListener("click", () => changeGameCameraZoom(1, "button"));
+  document.getElementById("erZoomOutButton")?.addEventListener("click", () => changeGameCameraZoom(-1, "button"));
+  updateZoomHudLabel();
+}
+
+function installWheelAndMobileZoom() {
+  try {
+    canvas.addEventListener("wheel", (event) => {
+      if (!gameStarted && !startScreen?.classList.contains("hidden")) return;
+      event.preventDefault();
+      const direction = event.deltaY < 0 ? 1 : -1;
+      changeGameCameraZoom(direction, "wheel");
+    }, { passive: false });
+  } catch (error) {}
+
+  let pinchStartDistance = 0;
+  let pinchStartZoom = 1;
+
+  function touchDistance(touchA, touchB) {
+    return Math.hypot(touchA.clientX - touchB.clientX, touchA.clientY - touchB.clientY);
+  }
+
+  try {
+    canvas.addEventListener("touchstart", (event) => {
+      if (event.touches && event.touches.length === 2) {
+        pinchStartDistance = touchDistance(event.touches[0], event.touches[1]);
+        pinchStartZoom = getGameCameraZoom();
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (event) => {
+      if (!event.touches || event.touches.length !== 2 || pinchStartDistance <= 0) return;
+      event.preventDefault();
+      const currentDistance = touchDistance(event.touches[0], event.touches[1]);
+      const ratio = currentDistance / Math.max(1, pinchStartDistance);
+      setGameCameraZoom(pinchStartZoom * ratio, "pinch");
+    }, { passive: false });
+
+    canvas.addEventListener("touchend", (event) => {
+      if (!event?.touches || event.touches.length < 2) pinchStartDistance = 0;
+    }, { passive: true });
+  } catch (error) {}
+}
+
+(function initializeCameraZoomPatch() {
+  try {
+    ensureZoomControls();
+    installWheelAndMobileZoom();
+    updateZoomHudLabel();
+    recenterCameraForZoom();
+    console.log("Eternal Rift hotfix carregado: zoom-scroll-mobile-20260706-1");
+  } catch (error) {}
+
+  const setActiveSceneBeforeZoomPatch = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneZoomPatch(scene) {
+    const result = setActiveSceneBeforeZoomPatch ? setActiveSceneBeforeZoomPatch(scene) : undefined;
+    recenterCameraForZoom();
+    return result;
+  };
+
+  const loadGameBeforeZoomPatch = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameZoomPatch() {
+    const ok = loadGameBeforeZoomPatch ? loadGameBeforeZoomPatch() : false;
+    recenterCameraForZoom();
+    updateZoomHudLabel();
+    return ok;
+  };
+})();
+
+/* ==================================================
+   HOTFIX: somente a casa do jogador vira uma mansao
+   - Usa a imagem enviada como referencia visual.
+   - Mantem o espaco da vila sem deixar apertado.
+   ================================================== */
+(function playerHouseMansionOnlyPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_PLAYER_HOUSE_MANSION_ONLY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_PLAYER_HOUSE_MANSION_ONLY_PATCH = true;
+
+  const PATCH_VERSION = "player-house-mansion-only-20260706-1";
+  const mansionImage = new Image();
+  mansionImage.src = `player-house-mansion-game.png?v=${PATCH_VERSION}`;
+
+  function getPlayerHouseMansionObject() {
+    return Array.isArray(villageObjects)
+      ? villageObjects.find((obj) => obj && obj.type === "playerHouse")
+      : null;
+  }
+
+  function tunePlayerHouseSpace() {
+    try {
+      const obj = getPlayerHouseMansionObject();
+      if (!obj) return;
+      obj.playerHouseMansionOnly = true;
+      obj.visualWidth = 214;
+      obj.visualHeight = 206;
+      obj.noDialog = true;
+      obj.noInteractionDialog = true;
+      delete obj.message;
+    } catch (error) {}
+  }
+
+  const drawPlayerHouseBeforeMansionOnly = typeof drawPlayerHouse === "function" ? drawPlayerHouse : null;
+  drawPlayerHouse = function drawPlayerHouseMansionOnly(obj) {
+    if (obj && mansionImage.complete && mansionImage.naturalWidth > 0) {
+      const visualW = 214;
+      const visualH = Math.round(mansionImage.naturalHeight * (visualW / mansionImage.naturalWidth));
+      const drawX = Math.round(obj.x + obj.width / 2 - visualW / 2);
+      const drawY = Math.round(obj.y + obj.height - visualH);
+
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,.24)";
+      ctx.beginPath();
+      ctx.ellipse(obj.x + obj.width / 2, obj.y + obj.height + 6, 54, 10, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(mansionImage, drawX, drawY, visualW, visualH);
+      ctx.restore();
+      return;
+    }
+    return drawPlayerHouseBeforeMansionOnly ? drawPlayerHouseBeforeMansionOnly(obj) : undefined;
+  };
+
+  const setActiveSceneBeforeMansionOnly = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveScenePlayerHouseMansionOnly(scene) {
+    const result = setActiveSceneBeforeMansionOnly ? setActiveSceneBeforeMansionOnly(scene) : undefined;
+    tunePlayerHouseSpace();
+    return result;
+  };
+
+  const loadGameBeforeMansionOnly = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGamePlayerHouseMansionOnly() {
+    const ok = loadGameBeforeMansionOnly ? loadGameBeforeMansionOnly() : false;
+    tunePlayerHouseSpace();
+    return ok;
+  };
+
+  const updateBeforeMansionOnly = typeof update === "function" ? update : null;
+  update = function updatePlayerHouseMansionOnly(delta) {
+    tunePlayerHouseSpace();
+    return updateBeforeMansionOnly ? updateBeforeMansionOnly(delta) : undefined;
+  };
+
+  try {
+    tunePlayerHouseSpace();
+    console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+  } catch (error) {}
+})();
+
+
+/* ==================================================
+   CORREÇÃO: vila principal no estilo da referência SEM imagem de fundo
+   - Não usa a imagem enviada como background.
+   - Recria textura com tiles, pedras, terra, flores, grama, cercas e luzes.
+   - Mantém a vila jogável e sem apertar os caminhos.
+   ================================================== */
+(function eternalRiftVillageTextureTilesOnlyPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_VILLAGE_TEXTURE_TILES_ONLY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_VILLAGE_TEXTURE_TILES_ONLY_PATCH = true;
+
+  const PATCH_VERSION = "vila-textura-tiles-sem-background-20260706-1";
+  const ZONE = { left: 17, right: 56, top: 6, bottom: 40 };
+
+  function erHash(tx, ty, seed = 1) {
+    if (typeof visualHashV2 === "function") return visualHashV2(tx, ty, seed);
+    const n = Math.sin(tx * 127.1 + ty * 311.7 + seed * 73.31) * 43758.5453;
+    return n - Math.floor(n);
+  }
+
+  function rect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), w, h);
+  }
+
+  function inVillageTextureZone(tx, ty) {
+    return currentScene === "village" && tx >= ZONE.left && tx <= ZONE.right && ty >= ZONE.top && ty <= ZONE.bottom;
+  }
+
+  function setWorldTile(tx, ty, tile) {
+    if (!worldMap || !worldMap[ty] || tx < 0 || ty < 0 || tx >= MAP_COLS || ty >= MAP_ROWS) return;
+    worldMap[ty][tx] = tile;
+  }
+
+  function carveRect(tx, ty, w, h, tile) {
+    for (let y = ty; y < ty + h; y += 1) {
+      for (let x = tx; x < tx + w; x += 1) setWorldTile(x, y, tile);
+    }
+  }
+
+  function carveEllipse(cx, cy, rx, ry, tile) {
+    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y += 1) {
+      for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x += 1) {
+        const dx = (x - cx) / Math.max(1, rx);
+        const dy = (y - cy) / Math.max(1, ry);
+        if (dx * dx + dy * dy <= 1) setWorldTile(x, y, tile);
+      }
+    }
+  }
+
+  function rebuildMainVillageTilesLikeReference() {
+    if (rebuildMainVillageTilesLikeReference.done) return;
+    rebuildMainVillageTilesLikeReference.done = true;
+
+    // Base: muita grama florida igual vila bonita da referência.
+    carveRect(ZONE.left, ZONE.top, ZONE.right - ZONE.left + 1, ZONE.bottom - ZONE.top + 1, "F");
+
+    // Praça de pedra grande, com caminhos conectando casas e portal.
+    carveRect(28, 21, 20, 18, "P");
+    carveRect(50, 14, 7, 17, "P");
+    carveRect(31, 7, 4, 32, "D");
+    carveRect(20, 22, 34, 4, "D");
+    carveRect(19, 31, 33, 4, "P");
+    carveRect(24, 12, 27, 3, "D");
+    carveRect(22, 16, 6, 13, "D");
+    carveRect(43, 15, 6, 16, "D");
+    carveRect(38, 34, 8, 5, "P");
+
+    // Clareiras em volta das casas, igual imagem com casinhas sobre manchas de caminho.
+    carveEllipse(23, 12, 7, 5, "D");
+    carveEllipse(37, 10, 6, 4, "D");
+    carveEllipse(24, 23, 7, 5, "D");
+    carveEllipse(45, 23, 7, 5, "D");
+
+    // Bordas gramadas e jardins.
+    carveRect(18, 7, 5, 4, "F");
+    carveRect(51, 7, 5, 5, "F");
+    carveRect(18, 36, 6, 4, "F");
+    carveRect(49, 35, 7, 5, "F");
+
+    // Pequenos detalhes de pedra no chão.
+    for (const [x, y] of [[30,30],[31,30],[32,30],[43,30],[44,30],[33,24],[34,24],[35,24],[40,24],[41,24]]) {
+      setWorldTile(x, y, "P");
+    }
+  }
+
+  rebuildMainVillageTilesLikeReference();
+
+  function drawReferenceGrassTile(x, y, tx, ty) {
+    const h = erHash(tx, ty, 1001);
+    const base = h < 0.25 ? "#5f9f41" : h < 0.55 ? "#6cab47" : h < 0.8 ? "#75b753" : "#558f3d";
+    rect(x, y, TILE, TILE, base);
+    rect(x, y + 24, TILE, 8, "rgba(28,58,24,.20)");
+    rect(x + 2, y + 2, TILE - 4, 3, "rgba(210,255,160,.12)");
+    rect(x + 3, y + 9, 10, 2, "rgba(42,93,38,.14)");
+    rect(x + 18, y + 15, 9, 2, "rgba(37,83,37,.12)");
+
+    if (erHash(tx, ty, 1002) > 0.16) {
+      rect(x + 5, y + 18, 2, 8, "#2d7d3f");
+      rect(x + 8, y + 15, 2, 9, "#3a934b");
+      rect(x + 11, y + 20, 2, 6, "#26753a");
+    }
+    if (erHash(tx, ty, 1003) > 0.33) {
+      rect(x + 21, y + 16, 2, 9, "#2d7d3f");
+      rect(x + 24, y + 12, 2, 9, "#3a934b");
+    }
+    if (erHash(tx, ty, 1004) > 0.72) {
+      rect(x + 8, y + 7, 3, 3, "#ffb4d4");
+      rect(x + 13, y + 9, 2, 2, "#fff0a5");
+      rect(x + 18, y + 8, 2, 2, "#8fe7ff");
+    }
+    if (erHash(tx, ty, 1005) > 0.86) {
+      rect(x + 23, y + 25, 3, 2, "#355b2d");
+      rect(x + 26, y + 24, 2, 2, "#ffd1e8");
+    }
+  }
+
+  function drawReferenceDirtTile(x, y, tx, ty) {
+    const h = erHash(tx, ty, 1011);
+    const base = h < 0.34 ? "#8f6a40" : h < 0.67 ? "#9b7449" : "#7f5f3b";
+    rect(x, y, TILE, TILE, base);
+    rect(x, y + 25, TILE, 7, "rgba(48,35,20,.20)");
+    rect(x + 2, y + 2, TILE - 4, 2, "rgba(232,198,137,.13)");
+    rect(x + 5, y + 10, 9, 2, "rgba(93,66,41,.14)");
+    rect(x + 19, y + 18, 8, 2, "rgba(92,64,40,.13)");
+
+    if (erHash(tx, ty, 1012) > 0.15) rect(x + 6, y + 14, 6, 4, "#c8b08f");
+    if (erHash(tx, ty, 1013) > 0.35) rect(x + 19, y + 8, 5, 3, "#d6c2a0");
+    if (erHash(tx, ty, 1014) > 0.60) rect(x + 22, y + 22, 4, 2, "#604a31");
+    if (erHash(tx, ty, 1015) > 0.76) {
+      rect(x + 1, y + 26, 6, 2, "#4f7e33");
+      rect(x + 25, y + 25, 5, 2, "#4f7e33");
+    }
+  }
+
+  function drawReferenceCobbleTile(x, y, tx, ty) {
+    const base = (tx + ty) % 2 === 0 ? "#b5a28a" : "#a9977f";
+    rect(x, y, TILE, TILE, base);
+    rect(x, y + 25, TILE, 7, "rgba(58,51,45,.17)");
+    ctx.strokeStyle = "rgba(79,70,62,.44)";
+    ctx.lineWidth = 1;
+
+    const patternA = [[2,3,11,8],[15,2,14,9],[3,13,9,8],[13,13,8,7],[22,12,7,9],[10,22,12,6]];
+    const patternB = [[2,2,10,9],[13,3,8,8],[22,2,8,10],[4,14,11,8],[17,14,11,7],[11,23,10,5]];
+    const pattern = (tx + ty) % 2 === 0 ? patternA : patternB;
+
+    for (const [ox, oy, w, h] of pattern) {
+      const stone = erHash(tx + ox, ty + oy, 1016) > 0.5 ? "#c4b096" : "#9c8d78";
+      rect(x + ox, y + oy, w, h, stone);
+      ctx.strokeRect(Math.round(x + ox) + 0.5, Math.round(y + oy) + 0.5, w - 1, h - 1);
+      if (w > 8) rect(x + ox + 2, y + oy + 2, Math.max(2, w - 5), 1, "rgba(255,244,223,.18)");
+      if (erHash(tx + ox, ty + oy, 1017) > 0.78) rect(x + ox + Math.floor(w / 2), y + oy + h - 2, 2, 1, "#6e8a51");
+    }
+    if ((tx + ty) % 5 === 0) rect(x + 6, y + 28, 4, 2, "#6e8a51");
+  }
+
+  const drawGrassBeforeTilesOnlyPatch = typeof drawGrass === "function" ? drawGrass : null;
+  drawGrass = function drawGrassTilesOnlyPatch(x, y, tx, ty) {
+    if (inVillageTextureZone(tx, ty)) return drawReferenceGrassTile(x, y, tx, ty);
+    return drawGrassBeforeTilesOnlyPatch ? drawGrassBeforeTilesOnlyPatch(x, y, tx, ty) : undefined;
+  };
+
+  const drawForestGrassBeforeTilesOnlyPatch = typeof drawForestGrass === "function" ? drawForestGrass : null;
+  drawForestGrass = function drawForestGrassTilesOnlyPatch(x, y, tx, ty) {
+    if (inVillageTextureZone(tx, ty)) return drawReferenceGrassTile(x, y, tx, ty);
+    return drawForestGrassBeforeTilesOnlyPatch ? drawForestGrassBeforeTilesOnlyPatch(x, y, tx, ty) : undefined;
+  };
+
+  const drawDirtBeforeTilesOnlyPatch = typeof drawDirt === "function" ? drawDirt : null;
+  drawDirt = function drawDirtTilesOnlyPatch(x, y, tx, ty) {
+    if (inVillageTextureZone(tx, ty)) return drawReferenceDirtTile(x, y, tx, ty);
+    return drawDirtBeforeTilesOnlyPatch ? drawDirtBeforeTilesOnlyPatch(x, y, tx, ty) : undefined;
+  };
+
+  const drawPlazaBeforeTilesOnlyPatch = typeof drawPlaza === "function" ? drawPlaza : null;
+  drawPlaza = function drawPlazaTilesOnlyPatch(x, y, tx, ty) {
+    if (inVillageTextureZone(tx, ty)) return drawReferenceCobbleTile(x, y, tx, ty);
+    return drawPlazaBeforeTilesOnlyPatch ? drawPlazaBeforeTilesOnlyPatch(x, y, tx, ty) : undefined;
+  };
+
+  function visibleWorld(x, y, margin = 96) {
+    return x >= camera.x - margin && x <= camera.x + getZoomedViewWidth() + margin &&
+      y >= camera.y - margin && y <= camera.y + getZoomedViewHeight() + margin;
+  }
+
+  function drawPixelFence(x, y, w, horizontal = true) {
+    ctx.save();
+    if (horizontal) {
+      for (let px = x; px <= x + w; px += 28) {
+        rect(px, y - 10, 5, 24, "#5c3b29");
+        rect(px + 1, y - 12, 3, 4, "#c98a53");
+      }
+      rect(x, y - 3, w, 4, "#7d5437");
+      rect(x, y + 7, w, 4, "#4b3126");
+      rect(x, y - 4, w, 1, "#d99b67");
+    } else {
+      for (let py = y; py <= y + w; py += 28) {
+        rect(x - 10, py, 24, 5, "#5c3b29");
+        rect(x - 12, py + 1, 4, 3, "#c98a53");
+      }
+      rect(x - 3, y, 4, w, "#7d5437");
+      rect(x + 7, y, 4, w, "#4b3126");
+      rect(x - 4, y, 1, w, "#d99b67");
+    }
+    ctx.restore();
+  }
+
+  function drawPixelLamp(x, y) {
+    if (!visibleWorld(x, y)) return;
+    const t = performance.now() / 1000;
+    rect(x + 7, y + 8, 5, 30, "#2c2a35");
+    rect(x + 5, y + 36, 9, 5, "#171924");
+    rect(x + 3, y + 5, 13, 10, "#2c2a35");
+    rect(x + 6, y + 7, 7, 7, "#ffd66d");
+    rect(x + 7, y + 8, 5, 5, "#fff3b8");
+    ctx.globalAlpha = 0.18 + Math.sin(t * 4 + x) * 0.04;
+    rect(x - 7, y - 3, 34, 28, "#ffd66d");
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPixelPlanter(x, y, w = 38) {
+    if (!visibleWorld(x, y)) return;
+    rect(x, y + 10, w, 10, "#6f4930");
+    rect(x + 2, y + 12, w - 4, 5, "#9a643e");
+    for (let i = 4; i < w - 2; i += 8) {
+      rect(x + i, y + 6, 3, 5, "#2d7d3f");
+      rect(x + i + 2, y + 4, 4, 4, i % 16 === 4 ? "#fff3d6" : "#ff83b7");
+      rect(x + i + 5, y + 7, 3, 3, "#70d46b");
+    }
+  }
+
+  function drawPixelBarrel(x, y) {
+    if (!visibleWorld(x, y)) return;
+    rect(x + 3, y + 3, 18, 22, "#3a2630");
+    rect(x + 5, y + 2, 14, 24, "#9a643e");
+    rect(x + 5, y + 6, 14, 3, "#d99b67");
+    rect(x + 5, y + 18, 14, 3, "#5c3b29");
+    rect(x + 3, y + 10, 18, 3, "#2c2a35");
+  }
+
+  function drawPixelCherryTree(x, y) {
+    if (!visibleWorld(x, y, 128)) return;
+    rect(x + 27, y + 43, 12, 42, "#5a3929");
+    rect(x + 21, y + 55, 23, 14, "#6a432e");
+    const blobs = [
+      [0,24,38,30,"#ce78b5"], [28,15,38,34,"#e08ec7"], [50,29,34,29,"#c864a9"],
+      [16,4,38,32,"#f0a7d6"], [36,0,34,30,"#ffb7df"], [12,36,40,28,"#b95aa0"]
+    ];
+    for (const [ox, oy, bw, bh, color] of blobs) {
+      rect(x + ox, y + oy, bw, bh, "#723b75");
+      rect(x + ox + 2, y + oy + 2, bw - 4, bh - 4, color);
+      rect(x + ox + 8, y + oy + 7, 5, 4, "#ffe1ee");
+      rect(x + ox + bw - 12, y + oy + 12, 4, 4, "#ffcae3");
+    }
+    rect(x + 6, y + 77, 70, 7, "rgba(0,0,0,.18)");
+  }
+
+  function drawPixelCrate(x, y) {
+    if (!visibleWorld(x, y)) return;
+    rect(x, y, 28, 24, "#3a2630");
+    rect(x + 2, y + 2, 24, 20, "#8b5a36");
+    rect(x + 4, y + 5, 20, 4, "#c98a53");
+    rect(x + 5, y + 14, 18, 3, "#5c3b29");
+    rect(x + 12, y + 2, 4, 20, "#6f4930");
+  }
+
+  function drawPixelRails(x, y, lenTiles, vertical = true) {
+    if (vertical) {
+      for (let i = 0; i < lenTiles; i += 1) {
+        const py = y + i * TILE;
+        if (!visibleWorld(x, py)) continue;
+        rect(x + 6, py, 3, TILE, "#513628");
+        rect(x + 23, py, 3, TILE, "#513628");
+        rect(x + 4, py + 5, 24, 4, "#b47a4a");
+        rect(x + 4, py + 21, 24, 4, "#875535");
+      }
+    } else {
+      for (let i = 0; i < lenTiles; i += 1) {
+        const px = x + i * TILE;
+        if (!visibleWorld(px, y)) continue;
+        rect(px, y + 6, TILE, 3, "#513628");
+        rect(px, y + 23, TILE, 3, "#513628");
+        rect(px + 5, y + 4, 4, 24, "#b47a4a");
+        rect(px + 21, y + 4, 4, 24, "#875535");
+      }
+    }
+  }
+
+  function drawCentralMagicPortalTexture(x, y) {
+    if (!visibleWorld(x, y, 128)) return;
+    const t = performance.now() / 1000;
+    rect(x - 24, y + 34, 112, 18, "#3d3c47");
+    rect(x - 16, y + 24, 96, 28, "#8f8a7e");
+    rect(x - 9, y - 8, 82, 58, "#35405f");
+    rect(x - 2, y, 68, 42, "#273052");
+    ctx.save();
+    ctx.globalAlpha = 0.7 + Math.sin(t * 5) * 0.1;
+    rect(x + 16, y + 2, 28, 38, "#55e8ff");
+    rect(x + 22, y + 7, 16, 27, "#e9ffff");
+    ctx.strokeStyle = "#55e8ff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 30, y + 3);
+    ctx.lineTo(x + 48, y + 21);
+    ctx.lineTo(x + 30, y + 40);
+    ctx.lineTo(x + 12, y + 21);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.globalAlpha = 0.14 + Math.sin(t * 3) * 0.04;
+    rect(x - 20, y - 16, 104, 88, "#55e8ff");
+    ctx.restore();
+  }
+
+  function drawVillageTextureDecorationLayer() {
+    if (currentScene !== "village") return;
+
+    // Cerca externa parecida com a imagem.
+    drawPixelFence(17 * TILE, 6 * TILE + 2, 40 * TILE, true);
+    drawPixelFence(17 * TILE, 40 * TILE + 2, 40 * TILE, true);
+    drawPixelFence(17 * TILE + 2, 6 * TILE, 34 * TILE, false);
+    drawPixelFence(57 * TILE + 2, 6 * TILE, 34 * TILE, false);
+
+    // Trilhos/escadas decorativas verticais.
+    drawPixelRails(20 * TILE, 24 * TILE, 10, true);
+    drawPixelRails(47 * TILE, 23 * TILE, 9, true);
+
+    // Lanternas iguais à vibe da referência.
+    for (const [tx, ty] of [
+      [20, 12], [35, 12], [50, 13],
+      [22, 30], [36, 30], [50, 29],
+      [29, 37], [44, 37], [55, 18]
+    ]) drawPixelLamp(tx * TILE, ty * TILE);
+
+    // Árvores rosas nos cantos do vilarejo.
+    drawPixelCherryTree(17 * TILE - 8, 31 * TILE);
+    drawPixelCherryTree(52 * TILE, 28 * TILE);
+    drawPixelCherryTree(17 * TILE - 4, 8 * TILE);
+    drawPixelCherryTree(52 * TILE, 8 * TILE);
+
+    // Vasos, caixas e barris.
+    for (const [tx, ty] of [[18,19],[27,17],[43,17],[51,21],[23,36],[47,35],[54,10]]) drawPixelPlanter(tx * TILE, ty * TILE, 36);
+    for (const [tx, ty] of [[19,17],[26,27],[45,27],[54,16],[53,36]]) drawPixelBarrel(tx * TILE, ty * TILE);
+    for (const [tx, ty] of [[31,34],[34,34],[39,34],[41,34],[53,24],[24,13],[42,13]]) drawPixelCrate(tx * TILE, ty * TILE);
+
+    // Portal central mais próximo do da imagem.
+    drawCentralMagicPortalTexture(35 * TILE, 34 * TILE);
+
+    // Medalhões no piso da praça.
+    const medals = [[30,29], [39,29], [34,24]];
+    for (const [tx, ty] of medals) {
+      const x = tx * TILE;
+      const y = ty * TILE;
+      if (!visibleWorld(x, y)) continue;
+      ctx.save();
+      ctx.strokeStyle = "rgba(110,93,76,.48)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x + 16, y + 16, 13, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x + 16, y + 16, 6, 0, Math.PI * 2);
+      ctx.stroke();
+      rect(x + 15, y + 5, 2, 22, "rgba(244,222,180,.25)");
+      rect(x + 5, y + 15, 22, 2, "rgba(244,222,180,.25)");
+      ctx.restore();
+    }
+  }
+
+  const drawMapBeforeTilesOnlyReference = typeof drawMap === "function" ? drawMap : null;
+  drawMap = function drawMapTilesOnlyReference() {
+    const result = drawMapBeforeTilesOnlyReference ? drawMapBeforeTilesOnlyReference() : undefined;
+    drawVillageTextureDecorationLayer();
+    return result;
+  };
+
+  const setActiveSceneBeforeTilesOnlyReference = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneTilesOnlyReference(scene) {
+    const result = setActiveSceneBeforeTilesOnlyReference ? setActiveSceneBeforeTilesOnlyReference(scene) : undefined;
+    rebuildMainVillageTilesLikeReference();
+    return result;
+  };
+
+  console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+})();
+
+
+// ETERNAL RIFT - PLAYER VISUAL MATCHING USER REFERENCE (NO GENERATED IMAGE)
+(function applyPlayerReferenceSpritePatch() {
+  function loadPlayerReferenceSprite(src) {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = src;
+    return img;
+  }
+
+  const playerReferenceSprites = {
+    down: loadPlayerReferenceSprite("assets/player/hero-down.png"),
+    sideIdle: loadPlayerReferenceSprite("assets/player/hero-side-idle.png"),
+    sideWalk: loadPlayerReferenceSprite("assets/player/hero-side-walk.png"),
+    up: loadPlayerReferenceSprite("assets/player/hero-up.png")
+  };
+
+  const PLAYER_REFERENCE_SCALE = 0.9;
+  const previousDrawPlayerReferencePatch = drawPlayer;
+
+  function getReferenceSideSprite() {
+    if (!player.moving) return playerReferenceSprites.sideIdle;
+    return Math.floor(player.frame % 4) % 2 === 0 ? playerReferenceSprites.sideIdle : playerReferenceSprites.sideWalk;
+  }
+
+  function drawReferencePlayerAttackEffect(x, y, direction, t) {
+    if (!(attackTimer > 0 || weaponCooldownTimer > 0)) return;
+    const glow = 0.5 + Math.sin(t * 18) * 0.14;
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    if (direction === "left") {
+      premiumRect(x - 14, y + 24, 16, 3, `rgba(255,255,255,${glow})`);
+      premiumRect(x - 21, y + 25, 8, 2, `rgba(120,220,255,${glow})`);
+    } else if (direction === "right") {
+      premiumRect(x + 28, y + 24, 16, 3, `rgba(255,255,255,${glow})`);
+      premiumRect(x + 43, y + 25, 8, 2, `rgba(120,220,255,${glow})`);
+    } else if (direction === "up") {
+      premiumRect(x + 12, y - 10, 3, 18, `rgba(255,255,255,${glow})`);
+      premiumRect(x + 13, y - 18, 2, 8, `rgba(120,220,255,${glow})`);
+    } else {
+      premiumRect(x + 12, y + 28, 3, 18, `rgba(255,255,255,${glow})`);
+      premiumRect(x + 13, y + 45, 2, 8, `rgba(120,220,255,${glow})`);
+    }
+    ctx.restore();
+  }
+
+  drawPlayer = function drawPlayerReferenceSpriteExact() {
+    const ready = playerReferenceSprites.down.complete && playerReferenceSprites.sideIdle.complete && playerReferenceSprites.sideWalk.complete && playerReferenceSprites.up.complete;
+    if (!ready) return previousDrawPlayerReferencePatch();
+
+    const x = player.x;
+    const y = player.y;
+    const t = performance.now() / 1000;
+    const blinking = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 75) % 2 === 0;
+    const direction = player.direction || "down";
+    const bob = player.moving ? Math.sin(t * 11) * 0.7 : Math.sin(t * 2.2) * 0.2;
+
+    let sprite = playerReferenceSprites.down;
+    let flipX = false;
+    if (direction === "up") {
+      sprite = playerReferenceSprites.up;
+    } else if (direction === "left") {
+      sprite = getReferenceSideSprite();
+      flipX = true;
+    } else if (direction === "right") {
+      sprite = getReferenceSideSprite();
+    }
+
+    const naturalWidth = sprite.naturalWidth || sprite.width || 32;
+    const naturalHeight = sprite.naturalHeight || sprite.height || 48;
+    const drawWidth = Math.round(naturalWidth * PLAYER_REFERENCE_SCALE);
+    const drawHeight = Math.round(naturalHeight * PLAYER_REFERENCE_SCALE);
+    const anchorX = Math.round(x + player.width / 2 - drawWidth / 2);
+    const anchorY = Math.round(y + player.height + 4 - drawHeight + bob);
+
+    ctx.save();
+    if (blinking) ctx.globalAlpha = 0.45;
+
+    if (player.isSwimming) {
+      ctx.strokeStyle = "rgba(155, 244, 255, 0.72)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x + player.width / 2, y + 27, 18, 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      premiumRect(x - 4, y + 28, player.width + 8, 3, "rgba(99,218,255,0.28)");
+    }
+
+    if (player.levelGlowTimer > 0 || activePowerUps.shield > 0) {
+      const pulse = 0.25 + Math.sin(t * 7) * 0.08;
+      premiumRect(anchorX - 6, anchorY - 6, drawWidth + 12, drawHeight + 12, `rgba(88,223,255,${pulse})`);
+    }
+
+    premiumWorldShadow(x + player.width / 2, y + 27, 24, 7, 0.3);
+
+    const oldSmoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    if (flipX) {
+      ctx.translate(anchorX + drawWidth / 2, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(sprite, -drawWidth / 2, anchorY, drawWidth, drawHeight);
+    } else {
+      ctx.drawImage(sprite, anchorX, anchorY, drawWidth, drawHeight);
+    }
+    ctx.imageSmoothingEnabled = oldSmoothing;
+
+    if (equippedPower === "blueRay" || equippedPower === "shockwave") {
+      const sparkle = 0.28 + Math.sin(t * 6) * 0.1;
+      premiumRect(anchorX + drawWidth - 6, anchorY + 14, 3, 3, `rgba(88,223,255,${sparkle})`);
+      premiumRect(anchorX + 2, anchorY + drawHeight - 12, 2, 2, `rgba(255,232,154,${sparkle})`);
+    }
+
+    drawReferencePlayerAttackEffect(x, anchorY + 4, direction, t);
+    ctx.restore();
+  };
+})();
+
+/* ==================================================
+   ETERNAL RIFT - REWORK DE ANIMACAO DE ATAQUE DO JOGADOR
+   - Nao gera imagens novas.
+   - Mantem o sprite de referencia do jogador.
+   - Adiciona windup, lunge, recovery, afterimage e trilha de golpe.
+   ================================================== */
+(function eternalRiftReferenceAttackAnimationPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_REFERENCE_ATTACK_ANIMATION_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_REFERENCE_ATTACK_ANIMATION_PATCH = true;
+
+  function loadRefSprite(src) {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = src;
+    return img;
+  }
+
+  const attackAnimSprites = {
+    down: loadRefSprite("assets/player/hero-down.png"),
+    sideIdle: loadRefSprite("assets/player/hero-side-idle.png"),
+    sideWalk: loadRefSprite("assets/player/hero-side-walk.png"),
+    up: loadRefSprite("assets/player/hero-up.png")
+  };
+
+  const ATTACK_REF_SCALE = 0.9;
+  const drawPlayerBeforeAttackAnimationPatch = typeof drawPlayer === "function" ? drawPlayer : null;
+
+  function pxRect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function pxShadow(x, y, w, h, alpha = 0.28) {
+    ctx.save();
+    ctx.fillStyle = `rgba(8, 10, 20, ${alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h / 2, Math.max(1, w / 2), Math.max(1, h / 2), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function clamp01(v) {
+    return Math.max(0, Math.min(1, Number(v) || 0));
+  }
+
+  function easeOutCubic(v) {
+    const t = clamp01(v);
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function easeInOutSine(v) {
+    const t = clamp01(v);
+    return -(Math.cos(Math.PI * t) - 1) / 2;
+  }
+
+  function directionUnit(dir) {
+    if (dir === "left") return { x: -1, y: 0 };
+    if (dir === "right") return { x: 1, y: 0 };
+    if (dir === "up") return { x: 0, y: -1 };
+    return { x: 0, y: 1 };
+  }
+
+  function getAttackSideSprite() {
+    if (player.moving) return Math.floor((player.frame || 0) % 4) % 2 === 0 ? attackAnimSprites.sideIdle : attackAnimSprites.sideWalk;
+    if (currentMeleeAttack) return attackAnimSprites.sideWalk;
+    return attackAnimSprites.sideIdle;
+  }
+
+  function getAttackPose(direction) {
+    const vec = directionUnit(direction);
+    const sideSign = direction === "left" ? -1 : direction === "right" ? 1 : 0;
+    const verticalSign = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+    const isMeleeAttack = Boolean(currentMeleeAttack && !["bow", "staff"].includes(String(currentMeleeAttack.weaponKey || "")));
+    if (!isMeleeAttack) {
+      return {
+        attacking: false,
+        phase: "idle",
+        progress: 0,
+        phaseProgress: 0,
+        impact: 0,
+        offsetX: 0,
+        offsetY: 0,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        shadowScale: 1,
+        vec
+      };
+    }
+
+    const total = Math.max(0.001, Number(currentMeleeAttack.maxTimer || attackTimer || 0.5));
+    const windup = Math.max(0.04, Number(currentMeleeAttack.windup || total * 0.28));
+    const active = Math.max(0.05, Number(currentMeleeAttack.active || total * 0.30));
+    const recovery = Math.max(0.04, total - windup - active);
+    const elapsed = total - Math.max(0, Number(currentMeleeAttack.timer || 0));
+
+    let phase = "recovery";
+    let phaseProgress = 1;
+    if (elapsed <= windup) {
+      phase = "windup";
+      phaseProgress = clamp01(elapsed / windup);
+    } else if (elapsed <= windup + active) {
+      phase = "active";
+      phaseProgress = clamp01((elapsed - windup) / active);
+    } else {
+      phase = "recovery";
+      phaseProgress = clamp01((elapsed - windup - active) / recovery);
+    }
+
+    let offsetX = 0;
+    let offsetY = 0;
+    let rotation = 0;
+    let scaleX = 1;
+    let scaleY = 1;
+    let shadowScale = 1;
+    let impact = 0;
+
+    if (phase === "windup") {
+      const e = easeOutCubic(phaseProgress);
+      const back = 2 + e * 3.5;
+      offsetX -= vec.x * back;
+      offsetY -= vec.y * back * 0.62;
+      rotation = (sideSign ? -sideSign * 0.18 : verticalSign * 0.05) * e;
+      scaleX = 1 - e * 0.015;
+      scaleY = 1 + e * 0.02;
+      shadowScale = 1 - e * 0.04;
+    } else if (phase === "active") {
+      const e = easeInOutSine(phaseProgress);
+      const lunge = 3 + e * 7;
+      offsetX += vec.x * lunge;
+      offsetY += vec.y * lunge * 0.62;
+      rotation = (sideSign ? sideSign * 0.22 : verticalSign * 0.07) * Math.sin(phaseProgress * Math.PI);
+      scaleX = 1 + e * 0.03;
+      scaleY = 1 - e * 0.03;
+      shadowScale = 1 + e * 0.10;
+      impact = Math.sin(phaseProgress * Math.PI);
+    } else {
+      const e = 1 - easeOutCubic(phaseProgress);
+      const settle = 5.5 * e;
+      offsetX += vec.x * settle;
+      offsetY += vec.y * settle * 0.52;
+      rotation = (sideSign ? sideSign * 0.14 : verticalSign * 0.04) * e;
+      scaleX = 1 + e * 0.012;
+      scaleY = 1 - e * 0.015;
+      shadowScale = 1 + e * 0.04;
+      impact = e * 0.45;
+    }
+
+    return {
+      attacking: true,
+      phase,
+      progress: clamp01(elapsed / total),
+      phaseProgress,
+      impact,
+      offsetX,
+      offsetY,
+      rotation,
+      scaleX,
+      scaleY,
+      shadowScale,
+      vec
+    };
+  }
+
+  function drawReferenceSpriteInstance(sprite, drawWidth, drawHeight, flipX, pose, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.rotate(pose.rotation || 0);
+    ctx.scale((flipX ? -1 : 1) * (pose.scaleX || 1), pose.scaleY || 1);
+    const pivotY = drawHeight * 0.78;
+    const oldSmoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sprite, -drawWidth / 2, -pivotY, drawWidth, drawHeight);
+    ctx.imageSmoothingEnabled = oldSmoothing;
+    ctx.restore();
+  }
+
+  function drawAttackAfterImages(sprite, drawWidth, drawHeight, flipX, pose) {
+    if (!pose.attacking) return;
+    const trailAlpha = pose.phase === "active" ? 0.18 : 0.10;
+    if (trailAlpha <= 0.01) return;
+    for (let i = 2; i >= 1; i -= 1) {
+      const factor = i / 2;
+      ctx.save();
+      ctx.translate(-(pose.vec.x * 2.8 * i), -(pose.vec.y * 2.1 * i));
+      drawReferenceSpriteInstance(
+        sprite,
+        drawWidth,
+        drawHeight,
+        flipX,
+        {
+          rotation: (pose.rotation || 0) * (0.45 + factor * 0.20),
+          scaleX: 1,
+          scaleY: 1
+        },
+        trailAlpha * factor
+      );
+      ctx.restore();
+    }
+  }
+
+  function drawReferenceAttackTrail(anchorX, anchorY, drawWidth, drawHeight, direction, pose) {
+    if (!pose.attacking) return;
+    const pulse = Math.sin(clamp01(pose.progress) * Math.PI);
+    const bright = 0.55 + pulse * 0.28;
+    ctx.save();
+    ctx.globalAlpha *= 0.95;
+
+    if (direction === "left" || direction === "right") {
+      const sign = direction === "left" ? -1 : 1;
+      const baseX = anchorX + drawWidth / 2 + sign * (drawWidth * 0.23 + 4 + pulse * 5);
+      const baseY = anchorY + drawHeight * 0.58;
+      ctx.translate(baseX, baseY);
+      if (sign < 0) ctx.scale(-1, 1);
+      pxRect(6, -2, 14 + pulse * 8, 3, `rgba(255,255,255,${bright})`);
+      pxRect(12, -1, 18 + pulse * 10, 2, `rgba(120,220,255,${0.42 + pulse * 0.24})`);
+      pxRect(2, -5, 10 + pulse * 5, 2, `rgba(255,244,170,${0.28 + pulse * 0.18})`);
+      pxRect(28 + pulse * 8, -1, 8, 2, `rgba(120,220,255,${0.35 + pulse * 0.18})`);
+      ctx.restore();
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,255,255,${0.18 + pulse * 0.14})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(anchorX + drawWidth / 2 + sign * 4, anchorY + drawHeight * 0.54, 18 + pulse * 10, sign > 0 ? -0.35 : Math.PI - 0.35, sign > 0 ? 0.35 : Math.PI + 0.35);
+      ctx.stroke();
+    } else if (direction === "up") {
+      const baseX = anchorX + drawWidth / 2 - 1;
+      const baseY = anchorY + 9 - pulse * 10;
+      pxRect(baseX, baseY - 16, 3, 18 + pulse * 12, `rgba(255,255,255,${bright})`);
+      pxRect(baseX + 1, baseY - 26, 2, 10 + pulse * 7, `rgba(120,220,255,${0.45 + pulse * 0.22})`);
+      pxRect(baseX - 2, baseY - 8, 7, 2, `rgba(255,244,170,${0.22 + pulse * 0.12})`);
+    } else {
+      const baseX = anchorX + drawWidth / 2 - 1;
+      const baseY = anchorY + drawHeight - 6 + pulse * 10;
+      pxRect(baseX, baseY, 3, 18 + pulse * 12, `rgba(255,255,255,${bright})`);
+      pxRect(baseX + 1, baseY + 16, 2, 10 + pulse * 7, `rgba(120,220,255,${0.45 + pulse * 0.22})`);
+      pxRect(baseX - 2, baseY + 7, 7, 2, `rgba(255,244,170,${0.22 + pulse * 0.12})`);
+    }
+    ctx.restore();
+  }
+
+  drawPlayer = function drawPlayerReferenceAttackAnimationRework() {
+    const ready = attackAnimSprites.down.complete && attackAnimSprites.sideIdle.complete && attackAnimSprites.sideWalk.complete && attackAnimSprites.up.complete;
+    if (!ready) return drawPlayerBeforeAttackAnimationPatch?.();
+
+    const x = player.x;
+    const y = player.y;
+    const t = performance.now() / 1000;
+    const direction = player.direction || "down";
+    const blinking = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 75) % 2 === 0;
+    const pose = getAttackPose(direction);
+    const baseBob = player.moving ? Math.sin(t * 11) * 0.7 : Math.sin(t * 2.2) * 0.2;
+    const bob = pose.attacking ? baseBob * 0.35 : baseBob;
+
+    let sprite = attackAnimSprites.down;
+    let flipX = false;
+    if (direction === "up") {
+      sprite = attackAnimSprites.up;
+    } else if (direction === "left") {
+      sprite = getAttackSideSprite();
+      flipX = true;
+    } else if (direction === "right") {
+      sprite = getAttackSideSprite();
+    }
+
+    const naturalWidth = sprite.naturalWidth || sprite.width || 32;
+    const naturalHeight = sprite.naturalHeight || sprite.height || 48;
+    const drawWidth = Math.round(naturalWidth * ATTACK_REF_SCALE);
+    const drawHeight = Math.round(naturalHeight * ATTACK_REF_SCALE);
+    const anchorX = Math.round(x + player.width / 2 - drawWidth / 2 + pose.offsetX);
+    const anchorY = Math.round(y + player.height + 4 - drawHeight + bob + pose.offsetY);
+
+    ctx.save();
+    if (blinking) ctx.globalAlpha = 0.45;
+
+    if (player.isSwimming) {
+      ctx.strokeStyle = "rgba(155, 244, 255, 0.72)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x + player.width / 2, y + 27, 18, 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      pxRect(x - 4, y + 28, player.width + 8, 3, "rgba(99,218,255,0.28)");
+    }
+
+    if (player.levelGlowTimer > 0 || activePowerUps.shield > 0) {
+      const pulse = 0.25 + Math.sin(t * 7) * 0.08;
+      pxRect(anchorX - 6, anchorY - 6, drawWidth + 12, drawHeight + 12, `rgba(88,223,255,${pulse})`);
+    }
+
+    pxShadow(
+      x + player.width / 2 - 12 * pose.shadowScale + pose.offsetX * 0.16,
+      y + 24,
+      24 * pose.shadowScale,
+      7,
+      0.30
+    );
+
+    const pivotX = anchorX + drawWidth / 2;
+    const pivotY = anchorY + drawHeight * 0.78;
+    ctx.save();
+    ctx.translate(pivotX, pivotY);
+    drawAttackAfterImages(sprite, drawWidth, drawHeight, flipX, pose);
+    drawReferenceSpriteInstance(sprite, drawWidth, drawHeight, flipX, pose, 1);
+    ctx.restore();
+
+    if (equippedPower === "blueRay" || equippedPower === "shockwave") {
+      const sparkle = 0.28 + Math.sin(t * 6) * 0.1;
+      pxRect(anchorX + drawWidth - 6, anchorY + 14, 3, 3, `rgba(88,223,255,${sparkle})`);
+      pxRect(anchorX + 2, anchorY + drawHeight - 12, 2, 2, `rgba(255,232,154,${sparkle})`);
+    }
+
+    drawReferenceAttackTrail(anchorX, anchorY, drawWidth, drawHeight, direction, pose);
+    ctx.restore();
+  };
+
+  console.log("Eternal Rift: animacao de ataque do jogador melhorada sem gerar imagens.");
+})();
+
+
+/* Reforço final: funções visuais seguras continuam disponíveis. */
+if (typeof premiumRect !== "function") {
+  var premiumRect = function premiumRectSafeFinal(x, y, w, h, color) {
+    try {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    } catch (error) {}
+  };
+}
+if (typeof premiumWorldShadow !== "function") {
+  var premiumWorldShadow = function premiumWorldShadowSafeFinal(x, y, w, h, alpha = 0.28) {
+    try {
+      ctx.save();
+      ctx.fillStyle = `rgba(8, 10, 20, ${alpha})`;
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h / 2, Math.max(1, w / 2), Math.max(1, h / 2), 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } catch (error) {}
+  };
+}
+
+
+/* ==================================================
+   HOTFIX: jogador sem fundo preto + animação subir/descer
+   - Usa as imagens reais do jogador, agora com fundo transparente.
+   - Adiciona frames derivados para caminhada para cima e para baixo.
+   - Não gera imagem nova por IA.
+   ================================================== */
+(function playerTransparentAndVerticalWalkAnimationPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_PLAYER_TRANSPARENT_VERTICAL_WALK_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_PLAYER_TRANSPARENT_VERTICAL_WALK_PATCH = true;
+
+  const PATCH_VERSION = "player-transparencia-precisa-corpo-preservado-20260706-2";
+
+  function loadSprite(src) {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = `${src}?v=${PATCH_VERSION}`;
+    return img;
+  }
+
+  const sprites = {
+    downIdle: loadSprite("assets/player/hero-down.png"),
+    downWalk1: loadSprite("assets/player/hero-down-walk-1.png"),
+    downWalk2: loadSprite("assets/player/hero-down-walk-2.png"),
+    sideIdle: loadSprite("assets/player/hero-side-idle.png"),
+    sideWalk: loadSprite("assets/player/hero-side-walk.png"),
+    upIdle: loadSprite("assets/player/hero-up.png"),
+    upWalk1: loadSprite("assets/player/hero-up-walk-1.png"),
+    upWalk2: loadSprite("assets/player/hero-up-walk-2.png")
+  };
+
+  const SCALE = 0.9;
+  const drawPlayerBeforeTransparentWalk = typeof drawPlayer === "function" ? drawPlayer : null;
+
+  function ready() {
+    return Object.values(sprites).every((img) => img.complete && img.naturalWidth > 0);
+  }
+
+  function rect(x, y, w, h, color) {
+    try {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    } catch (error) {}
+  }
+
+  function shadow(x, y, w, h, alpha = 0.28) {
+    try {
+      ctx.save();
+      ctx.fillStyle = `rgba(8, 10, 20, ${alpha})`;
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h / 2, Math.max(1, w / 2), Math.max(1, h / 2), 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } catch (error) {}
+  }
+
+  function clamp01(v) {
+    return Math.max(0, Math.min(1, Number(v) || 0));
+  }
+
+  function easeOutCubic(v) {
+    const t = clamp01(v);
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function easeInOutSine(v) {
+    const t = clamp01(v);
+    return -(Math.cos(Math.PI * t) - 1) / 2;
+  }
+
+  function directionUnit(dir) {
+    if (dir === "left") return { x: -1, y: 0 };
+    if (dir === "right") return { x: 1, y: 0 };
+    if (dir === "up") return { x: 0, y: -1 };
+    return { x: 0, y: 1 };
+  }
+
+  function walkPhase() {
+    const frame = Math.floor((performance.now() / 115) % 4);
+    return frame < 2 ? 1 : 2;
+  }
+
+  function chooseSprite(direction) {
+    const phase = walkPhase();
+    const moving = Boolean(player.moving);
+
+    if (direction === "up") {
+      if (!moving && !currentMeleeAttack) return sprites.upIdle;
+      return phase === 1 ? sprites.upWalk1 : sprites.upWalk2;
+    }
+
+    if (direction === "left" || direction === "right") {
+      if (!moving && !currentMeleeAttack) return sprites.sideIdle;
+      return phase === 1 ? sprites.sideWalk : sprites.sideIdle;
+    }
+
+    if (!moving && !currentMeleeAttack) return sprites.downIdle;
+    return phase === 1 ? sprites.downWalk1 : sprites.downWalk2;
+  }
+
+  function getAttackPose(direction) {
+    const vec = directionUnit(direction);
+    const sideSign = direction === "left" ? -1 : direction === "right" ? 1 : 0;
+    const verticalSign = direction === "up" ? -1 : direction === "down" ? 1 : 0;
+    const isMeleeAttack = Boolean(currentMeleeAttack && !["bow", "staff"].includes(String(currentMeleeAttack.weaponKey || "")));
+
+    if (!isMeleeAttack) {
+      return {
+        attacking: false,
+        phase: "idle",
+        progress: 0,
+        phaseProgress: 0,
+        impact: 0,
+        offsetX: 0,
+        offsetY: 0,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        shadowScale: 1,
+        vec
+      };
+    }
+
+    const total = Math.max(0.001, Number(currentMeleeAttack.maxTimer || attackTimer || 0.5));
+    const windup = Math.max(0.04, Number(currentMeleeAttack.windup || total * 0.28));
+    const active = Math.max(0.05, Number(currentMeleeAttack.active || total * 0.30));
+    const recovery = Math.max(0.04, total - windup - active);
+    const elapsed = total - Math.max(0, Number(currentMeleeAttack.timer || 0));
+
+    let phase = "recovery";
+    let phaseProgress = 1;
+    if (elapsed <= windup) {
+      phase = "windup";
+      phaseProgress = clamp01(elapsed / windup);
+    } else if (elapsed <= windup + active) {
+      phase = "active";
+      phaseProgress = clamp01((elapsed - windup) / active);
+    } else {
+      phase = "recovery";
+      phaseProgress = clamp01((elapsed - windup - active) / recovery);
+    }
+
+    let offsetX = 0;
+    let offsetY = 0;
+    let rotation = 0;
+    let scaleX = 1;
+    let scaleY = 1;
+    let shadowScale = 1;
+    let impact = 0;
+
+    if (phase === "windup") {
+      const e = easeOutCubic(phaseProgress);
+      const back = 2 + e * 3.5;
+      offsetX -= vec.x * back;
+      offsetY -= vec.y * back * 0.62;
+      rotation = (sideSign ? -sideSign * 0.18 : verticalSign * 0.05) * e;
+      scaleX = 1 - e * 0.015;
+      scaleY = 1 + e * 0.02;
+      shadowScale = 1 - e * 0.04;
+    } else if (phase === "active") {
+      const e = easeInOutSine(phaseProgress);
+      const lunge = 3 + e * 7;
+      offsetX += vec.x * lunge;
+      offsetY += vec.y * lunge * 0.62;
+      rotation = (sideSign ? sideSign * 0.22 : verticalSign * 0.07) * Math.sin(phaseProgress * Math.PI);
+      scaleX = 1 + e * 0.03;
+      scaleY = 1 - e * 0.03;
+      shadowScale = 1 + e * 0.10;
+      impact = Math.sin(phaseProgress * Math.PI);
+    } else {
+      const e = 1 - easeOutCubic(phaseProgress);
+      const settle = 5.5 * e;
+      offsetX += vec.x * settle;
+      offsetY += vec.y * settle * 0.52;
+      rotation = (sideSign ? sideSign * 0.14 : verticalSign * 0.04) * e;
+      scaleX = 1 + e * 0.012;
+      scaleY = 1 - e * 0.015;
+      shadowScale = 1 + e * 0.04;
+      impact = e * 0.45;
+    }
+
+    return {
+      attacking: true,
+      phase,
+      progress: clamp01(elapsed / total),
+      phaseProgress,
+      impact,
+      offsetX,
+      offsetY,
+      rotation,
+      scaleX,
+      scaleY,
+      shadowScale,
+      vec
+    };
+  }
+
+  function drawSprite(sprite, drawWidth, drawHeight, flipX, pose, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.rotate(pose.rotation || 0);
+    ctx.scale((flipX ? -1 : 1) * (pose.scaleX || 1), pose.scaleY || 1);
+    const pivotY = drawHeight * 0.78;
+    const oldSmoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sprite, -drawWidth / 2, -pivotY, drawWidth, drawHeight);
+    ctx.imageSmoothingEnabled = oldSmoothing;
+    ctx.restore();
+  }
+
+  function drawAfterImages(sprite, drawWidth, drawHeight, flipX, pose) {
+    if (!pose.attacking) return;
+    const trailAlpha = pose.phase === "active" ? 0.18 : 0.10;
+    if (trailAlpha <= 0.01) return;
+
+    for (let i = 2; i >= 1; i -= 1) {
+      const factor = i / 2;
+      ctx.save();
+      ctx.translate(-(pose.vec.x * 2.8 * i), -(pose.vec.y * 2.1 * i));
+      drawSprite(sprite, drawWidth, drawHeight, flipX, {
+        rotation: (pose.rotation || 0) * (0.45 + factor * 0.20),
+        scaleX: 1,
+        scaleY: 1
+      }, trailAlpha * factor);
+      ctx.restore();
+    }
+  }
+
+  function drawAttackTrail(anchorX, anchorY, drawWidth, drawHeight, direction, pose) {
+    if (!pose.attacking) return;
+    const pulse = Math.sin(clamp01(pose.progress) * Math.PI);
+    const bright = 0.55 + pulse * 0.28;
+    ctx.save();
+    ctx.globalAlpha *= 0.95;
+
+    if (direction === "left" || direction === "right") {
+      const sign = direction === "left" ? -1 : 1;
+      const baseX = anchorX + drawWidth / 2 + sign * (drawWidth * 0.23 + 4 + pulse * 5);
+      const baseY = anchorY + drawHeight * 0.58;
+      ctx.translate(baseX, baseY);
+      if (sign < 0) ctx.scale(-1, 1);
+      rect(6, -2, 14 + pulse * 8, 3, `rgba(255,255,255,${bright})`);
+      rect(12, -1, 18 + pulse * 10, 2, `rgba(120,220,255,${0.42 + pulse * 0.24})`);
+      rect(2, -5, 10 + pulse * 5, 2, `rgba(255,244,170,${0.28 + pulse * 0.18})`);
+      rect(28 + pulse * 8, -1, 8, 2, `rgba(120,220,255,${0.35 + pulse * 0.18})`);
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,255,255,${0.18 + pulse * 0.14})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(anchorX + drawWidth / 2 + sign * 4, anchorY + drawHeight * 0.54, 18 + pulse * 10, sign > 0 ? -0.35 : Math.PI - 0.35, sign > 0 ? 0.35 : Math.PI + 0.35);
+      ctx.stroke();
+    } else if (direction === "up") {
+      const baseX = anchorX + drawWidth / 2 - 1;
+      const baseY = anchorY + 9 - pulse * 10;
+      rect(baseX, baseY - 16, 3, 18 + pulse * 12, `rgba(255,255,255,${bright})`);
+      rect(baseX + 1, baseY - 26, 2, 10 + pulse * 7, `rgba(120,220,255,${0.45 + pulse * 0.22})`);
+      rect(baseX - 2, baseY - 8, 7, 2, `rgba(255,244,170,${0.22 + pulse * 0.12})`);
+    } else {
+      const baseX = anchorX + drawWidth / 2 - 1;
+      const baseY = anchorY + drawHeight - 6 + pulse * 10;
+      rect(baseX, baseY, 3, 18 + pulse * 12, `rgba(255,255,255,${bright})`);
+      rect(baseX + 1, baseY + 16, 2, 10 + pulse * 7, `rgba(120,220,255,${0.45 + pulse * 0.22})`);
+      rect(baseX - 2, baseY + 7, 7, 2, `rgba(255,244,170,${0.22 + pulse * 0.12})`);
+    }
+    ctx.restore();
+  }
+
+  drawPlayer = function drawPlayerTransparentVerticalWalkFinal() {
+    if (!ready()) return drawPlayerBeforeTransparentWalk?.();
+
+    const x = player.x;
+    const y = player.y;
+    const t = performance.now() / 1000;
+    const direction = player.direction || "down";
+    const blinking = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 75) % 2 === 0;
+    const pose = getAttackPose(direction);
+    const sprite = chooseSprite(direction);
+    const flipX = direction === "left";
+    const baseBob = player.moving ? Math.sin(t * 11) * 0.65 : Math.sin(t * 2.2) * 0.18;
+    const bob = pose.attacking ? baseBob * 0.35 : baseBob;
+
+    const naturalWidth = sprite.naturalWidth || sprite.width || 32;
+    const naturalHeight = sprite.naturalHeight || sprite.height || 48;
+    const drawWidth = Math.round(naturalWidth * SCALE);
+    const drawHeight = Math.round(naturalHeight * SCALE);
+    const anchorX = Math.round(x + player.width / 2 - drawWidth / 2 + pose.offsetX);
+    const anchorY = Math.round(y + player.height + 4 - drawHeight + bob + pose.offsetY);
+
+    ctx.save();
+    if (blinking) ctx.globalAlpha = 0.45;
+
+    if (player.isSwimming) {
+      ctx.strokeStyle = "rgba(155, 244, 255, 0.72)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x + player.width / 2, y + 27, 18, 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      rect(x - 4, y + 28, player.width + 8, 3, "rgba(99,218,255,0.28)");
+    }
+
+    if (player.levelGlowTimer > 0 || activePowerUps.shield > 0) {
+      const pulse = 0.25 + Math.sin(t * 7) * 0.08;
+      rect(anchorX - 6, anchorY - 6, drawWidth + 12, drawHeight + 12, `rgba(88,223,255,${pulse})`);
+    }
+
+    shadow(
+      x + player.width / 2 - 12 * pose.shadowScale + pose.offsetX * 0.16,
+      y + 24,
+      24 * pose.shadowScale,
+      7,
+      0.30
+    );
+
+    const pivotX = anchorX + drawWidth / 2;
+    const pivotY = anchorY + drawHeight * 0.78;
+    ctx.save();
+    ctx.translate(pivotX, pivotY);
+    drawAfterImages(sprite, drawWidth, drawHeight, flipX, pose);
+    drawSprite(sprite, drawWidth, drawHeight, flipX, pose, 1);
+    ctx.restore();
+
+    if (equippedPower === "blueRay" || equippedPower === "shockwave") {
+      const sparkle = 0.28 + Math.sin(t * 6) * 0.1;
+      rect(anchorX + drawWidth - 6, anchorY + 14, 3, 3, `rgba(88,223,255,${sparkle})`);
+      rect(anchorX + 2, anchorY + drawHeight - 12, 2, 2, `rgba(255,232,154,${sparkle})`);
+    }
+
+    drawAttackTrail(anchorX, anchorY, drawWidth, drawHeight, direction, pose);
+    ctx.restore();
+  };
+
+  console.log("Eternal Rift hotfix carregado:", PATCH_VERSION);
+})();
+
+
+// === Hotfix: evita duas espadas aparecendo no ataque/personagem ===
+(function () {
+  const PATCH_ID = "single-sword-visual-hotfix-v1";
+  if (window.ETERNAL_RIFT_SINGLE_SWORD_VISUAL_PATCH === PATCH_ID) return;
+  window.ETERNAL_RIFT_SINGLE_SWORD_VISUAL_PATCH = PATCH_ID;
+
+  function shouldHideExtraWeaponOverlay(weaponKey) {
+    const key = String(weaponKey || "sword").toLowerCase();
+    if (key.includes("bow") || key.includes("staff") || key.includes("spear")) return false;
+    const weapon = (typeof weapons === "object" && weapons && weapons[weaponKey]) ? weapons[weaponKey] : null;
+    if (weapon && (weapon.kind === "projectile" || weapon.kind === "line" || weapon.projectile === "arrow")) return false;
+    return true;
+  }
+
+  const drawEquippedWeaponBeforeSingleSwordVisualPatch = typeof drawEquippedWeapon === "function" ? drawEquippedWeapon : null;
+  if (drawEquippedWeaponBeforeSingleSwordVisualPatch) {
+    drawEquippedWeapon = function drawEquippedWeaponSingleSwordVisualPatch() {
+      const weaponKey = typeof safeCurrentWeaponKeyForVisual === "function"
+        ? safeCurrentWeaponKeyForVisual()
+        : (typeof getCurrentWeaponKey === "function" ? getCurrentWeaponKey() : "sword");
+      if (shouldHideExtraWeaponOverlay(weaponKey)) return;
+      return drawEquippedWeaponBeforeSingleSwordVisualPatch();
+    };
+  }
+
+  console.log("Hotfix visual aplicado: sem espada duplicada.");
+})();
+
+
+// === Patch: hitbox melhorada baseada nas referencias do usuario ===
+(function () {
+  const PATCH_ID = "improved-directional-hitbox-v1";
+  if (window.ETERNAL_RIFT_IMPROVED_DIRECTIONAL_HITBOX_PATCH === PATCH_ID) return;
+  window.ETERNAL_RIFT_IMPROVED_DIRECTIONAL_HITBOX_PATCH = PATCH_ID;
+
+  function clampValue(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function angleToCardinal(angle) {
+    const a = Number(angle || 0);
+    const deg = ((a * 180 / Math.PI) % 360 + 360) % 360;
+    if (deg >= 45 && deg < 135) return "down";
+    if (deg >= 135 && deg < 225) return "left";
+    if (deg >= 225 && deg < 315) return "up";
+    return "right";
+  }
+
+  function overlapRect(a, b) {
+    if (typeof rectsOverlap === "function") return rectsOverlap(a, b);
+    return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+  }
+
+  function closestPointInRect(px, py, rect) {
+    return {
+      x: clampValue(px, rect.x, rect.x + rect.width),
+      y: clampValue(py, rect.y, rect.y + rect.height)
+    };
+  }
+
+  function circleHitsRect(cx, cy, radius, rect) {
+    const closest = closestPointInRect(cx, cy, rect);
+    const dx = cx - closest.x;
+    const dy = cy - closest.y;
+    return dx * dx + dy * dy <= radius * radius;
+  }
+
+  function getAttackablesForHitboxPatch() {
+    if (currentScene === "village") return Array.isArray(villageObjects) ? villageObjects : [];
+    return Array.isArray(objects) ? objects : [];
+  }
+
+  function getWeaponForAttackPatch(attack) {
+    return (typeof weapons === "object" && weapons && weapons[attack?.weaponKey]) ? weapons[attack.weaponKey] : weapons.sword;
+  }
+
+  function getImprovedMeleeShape(attack) {
+    const weapon = getWeaponForAttackPatch(attack);
+    const dir = angleToCardinal(attack?.angle || 0);
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const isLine = weapon.kind === "line";
+    const isSwordLike = !isLine;
+    const baseRange = Math.max(38, Number(attack?.range || weapon.range || 48));
+    const extraRange = isLine ? 14 : (attack?.weaponKey && attack.weaponKey !== "sword" ? 12 : 8);
+    const length = Math.round(baseRange * (isLine ? 0.98 : 0.88) + extraRange);
+    const thickness = isLine ? 24 : (attack?.weaponKey && attack.weaponKey !== "sword" ? 56 : 48);
+    const startInset = isLine ? 4 : 8;
+
+    let rect;
+    let tipCircle;
+
+    if (dir === "right") {
+      rect = { x: centerX + startInset, y: centerY - thickness / 2, width: length, height: thickness };
+      tipCircle = { x: rect.x + rect.width, y: centerY, radius: Math.max(10, thickness * 0.52) };
+    } else if (dir === "left") {
+      rect = { x: centerX - startInset - length, y: centerY - thickness / 2, width: length, height: thickness };
+      tipCircle = { x: rect.x, y: centerY, radius: Math.max(10, thickness * 0.52) };
+    } else if (dir === "up") {
+      rect = { x: centerX - thickness / 2, y: centerY - startInset - length, width: thickness, height: length };
+      tipCircle = { x: centerX, y: rect.y, radius: Math.max(10, thickness * 0.52) };
+    } else {
+      rect = { x: centerX - thickness / 2, y: centerY + startInset, width: thickness, height: length };
+      tipCircle = { x: centerX, y: rect.y + rect.height, radius: Math.max(10, thickness * 0.52) };
+    }
+
+    return { rect, tipCircle, dir, isSwordLike, isLine, length, thickness };
+  }
+
+  function improvedMeleeHitsEnemy(attack, enemyObj) {
+    const enemyRect = {
+      x: enemyObj.x + 1,
+      y: enemyObj.y + 1,
+      width: Math.max(4, enemyObj.width - 2),
+      height: Math.max(4, enemyObj.height - 2)
+    };
+
+    const shape = getImprovedMeleeShape(attack);
+    if (overlapRect(shape.rect, enemyRect)) return true;
+    if (shape.isSwordLike && circleHitsRect(shape.tipCircle.x, shape.tipCircle.y, shape.tipCircle.radius, enemyRect)) return true;
+
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const enemyX = enemyObj.x + enemyObj.width / 2;
+    const enemyY = enemyObj.y + enemyObj.height / 2;
+    const dx = enemyX - centerX;
+    const dy = enemyY - centerY;
+    const distance = Math.hypot(dx, dy);
+    const angle = Math.atan2(dy, dx);
+    const diff = Math.abs(typeof angleDifference === "function" ? angleDifference(angle, attack.angle || 0) : angle - (attack.angle || 0));
+    const closeGrace = distance < 28 ? Math.PI * 0.16 : 0;
+    const fallbackArc = shape.isLine ? Math.PI * 0.24 : Math.PI * 0.78;
+    const finalArc = Math.max(fallbackArc, Number(attack.arc || 0));
+    return distance <= (attack.range || 48) + Math.max(enemyObj.width, enemyObj.height) * 0.55 && diff <= finalArc / 2 + closeGrace;
+  }
+
+  const resolveBasicAttackBeforeImprovedHitboxPatch = typeof resolveBasicAttack === "function" ? resolveBasicAttack : null;
+  resolveBasicAttack = function resolveBasicAttackImprovedHitboxPatch() {
+    if (!currentMeleeAttack) {
+      return resolveBasicAttackBeforeImprovedHitboxPatch ? resolveBasicAttackBeforeImprovedHitboxPatch() : undefined;
+    }
+
+    const weapon = getWeaponForAttackPatch(currentMeleeAttack);
+    if (weapon.kind === "projectile") {
+      return resolveBasicAttackBeforeImprovedHitboxPatch ? resolveBasicAttackBeforeImprovedHitboxPatch() : undefined;
+    }
+
+    const profile = currentMeleeAttack.profile || (typeof realisticProfileForWeapon === "function" ? realisticProfileForWeapon(currentMeleeAttack.weaponKey) : null) || {
+      knockback: weapon.kind === "line" ? 210 : 155,
+      visual: weapon.kind === "line" ? "thrust" : "slash",
+      damageType: weapon.damageType || "fisico"
+    };
+
+    let hit = false;
+    let hitCount = 0;
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const attackables = getAttackablesForHitboxPatch();
+
+    for (const obj of attackables) {
+      if (!obj || obj.type !== "enemy" || !obj.alive) continue;
+      if (!improvedMeleeHitsEnemy(currentMeleeAttack, obj)) continue;
+
+      hitCount += 1;
+      const targetCenterX = obj.x + obj.width / 2;
+      const targetCenterY = obj.y + obj.height / 2;
+      const distance = Math.hypot(targetCenterX - centerX, targetCenterY - centerY);
+      const sweetSpot = clampValue(1 - Math.abs(distance - (currentMeleeAttack.range || 48) * 0.64) / Math.max(1, currentMeleeAttack.range || 48), 0.84, 1.20);
+      const comboBonus = currentMeleeAttack.comboStep ? currentMeleeAttack.comboStep * 0.12 : 0;
+      const multiTargetPenalty = hitCount > 1 && profile.visual !== "slash" ? 0.72 : 1;
+      const baseDamage = typeof getBasicAttackDamage === "function" ? getBasicAttackDamage(currentMeleeAttack.weaponKey) : (weapon.damage || 2);
+      const damage = Math.max(1, Math.round(baseDamage * sweetSpot * multiTargetPenalty * (1 + comboBonus)));
+      const knockback = (profile.knockback || 160) * (obj.boss ? 0.42 : 1) * (profile.visual === "thrust" ? 1.18 : 1);
+
+      if (typeof damageEnemy === "function" && damageEnemy(obj, damage, centerX, centerY, knockback, profile.damageType || weapon.damageType || "fisico")) {
+        hit = true;
+        obj.attackCooldown = Math.max(obj.attackCooldown || 0, profile.visual === "thrust" ? 0.35 : 0.22);
+      }
+    }
+
+    if (hit) {
+      if (typeof realisticCombat === "object" && realisticCombat) realisticCombat.lastImpactTimer = 0.16;
+      if (typeof hitstopTimer === "number") hitstopTimer = Math.max(hitstopTimer || 0, 0.045);
+      try { playSound("hitEnemy"); } catch (error) {}
+      try { vibrate(hitCount > 1 ? [12, 18, 12] : 22); } catch (error) {}
+    } else {
+      if (typeof realisticCombat === "object" && realisticCombat) {
+        realisticCombat.comboWindow = 0;
+        realisticCombat.comboStep = 0;
+      }
+      if (typeof setRealisticCombatStatus === "function") setRealisticCombatStatus("Errou", 0.45);
+    }
+  };
+
+  function getImprovedProjectilePreset(weapon, aim) {
+    const centerX = player.x + player.width / 2;
+    const centerY = player.y + player.height / 2;
+    const dir = angleToCardinal(aim?.angle || 0);
+    const isArrow = weapon.projectile === "arrow";
+    const size = isArrow
+      ? { sideW: 26, sideH: 8, verticalW: 10, verticalH: 26 }
+      : { sideW: 28, sideH: 12, verticalW: 14, verticalH: 28 };
+
+    let width, height, x, y;
+    if (dir === "right") {
+      width = size.sideW; height = size.sideH;
+      x = centerX + 6; y = centerY - height / 2;
+    } else if (dir === "left") {
+      width = size.sideW; height = size.sideH;
+      x = centerX - width - 6; y = centerY - height / 2;
+    } else if (dir === "up") {
+      width = size.verticalW; height = size.verticalH;
+      x = centerX - width / 2; y = centerY - height - 6;
+    } else {
+      width = size.verticalW; height = size.verticalH;
+      x = centerX - width / 2; y = centerY + 6;
+    }
+
+    return { dir, x, y, width, height };
+  }
+
+  fireWeaponProjectile = function fireWeaponProjectileImprovedHitbox(weapon, aim) {
+    if (weapon.projectile === "arrow") {
+      if (inventory.flechas <= 0) {
+        weaponCooldownTimer = 0.12;
+        spawnFloatingText("Sem flechas", player.x + 4, player.y - 16, "#fff264");
+        return;
+      }
+      inventory.flechas -= 1;
+      renderInventory();
+      updateHud();
+    }
+
+    if (weapon.projectile === "arrow" && player.isSwimming) {
+      spawnFloatingText("Flecha lenta na agua", player.x + 8, player.y - 16, "#55e8ff");
+    }
+
+    const waterSlow = player.isSwimming && weapon.projectile === "arrow" ? 0.48 : 1;
+    const preset = getImprovedProjectilePreset(weapon, aim);
+    spawnPlayerProjectile({
+      type: weapon.projectile,
+      x: preset.x,
+      y: preset.y,
+      width: preset.width,
+      height: preset.height,
+      vx: aim.x * weapon.projectileSpeed * waterSlow,
+      vy: aim.y * weapon.projectileSpeed * waterSlow,
+      damage: weapon.damage,
+      damageType: weapon.damageType,
+      distance: 0,
+      maxDistance: weapon.range,
+      aimAngle: aim.angle,
+      visualDirection: preset.dir,
+      shotWeaponKey: (typeof getCurrentWeaponKey === "function" ? getCurrentWeaponKey() : ""),
+      improvedHitbox: true
+    });
+    playSound(weapon.projectile === "arrow" ? "bow" : "magic");
+    vibrate(14);
+  };
+
+  function getExpandedProjectileHitRect(obj) {
+    const dir = obj.visualDirection || angleToCardinal(obj.aimAngle || Math.atan2(obj.vy || 0, obj.vx || 1));
+    const isArrow = obj.type === "arrow";
+    let x = obj.x;
+    let y = obj.y;
+    let width = obj.width;
+    let height = obj.height;
+
+    if (dir === "right") {
+      width += isArrow ? 12 : 16;
+      height = Math.max(height, isArrow ? 10 : 14);
+      y -= (height - obj.height) / 2;
+    } else if (dir === "left") {
+      x -= isArrow ? 12 : 16;
+      width += isArrow ? 12 : 16;
+      height = Math.max(height, isArrow ? 10 : 14);
+      y -= (height - obj.height) / 2;
+    } else if (dir === "up") {
+      width = Math.max(width, isArrow ? 12 : 16);
+      x -= (width - obj.width) / 2;
+      y -= isArrow ? 12 : 16;
+      height += isArrow ? 12 : 16;
+    } else {
+      width = Math.max(width, isArrow ? 12 : 16);
+      x -= (width - obj.width) / 2;
+      height += isArrow ? 12 : 16;
+    }
+
+    return { x, y, width, height };
+  }
+
+  const updateProjectilesBeforeImprovedHitboxPatch = typeof updateProjectiles === "function" ? updateProjectiles : null;
+  updateProjectiles = function updateProjectilesImprovedHitboxPatch(delta) {
+    if (updateProjectilesBeforeImprovedHitboxPatch) updateProjectilesBeforeImprovedHitboxPatch(delta);
+    const attackables = getAttackablesForHitboxPatch();
+    if (!Array.isArray(projectiles) || !attackables.length) return;
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      const obj = projectiles[i];
+      if (!obj || !obj.improvedHitbox) continue;
+      const hitRect = getExpandedProjectileHitRect(obj);
+      const target = attackables.find((enemyObj) => enemyObj && enemyObj.type === "enemy" && enemyObj.alive && overlapRect(hitRect, enemyObj));
+      if (!target) continue;
+      const targetKey = typeof getSaveObjectKey === "function" ? getSaveObjectKey(target) : `${target.x}:${target.y}`;
+      if (!obj.hitKeys) obj.hitKeys = new Set();
+      if (obj.hitKeys.has(targetKey)) continue;
+      if (typeof damageEnemy === "function") damageEnemy(target, obj.damage || 1, obj.x, obj.y, obj.type === "arrow" ? 160 : 185, obj.damageType || "fisico");
+      obj.hitKeys.add(targetKey);
+      if (obj.pierce > 0) obj.pierce -= 1;
+      else projectiles.splice(i, 1);
+    }
+  };
+
+  console.log("Patch aplicado: hitbox melhorada para espada, arco e cajado.");
+})();
+
+
+/* ==================================================
+   PATCH: inimigos menores usando as imagens enviadas
+   - Não gera imagens novas.
+   - Usa as sprites reais enviadas pelo usuário.
+   - Deixa inimigos pequenos/iniciais com visual parecido com as referências.
+   ================================================== */
+(function exactSmallEnemySpritesPatch() {
+  const PATCH_ID = "small-enemy-reference-sprites-20260706-1";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_SMALL_ENEMY_SPRITES_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_SMALL_ENEMY_SPRITES_PATCH = PATCH_ID;
+
+  function loadEnemySprite(src) {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = `${src}?v=${PATCH_ID}`;
+    return img;
+  }
+
+  const enemySpriteAssets = {
+    spider: loadEnemySprite("assets/enemies/spider-game.png"),
+    necromancer: loadEnemySprite("assets/enemies/necromancer-game.png"),
+    wolf: loadEnemySprite("assets/enemies/wolf-game.png"),
+    goblin: loadEnemySprite("assets/enemies/goblin-game.png"),
+    fireImp: loadEnemySprite("assets/enemies/fire-imp-game.png"),
+    iceGolem: loadEnemySprite("assets/enemies/ice-golem-game.png"),
+    slime: loadEnemySprite("assets/enemies/slime-game.png"),
+    skeleton: loadEnemySprite("assets/enemies/skeleton-game.png")
+  };
+
+  const spriteByEnemyKind = {
+    slime: "slime",
+    slimeVerde: "slime",
+    slimeVermelho: "slime",
+    slimeAzul: "slime",
+    slimeToxico: "slime",
+    slimeGelo: "slime",
+    slimeLava: "slime",
+    reiSlime: "slime",
+
+    aranha: "spider",
+    aranhaRainha: "spider",
+    aranhaNevoa: "spider",
+
+    goblin: "goblin",
+    arqueiroGoblin: "goblin",
+
+    mago: "necromancer",
+    magoSombrio: "necromancer",
+    bruxoSombrio: "necromancer",
+    bruxaPantano: "necromancer",
+    magoLuaNegra: "necromancer",
+    espiritoPerdido: "necromancer",
+    fantasma: "necromancer",
+
+    loboPequeno: "wolf",
+    loboGelo: "wolf",
+    loboBranco: "wolf",
+    loboSombrio: "wolf",
+
+    esqueleto: "skeleton",
+    esqueletoArqueiro: "skeleton",
+    mumia: "skeleton",
+    guerreiroCarbonizado: "skeleton",
+
+    demonioFogoPequeno: "fireImp",
+    miniDragao: "fireImp",
+
+    golemGeloPequeno: "iceGolem",
+    golem: "iceGolem",
+    golemPedra: "iceGolem",
+    golemGelo: "iceGolem",
+    golemAreia: "iceGolem",
+    golemMagmatico: "iceGolem",
+    miniGuardiao: "iceGolem",
+    golemAncestral: "iceGolem"
+  };
+
+  const kindSizeOverrides = {
+    slime: { width: 24, height: 18, visualW: 33, visualH: 24, yOffset: 2 },
+    slimeVerde: { width: 24, height: 18, visualW: 33, visualH: 24, yOffset: 2 },
+    slimeVermelho: { width: 25, height: 19, visualW: 34, visualH: 25, yOffset: 2 },
+    slimeAzul: { width: 25, height: 19, visualW: 34, visualH: 25, yOffset: 2 },
+    slimeToxico: { width: 25, height: 19, visualW: 34, visualH: 25, yOffset: 2 },
+    slimeGelo: { width: 25, height: 19, visualW: 34, visualH: 25, yOffset: 2 },
+    slimeLava: { width: 25, height: 19, visualW: 34, visualH: 25, yOffset: 2 },
+    reiSlime: { width: 34, height: 26, visualW: 45, visualH: 33, yOffset: 3 },
+
+    aranha: { width: 38, height: 26, visualW: 49, visualH: 42, yOffset: 8 },
+    aranhaNevoa: { width: 38, height: 26, visualW: 49, visualH: 42, yOffset: 8 },
+    aranhaRainha: { width: 48, height: 32, visualW: 60, visualH: 51, yOffset: 10 },
+
+    goblin: { width: 24, height: 31, visualW: 34, visualH: 38, yOffset: 4 },
+    arqueiroGoblin: { width: 24, height: 31, visualW: 34, visualH: 38, yOffset: 4 },
+
+    mago: { width: 28, height: 36, visualW: 38, visualH: 48, yOffset: 7 },
+    magoSombrio: { width: 28, height: 36, visualW: 38, visualH: 48, yOffset: 7 },
+    bruxoSombrio: { width: 34, height: 42, visualW: 45, visualH: 57, yOffset: 8 },
+    bruxaPantano: { width: 30, height: 38, visualW: 40, visualH: 51, yOffset: 7 },
+    magoLuaNegra: { width: 30, height: 38, visualW: 40, visualH: 51, yOffset: 7 },
+    espiritoPerdido: { width: 28, height: 36, visualW: 38, visualH: 48, yOffset: 7 },
+    fantasma: { width: 28, height: 36, visualW: 38, visualH: 48, yOffset: 7 },
+
+    loboPequeno: { width: 36, height: 24, visualW: 43, visualH: 37, yOffset: 9 },
+    loboGelo: { width: 36, height: 24, visualW: 43, visualH: 37, yOffset: 9 },
+    loboBranco: { width: 38, height: 25, visualW: 45, visualH: 39, yOffset: 9 },
+    loboSombrio: { width: 38, height: 25, visualW: 45, visualH: 39, yOffset: 9 },
+
+    esqueleto: { width: 28, height: 36, visualW: 40, visualH: 40, yOffset: 2 },
+    esqueletoArqueiro: { width: 28, height: 36, visualW: 40, visualH: 40, yOffset: 2 },
+    mumia: { width: 28, height: 36, visualW: 40, visualH: 40, yOffset: 2 },
+    guerreiroCarbonizado: { width: 28, height: 36, visualW: 40, visualH: 40, yOffset: 2 },
+
+    demonioFogoPequeno: { width: 31, height: 34, visualW: 43, visualH: 42, yOffset: 5 },
+    miniDragao: { width: 31, height: 34, visualW: 43, visualH: 42, yOffset: 5 },
+
+    golemGeloPequeno: { width: 34, height: 38, visualW: 43, visualH: 46, yOffset: 5 },
+    golem: { width: 34, height: 38, visualW: 43, visualH: 46, yOffset: 5 },
+    golemPedra: { width: 34, height: 38, visualW: 43, visualH: 46, yOffset: 5 },
+    golemGelo: { width: 36, height: 40, visualW: 46, visualH: 49, yOffset: 5 },
+    golemAreia: { width: 34, height: 38, visualW: 43, visualH: 46, yOffset: 5 },
+    golemMagmatico: { width: 36, height: 40, visualW: 46, visualH: 49, yOffset: 5 },
+    miniGuardiao: { width: 36, height: 40, visualW: 46, visualH: 49, yOffset: 5 },
+    golemAncestral: { width: 44, height: 48, visualW: 55, visualH: 59, yOffset: 6 }
+  };
+
+  const customSmallEnemyStats = {
+    loboPequeno: {
+      width: 36, height: 24, hp: 6, damage: 1, speed: 76,
+      aggroRange: 255, attackRange: 30, attackDelay: 0.86, coinReward: 8,
+      dropTable: { coin: 0.85, potion: 0.12, powerUp: 0.16, loot: 0.26 }, xpReward: 5
+    },
+    esqueleto: {
+      width: 28, height: 36, hp: 6, damage: 1, speed: 48,
+      aggroRange: 250, attackRange: 34, attackDelay: 1.05, coinReward: 8,
+      dropTable: { coin: 0.9, potion: 0.12, powerUp: 0.15, loot: 0.30 }, xpReward: 6
+    },
+    demonioFogoPequeno: {
+      width: 31, height: 34, hp: 8, damage: 2, speed: 58,
+      aggroRange: 270, attackRange: 160, attackDelay: 1.25, coinReward: 12,
+      projectileType: "fire", resistances: { fogo: 0.55, gelo: 1.35, agua: 1.25 },
+      dropTable: { coin: 0.95, potion: 0.18, powerUp: 0.24, loot: 0.34 }, xpReward: 8
+    },
+    golemGeloPequeno: {
+      width: 34, height: 38, hp: 12, damage: 2, speed: 31,
+      aggroRange: 230, attackRange: 145, attackDelay: 1.35, coinReward: 12,
+      projectileType: "stone", defense: 1, resistances: { gelo: 0.5, fogo: 1.25, fisico: 0.8 },
+      dropTable: { coin: 1, potion: 0.18, powerUp: 0.22, loot: 0.40 }, xpReward: 9
+    }
+  };
+
+  const getEnemyStatsBeforeSmallSpritePatch = typeof getEnemyStats === "function" ? getEnemyStats : null;
+  getEnemyStats = function getEnemyStatsSmallSpritePatch(kind) {
+    let stats = customSmallEnemyStats[kind]
+      ? { ...customSmallEnemyStats[kind] }
+      : (getEnemyStatsBeforeSmallSpritePatch ? { ...getEnemyStatsBeforeSmallSpritePatch(kind) } : { width: 22, height: 20, hp: 3, damage: 1, speed: 45, aggroRange: 190, attackRange: 28, attackDelay: 1.1, coinReward: 3, xpReward: 2, dropTable: {} });
+
+    const size = kindSizeOverrides[kind];
+    if (size) {
+      stats.width = size.width;
+      stats.height = size.height;
+    }
+    return stats;
+  };
+
+  function applyReferenceEnemySize(obj) {
+    if (!obj || obj.type !== "enemy" || obj.trainingDummy || obj.kind === "trainingDummy") return;
+    const size = kindSizeOverrides[obj.kind];
+    if (!size) return;
+    obj.width = size.width;
+    obj.height = size.height;
+    obj.referenceSmallEnemySprite = true;
+    if (!Number.isFinite(obj.maxHp) || obj.maxHp <= 0) {
+      const stats = getEnemyStats(obj.kind);
+      obj.maxHp = stats.hp;
+      obj.hp = stats.hp;
+    }
+  }
+
+  const normalizeEnemyBeforeSmallSpritePatch = typeof normalizeEnemy === "function" ? normalizeEnemy : null;
+  normalizeEnemy = function normalizeEnemySmallSpritePatch(obj) {
+    const result = normalizeEnemyBeforeSmallSpritePatch ? normalizeEnemyBeforeSmallSpritePatch(obj) : undefined;
+    applyReferenceEnemySize(obj);
+    return result;
+  };
+
+  function drawReferenceEnemyHp(obj) {
+    const hpPct = Math.max(0, Math.min(1, Number(obj.hp || 0) / Math.max(1, Number(obj.maxHp || 1))));
+    const barW = Math.max(18, Math.min(54, obj.width + 8));
+    const bx = Math.round(obj.x + obj.width / 2 - barW / 2);
+    const by = Math.round(obj.y - 8);
+    ctx.fillStyle = "rgba(12, 16, 36, 0.82)";
+    ctx.fillRect(bx, by, barW, 4);
+    ctx.fillStyle = obj.boss ? "#fff264" : "#d24c63";
+    ctx.fillRect(bx, by, Math.round(barW * hpPct), 4);
+    ctx.fillStyle = "rgba(255,255,255,0.35)";
+    ctx.fillRect(bx, by, Math.round(barW * hpPct), 1);
+  }
+
+  function drawReferenceEnemySprite(obj) {
+    const assetKey = spriteByEnemyKind[obj.kind];
+    if (!assetKey) return false;
+    const img = enemySpriteAssets[assetKey];
+    if (!img || !img.complete || img.naturalWidth <= 0) return false;
+
+    const size = kindSizeOverrides[obj.kind] || {};
+    const visualW = size.visualW || img.naturalWidth;
+    const visualH = size.visualH || img.naturalHeight;
+    const yOffset = Number(size.yOffset || 0);
+    const drawX = Math.round(obj.x + obj.width / 2 - visualW / 2);
+    const drawY = Math.round(obj.y + obj.height - visualH + yOffset);
+    const blink = obj.invulnerableTimer > 0 && Math.floor(performance.now() / 70) % 2 === 0;
+    const t = performance.now() / 1000;
+    const bob = obj.canFly ? Math.sin(t * 5 + obj.x * 0.07) * 2 : 0;
+
+    ctx.save();
+    if (blink) ctx.globalAlpha = 0.48;
+
+    const shadowW = Math.max(16, visualW * 0.58);
+    const shadowH = Math.max(4, visualH * 0.13);
+    ctx.fillStyle = "rgba(8, 10, 20, 0.28)";
+    ctx.beginPath();
+    ctx.ellipse(obj.x + obj.width / 2, obj.y + obj.height + 2, shadowW / 2, shadowH / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (obj.boss && obj.phase === 2) {
+      ctx.fillStyle = "rgba(255, 79, 98, 0.18)";
+      ctx.fillRect(drawX - 4, drawY - 4 + bob, visualW + 8, visualH + 8);
+    }
+
+    ctx.imageSmoothingEnabled = false;
+    const flip = obj.direction === "left" && ["wolf", "goblin", "skeleton", "necromancer", "fireImp"].includes(assetKey);
+    if (flip) {
+      ctx.translate(drawX + visualW / 2, drawY + bob + visualH / 2);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, -visualW / 2, -visualH / 2, visualW, visualH);
+    } else {
+      ctx.drawImage(img, drawX, drawY + bob, visualW, visualH);
+    }
+
+    if (obj.burnTimer > 0 || obj.burningTimer > 0) {
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = "#ff6a2e";
+      ctx.fillRect(drawX + visualW * 0.35, drawY + visualH * 0.18 + bob, 4, 9);
+      ctx.fillStyle = "#fff264";
+      ctx.fillRect(drawX + visualW * 0.42, drawY + visualH * 0.28 + bob, 3, 5);
+      ctx.globalAlpha = blink ? 0.48 : 1;
+    }
+    if (obj.freezeTimer > 0 || obj.frozenTimer > 0) {
+      ctx.globalAlpha = 0.30;
+      ctx.fillStyle = "#55e8ff";
+      ctx.fillRect(drawX - 2, drawY - 2 + bob, visualW + 4, visualH + 4);
+      ctx.globalAlpha = blink ? 0.48 : 1;
+    }
+    if (obj.poisonTimer > 0 || obj.venomTimer > 0) {
+      ctx.globalAlpha = 0.42;
+      ctx.fillStyle = "#7bdb73";
+      ctx.fillRect(drawX + visualW * 0.62, drawY + visualH * 0.22 + bob, 3, 3);
+      ctx.fillRect(drawX + visualW * 0.72, drawY + visualH * 0.42 + bob, 2, 4);
+      ctx.globalAlpha = blink ? 0.48 : 1;
+    }
+
+    drawReferenceEnemyHp(obj);
+    ctx.restore();
+    return true;
+  }
+
+  const drawEnemyBeforeSmallSpritePatch = typeof drawEnemy === "function" ? drawEnemy : null;
+  drawEnemy = function drawEnemySmallSpritePatch(obj) {
+    if (drawReferenceEnemySprite(obj)) return;
+    return drawEnemyBeforeSmallSpritePatch ? drawEnemyBeforeSmallSpritePatch(obj) : undefined;
+  };
+
+  function addSmallReferenceEnemy(tileX, tileY, kind, name) {
+    if (!Array.isArray(villageObjects)) return;
+    const marker = `ref-small-${kind}-${tileX}-${tileY}`;
+    if (villageObjects.some((obj) => obj && obj.referenceSmallEnemyMarker === marker)) return;
+    const obj = enemy(tileX, tileY, kind);
+    obj.name = name;
+    obj.referenceSmallEnemyMarker = marker;
+    obj.referenceSmallEnemySprite = true;
+    applyReferenceEnemySize(obj);
+    villageObjects.push(obj);
+    if (currentScene === "village") {
+      if (Array.isArray(objects) && !objects.includes(obj)) objects.push(obj);
+    }
+  }
+
+  function ensureReferenceSmallEnemiesInVillage() {
+    if (!Array.isArray(villageObjects)) return;
+    // Alguns exemplos novos, espalhados nas áreas externas para o jogador já ver os visuais.
+    addSmallReferenceEnemy(14, 47, "esqueleto", "Esqueleto Errante");
+    addSmallReferenceEnemy(18, 48, "loboPequeno", "Lobo Sombrio Jovem");
+    addSmallReferenceEnemy(63, 32, "demonioFogoPequeno", "Diabrete Flamejante");
+    addSmallReferenceEnemy(70, 35, "golemGeloPequeno", "Golem Glacial Menor");
+    addSmallReferenceEnemy(21, 49, "magoSombrio", "Necromante Aprendiz");
+
+    for (const obj of villageObjects) applyReferenceEnemySize(obj);
+    if (currentScene === "village") {
+      objects = villageObjects;
+      colliders = objects.filter((obj) => obj.solid);
+      interactables = objects.filter((obj) => obj.message || obj.type === "npc" || obj.type === "rareChest" || obj.type === "extraMapChest");
+    }
+  }
+
+  const setActiveSceneBeforeSmallSpritePatch = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneSmallSpritePatch(scene) {
+    const result = setActiveSceneBeforeSmallSpritePatch ? setActiveSceneBeforeSmallSpritePatch(scene) : undefined;
+    ensureReferenceSmallEnemiesInVillage();
+    return result;
+  };
+
+  const loadGameBeforeSmallSpritePatch = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameSmallSpritePatch() {
+    const ok = loadGameBeforeSmallSpritePatch ? loadGameBeforeSmallSpritePatch() : false;
+    ensureReferenceSmallEnemiesInVillage();
+    return ok;
+  };
+
+  try {
+    ensureReferenceSmallEnemiesInVillage();
+    console.log("Eternal Rift hotfix carregado:", PATCH_ID);
+  } catch (error) {}
+})();
+
+/* ==================================================
+   ETERNAL RIFT: HOTFIX FINAL ANTI-LAG MOBILE
+   - reduz travamentos pesados no mobile sem remover conteúdo
+   - mantém tudo no jogo, mas usa resolução interna adaptativa
+   - limita efeitos fora da câmera e atualiza IA distante de forma mais leve
+   ================================================== */
+(function eternalRiftMobileExtremeLagFix() {
+  const PATCH_ID = "ER-MOBILE-LAG-FIX-20260706";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MOBILE_EXTREME_LAG_FIX === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MOBILE_EXTREME_LAG_FIX = PATCH_ID;
+
+  function mobileLike() {
+    try {
+      return Boolean(
+        isMobile ||
+        document.body?.classList.contains("is-mobile") ||
+        window.matchMedia?.("(pointer: coarse)")?.matches ||
+        window.innerWidth <= 980
+      );
+    } catch (error) {
+      return Boolean(typeof isMobile !== "undefined" && isMobile);
+    }
+  }
+
+  function hardwareIsLowEnd() {
+    const cores = Number(navigator.hardwareConcurrency || 4);
+    const memory = Number(navigator.deviceMemory || 4);
+    return cores <= 4 || memory <= 4;
+  }
+
+  function getLagProfile() {
+    const mobile = mobileLike();
+    const low = mobile && hardwareIsLowEnd();
+    return {
+      mobile,
+      low,
+      fps: mobile ? (low ? 30 : 36) : 60,
+      canvasPixelsPortrait: low ? 240000 : 320000,
+      canvasPixelsLandscape: low ? 320000 : 430000,
+      enemyWakeDistance: low ? 500 : 620,
+      bossWakeDistance: low ? 900 : 1100,
+      npcWakeDistance: low ? 360 : 440,
+      minimapMs: low ? 1500 : 1100,
+      projectileLimit: low ? 12 : 20,
+      textLimit: low ? 8 : 12,
+      lootLimit: low ? 12 : 18,
+      hazardLimit: low ? 8 : 12,
+      dashTrailLimit: low ? 4 : 6,
+      shockwaveLimit: low ? 2 : 3,
+      healBurstLimit: low ? 2 : 3
+    };
+  }
+
+  function trimArrayKeepLatest(list, limit) {
+    if (Array.isArray(list) && list.length > limit) {
+      list.splice(0, list.length - limit);
+    }
+  }
+
+  function distanceToPlayerLocal(obj) {
+    const px = (player.x || 0) + (player.width || 0) / 2;
+    const py = (player.y || 0) + (player.height || 0) / 2;
+    const ox = (obj.x || 0) + (obj.width || 0) / 2;
+    const oy = (obj.y || 0) + (obj.height || 0) / 2;
+    return Math.hypot(ox - px, oy - py);
+  }
+
+  function isRelevantForMobile(obj, pad = 120) {
+    if (!obj) return false;
+    if (typeof isOnCamera === "function" && isOnCamera(obj, pad)) return true;
+    return false;
+  }
+
+  const ensureCanvasSizeBeforeLagFix = typeof ensureCanvasSize === "function" ? ensureCanvasSize : null;
+  let lastCanvasViewportKeyLagFix = "";
+  let lastCanvasEnsureLagFix = 0;
+  ensureCanvasSize = function ensureCanvasSizeMobileLagFix(force = false) {
+    const profile = getLagProfile();
+    const now = performance.now();
+    const vv = window.visualViewport;
+    const width = Math.max(320, Math.round(vv?.width || canvas.clientWidth || window.innerWidth || 960));
+    const height = Math.max(240, Math.round(vv?.height || canvas.clientHeight || window.innerHeight || 640));
+    const scale = Math.round((vv?.scale || 1) * 100);
+    const key = `${width}x${height}@${scale}:${window.innerWidth > window.innerHeight ? "landscape" : "portrait"}`;
+
+    if (!force && key === lastCanvasViewportKeyLagFix && now - lastCanvasEnsureLagFix < 900) {
+      try {
+        ctx.imageSmoothingEnabled = false;
+        miniCtx.imageSmoothingEnabled = false;
+      } catch (error) {}
+      return;
+    }
+
+    lastCanvasViewportKeyLagFix = key;
+    lastCanvasEnsureLagFix = now;
+
+    if (ensureCanvasSizeBeforeLagFix) ensureCanvasSizeBeforeLagFix(true);
+
+    if (profile.mobile) {
+      const budget = width > height ? profile.canvasPixelsLandscape : profile.canvasPixelsPortrait;
+      let targetW = Math.max(480, canvas.width || width);
+      let targetH = Math.max(320, canvas.height || height);
+      const pixels = Math.max(1, targetW * targetH);
+      if (pixels > budget) {
+        const ratio = Math.sqrt(budget / pixels);
+        targetW = Math.max(480, Math.floor(targetW * ratio));
+        targetH = Math.max(320, Math.floor(targetH * ratio));
+      }
+
+      if (Math.abs((canvas.width || 0) - targetW) > 2 || Math.abs((canvas.height || 0) - targetH) > 2) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+    }
+
+    if (miniMapCanvas.width <= 0) miniMapCanvas.width = 170;
+    if (miniMapCanvas.height <= 0) miniMapCanvas.height = 124;
+
+    try {
+      ctx.imageSmoothingEnabled = false;
+      miniCtx.imageSmoothingEnabled = false;
+    } catch (error) {}
+  };
+
+  const updateBeforeLagFix = typeof update === "function" ? update : null;
+  update = function updateMobileLagFix(delta) {
+    const profile = getLagProfile();
+    const clampedDelta = Math.min(Math.max(delta || 0.016, 0.001), profile.mobile ? 0.034 : 0.04);
+    const result = updateBeforeLagFix ? updateBeforeLagFix(clampedDelta) : undefined;
+
+    if (profile.mobile) {
+      trimArrayKeepLatest(projectiles, profile.projectileLimit);
+      trimArrayKeepLatest(enemyProjectiles, profile.projectileLimit);
+      trimArrayKeepLatest(floatingTexts, profile.textLimit);
+      trimArrayKeepLatest(lootItems, profile.lootLimit);
+      trimArrayKeepLatest(hazardZones, profile.hazardLimit);
+      trimArrayKeepLatest(dashTrails, profile.dashTrailLimit);
+      trimArrayKeepLatest(shockwaves, profile.shockwaveLimit);
+      trimArrayKeepLatest(healBursts, profile.healBurstLimit);
+    }
+
+    return result;
+  };
+
+  const updateEnemiesBeforeLagFix = typeof updateEnemies === "function" ? updateEnemies : null;
+  updateEnemies = function updateEnemiesMobileLagFix(delta) {
+    const profile = getLagProfile();
+    if (!updateEnemiesBeforeLagFix) return;
+    if (!profile.mobile || currentScene !== "village" || !Array.isArray(villageObjects)) {
+      return updateEnemiesBeforeLagFix(delta);
+    }
+
+    const original = villageObjects.slice();
+    const filtered = original.filter((obj) => {
+      if (!obj || obj.type !== "enemy") return true;
+      if (!obj.alive || obj.trainingDummy || obj.boss) return true;
+      if (isRelevantForMobile(obj, 180)) return true;
+      return distanceToPlayerLocal(obj) <= profile.enemyWakeDistance;
+    });
+
+    villageObjects.length = 0;
+    villageObjects.push(...filtered);
+    try {
+      return updateEnemiesBeforeLagFix(delta);
+    } finally {
+      villageObjects.length = 0;
+      villageObjects.push(...original);
+    }
+  };
+
+  const updateNpcsBeforeLagFix = typeof updateNpcs === "function" ? updateNpcs : null;
+  updateNpcs = function updateNpcsMobileLagFix(delta) {
+    const profile = getLagProfile();
+    if (!updateNpcsBeforeLagFix) return;
+    if (!profile.mobile || currentScene !== "village" || !Array.isArray(villageObjects)) {
+      return updateNpcsBeforeLagFix(delta);
+    }
+
+    const original = villageObjects.slice();
+    const filtered = original.filter((obj) => {
+      if (!obj || obj.type !== "npc") return true;
+      if (isRelevantForMobile(obj, 160)) return true;
+      return distanceToPlayerLocal(obj) <= profile.npcWakeDistance;
+    });
+
+    villageObjects.length = 0;
+    villageObjects.push(...filtered);
+    try {
+      return updateNpcsBeforeLagFix(delta);
+    } finally {
+      villageObjects.length = 0;
+      villageObjects.push(...original);
+    }
+  };
+
+  const drawProjectilesBeforeLagFix = typeof drawProjectiles === "function" ? drawProjectiles : null;
+  drawProjectiles = function drawProjectilesMobileLagFix() {
+    const profile = getLagProfile();
+    if (!drawProjectilesBeforeLagFix) return;
+    if (!profile.mobile) return drawProjectilesBeforeLagFix();
+
+    const savedProjectiles = Array.isArray(projectiles) ? projectiles.slice() : [];
+    const savedEnemyProjectiles = Array.isArray(enemyProjectiles) ? enemyProjectiles.slice() : [];
+    try {
+      if (Array.isArray(projectiles)) {
+        projectiles.length = 0;
+        projectiles.push(...savedProjectiles.filter((obj) => isRelevantForMobile(obj, 100)));
+      }
+      if (Array.isArray(enemyProjectiles)) {
+        enemyProjectiles.length = 0;
+        enemyProjectiles.push(...savedEnemyProjectiles.filter((obj) => obj?.type === "bossWave" || isRelevantForMobile(obj, 100)));
+      }
+      return drawProjectilesBeforeLagFix();
+    } finally {
+      if (Array.isArray(projectiles)) {
+        projectiles.length = 0;
+        projectiles.push(...savedProjectiles);
+      }
+      if (Array.isArray(enemyProjectiles)) {
+        enemyProjectiles.length = 0;
+        enemyProjectiles.push(...savedEnemyProjectiles);
+      }
+    }
+  };
+
+  const drawHazardsBeforeLagFix = typeof drawHazards === "function" ? drawHazards : null;
+  drawHazards = function drawHazardsMobileLagFix() {
+    const profile = getLagProfile();
+    if (!drawHazardsBeforeLagFix) return;
+    if (!profile.mobile) return drawHazardsBeforeLagFix();
+
+    const saved = Array.isArray(hazardZones) ? hazardZones.slice() : [];
+    try {
+      if (Array.isArray(hazardZones)) {
+        hazardZones.length = 0;
+        hazardZones.push(...saved.filter((obj) => isRelevantForMobile({
+          x: (obj.x || 0) - (obj.radius || 0),
+          y: (obj.y || 0) - (obj.radius || 0),
+          width: (obj.radius || 0) * 2,
+          height: (obj.radius || 0) * 2
+        }, 60)));
+      }
+      return drawHazardsBeforeLagFix();
+    } finally {
+      if (Array.isArray(hazardZones)) {
+        hazardZones.length = 0;
+        hazardZones.push(...saved);
+      }
+    }
+  };
+
+  const drawMiniMapBeforeLagFix = typeof drawMiniMap === "function" ? drawMiniMap : null;
+  let lastMiniMapAtLagFix = 0;
+  let lastMiniMapSceneLagFix = "";
+  let lastMiniMapKeyLagFix = "";
+  drawMiniMap = function drawMiniMapMobileLagFix() {
+    const profile = getLagProfile();
+    if (!drawMiniMapBeforeLagFix) return;
+    if (!profile.mobile) return drawMiniMapBeforeLagFix();
+    if (!miniMapCanvas || miniMapCanvas.classList.contains("hidden")) return;
+
+    const now = performance.now();
+    const key = `${currentScene}:${Math.floor((player.x || 0) / (TILE * 3))}:${Math.floor((player.y || 0) / (TILE * 3))}`;
+    const urgent = currentScene !== lastMiniMapSceneLagFix || key !== lastMiniMapKeyLagFix || gameOver;
+    if (!urgent && now - lastMiniMapAtLagFix < profile.minimapMs) return;
+    lastMiniMapAtLagFix = now;
+    lastMiniMapSceneLagFix = currentScene;
+    lastMiniMapKeyLagFix = key;
+    return drawMiniMapBeforeLagFix();
+  };
+
+  const drawDimensionAmbientBeforeLagFix = typeof drawDimensionAmbient === "function" ? drawDimensionAmbient : null;
+  drawDimensionAmbient = function drawDimensionAmbientMobileLagFix() {
+    const profile = getLagProfile();
+    if (!drawDimensionAmbientBeforeLagFix) return;
+    if (!profile.mobile) return drawDimensionAmbientBeforeLagFix();
+
+    const originalParticles = Array.isArray(dimensionParticles) ? dimensionParticles.slice() : null;
+    try {
+      if (Array.isArray(dimensionParticles) && dimensionParticles.length > 36) {
+        const reduced = [];
+        for (let i = 0; i < dimensionParticles.length; i += (profile.low ? 4 : 3)) reduced.push(dimensionParticles[i]);
+        dimensionParticles.length = 0;
+        dimensionParticles.push(...reduced);
+      }
+      return drawDimensionAmbientBeforeLagFix();
+    } finally {
+      if (originalParticles) {
+        dimensionParticles.length = 0;
+        dimensionParticles.push(...originalParticles);
+      }
+    }
+  };
+
+  let lastFrameTimeLagFix = 0;
+  gameLoop = function gameLoopMobileLagFix(time) {
+    const profile = getLagProfile();
+    if (document.hidden) {
+      lastTime = time;
+      lastFrameTimeLagFix = time;
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    const targetMs = 1000 / Math.max(24, Math.min(60, profile.fps));
+    if (profile.mobile && time - lastFrameTimeLagFix < targetMs) {
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    if (!lastTime) lastTime = time;
+    const delta = Math.min(Math.max((time - lastTime) / 1000, 0.001), profile.mobile ? 0.034 : 0.04);
+    lastTime = time;
+    lastFrameTimeLagFix = time;
+
+    try {
+      update(delta);
+      draw();
+    } catch (error) {
+      showErrorMessage(error);
+    }
+
+    requestAnimationFrame(gameLoop);
+  };
+
+  if (window.ER_PERFORMANCE && typeof window.ER_PERFORMANCE === "object") {
+    const profile = getLagProfile();
+    window.ER_PERFORMANCE.fpsMobile = profile.fps;
+    window.ER_PERFORMANCE.fpsPcLite = 60;
+    window.ER_PERFORMANCE.fpsPc = 60;
+    window.ER_PERFORMANCE.enemyWakeDistance = profile.enemyWakeDistance;
+    window.ER_PERFORMANCE.bossWakeDistance = profile.bossWakeDistance;
+    window.ER_PERFORMANCE.maxProjectilesMobile = profile.projectileLimit;
+    window.ER_PERFORMANCE.maxFloatingTextsMobile = profile.textLimit;
+  }
+
+  setTimeout(() => {
+    try { ensureCanvasSize(true); } catch (error) {}
+    try {
+      if (typeof showHudToast === "function" && mobileLike()) {
+        showHudToast("Hotfix mobile anti-lag ativado.", 2.2);
+      }
+    } catch (error) {}
+  }, 180);
 })();

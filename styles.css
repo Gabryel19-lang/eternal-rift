@@ -10301,3 +10301,62 @@ body.er-mobile-gameplay-v2 #inventoryPanel.er-inventory-rework-active #erInvento
   opacity: 1 !important;
   pointer-events: auto !important;
 }
+
+/* ETERNAL RIFT MOBILE BUGFIX - COMPACT INTERACTION HINT */
+#interactionHint.hidden,
+.interaction-hint.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.is-mobile #interactionHint.interaction-hint:not(.hidden),
+body.mobile-controls-fixed #interactionHint.interaction-hint:not(.hidden),
+body.er-mobile-real-fix #interactionHint.interaction-hint:not(.hidden),
+body.er-mobile-gameplay-v2 #interactionHint.interaction-hint:not(.hidden) {
+  position: fixed !important;
+  left: 50% !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 118px) !important;
+  transform: translateX(-50%) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: min(310px, calc(100vw - 28px)) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: 42px !important;
+  padding: 7px 12px !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(126, 229, 255, 0.48) !important;
+  background: rgba(9, 12, 23, 0.9) !important;
+  color: #fff264 !important;
+  font-size: 0.72rem !important;
+  line-height: 1.1 !important;
+  font-weight: 900 !important;
+  text-align: center !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.36), 0 0 12px rgba(126, 229, 255, 0.12) !important;
+  pointer-events: none !important;
+  z-index: 178 !important;
+}
+
+@media (orientation: portrait) and (max-width: 880px) {
+  body.is-mobile #interactionHint.interaction-hint:not(.hidden),
+  body.mobile-controls-fixed #interactionHint.interaction-hint:not(.hidden),
+  body.er-mobile-real-fix #interactionHint.interaction-hint:not(.hidden),
+  body.er-mobile-gameplay-v2 #interactionHint.interaction-hint:not(.hidden) {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 142px) !important;
+  }
+}
+
+
+/* ETERNAL_RIFT_EXACT_HERO_BEDROOM_IMAGE_PATCH_20260706 */
+#gameCanvas { image-rendering: pixelated; }

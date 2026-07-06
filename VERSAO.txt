@@ -1,0 +1,8 @@
+ETERNAL RIFT - HITBOX MELHORADA 2026-07-06
+- espada, arco e cajado com hitbox direcional melhorada
+- projeteis de arco/cajado saem melhor alinhados
+- mantida a correcao da espada duplicada
+
+- small-enemy-reference-sprites-20260706-1: inimigos menores com sprites reais enviados pelo usuario.
+
+Hotfix: mobile anti-lag extremo sem remover conteúdo.
