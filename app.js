@@ -60274,3 +60274,352 @@ if (typeof premiumWorldShadow !== "function") {
     } catch (error) {}
   }, 180);
 })();
+
+/* ==================================================
+   ETERNAL RIFT: MOBILE ULTRA REAL ANTI-TRAVAMENTO
+   - Não remove sistemas, armas, mapas, inimigos, baús ou itens.
+   - No celular, troca a renderização pesada do chão por tiles rápidos.
+   - Reduz resolução interna para o Canvas respirar em celular fraco.
+   - Mantém sprites/personagens/conteúdo, mas corta custo invisível da tela.
+   ================================================== */
+(function eternalRiftMobileUltraRealAntiLagPatch() {
+  const PATCH_ID = "mobile-ultra-real-anti-lag-20260706-2";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MOBILE_ULTRA_REAL_ANTILAG === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MOBILE_ULTRA_REAL_ANTILAG = PATCH_ID;
+
+  function isUltraMobile() {
+    try {
+      const qp = new URLSearchParams(location.search);
+      if (qp.get("ultra") === "0" || qp.get("potato") === "0") return false;
+      return Boolean(
+        qp.get("ultra") === "1" ||
+        qp.get("potato") === "1" ||
+        qp.get("lite") === "1" ||
+        isMobile ||
+        document.body?.classList.contains("is-mobile") ||
+        window.matchMedia?.("(pointer: coarse)")?.matches ||
+        window.innerWidth <= 980
+      );
+    } catch (error) {
+      return Boolean(typeof isMobile !== "undefined" && isMobile);
+    }
+  }
+
+  function lowEndPhone() {
+    const cores = Number(navigator.hardwareConcurrency || 4);
+    const mem = Number(navigator.deviceMemory || 4);
+    return cores <= 4 || mem <= 4;
+  }
+
+  function trimKeepLatest(list, limit) {
+    if (Array.isArray(list) && list.length > limit) list.splice(0, list.length - limit);
+  }
+
+  function fastTileColor(tile, x, y) {
+    if (tile === "D") return ((x + y) & 1) ? "#9c5744" : "#a85f4a";
+    if (tile === "W") return ((x + y) & 1) ? "#3b9cdc" : "#48a7e6";
+    if (tile === "F") return ((x + y) & 1) ? "#67be66" : "#70c96f";
+    if (tile === "P") return ((x + y) & 1) ? "#f2c27d" : "#ffd38b";
+    if (tile === "I") return ((x + y) & 1) ? "#a27658" : "#b88462";
+    if (tile === "B") return "#625064";
+    if (tile === "R") return "#b9415e";
+    if (tile === "C") return ((x + y) & 1) ? "#2a1a52" : "#34205f";
+    if (tile === "Q") return ((x + y) & 1) ? "#50357c" : "#5a3d86";
+    if (tile === "M") return ((x + y) & 1) ? "#3341aa" : "#3d48c9";
+    if (tile === "A" || tile === "X") return "#ddb45c";
+    if (tile === "N") return "#edf5ff";
+    if (tile === "L") return "#bfe6ff";
+    if (tile === "H" || tile === "U") return "#4c674d";
+    if (tile === "V") return "#4f8f66";
+    return ((x + y) & 1) ? "#82dc83" : "#8de68f";
+  }
+
+  function getActiveTileMapFast() {
+    let activeMap = homeMap;
+    let cols = HOME_COLS;
+    let rows = HOME_ROWS;
+
+    if (currentScene === "village") {
+      activeMap = worldMap;
+      cols = MAP_COLS;
+      rows = MAP_ROWS;
+    } else if (currentScene === "crystalDimension") {
+      activeMap = crystalDimensionMap;
+      cols = CRYSTAL_COLS;
+      rows = CRYSTAL_ROWS;
+    } else if (typeof getSceneMap === "function") {
+      try {
+        const sceneMap = getSceneMap();
+        if (Array.isArray(sceneMap) && sceneMap.length) {
+          activeMap = sceneMap;
+          rows = sceneMap.length;
+          cols = sceneMap[0]?.length || cols;
+        }
+      } catch (error) {}
+    }
+    return { activeMap, cols, rows };
+  }
+
+  const drawMapBeforeUltraRealAntiLag = typeof drawMap === "function" ? drawMap : null;
+  drawMap = function drawMapUltraRealAntiLag() {
+    if (!isUltraMobile()) return drawMapBeforeUltraRealAntiLag ? drawMapBeforeUltraRealAntiLag() : undefined;
+
+    const { activeMap, cols, rows } = getActiveTileMapFast();
+    const viewW = typeof getZoomedViewWidth === "function" ? getZoomedViewWidth() : canvas.width;
+    const viewH = typeof getZoomedViewHeight === "function" ? getZoomedViewHeight() : canvas.height;
+    const startCol = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const endCol = Math.min(cols - 1, Math.ceil((camera.x + viewW) / TILE) + 1);
+    const startRow = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const endRow = Math.min(rows - 1, Math.ceil((camera.y + viewH) / TILE) + 1);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (let y = startRow; y <= endRow; y++) {
+      const row = activeMap[y];
+      if (!row) continue;
+      for (let x = startCol; x <= endCol; x++) {
+        const px = x * TILE;
+        const py = y * TILE;
+        const tile = row[x];
+        ctx.fillStyle = fastTileColor(tile, x, y);
+        ctx.fillRect(px, py, TILE, TILE);
+
+        // Detalhes baratinhos, sem animação e sem textura pesada.
+        if (!lowEndPhone() && ((x * 13 + y * 7) % 11 === 0)) {
+          if (tile === "G" || tile === "F" || !tile) {
+            ctx.fillStyle = tile === "F" ? "#26794d" : "#2f8b60";
+            ctx.fillRect(px + 7, py + 19, 3, 7);
+            ctx.fillRect(px + 10, py + 23, 3, 3);
+          } else if (tile === "D" || tile === "P") {
+            ctx.fillStyle = tile === "P" ? "rgba(145,107,85,0.25)" : "rgba(93,56,67,0.32)";
+            ctx.fillRect(px + 5, py + 8, 7, 2);
+            ctx.fillRect(px + 21, py + 20, 6, 2);
+          } else if (tile === "W" || tile === "M") {
+            ctx.fillStyle = "rgba(123,213,255,0.42)";
+            ctx.fillRect(px + 5, py + 11, 9, 2);
+            ctx.fillRect(px + 18, py + 19, 9, 2);
+          }
+        }
+      }
+    }
+    ctx.restore();
+  };
+
+  const ensureCanvasSizeBeforeUltraRealAntiLag = typeof ensureCanvasSize === "function" ? ensureCanvasSize : null;
+  let lastCanvasKeyUltraReal = "";
+  let lastEnsureUltraReal = 0;
+  ensureCanvasSize = function ensureCanvasSizeUltraRealAntiLag(force = false) {
+    const now = performance.now();
+    const vv = window.visualViewport;
+    const cssW = Math.max(320, Math.round(vv?.width || canvas.clientWidth || window.innerWidth || 960));
+    const cssH = Math.max(240, Math.round(vv?.height || canvas.clientHeight || window.innerHeight || 640));
+    const orientation = cssW >= cssH ? "landscape" : "portrait";
+    const key = `${cssW}x${cssH}:${orientation}:${Math.round((vv?.scale || 1) * 100)}`;
+
+    if (!force && key === lastCanvasKeyUltraReal && now - lastEnsureUltraReal < 1200) {
+      try { ctx.imageSmoothingEnabled = false; miniCtx.imageSmoothingEnabled = false; } catch (error) {}
+      return;
+    }
+
+    lastCanvasKeyUltraReal = key;
+    lastEnsureUltraReal = now;
+    if (ensureCanvasSizeBeforeUltraRealAntiLag) ensureCanvasSizeBeforeUltraRealAntiLag(true);
+
+    if (isUltraMobile()) {
+      // Resolução interna pequena: o CSS escala a imagem, mas o celular renderiza MUITO menos pixels.
+      const low = lowEndPhone();
+      const targetW = orientation === "landscape" ? (low ? 384 : 448) : (low ? 320 : 360);
+      const targetH = orientation === "landscape" ? (low ? 216 : 252) : (low ? 360 : 420);
+      if (Math.abs(canvas.width - targetW) > 2 || Math.abs(canvas.height - targetH) > 2) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+      if (miniMapCanvas) {
+        miniMapCanvas.width = low ? 110 : 130;
+        miniMapCanvas.height = low ? 78 : 92;
+      }
+    }
+
+    try { ctx.imageSmoothingEnabled = false; miniCtx.imageSmoothingEnabled = false; } catch (error) {}
+  };
+
+  function onlyCameraArray(list, pad, limit) {
+    if (!Array.isArray(list)) return [];
+    const filtered = [];
+    for (const obj of list) {
+      if (filtered.length >= limit) break;
+      if (!obj) continue;
+      try {
+        if (typeof isOnCamera === "function" && isOnCamera(obj, pad)) filtered.push(obj);
+      } catch (error) {}
+    }
+    return filtered;
+  }
+
+  const drawProjectilesBeforeUltraReal = typeof drawProjectiles === "function" ? drawProjectiles : null;
+  drawProjectiles = function drawProjectilesUltraReal() {
+    if (!isUltraMobile() || !drawProjectilesBeforeUltraReal) return drawProjectilesBeforeUltraReal ? drawProjectilesBeforeUltraReal() : undefined;
+    const low = lowEndPhone();
+    const savedP = Array.isArray(projectiles) ? projectiles.slice() : [];
+    const savedE = Array.isArray(enemyProjectiles) ? enemyProjectiles.slice() : [];
+    try {
+      if (Array.isArray(projectiles)) {
+        projectiles.length = 0;
+        projectiles.push(...onlyCameraArray(savedP, 80, low ? 8 : 14));
+      }
+      if (Array.isArray(enemyProjectiles)) {
+        enemyProjectiles.length = 0;
+        enemyProjectiles.push(...onlyCameraArray(savedE, 80, low ? 8 : 14));
+      }
+      return drawProjectilesBeforeUltraReal();
+    } finally {
+      if (Array.isArray(projectiles)) { projectiles.length = 0; projectiles.push(...savedP); }
+      if (Array.isArray(enemyProjectiles)) { enemyProjectiles.length = 0; enemyProjectiles.push(...savedE); }
+    }
+  };
+
+  const drawFloatingTextsBeforeUltraReal = typeof drawFloatingTexts === "function" ? drawFloatingTexts : null;
+  drawFloatingTexts = function drawFloatingTextsUltraReal() {
+    if (!isUltraMobile() || !drawFloatingTextsBeforeUltraReal) return drawFloatingTextsBeforeUltraReal ? drawFloatingTextsBeforeUltraReal() : undefined;
+    const saved = Array.isArray(floatingTexts) ? floatingTexts.slice() : [];
+    try {
+      if (Array.isArray(floatingTexts)) {
+        floatingTexts.length = 0;
+        floatingTexts.push(...onlyCameraArray(saved, 80, lowEndPhone() ? 6 : 10));
+      }
+      return drawFloatingTextsBeforeUltraReal();
+    } finally {
+      if (Array.isArray(floatingTexts)) { floatingTexts.length = 0; floatingTexts.push(...saved); }
+    }
+  };
+
+  const updateBeforeUltraReal = typeof update === "function" ? update : null;
+  let effectsTrimAtUltraReal = 0;
+  update = function updateUltraRealAntiLag(delta) {
+    const mobile = isUltraMobile();
+    const low = lowEndPhone();
+    const capped = Math.min(Math.max(delta || 0.016, 0.001), mobile ? 0.032 : 0.04);
+    const result = updateBeforeUltraReal ? updateBeforeUltraReal(capped) : undefined;
+
+    if (mobile) {
+      const now = performance.now();
+      if (now - effectsTrimAtUltraReal > 120) {
+        effectsTrimAtUltraReal = now;
+        trimKeepLatest(projectiles, low ? 8 : 14);
+        trimKeepLatest(enemyProjectiles, low ? 8 : 14);
+        trimKeepLatest(floatingTexts, low ? 6 : 10);
+        trimKeepLatest(lootItems, low ? 8 : 14);
+        trimKeepLatest(hazardZones, low ? 5 : 8);
+        trimKeepLatest(dashTrails, low ? 3 : 5);
+        trimKeepLatest(shockwaves, low ? 1 : 2);
+        trimKeepLatest(healBursts, low ? 1 : 2);
+      }
+    }
+    return result;
+  };
+
+  const updateEnemiesBeforeUltraReal = typeof updateEnemies === "function" ? updateEnemies : null;
+  let enemyAiSkipUltraReal = 0;
+  updateEnemies = function updateEnemiesUltraReal(delta) {
+    if (!isUltraMobile() || !updateEnemiesBeforeUltraReal || currentScene !== "village" || !Array.isArray(villageObjects)) {
+      return updateEnemiesBeforeUltraReal ? updateEnemiesBeforeUltraReal(delta) : undefined;
+    }
+
+    enemyAiSkipUltraReal = (enemyAiSkipUltraReal + 1) % (lowEndPhone() ? 2 : 1);
+    const original = villageObjects.slice();
+    const maxDist = lowEndPhone() ? 420 : 540;
+    const filtered = original.filter((obj) => {
+      if (!obj || obj.type !== "enemy") return true;
+      if (!obj.alive || obj.boss || obj.trainingDummy || obj.kind === "trainingDummy") return true;
+      if (typeof isOnCamera === "function" && isOnCamera(obj, 150)) return true;
+      const px = player.x + player.width / 2;
+      const py = player.y + player.height / 2;
+      const ox = obj.x + obj.width / 2;
+      const oy = obj.y + obj.height / 2;
+      return Math.hypot(ox - px, oy - py) <= maxDist;
+    });
+
+    villageObjects.length = 0;
+    villageObjects.push(...filtered);
+    try {
+      return updateEnemiesBeforeUltraReal(delta * (enemyAiSkipUltraReal === 0 ? 1 : 0.5));
+    } finally {
+      villageObjects.length = 0;
+      villageObjects.push(...original);
+    }
+  };
+
+  const drawBeforeUltraReal = typeof draw === "function" ? draw : null;
+  draw = function drawUltraRealAntiLag() {
+    if (!isUltraMobile()) return drawBeforeUltraReal ? drawBeforeUltraReal() : undefined;
+    const oldShadowBlur = ctx.shadowBlur;
+    const oldAlpha = ctx.globalAlpha;
+    const oldSmoothing = ctx.imageSmoothingEnabled;
+    try {
+      ctx.shadowBlur = 0;
+      ctx.imageSmoothingEnabled = false;
+      return drawBeforeUltraReal ? drawBeforeUltraReal() : undefined;
+    } finally {
+      ctx.shadowBlur = oldShadowBlur;
+      ctx.globalAlpha = oldAlpha;
+      ctx.imageSmoothingEnabled = oldSmoothing;
+    }
+  };
+
+  const drawMiniMapBeforeUltraReal = typeof drawMiniMap === "function" ? drawMiniMap : null;
+  let lastMiniDrawUltraReal = 0;
+  let lastMiniKeyUltraReal = "";
+  drawMiniMap = function drawMiniMapUltraReal() {
+    if (!isUltraMobile() || !drawMiniMapBeforeUltraReal) return drawMiniMapBeforeUltraReal ? drawMiniMapBeforeUltraReal() : undefined;
+    const now = performance.now();
+    const key = `${currentScene}:${Math.floor(player.x / (TILE * 4))}:${Math.floor(player.y / (TILE * 4))}`;
+    if (key === lastMiniKeyUltraReal && now - lastMiniDrawUltraReal < (lowEndPhone() ? 2600 : 1800)) return;
+    lastMiniKeyUltraReal = key;
+    lastMiniDrawUltraReal = now;
+    return drawMiniMapBeforeUltraReal();
+  };
+
+  let lastFrameUltraReal = 0;
+  gameLoop = function gameLoopUltraRealAntiLag(time) {
+    if (document.hidden) {
+      lastTime = time;
+      lastFrameUltraReal = time;
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    const mobile = isUltraMobile();
+    const targetFps = mobile ? (lowEndPhone() ? 45 : 55) : 60;
+    const targetMs = 1000 / targetFps;
+    if (mobile && time - lastFrameUltraReal < targetMs) {
+      requestAnimationFrame(gameLoop);
+      return;
+    }
+
+    if (!lastTime) lastTime = time;
+    const delta = Math.min(Math.max((time - lastTime) / 1000, 0.001), mobile ? 0.032 : 0.04);
+    lastTime = time;
+    lastFrameUltraReal = time;
+
+    try {
+      update(delta);
+      draw();
+    } catch (error) {
+      showErrorMessage(error);
+    }
+    requestAnimationFrame(gameLoop);
+  };
+
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_FORCE_ULTRA_MOBILE = true;
+  }
+
+  setTimeout(() => {
+    try { ensureCanvasSize(true); } catch (error) {}
+    try {
+      if (typeof showHudToast === "function" && isUltraMobile()) {
+        showHudToast("Mobile ultra leve ativo.", 2.2);
+      }
+    } catch (error) {}
+  }, 250);
+})();

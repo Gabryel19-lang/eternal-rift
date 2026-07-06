@@ -6,3 +6,5 @@ ETERNAL RIFT - HITBOX MELHORADA 2026-07-06
 - small-enemy-reference-sprites-20260706-1: inimigos menores com sprites reais enviados pelo usuario.
 
 Hotfix: mobile anti-lag extremo sem remover conteúdo.
+
+- mobile-ultra-real-anti-lag-20260706-2: modo ultra real para celular fraco, sem remover conteúdo.
