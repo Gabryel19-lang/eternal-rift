@@ -37,15 +37,15 @@ if (typeof window !== "undefined") {
 }
 
 
-/* ETERNAL_RIFT_VERSION_MARKER_pc-mobile-extreme-antilag-20260706 */
+/* ETERNAL_RIFT_VERSION_MARKER_mobile-inventory-legacy-20260706 */
 (function eternalRiftVersionMarker() {
   try {
-    window.ETERNAL_RIFT_CURRENT_VERSION = "pc-mobile-extreme-antilag-20260706";
-    console.log("Eternal Rift versão carregada:", "pc-mobile-extreme-antilag-20260706");
+    window.ETERNAL_RIFT_CURRENT_VERSION = "mobile-inventory-legacy-20260706";
+    console.log("Eternal Rift versão carregada:", "mobile-inventory-legacy-20260706");
     setTimeout(() => {
-      if (typeof showHudToast === "function" && document.body?.classList.contains("is-mobile") && !window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN) {
-        window.ETERNAL_RIFT_MOBILE_HUD_TEST_TOAST_SHOWN = true;
-        showHudToast("HUD mobile MMORPG carregado: hud-mobile-mmorpg-20260706-1536", 3.2);
+      if (typeof showHudToast === "function" && document.body?.classList.contains("is-mobile") && !window.ETERNAL_RIFT_MOBILE_CLEAN_HUD_TOAST_SHOWN) {
+        window.ETERNAL_RIFT_MOBILE_CLEAN_HUD_TOAST_SHOWN = true;
+        showHudToast("HUD mobile limpo carregado: mobile-clean-hud-only-20260706", 3.2);
       }
     }, 1800);
   } catch (error) {}
@@ -82,6 +82,9 @@ const powerHud = document.getElementById("powerHud");
 const bossHud = document.getElementById("bossHud");
 const bossNameHud = document.getElementById("bossNameHud");
 const bossFill = document.getElementById("bossFill");
+coinHud?.closest(".hud > div")?.classList.add("hud-coins-box");
+oxygenHud?.closest(".hud > div")?.classList.add("hud-oxygen-box");
+bossHud?.classList.add("boss-hud");
 const resetButton = document.getElementById("resetButton");
 const dialogBox = document.getElementById("dialogBox");
 const dialogText = document.getElementById("dialogText");
@@ -4986,7 +4989,12 @@ function getCompactMissionText() {
   return "Missoes: em dia";
 }
 
+function isMobileCleanHudOnlyMode() {
+  return Boolean(document.body?.classList.contains("is-mobile"));
+}
+
 function updateHud() {
+  const cleanMobileHud = isMobileCleanHudOnlyMode();
   normalizeLevelState();
   updateMobilePowerButtons();
   playerNameEl.textContent = getPlayerHudName();
@@ -5000,27 +5008,33 @@ function updateHud() {
   healthHud.textContent = "♥ ".repeat(player.health).trim() || "0";
   manaHud.textContent = `${Math.floor(player.mana)}/${player.maxMana}`;
   manaFill.style.width = `${clamp((player.mana / player.maxMana) * 100, 0, 100)}%`;
-  coinHud.textContent = inventory.moedas;
+  if (!cleanMobileHud) {
+    coinHud.textContent = inventory.moedas;
+  }
   playerPositionEl.textContent = getAreaName();
   weaponHud.textContent = `Arma: ${getCurrentWeapon().name}${getCurrentWeaponKey() === "bow" ? ` (${inventory.flechas})` : ""}`;
-  if (player.isSwimming) {
-    oxygenHud.textContent = activePowerUps.waterBreathing > 0 ? "Respirando" : `${Math.ceil(player.oxygen)}/${player.maxOxygen}`;
-  } else {
-    oxygenHud.textContent = "Fora da agua";
+  if (!cleanMobileHud) {
+    if (player.isSwimming) {
+      oxygenHud.textContent = activePowerUps.waterBreathing > 0 ? "Respirando" : `${Math.ceil(player.oxygen)}/${player.maxOxygen}`;
+    } else {
+      oxygenHud.textContent = "Fora da agua";
+    }
+    oxygenFill.style.width = `${clamp((player.oxygen / player.maxOxygen) * 100, 0, 100)}%`;
+    const oxygenBox = oxygenHud.closest(".hud-oxygen-box");
+    oxygenBox?.classList.toggle("mobile-hidden", isMobile && !player.isSwimming);
+    oxygenBox?.classList.toggle("hidden", !player.isSwimming);
+    oxygenBox?.classList.toggle("is-low", player.isSwimming && player.oxygen <= 3);
   }
-  oxygenFill.style.width = `${clamp((player.oxygen / player.maxOxygen) * 100, 0, 100)}%`;
-  const oxygenBox = oxygenHud.closest(".hud-oxygen-box");
-  oxygenBox?.classList.toggle("mobile-hidden", isMobile && !player.isSwimming);
-  oxygenBox?.classList.toggle("hidden", !player.isSwimming);
-  oxygenBox?.classList.toggle("is-low", player.isSwimming && player.oxygen <= 3);
   powerHud.textContent = getPowerHudText();
   if (statusOpen) renderStatusPanel();
 
   const activeBoss = getActiveBoss();
-  bossHud.classList.toggle("hidden", !activeBoss);
-  if (activeBoss) {
-    bossNameHud.textContent = `${getEnemyDisplayName(activeBoss.kind)}${activeBoss.phase === 2 ? " - fase 2" : ""}`;
-    bossFill.style.width = `${clamp((activeBoss.hp / activeBoss.maxHp) * 100, 0, 100)}%`;
+  if (!cleanMobileHud) {
+    bossHud.classList.toggle("hidden", !activeBoss);
+    if (activeBoss) {
+      bossNameHud.textContent = `${getEnemyDisplayName(activeBoss.kind)}${activeBoss.phase === 2 ? " - fase 2" : ""}`;
+      bossFill.style.width = `${clamp((activeBoss.hp / activeBoss.maxHp) * 100, 0, 100)}%`;
+    }
   }
 }
 
@@ -30325,6 +30339,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
 
   // Recria o HUD sem forçar mana máxima.
   updateHud = function updateHudProductionPatch() {
+    const cleanMobileHud = typeof isMobileCleanHudOnlyMode === "function" && isMobileCleanHudOnlyMode();
     ensureProductionPowerState();
     normalizeLevelState();
     updateMobilePowerButtons();
@@ -30343,35 +30358,39 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     if (healthHud) healthHud.textContent = "♥ ".repeat(player.health).trim() || "0";
     if (manaHud) manaHud.textContent = `${Math.floor(player.mana)}/${player.maxMana}`;
     if (manaFill) manaFill.style.width = `${clamp((player.mana / player.maxMana) * 100, 0, 100)}%`;
-    if (coinHud) coinHud.textContent = inventory.moedas;
+    if (!cleanMobileHud && coinHud) coinHud.textContent = inventory.moedas;
     if (playerPositionEl) playerPositionEl.textContent = getAreaName();
 
     if (weaponHud) {
       weaponHud.textContent = `Arma: ${getCurrentWeapon().name}${getCurrentWeaponKey() === "bow" ? ` (${inventory.flechas})` : ""}`;
     }
 
-    if (oxygenHud) {
-      if (player.isSwimming) {
-        oxygenHud.textContent = activePowerUps.waterBreathing > 0 ? "Respirando" : `${Math.ceil(player.oxygen)}/${player.maxOxygen}`;
-      } else {
-        oxygenHud.textContent = "Fora da agua";
+    if (!cleanMobileHud) {
+      if (oxygenHud) {
+        if (player.isSwimming) {
+          oxygenHud.textContent = activePowerUps.waterBreathing > 0 ? "Respirando" : `${Math.ceil(player.oxygen)}/${player.maxOxygen}`;
+        } else {
+          oxygenHud.textContent = "Fora da agua";
+        }
       }
-    }
 
-    if (oxygenFill) oxygenFill.style.width = `${clamp((player.oxygen / player.maxOxygen) * 100, 0, 100)}%`;
-    const oxygenBox = oxygenHud?.closest?.(".hud-oxygen-box");
-    oxygenBox?.classList.toggle("mobile-hidden", isMobile && !player.isSwimming);
-    oxygenBox?.classList.toggle("hidden", !player.isSwimming);
-    oxygenBox?.classList.toggle("is-low", player.isSwimming && player.oxygen <= 3);
+      if (oxygenFill) oxygenFill.style.width = `${clamp((player.oxygen / player.maxOxygen) * 100, 0, 100)}%`;
+      const oxygenBox = oxygenHud?.closest?.(".hud-oxygen-box");
+      oxygenBox?.classList.toggle("mobile-hidden", isMobile && !player.isSwimming);
+      oxygenBox?.classList.toggle("hidden", !player.isSwimming);
+      oxygenBox?.classList.toggle("is-low", player.isSwimming && player.oxygen <= 3);
+    }
 
     if (powerHud) powerHud.textContent = getPowerHudText();
     if (statusOpen) renderStatusPanel();
 
     const activeBoss = getActiveBoss();
-    bossHud?.classList.toggle("hidden", !activeBoss);
-    if (activeBoss) {
-      if (bossNameHud) bossNameHud.textContent = `${getEnemyDisplayName(activeBoss.kind)}${activeBoss.phase === 2 ? " - fase 2" : ""}`;
-      if (bossFill) bossFill.style.width = `${clamp((activeBoss.hp / activeBoss.maxHp) * 100, 0, 100)}%`;
+    if (!cleanMobileHud) {
+      bossHud?.classList.toggle("hidden", !activeBoss);
+      if (activeBoss) {
+        if (bossNameHud) bossNameHud.textContent = `${getEnemyDisplayName(activeBoss.kind)}${activeBoss.phase === 2 ? " - fase 2" : ""}`;
+        if (bossFill) bossFill.style.width = `${clamp((activeBoss.hp / activeBoss.maxHp) * 100, 0, 100)}%`;
+      }
     }
   };
 
@@ -47688,7 +47707,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     if (hud || !document.querySelector(".hud")) return hud;
     hud = document.createElement("div");
     hud.id = "classContractHud";
-    hud.className = "hud-wide class-contract-hud";
+    hud.className = "hud-wide class-contract-hud class-hud contract-hud";
     hud.innerHTML = `
       <span class="hud-label">Classe</span>
       <strong id="classHudText">Guerreiro</strong>
@@ -47713,6 +47732,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     const now = performance.now();
     if (!force && now - classContractHudLastUpdateAt < 180) return;
     classContractHudLastUpdateAt = now;
+    if (isMobileCleanHudOnlyMode()) return;
     createClassContractHud();
     const classHud = document.getElementById("classHudText");
     const contractHud = document.getElementById("contractHudText");
@@ -49660,9 +49680,25 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     return inventoryPanel || document.getElementById("inventoryPanel");
   }
 
+  function useLegacyMobileInventory() {
+    return Boolean(document.body?.classList.contains("is-mobile"));
+  }
+
+  function disableInventoryReworkForMobile() {
+    const panel = panelRework();
+    if (!panel) return;
+    document.getElementById("erInventoryReworkRoot")?.remove();
+    panel.classList.remove("er-inventory-rework-active");
+    document.body?.classList.remove("er-inventory-rework-open");
+  }
+
   function ensureInventoryReworkShell() {
     const panel = panelRework();
     if (!panel) return null;
+    if (useLegacyMobileInventory()) {
+      disableInventoryReworkForMobile();
+      return null;
+    }
     panel.classList.add("er-inventory-rework-active");
     panel.setAttribute("aria-label", "Inventario do Aventureiro");
 
@@ -50112,6 +50148,10 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
 
   // ETERNAL RIFT INVENTORY REWORK - OLD INVENTORY COMPATIBILITY
   renderInventory = function renderInventoryReworkCompatible() {
+    if (useLegacyMobileInventory()) {
+      disableInventoryReworkForMobile();
+      return renderInventoryBeforeRework?.();
+    }
     try {
       return renderInventoryRework();
     } catch (error) {
@@ -50124,6 +50164,14 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
   toggleInventory = function toggleInventoryReworkSafe(force) {
     const result = toggleInventoryBeforeRework ? toggleInventoryBeforeRework(force) : undefined;
     const panel = panelRework();
+    if (useLegacyMobileInventory()) {
+      disableInventoryReworkForMobile();
+      if (panel && inventoryOpen) {
+        panel.removeAttribute("aria-hidden");
+        renderInventoryBeforeRework?.();
+      }
+      return result;
+    }
     if (panel) {
       if (inventoryOpen) {
         syncReworkTabFromLegacyTab();
@@ -50164,7 +50212,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
 
   try {
     normalizeInventoryReworkSaveState();
-    ensureInventoryReworkShell();
+    if (!useLegacyMobileInventory()) ensureInventoryReworkShell();
     document.body?.classList.add("inventory-rework-ready");
   } catch (error) {}
 })();
@@ -58517,6 +58565,10 @@ function installWheelAndMobileZoom() {
   const PLAYER_REFERENCE_SCALE = 0.9;
   const previousDrawPlayerReferencePatch = drawPlayer;
 
+  function spriteLoaded(img) {
+    return Boolean(img && img.complete && img.naturalWidth > 0);
+  }
+
   function getReferenceSideSprite() {
     if (!player.moving) return playerReferenceSprites.sideIdle;
     return Math.floor(player.frame % 4) % 2 === 0 ? playerReferenceSprites.sideIdle : playerReferenceSprites.sideWalk;
@@ -58544,7 +58596,7 @@ function installWheelAndMobileZoom() {
   }
 
   drawPlayer = function drawPlayerReferenceSpriteExact() {
-    const ready = playerReferenceSprites.down.complete && playerReferenceSprites.sideIdle.complete && playerReferenceSprites.sideWalk.complete && playerReferenceSprites.up.complete;
+    const ready = spriteLoaded(playerReferenceSprites.down) && spriteLoaded(playerReferenceSprites.sideIdle) && spriteLoaded(playerReferenceSprites.sideWalk) && spriteLoaded(playerReferenceSprites.up);
     if (!ready) return previousDrawPlayerReferencePatch();
 
     const x = player.x;
@@ -58639,6 +58691,10 @@ function installWheelAndMobileZoom() {
 
   const ATTACK_REF_SCALE = 0.9;
   const drawPlayerBeforeAttackAnimationPatch = typeof drawPlayer === "function" ? drawPlayer : null;
+
+  function attackSpriteLoaded(img) {
+    return Boolean(img && img.complete && img.naturalWidth > 0);
+  }
 
   function pxRect(x, y, w, h, color) {
     ctx.fillStyle = color;
@@ -58855,7 +58911,7 @@ function installWheelAndMobileZoom() {
   }
 
   drawPlayer = function drawPlayerReferenceAttackAnimationRework() {
-    const ready = attackAnimSprites.down.complete && attackAnimSprites.sideIdle.complete && attackAnimSprites.sideWalk.complete && attackAnimSprites.up.complete;
+    const ready = attackSpriteLoaded(attackAnimSprites.down) && attackSpriteLoaded(attackAnimSprites.sideIdle) && attackSpriteLoaded(attackAnimSprites.sideWalk) && attackSpriteLoaded(attackAnimSprites.up);
     if (!ready) return drawPlayerBeforeAttackAnimationPatch?.();
 
     const x = player.x;
@@ -60802,7 +60858,7 @@ if (typeof premiumWorldShadow !== "function") {
     `;
 
     const mid = make("div", "er-mmo-mid-stack");
-    const boss = make("div", "er-mmo-mid-panel er-mmo-corner", `💀 <span id="erMmoBoss">Boss: nenhum</span> &nbsp; <button id="erMmoPauseBtn" type="button">Pausa</button>`);
+    const boss = make("div", "er-mmo-mid-panel er-mmo-corner", `<span id="erMmoBoss" class="er-mmo-boss-status">💀 Boss: nenhum</span> &nbsp; <button id="erMmoPauseBtn" type="button">Pausa</button>`);
     boss.querySelector("#erMmoPauseBtn").addEventListener("click", () => safeClick("mobilePauseButton"));
     const mana = make("div", "er-mmo-mid-panel er-mmo-corner", `<span id="erMmoManaMini">0/0</span><div class="er-mmo-bar-track"><span id="erMmoManaMiniFill" class="er-mmo-bar-fill er-mmo-mp-fill"></span></div>`);
     const weapon = make("div", "er-mmo-mid-panel er-mmo-corner", `🗡️ Arma: <span id="erMmoWeapon">Espada</span>`);
@@ -60883,6 +60939,7 @@ if (typeof premiumWorldShadow !== "function") {
     buildHud();
     document.body.classList.add("er-mmo-hud-active");
     document.getElementById("erMmoHud")?.removeAttribute("aria-hidden");
+    const cleanMobileHud = isMobileCleanHudOnlyMode();
 
     const name = (typeof getPlayerHudName === "function" ? getPlayerHudName() : (player?.name || document.getElementById("playerName")?.textContent || "Herói"));
     const level = Number(player?.level || 1);
@@ -60892,9 +60949,9 @@ if (typeof premiumWorldShadow !== "function") {
     const maxMana = Number(player?.maxMana || 1);
     const xp = Number(player?.xp || 0);
     const xpToNext = Number(player?.xpToNextLevel || 1);
-    const coins = Number(inventory?.moedas || 0);
-    const crystals = Number(inventory?.cristais || inventory?.manaOrbes || 0);
-    const gems = Number(inventory?.fragmentos || inventory?.chavesRaras || 0);
+    const coins = cleanMobileHud ? 0 : Number(inventory?.moedas || 0);
+    const crystals = cleanMobileHud ? 0 : Number(inventory?.cristais || inventory?.manaOrbes || 0);
+    const gems = cleanMobileHud ? 0 : Number(inventory?.fragmentos || inventory?.chavesRaras || 0);
 
     const setText = (id, value) => {
       const el = document.getElementById(id);
@@ -60907,9 +60964,11 @@ if (typeof premiumWorldShadow !== "function") {
     setText("erMmoHpText", `HP ${health}/${maxHealth}`);
     setText("erMmoMpText", `MP ${Math.round(mana)}/${maxMana}`);
     setText("erMmoXpText", `XP ${xp}/${xpToNext}`);
-    setText("erMmoCoins", coins);
-    setText("erMmoCrystals", crystals);
-    setText("erMmoGems", gems);
+    if (!cleanMobileHud) {
+      setText("erMmoCoins", coins);
+      setText("erMmoCrystals", crystals);
+      setText("erMmoGems", gems);
+    }
     setText("erMmoManaMini", `${Math.round(mana)}/${maxMana}`);
 
     setFill("erMmoHpFill", health, maxHealth);
@@ -60920,13 +60979,15 @@ if (typeof premiumWorldShadow !== "function") {
     const area = document.getElementById("playerPosition")?.textContent || "Vila Principal";
     const questText = document.getElementById("questProgress")?.textContent || "Fale com o Guerreiro.";
     const weapon = document.getElementById("weaponHud")?.textContent || "Espada";
-    const bossName = document.getElementById("bossNameHud")?.textContent || "Nenhum";
+    const bossName = cleanMobileHud ? "Nenhum" : (document.getElementById("bossNameHud")?.textContent || "Nenhum");
 
     setText("erMmoLocation", area.includes("•") ? area : `${area} • Floresta`);
     setText("erMmoQuest", questText.length > 26 ? questText.slice(0, 26) + "..." : questText);
     setText("erMmoQuestSub", questText.includes("Fale") ? questText : "Fale com o Guerreiro.");
     setText("erMmoWeapon", weapon.length > 24 ? weapon.slice(0, 24) + "..." : weapon);
-    setText("erMmoBoss", bossName && bossName !== "Nenhum" ? `Boss: ${bossName}` : "Boss: nenhum");
+    if (!cleanMobileHud) {
+      setText("erMmoBoss", bossName && bossName !== "Nenhum" ? `Boss: ${bossName}` : "Boss: nenhum");
+    }
   }
 
   function enableOrDisableHud() {
@@ -61300,10 +61361,10 @@ if (typeof premiumWorldShadow !== "function") {
 /* ==================================================
    ETERNAL RIFT: OTIMIZACAO EXTREMA PC/MOBILE
    Cache de mapa, culling, grid de colisao, FPS real e qualidade grafica.
-   Versao: pc-mobile-extreme-antilag-20260706
+   Versao: mobile-clean-hud-only-20260706
    ================================================== */
 (function eternalRiftExtremePcMobileAntiLag20260706() {
-  const PATCH_ID = "pc-mobile-extreme-antilag-20260706";
+  const PATCH_ID = "mobile-clean-hud-only-20260706";
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_EXTREME_ANTILAG === PATCH_ID) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_EXTREME_ANTILAG = PATCH_ID;
 
@@ -61828,12 +61889,16 @@ if (typeof premiumWorldShadow !== "function") {
     updateHud = function updateHudExtremeSmart(force = false) {
       const profile = currentProfile();
       const now = nativeNow();
+      const cleanMobileHud = typeof isMobileCleanHudOnlyMode === "function" && isMobileCleanHudOnlyMode();
       const signature = [
         player?.name, player?.level, player?.xp, player?.xpToNextLevel,
         player?.health, player?.maxHealth, Math.round(player?.mana || 0), player?.maxMana,
-        inventory?.moedas, inventory?.cristais, inventory?.fragmentos,
+        cleanMobileHud ? "coins-hidden" : inventory?.moedas,
+        cleanMobileHud ? "crystals-hidden" : inventory?.cristais,
+        cleanMobileHud ? "fragments-hidden" : inventory?.fragmentos,
         currentScene, equippedPower, currentWeaponIndex,
-        questProgressEl?.textContent, weaponHud?.textContent, bossNameHud?.textContent
+        questProgressEl?.textContent, weaponHud?.textContent,
+        cleanMobileHud ? "boss-hidden" : bossNameHud?.textContent
       ].join("|");
       if (!force && signature === perfState.lastHudSignature && now - perfState.lastHudAt < profile.hudMs) return;
       if (!force && now - perfState.lastHudAt < Math.min(profile.hudMs, 120)) return;

@@ -1,4 +1,6 @@
 ETERNAL RIFT - HITBOX MELHORADA 2026-07-06
+- mobile-inventory-legacy-20260706: inventario antigo restaurado no mobile; o Inventory Rework novo continua ativo no PC.
+
 - mobile-clean-hud-only-20260706: HUD principal mobile mais limpo; oxigenio, moedas, classe/contrato e boss fixo ficam ocultos somente no celular, sem alterar PC nem remover sistemas.
 
 - espada, arco e cajado com hitbox direcional melhorada

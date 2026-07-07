@@ -1,4 +1,4 @@
-/* ETERNAL_RIFT_CSS_VERSION_pc-mobile-extreme-antilag-20260706 */
+/* ETERNAL_RIFT_CSS_VERSION_mobile-clean-hud-only-20260706 */
 :root {
   color-scheme: dark;
   --bg: #273052;
@@ -12036,4 +12036,34 @@ body.er-extreme-low .hud-toast,
 body.er-extreme-mobile .hud-toast {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+}
+
+/* ==================================================
+   HUD mobile limpo - somente celular
+   Versao: mobile-clean-hud-only-20260706
+   ================================================== */
+body.is-mobile .hud-oxygen-box,
+body.is-mobile #oxygenHud,
+body.is-mobile #oxygenFill,
+body.is-mobile .oxygen-bar,
+body.is-mobile .hud-coins-box,
+body.is-mobile .class-hud,
+body.is-mobile .contract-hud,
+body.is-mobile .class-contract-hud,
+body.is-mobile #classContractHud,
+body.is-mobile .er-mmo-contract,
+body.is-mobile .er-mmo-currency,
+body.is-mobile #bossHud,
+body.is-mobile #bossNameHud,
+body.is-mobile #bossFill,
+body.is-mobile .boss-hud,
+body.is-mobile #erMmoBoss {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body.is-mobile .er-mmo-mid-panel:has(#erMmoBoss) {
+  justify-content: center;
 }

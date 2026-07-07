@@ -1,3 +1,15 @@
+# mobile-inventory-legacy-20260706
+- No mobile, o inventario voltou para a versao antiga/legada.
+- O Inventory Rework novo continua ativo no PC.
+- Save, itens, equipamentos, loja e a logica do inventario foram mantidos.
+
+# mobile-clean-hud-only-20260706
+- No mobile, o HUD principal agora esconde oxigenio, moedas, Classe/Contrato e barra fixa de boss para liberar espaco de jogo.
+- No PC, o HUD continua completo.
+- A logica de moedas, oxigenio, classes, contratos, bosses, inventario, loja e save foi mantida.
+- O HUD mobile tambem evita atualizar DOM invisivel para reduzir custo visual.
+- Toast mobile: `HUD mobile limpo carregado: mobile-clean-hud-only-20260706`.
+
 # Eternal Rift - Correção da entrada da Mina Cristalina
 
 ## Ajuste aplicado
