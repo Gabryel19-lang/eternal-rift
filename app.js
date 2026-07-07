@@ -65918,3 +65918,58 @@ function updateCamera() {
     };
   }
 })();
+
+/* =========================================================
+   PATCH FINAL: remover HUD novo SOMENTE no mobile
+   Não altera PC, HUD PC, inventário, casas, NPCs, vila, ferreiro,
+   biomas, personagem, quarto ou sistemas.
+   ========================================================= */
+(function eternalRiftRemoveNewMobileHudOnlyPatch() {
+  const PATCH_ID = "mobile-no-new-hud-only-20260707";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_REMOVE_NEW_MOBILE_HUD_ONLY === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_REMOVE_NEW_MOBILE_HUD_ONLY = PATCH_ID;
+
+  function isMobileOnly() {
+    try {
+      return Boolean(document.body?.classList.contains("is-mobile"));
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function disableNewMobileHudOnly() {
+    if (!isMobileOnly()) return;
+
+    document.body?.classList.add("er-mobile-classic-hud-only");
+    document.body?.classList.remove("er-mmo-hud-active", "er-final-photo-hud");
+
+    const newHud = document.getElementById("erMmoHud");
+    if (newHud) {
+      newHud.style.setProperty("display", "none", "important");
+      newHud.style.setProperty("visibility", "hidden", "important");
+      newHud.style.setProperty("opacity", "0", "important");
+      newHud.style.setProperty("pointer-events", "none", "important");
+      newHud.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  const updateHudBeforeRemoveNewMobileHud = typeof updateHud === "function" ? updateHud : null;
+  if (updateHudBeforeRemoveNewMobileHud) {
+    updateHud = function updateHudRemoveNewMobileHudOnly(force = false) {
+      const result = updateHudBeforeRemoveNewMobileHud(force);
+      try { disableNewMobileHudOnly(); } catch (error) {}
+      return result;
+    };
+  }
+
+  window.addEventListener("resize", () => setTimeout(disableNewMobileHudOnly, 90), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(disableNewMobileHudOnly, 180), { passive: true });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) setTimeout(disableNewMobileHudOnly, 90);
+  });
+
+  setTimeout(disableNewMobileHudOnly, 50);
+  setTimeout(disableNewMobileHudOnly, 250);
+  setTimeout(disableNewMobileHudOnly, 800);
+  setInterval(disableNewMobileHudOnly, 700);
+})();

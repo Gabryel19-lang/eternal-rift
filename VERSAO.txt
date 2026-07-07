@@ -31,3 +31,7 @@ ferreiro-camera-fixed-20260707
 mobile-hud-clean-only-20260707
 - remove HUDs/botões inúteis SOMENTE no mobile
 - mantém PC e todos os outros sistemas intactos
+
+mobile-no-new-hud-only-20260707
+- remove HUD novo somente no mobile
+- mantém PC e todos os outros sistemas intactos

@@ -1184,3 +1184,24 @@ Escopo da correção:
 - Esconde no mobile: Área, Missão, Moedas, Arma, Oxigênio, Poder, Boss, minimapa, botões de salvar/reset/menu e botões extras.
 - Mantém controles principais: joystick, inventário, ataque, ação, poção, dash, cura e bola de fogo.
 - Não altera PC, HUD do PC, inventário, casas, NPCs, vila, ferreiro, biomas, personagem ou quarto.
+
+
+## Atualização 2026-07-07 — remover HUD novo somente no mobile
+
+Alterado somente no mobile:
+- remove/oculta o HUD novo `erMmoHud`;
+- mantém o HUD mobile limpo/anterior;
+- mantém joystick e botões essenciais.
+
+Não alterado:
+- PC;
+- HUD do PC;
+- inventário;
+- casas;
+- NPCs;
+- vila;
+- ferreiro;
+- biomas;
+- personagem;
+- quarto;
+- sistemas do jogo.

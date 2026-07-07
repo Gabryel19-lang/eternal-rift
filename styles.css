@@ -13343,3 +13343,52 @@ body.is-mobile .interaction-hint {
   top: max(52px, calc(env(safe-area-inset-top) + 46px)) !important;
   max-width: calc(100vw - 160px) !important;
 }
+
+/* =========================================================
+   ETERNAL RIFT - REMOVE HUD NOVO SOMENTE NO MOBILE
+   Pedido: tirar o HUD novo do mobile sem mexer em mais nada.
+   - PC permanece igual.
+   - HUD PC permanece igual.
+   - Mantém somente o HUD mobile limpo/anterior + joystick e botões essenciais.
+   ========================================================= */
+body.is-mobile #erMmoHud,
+body.is-mobile .er-mmo-hud,
+body.is-mobile.er-mmo-hud-active #erMmoHud,
+body.is-mobile.er-final-photo-hud #erMmoHud,
+body.is-mobile.er-mmo-hud-active .er-mmo-hud,
+body.is-mobile.er-final-photo-hud .er-mmo-hud,
+body.is-mobile.er-mobile-classic-hud-only #erMmoHud,
+body.is-mobile.er-mobile-classic-hud-only .er-mmo-hud {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Mesmo se algum patch antigo tentar ativar o HUD novo, o HUD mobile limpo continua visível. */
+body.is-mobile.er-mmo-hud-active .hud,
+body.is-mobile.er-final-photo-hud .hud,
+body.is-mobile.er-mobile-classic-hud-only .hud {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* Mantém os controles essenciais do mobile, sem trazer o HUD novo de volta. */
+body.is-mobile.er-mmo-hud-active .joystick-base,
+body.is-mobile.er-final-photo-hud .joystick-base,
+body.is-mobile.er-mobile-classic-hud-only .joystick-base {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+body.is-mobile.er-mmo-hud-active .touch-actions,
+body.is-mobile.er-final-photo-hud .touch-actions,
+body.is-mobile.er-mobile-classic-hud-only .touch-actions {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
