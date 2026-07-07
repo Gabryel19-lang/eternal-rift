@@ -13345,65 +13345,18 @@ body.is-mobile .interaction-hint {
 }
 
 /* =========================================================
-   ETERNAL RIFT - REMOVE HUD NOVO SOMENTE NO MOBILE
-   Pedido: tirar o HUD novo do mobile sem mexer em mais nada.
-   - PC permanece igual.
-   - HUD PC permanece igual.
-   - Mantém somente o HUD mobile limpo/anterior + joystick e botões essenciais.
-   ========================================================= */
-body.is-mobile #erMmoHud,
-body.is-mobile .er-mmo-hud,
-body.is-mobile.er-mmo-hud-active #erMmoHud,
-body.is-mobile.er-final-photo-hud #erMmoHud,
-body.is-mobile.er-mmo-hud-active .er-mmo-hud,
-body.is-mobile.er-final-photo-hud .er-mmo-hud,
-body.is-mobile.er-mobile-classic-hud-only #erMmoHud,
-body.is-mobile.er-mobile-classic-hud-only .er-mmo-hud {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-/* Mesmo se algum patch antigo tentar ativar o HUD novo, o HUD mobile limpo continua visível. */
-body.is-mobile.er-mmo-hud-active .hud,
-body.is-mobile.er-final-photo-hud .hud,
-body.is-mobile.er-mobile-classic-hud-only .hud {
-  display: grid !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-}
-
-/* Mantém os controles essenciais do mobile, sem trazer o HUD novo de volta. */
-body.is-mobile.er-mmo-hud-active .joystick-base,
-body.is-mobile.er-final-photo-hud .joystick-base,
-body.is-mobile.er-mobile-classic-hud-only .joystick-base {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-body.is-mobile.er-mmo-hud-active .touch-actions,
-body.is-mobile.er-final-photo-hud .touch-actions,
-body.is-mobile.er-mobile-classic-hud-only .touch-actions {
-  display: grid !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-}
-
-/* =========================================================
-   HARD FIX 20260707: remover o HUD NOVO SOMENTE no mobile
-   Este bloco não altera PC. Ele só age em celular/tela pequena/toque.
+   ETERNAL RIFT - FIX SEGURO 20260707
+   Objetivo: no MOBILE, esconder o HUD novo (#erMmoHud) sem mexer no JS.
+   Por seguranca, este patch NAO altera app.js, inventario, mapa, NPCs,
+   ferreiro, biomas, personagem, quarto, PC ou sistemas do jogo.
    ========================================================= */
 @media (max-width: 900px), (pointer: coarse) {
-  body #erMmoHud,
-  body .er-mmo-hud,
-  body.er-mmo-hud-active #erMmoHud,
-  body.er-final-photo-hud #erMmoHud,
-  body.er-mobile-no-new-hud-hard #erMmoHud,
-  body.er-mobile-no-new-hud-hard .er-mmo-hud {
+  html body #erMmoHud,
+  html body .er-mmo-hud,
+  html body.er-mmo-hud-active #erMmoHud,
+  html body.er-final-photo-hud #erMmoHud,
+  html body.er-mmo-hud-active .er-mmo-hud,
+  html body.er-final-photo-hud .er-mmo-hud {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -13411,38 +13364,45 @@ body.is-mobile.er-mobile-classic-hud-only .touch-actions {
     width: 0 !important;
     height: 0 !important;
     overflow: hidden !important;
-    transform: scale(0) !important;
   }
 
-  /* Se patches antigos ligarem as classes do HUD novo, o HUD mobile limpo continua aparecendo. */
-  body.er-mobile-no-new-hud-hard .hud,
-  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .hud,
-  body.er-mobile-no-new-hud-hard.er-final-photo-hud .hud,
-  body.er-mobile-no-new-hud-hard .touch-actions,
-  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .touch-actions,
-  body.er-mobile-no-new-hud-hard.er-final-photo-hud .touch-actions {
+  /* O HUD novo escondia o HUD antigo. Este bloco devolve somente o HUD limpo do mobile. */
+  html body.er-mmo-hud-active .hud,
+  html body.er-final-photo-hud .hud,
+  html body.is-mobile.er-mmo-hud-active .hud,
+  html body.is-mobile.er-final-photo-hud .hud {
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  html body.er-mmo-hud-active .touch-actions,
+  html body.er-final-photo-hud .touch-actions,
+  html body.is-mobile.er-mmo-hud-active .touch-actions,
+  html body.is-mobile.er-final-photo-hud .touch-actions {
+    display: grid !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
   }
 
-  body.er-mobile-no-new-hud-hard .hud,
-  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .hud,
-  body.er-mobile-no-new-hud-hard.er-final-photo-hud .hud {
-    display: grid !important;
-  }
-
-  body.er-mobile-no-new-hud-hard .touch-actions,
-  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .touch-actions,
-  body.er-mobile-no-new-hud-hard.er-final-photo-hud .touch-actions {
-    display: grid !important;
-  }
-
-  body.er-mobile-no-new-hud-hard .joystick-base,
-  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .joystick-base,
-  body.er-mobile-no-new-hud-hard.er-final-photo-hud .joystick-base {
+  html body.er-mmo-hud-active .joystick-base,
+  html body.er-final-photo-hud .joystick-base,
+  html body.is-mobile.er-mmo-hud-active .joystick-base,
+  html body.is-mobile.er-final-photo-hud .joystick-base {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
+  }
+
+  html body.er-mmo-hud-active .mobile-top-actions,
+  html body.er-final-photo-hud .mobile-top-actions,
+  html body.is-mobile.er-mmo-hud-active .mobile-top-actions,
+  html body.is-mobile.er-final-photo-hud .mobile-top-actions {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 }

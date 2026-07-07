@@ -1185,23 +1185,12 @@ Escopo da correção:
 - Mantém controles principais: joystick, inventário, ataque, ação, poção, dash, cura e bola de fogo.
 - Não altera PC, HUD do PC, inventário, casas, NPCs, vila, ferreiro, biomas, personagem ou quarto.
 
+## Fix seguro: mobile entra novamente + sem HUD novo
 
-## Atualização 2026-07-07 — remover HUD novo somente no mobile
+Esta versao foi gerada a partir da ultima base mobile limpa anterior ao hardfix.
+O hardfix anterior adicionava JavaScript forte demais para bloquear o HUD novo e podia travar o carregamento no celular.
 
-Alterado somente no mobile:
-- remove/oculta o HUD novo `erMmoHud`;
-- mantém o HUD mobile limpo/anterior;
-- mantém joystick e botões essenciais.
-
-Não alterado:
-- PC;
-- HUD do PC;
-- inventário;
-- casas;
-- NPCs;
-- vila;
-- ferreiro;
-- biomas;
-- personagem;
-- quarto;
-- sistemas do jogo.
+Nesta versao:
+- `app.js` nao foi alterado.
+- Apenas `styles.css` recebeu um bloqueio visual do `#erMmoHud` em mobile.
+- PC e sistemas do jogo permanecem intactos.

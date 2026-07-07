@@ -1,18 +1,4 @@
-Eternal Rift - mobile-new-hud-hard-removed-20260707
-
-Alterado SOMENTE no mobile:
-- Bloqueado/removido visualmente o HUD novo MMORPG (#erMmoHud).
-- Mantido HUD mobile limpo/anterior, joystick e botões essenciais.
-
-Não alterado:
-- PC
-- HUD do PC
-- Inventário
-- Casas
-- NPCs
-- Vila
-- Ferreiro
-- Biomas
-- Personagem
-- Quarto
-- Sistemas do jogo
+Eternal Rift - mobile enter fixed + no new HUD only
+Base: eternal-rift-mobile-hud-clean-only
+Alterado: apenas styles.css para ocultar o HUD novo somente no mobile.
+Nao alterado: app.js, PC, HUD PC, inventario, casas, NPCs, vila, ferreiro, biomas, personagem, quarto e sistemas.
