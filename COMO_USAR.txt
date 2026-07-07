@@ -1,0 +1,3 @@
+Use esta versão para substituir a anterior que alterou coisas indevidamente.
+Ela preserva HUD, inventário, casas, NPCs e textura do chão da vila.
+Adição segura: Quarto do Herói em tilemap dentro da casa do jogador + ferreiro como extra.

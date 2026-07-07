@@ -1,4 +1,4 @@
-/* ETERNAL_RIFT_CSS_VERSION_mobile-clean-hud-only-20260706 */
+/* ETERNAL_RIFT_CSS_VERSION_village-house-identical-image-sprites-20260707 */
 :root {
   color-scheme: dark;
   --bg: #273052;
@@ -12066,4 +12066,1280 @@ body.is-mobile #erMmoBoss {
 
 body.is-mobile .er-mmo-mid-panel:has(#erMmoBoss) {
   justify-content: center;
+}
+
+/* ==================================================
+   ETERNAL RIFT - PC RPG HUD ONLY 20260707
+   Inspirado no HUD da referência, aplicado SOMENTE no PC.
+   Mobile permanece intocado.
+   ================================================== */
+:root {
+  --pc-rpg-gold: #d8a84a;
+  --pc-rpg-gold-light: #fff0a6;
+  --pc-rpg-dark: rgba(8, 10, 18, 0.94);
+  --pc-rpg-dark-2: rgba(24, 27, 38, 0.92);
+  --pc-rpg-red: #e73737;
+  --pc-rpg-blue: #2e9dff;
+  --pc-rpg-yellow: #f5c84e;
+  --pc-rpg-text: #fff0c4;
+}
+
+.pc-rpg-hud {
+  display: none;
+}
+
+body.is-mobile .pc-rpg-hud,
+body.is-mobile.pc-rpg-hud-active .pc-rpg-hud {
+  display: none !important;
+}
+
+@media (pointer: coarse) {
+  .pc-rpg-hud {
+    display: none !important;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body.pc-rpg-hud-active {
+    place-items: center;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(70, 185, 255, 0.14), transparent 32%),
+      radial-gradient(circle at 0% 100%, rgba(255, 193, 64, 0.10), transparent 28%),
+      #0b0e18;
+  }
+
+  body.pc-rpg-hud-active .game-shell {
+    width: min(1060px, calc(100vw - 18px));
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  body.pc-rpg-hud-active .controls,
+  body.pc-rpg-hud-active .hud,
+  body.pc-rpg-hud-active .game-panel > .boss-hud {
+    display: none !important;
+  }
+
+  body.pc-rpg-hud-active .game-panel {
+    border: 4px solid #211607;
+    border-radius: 8px;
+    box-shadow:
+      0 0 0 2px rgba(216, 168, 74, 0.70),
+      0 26px 70px rgba(0, 0, 0, 0.56);
+  }
+
+  body.pc-rpg-hud-active #gameCanvas {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    object-fit: contain;
+    background: #0a0e18;
+  }
+
+  body.pc-rpg-hud-active .pc-rpg-hud {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    display: block;
+    pointer-events: none;
+    color: var(--pc-rpg-text);
+    font-family: "Trebuchet MS", Arial, sans-serif;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.9);
+  }
+
+  body.pc-rpg-hud-active .pc-rpg-panel,
+  body.pc-rpg-hud-active .pc-rpg-button,
+  body.pc-rpg-hud-active .pc-rpg-slot,
+  body.pc-rpg-hud-active .pc-rpg-skill,
+  body.pc-rpg-hud-active .pc-rpg-skill-wrap strong {
+    pointer-events: auto;
+    border: 2px solid rgba(216, 168, 74, 0.96);
+    background:
+      linear-gradient(180deg, rgba(47, 48, 58, 0.96), rgba(7, 8, 14, 0.96)),
+      radial-gradient(circle at 50% 0%, rgba(255, 231, 143, 0.16), transparent 40%);
+    box-shadow:
+      0 0 0 2px rgba(23, 14, 6, 0.98),
+      inset 0 0 0 1px rgba(255, 240, 166, 0.22),
+      0 7px 16px rgba(0, 0, 0, 0.42);
+  }
+
+  .pc-rpg-corner {
+    position: relative;
+  }
+
+  .pc-rpg-corner::before,
+  .pc-rpg-corner::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--pc-rpg-gold);
+    background: #111018;
+    transform: rotate(45deg);
+    pointer-events: none;
+    box-shadow: inset 0 0 0 2px rgba(74, 49, 13, 0.72);
+  }
+
+  .pc-rpg-corner::before {
+    left: -7px;
+    top: -7px;
+  }
+
+  .pc-rpg-corner::after {
+    right: -7px;
+    bottom: -7px;
+  }
+
+  .pc-rpg-profile {
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    width: 334px;
+    min-height: 104px;
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: 78px 1fr;
+    gap: 10px;
+    padding: 9px 12px 9px 9px;
+  }
+
+  .pc-rpg-portrait {
+    position: relative;
+    border: 3px solid #23170a;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 50% 18%, rgba(255, 225, 122, 0.20), transparent 35%),
+      linear-gradient(180deg, #23314d, #0d121e);
+    box-shadow: inset 0 0 0 2px rgba(216, 168, 74, 0.88);
+    overflow: visible;
+  }
+
+  .pc-rpg-portrait span {
+    font-size: 42px;
+    filter: drop-shadow(0 3px 0 rgba(0,0,0,.8));
+  }
+
+  .pc-rpg-portrait i {
+    position: absolute;
+    left: 50%;
+    bottom: -18px;
+    transform: translateX(-50%);
+    min-width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    font-style: normal;
+    font-weight: 1000;
+    color: #fff6d6;
+    background: linear-gradient(180deg, #25364f, #101522);
+    border: 2px solid var(--pc-rpg-gold);
+    clip-path: polygon(50% 0, 100% 18%, 88% 78%, 50% 100%, 12% 78%, 0 18%);
+  }
+
+  .pc-rpg-name-line {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #ffe391;
+    font-weight: 1000;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  .pc-rpg-name-line b {
+    max-width: 105px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pc-rpg-bar-row {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-weight: 1000;
+    font-size: 12px;
+  }
+
+  .pc-rpg-bar {
+    position: relative;
+    height: 16px;
+    border: 2px solid #160f09;
+    border-radius: 7px;
+    overflow: hidden;
+    background: rgba(7, 9, 17, 0.95);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.75);
+  }
+
+  .pc-rpg-bar i,
+  .pc-rpg-boss-bar i {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    transition: width 0.16s linear;
+  }
+
+  .pc-rpg-hp-fill { background: linear-gradient(180deg, #ff7770, #b51020); }
+  .pc-rpg-mp-fill { background: linear-gradient(180deg, #71dcff, #1156bf); }
+  .pc-rpg-xp-fill { background: linear-gradient(180deg, #fff07d, #ce8c17); }
+
+  .pc-rpg-bar b {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    color: #fff7df;
+  }
+
+  .pc-rpg-top-menu {
+    position: absolute;
+    top: 13px;
+    right: 18px;
+    display: grid;
+    grid-template-columns: repeat(5, 74px);
+    gap: 9px;
+    pointer-events: none;
+  }
+
+  .pc-rpg-button {
+    min-height: 68px;
+    border-radius: 9px;
+    color: #ffe49b;
+    display: grid;
+    place-items: center;
+    gap: 2px;
+    font-weight: 1000;
+    cursor: pointer;
+  }
+
+  .pc-rpg-button span {
+    font-size: 27px;
+    line-height: 1;
+  }
+
+  .pc-rpg-button b {
+    font-size: 13px;
+  }
+
+  .pc-rpg-currencies {
+    position: absolute;
+    right: 18px;
+    top: 92px;
+    width: 405px;
+    min-height: 30px;
+    border-radius: 9px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    align-items: center;
+    text-align: center;
+    padding: 4px 10px;
+    font-weight: 1000;
+  }
+
+  .pc-rpg-quest,
+  .pc-rpg-contract {
+    position: absolute;
+    left: 14px;
+    width: 328px;
+    border-radius: 9px;
+    padding: 10px 12px;
+  }
+
+  .pc-rpg-quest { top: 134px; }
+  .pc-rpg-contract { top: 245px; }
+
+  .pc-rpg-quest small {
+    display: block;
+    color: #fff3c9;
+    font-weight: 900;
+    margin-bottom: 7px;
+  }
+
+  .pc-rpg-quest strong {
+    display: block;
+    color: #ffcf54;
+    font-size: 17px;
+  }
+
+  .pc-rpg-quest p,
+  .pc-rpg-contract p {
+    margin: 5px 0 0;
+    color: #f3e6cc;
+    font-weight: 800;
+  }
+
+  .pc-rpg-boss {
+    position: absolute;
+    left: 50%;
+    top: 132px;
+    transform: translateX(-50%);
+    width: 320px;
+    min-height: 60px;
+    border-radius: 9px;
+    padding: 9px 12px;
+  }
+
+  .pc-rpg-boss div:first-child {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    color: #ffe49b;
+    font-weight: 1000;
+  }
+
+  .pc-rpg-boss-bar {
+    position: relative;
+    height: 14px;
+    margin-top: 8px;
+    border: 2px solid #160f09;
+    border-radius: 7px;
+    overflow: hidden;
+    background: #10131e;
+  }
+
+  .pc-rpg-boss-bar i {
+    background: linear-gradient(90deg, #ff3f4f, #fff16c);
+  }
+
+  .pc-rpg-minimap-frame {
+    position: absolute;
+    right: 18px;
+    top: 134px;
+    width: 218px;
+    height: 186px;
+    border-radius: 13px;
+    padding: 9px;
+    display: grid;
+    grid-template-rows: 22px 1fr 22px;
+    align-items: center;
+    text-align: center;
+    font-weight: 1000;
+  }
+
+  body.pc-rpg-hud-active .mini-map {
+    position: absolute !important;
+    z-index: 9 !important;
+    right: 40px !important;
+    top: 174px !important;
+    bottom: auto !important;
+    width: 176px !important;
+    height: 126px !important;
+    border: 2px solid rgba(255, 230, 140, 0.72) !important;
+    border-radius: 8px !important;
+    background: rgba(5, 8, 15, 0.74) !important;
+    box-shadow: none !important;
+  }
+
+  .pc-rpg-actions {
+    position: absolute;
+    right: 22px;
+    bottom: 126px;
+    width: 100px;
+    display: grid;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  .pc-rpg-skill-wrap {
+    display: grid;
+    place-items: center;
+    gap: 2px;
+  }
+
+  .pc-rpg-skill {
+    width: 66px;
+    height: 66px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  .pc-rpg-skill span {
+    position: relative;
+    z-index: 1;
+    font-size: 31px;
+  }
+
+  .pc-rpg-skill::before {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 52% 32%, rgba(255,255,255,.45), transparent 22%), radial-gradient(circle, var(--skill-core, #f07824), #2a0d0d 68%);
+    box-shadow: inset 0 0 18px rgba(0,0,0,.75);
+  }
+
+  .skill-fire { --skill-core: #ff7a20; }
+  .skill-magic { --skill-core: #8f4dff; }
+  .skill-heal { --skill-core: #2ed7ff; }
+  .skill-quick { --skill-core: #c7c8ce; }
+  .skill-attack { --skill-core: #c61a20; }
+
+  .pc-rpg-skill-wrap strong {
+    min-width: 90px;
+    border-radius: 6px;
+    padding: 3px 6px;
+    color: #ffe49b;
+    text-align: center;
+    font-size: 12px;
+  }
+
+  .pc-rpg-hotbar {
+    position: absolute;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    width: min(760px, calc(100% - 170px));
+    min-height: 76px;
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: repeat(8, minmax(62px, 1fr));
+    gap: 7px;
+    padding: 8px;
+  }
+
+  .pc-rpg-slot {
+    border-radius: 7px;
+    display: grid;
+    place-items: center;
+    padding: 12px 4px 4px;
+    cursor: pointer;
+    color: #ffe49b;
+    font-weight: 1000;
+    overflow: hidden;
+  }
+
+  .pc-rpg-slot-number {
+    position: absolute;
+    left: 6px;
+    top: 3px;
+    color: #ffe49b;
+    font-size: 12px;
+  }
+
+  .pc-rpg-slot-icon {
+    font-size: 25px;
+    line-height: 1;
+  }
+
+  .pc-rpg-slot b {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  .pc-rpg-slot em {
+    position: absolute;
+    right: 5px;
+    bottom: 3px;
+    font-style: normal;
+    color: #fff4d0;
+    font-size: 12px;
+  }
+
+  .pc-rpg-chat {
+    position: absolute;
+    left: 14px;
+    bottom: 17px;
+    width: 320px;
+    min-height: 54px;
+    border-radius: 9px;
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    align-items: center;
+    padding: 8px 10px;
+  }
+
+  .pc-rpg-chat p {
+    margin: 0;
+    color: #d8d0bf;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .pc-rpg-button:hover,
+  .pc-rpg-slot:hover,
+  .pc-rpg-skill:hover {
+    filter: brightness(1.12);
+  }
+
+  .pc-rpg-button:active,
+  .pc-rpg-slot:active,
+  .pc-rpg-skill:active {
+    transform: translateY(2px) scale(0.98);
+  }
+
+  @media (max-width: 1050px) {
+    body.pc-rpg-hud-active .game-shell {
+      width: calc(100vw - 8px);
+    }
+
+    .pc-rpg-profile {
+      width: 300px;
+    }
+
+    .pc-rpg-top-menu {
+      grid-template-columns: repeat(5, 62px);
+    }
+
+    .pc-rpg-currencies {
+      width: 340px;
+    }
+
+    .pc-rpg-quest,
+    .pc-rpg-contract {
+      width: 292px;
+    }
+
+    .pc-rpg-actions {
+      transform: scale(0.88);
+      transform-origin: right bottom;
+    }
+
+    .pc-rpg-hotbar {
+      width: min(650px, calc(100% - 155px));
+    }
+
+    .pc-rpg-chat {
+      width: 275px;
+    }
+  }
+}
+
+
+/* ==================================================
+   PC ONLY: remover rotbar antiga quando o HUD RPG de PC estiver ativo
+   - SOMENTE PC: body:not(.is-mobile).pc-rpg-hud-active
+   - Mobile fica intacto: joystick, botoes touch e hotbar mobile continuam vivos
+   - Mantem a nova .pc-rpg-hotbar do HUD de PC
+   ================================================== */
+body:not(.is-mobile).pc-rpg-hud-active #sandbox2DHotbar,
+body:not(.is-mobile).pc-rpg-hud-active .sandbox-2d-hotbar,
+body:not(.is-mobile).pc-rpg-hud-active .er-mmo-bottom-hotbar {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hotbar {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+body.is-mobile #sandbox2DHotbar,
+body.is-mobile .sandbox-2d-hotbar {
+  visibility: visible;
+}
+
+
+/* ==================================================
+   PC HUD INTERATIVO ONLY 20260707
+   - SOMENTE PC: estados de clique, seleção, desativado e mapa expandido.
+   - Mobile permanece intocado.
+   ================================================== */
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hud.is-interactive [data-pc-action] {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hud.is-interactive [data-pc-action]:hover {
+  filter: brightness(1.16) saturate(1.08);
+  box-shadow:
+    0 0 0 2px rgba(23, 14, 6, 0.98),
+    inset 0 0 0 1px rgba(255, 240, 166, 0.34),
+    0 0 18px rgba(255, 218, 104, 0.30),
+    0 8px 18px rgba(0, 0, 0, 0.48);
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-click-flash {
+  animation: pcRpgClickFlash 0.26s ease-out;
+}
+
+@keyframes pcRpgClickFlash {
+  0% { transform: translateY(1px) scale(0.96); filter: brightness(1.45); }
+  100% { transform: translateY(0) scale(1); filter: brightness(1); }
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-slot.is-selected,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-skill-wrap.is-selected .pc-rpg-skill,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-skill.is-selected {
+  outline: 2px solid rgba(255, 242, 120, 0.92);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 2px rgba(23, 14, 6, 0.98),
+    inset 0 0 18px rgba(255, 229, 103, 0.18),
+    0 0 18px rgba(255, 229, 103, 0.32);
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-slot.is-disabled,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-skill.is-disabled,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-button.is-disabled {
+  opacity: 0.52;
+  filter: grayscale(0.45);
+}
+
+body:not(.is-mobile).pc-rpg-hud-active.pc-rpg-map-expanded .mini-map {
+  width: 260px !important;
+  height: 190px !important;
+  right: 34px !important;
+  top: 158px !important;
+  z-index: 10 !important;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active.pc-rpg-map-expanded .pc-rpg-minimap-frame {
+  width: 274px;
+  height: 216px;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(105, 228, 255, 0.13), transparent 42%),
+    linear-gradient(180deg, rgba(36, 31, 28, 0.96), rgba(7, 8, 14, 0.98));
+}
+
+body.is-mobile .pc-rpg-hud [data-pc-action],
+body.is-mobile.pc-rpg-map-expanded .mini-map {
+  cursor: default;
+}
+
+
+/* ===== Inventory reference-style full replacement ===== */
+#inventoryPanel.er-inventory-rework-active {
+  width: min(96vw, 1360px) !important;
+  max-width: min(96vw, 1360px) !important;
+  max-height: min(92dvh, 980px) !important;
+  padding: 0 !important;
+}
+
+.er-inv-reference-frame {
+  gap: 12px;
+  padding: 14px;
+  border: 4px solid #8d5a25;
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(23, 18, 17, 0.985), rgba(14, 12, 11, 0.99)),
+    linear-gradient(90deg, rgba(61, 43, 28, 0.65), rgba(9, 9, 9, 0) 12%, rgba(9, 9, 9, 0) 88%, rgba(61, 43, 28, 0.65)),
+    linear-gradient(0deg, rgba(61, 43, 28, 0.65), rgba(9, 9, 9, 0) 12%, rgba(9, 9, 9, 0) 88%, rgba(61, 43, 28, 0.65));
+  box-shadow: 0 0 0 2px #1f130c, 0 22px 56px rgba(0,0,0,0.72), inset 0 0 0 1px rgba(246, 211, 133, 0.12);
+}
+
+.er-inv-brand-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.er-inv-brand-glyph {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: #61d4ff;
+  background: radial-gradient(circle at 50% 50%, rgba(109,224,255,0.28), rgba(20,36,48,0.18) 60%, rgba(0,0,0,0));
+  box-shadow: 0 0 14px rgba(98,215,255,0.22);
+  font-size: 15px;
+}
+
+.er-inv-eyebrow {
+  color: #73dfff;
+  font-size: 0.92rem;
+  letter-spacing: 0.02em;
+}
+
+.er-inv-title-block h2 {
+  font-size: clamp(1.55rem, 2.35vw, 2.45rem);
+  color: #f3d16a;
+  text-shadow: 0 2px 0 #22130b;
+}
+
+#erInventorySubtitle {
+  color: #e4c785;
+  font-size: 0.98rem;
+}
+
+.er-inv-top {
+  grid-template-columns: minmax(0, 1fr) auto 52px;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.er-inv-summary {
+  gap: 10px;
+}
+
+.er-inv-summary span {
+  min-width: 118px;
+  padding: 10px 12px;
+  border: 2px solid #6c481f;
+  border-radius: 0;
+  background: linear-gradient(180deg, #191512, #0e0c0b);
+  color: #d6bb7a;
+  font-size: 0.98rem;
+  line-height: 1.15;
+  text-transform: lowercase;
+  box-shadow: inset 0 0 0 1px rgba(225, 170, 71, 0.14);
+}
+
+.er-inv-summary strong {
+  color: #f7f0c8;
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.er-inv-close {
+  min-width: 52px;
+  min-height: 52px;
+  border: 2px solid #8c4519;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #a3321b, #7a1f16);
+  color: #ffd177;
+  font-size: 1.35rem;
+  box-shadow: 0 4px 0 #37140d, inset 0 1px 0 rgba(255,255,255,0.18);
+}
+
+.er-inv-tabs {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0;
+  border: 2px solid #6a431e;
+  background: rgba(12,10,10,0.68);
+}
+
+.er-inv-tabs button {
+  min-height: 52px;
+  border: 1px solid #6a431e;
+  border-radius: 0;
+  background: linear-gradient(180deg, #211915, #120f0e);
+  color: #d5b263;
+  font-size: 0.98rem;
+}
+
+.er-inv-tabs button.is-active {
+  border-color: #8f6329;
+  background: linear-gradient(180deg, #22465e, #162d40 70%, #10171f);
+  color: #f0f5ff;
+  box-shadow: inset 0 0 0 1px rgba(102,214,255,0.26);
+}
+
+.er-inv-controls {
+  grid-template-columns: minmax(320px, 1fr) 250px;
+}
+
+.er-inv-search span,
+.er-inv-sort span,
+.er-equip-weapon-label,
+.er-detail-eyebrow {
+  color: #d1d4db;
+  font-size: 0.84rem;
+}
+
+.er-inv-search input,
+.er-inv-sort select {
+  min-height: 52px;
+  border: 2px solid #5b3a1d;
+  border-radius: 0;
+  background: #0f0d0d;
+  color: #d7b676;
+  font-size: 1rem;
+}
+
+.er-inv-body {
+  grid-template-columns: 300px minmax(420px, 1fr) 320px;
+  gap: 12px;
+}
+
+.er-inv-character,
+.er-inv-bag,
+.er-inv-detail {
+  border: 2px solid #5e3a19;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(18,14,12,0.98), rgba(12,10,9,0.99));
+  box-shadow: inset 0 0 0 1px rgba(173,124,56,0.12);
+}
+
+.er-inv-character {
+  display: block;
+  padding: 12px;
+}
+
+.er-equip-title-row h3 {
+  margin: 0 0 10px;
+  color: #d8c07b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.9rem;
+}
+
+.er-equip-hero-card {
+  margin-bottom: 10px;
+}
+
+.er-inv-portrait {
+  min-height: 210px;
+  border: 2px solid #5e3a19;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(22,17,15,0.88), rgba(10,9,9,0.98));
+}
+
+.er-inv-portrait-aura {
+  inset: 25px 74px;
+}
+
+.er-inv-equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.er-equip-slot {
+  grid-template-columns: 1fr;
+  gap: 4px;
+  min-height: 58px;
+  border: 2px solid #5c3a1d;
+  border-radius: 0;
+  background: linear-gradient(180deg, #1a1412, #0f0d0d);
+}
+
+.er-equip-slot span {
+  color: #8eb4de;
+  font-size: 0.78rem;
+}
+
+.er-equip-slot strong {
+  color: #d8c18d;
+  font-size: 0.8rem;
+}
+
+.er-equip-weapon-box {
+  margin-top: 10px;
+  padding: 10px;
+  border: 2px solid #5c3a1d;
+  background: linear-gradient(180deg, #161110, #0d0b0a);
+}
+
+.er-equip-weapon-box strong {
+  display: block;
+  margin-top: 4px;
+  color: #e8e0c4;
+  font-size: 0.95rem;
+}
+
+.er-inv-bag {
+  padding: 10px;
+}
+
+.er-inv-grid {
+  grid-template-columns: repeat(7, minmax(54px, 1fr));
+  gap: 9px;
+}
+
+.er-inv-slot {
+  min-height: 78px;
+  border: 3px solid #6e552b;
+  border-radius: 0;
+  background: linear-gradient(180deg, #5b451f, #2c2010);
+  box-shadow: inset 0 0 0 1px rgba(255,213,126,0.18);
+}
+
+.er-inv-slot.is-empty {
+  opacity: 0.28;
+  background: linear-gradient(180deg, #1b1715, #090909);
+}
+
+.er-inv-slot:hover:not(:disabled),
+.er-inv-slot.is-selected {
+  border-color: #5bcfff;
+  box-shadow: inset 0 0 0 1px rgba(113,224,255,0.22), 0 0 12px rgba(55,180,255,0.12);
+}
+
+.er-inv-icon {
+  width: min(58px, 76%);
+  height: min(58px, 76%);
+  border: 2px solid rgba(39,29,22,0.82);
+  border-radius: 0;
+  background: linear-gradient(180deg, #3e3320, #1c1816);
+}
+
+.er-inv-qty, .er-inv-equipped-mark {
+  border-radius: 4px;
+  min-width: 22px;
+  height: 20px;
+  font-size: 0.7rem;
+}
+
+.er-inv-detail {
+  padding: 10px;
+  gap: 10px;
+}
+
+.er-detail-card {
+  grid-template-columns: 82px minmax(0,1fr);
+  border: 2px solid #5c3a1d;
+  border-radius: 0;
+  background: linear-gradient(180deg, #271c17, #171211);
+}
+
+.er-detail-card h3 {
+  font-size: 1.12rem;
+  color: #d9b4ff;
+}
+
+.er-detail-description, .er-detail-effect, .er-detail-empty p {
+  border: 2px solid #5c3a1d;
+  border-radius: 0;
+  background: linear-gradient(180deg, #141110, #0f0d0c);
+  color: #d7c59d;
+  font-size: 0.92rem;
+}
+
+.er-detail-actions {
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 8px;
+}
+
+.er-detail-actions button {
+  min-height: 50px;
+  border: 2px solid #6b461e;
+  border-radius: 0;
+  background: linear-gradient(180deg, #3f3021, #251b14);
+  color: #f2d27a;
+  font-size: 0.96rem;
+}
+
+.er-detail-actions button[data-er-inv-action="equipWeapon"],
+.er-detail-actions button[data-er-inv-action="equipPower"],
+.er-detail-actions button[data-er-inv-action="usePotion"],
+.er-detail-actions button[data-er-inv-action="useCustomItem"] {
+  background: linear-gradient(180deg, #4d7c31, #2f5a18);
+  color: #f4f8d3;
+}
+
+.er-detail-actions button[data-er-inv-action="close"] {
+  background: linear-gradient(180deg, #974325, #7a2918);
+  color: #ffe1a6;
+}
+
+.er-hotbar-readout {
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.er-hotbar-chip {
+  min-height: 34px;
+  border: 2px solid #5c3a1d;
+  border-radius: 0;
+  background: linear-gradient(180deg, #13100f, #090909);
+  color: #d6b36f;
+  font-size: 0.88rem;
+}
+
+.er-hotbar-chip.is-current {
+  border-color: #5bcfff;
+  color: #effbff;
+}
+
+@media (max-width: 1180px) {
+  .er-inv-body { grid-template-columns: 260px minmax(320px, 1fr) 290px; }
+  .er-inv-grid { grid-template-columns: repeat(6, minmax(54px, 1fr)); }
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  #inventoryPanel.er-inventory-rework-active {
+    width: calc(100vw - 8px) !important;
+    max-width: calc(100vw - 8px) !important;
+    max-height: calc(100dvh - 8px) !important;
+  }
+  .er-inv-reference-frame { padding: 8px; gap: 8px; }
+  .er-inv-top { grid-template-columns: minmax(0, 1fr) 44px; }
+  .er-inv-summary { display: none; }
+  .er-inv-title-block h2 { font-size: 1.25rem; }
+  #erInventorySubtitle { font-size: 0.8rem; }
+  .er-inv-close { min-width: 44px; min-height: 44px; }
+  .er-inv-tabs { display: flex; overflow-x: auto; }
+  .er-inv-tabs button { min-width: 108px; min-height: 42px; font-size: 0.8rem; }
+  .er-inv-controls { grid-template-columns: 1fr; }
+  .er-inv-search input, .er-inv-sort select { min-height: 44px; font-size: 0.9rem; }
+  .er-inv-body { grid-template-columns: 1fr; overflow: auto; }
+  .er-inv-character { order: 1; }
+  .er-inv-bag { order: 2; }
+  .er-inv-detail { order: 3; }
+  .er-inv-grid { grid-template-columns: repeat(5, minmax(54px, 1fr)); }
+  .er-inv-slot { min-height: 70px; }
+  .er-inv-character, .er-inv-bag, .er-inv-detail { max-height: none; }
+}
+
+
+/* ==================================================
+   ETERNAL RIFT - PC HUD MOVABLE EDITOR 20260707
+   ================================================== */
+body.is-mobile .pc-rpg-hud-editor-toolbar,
+body.is-mobile.pc-rpg-hud-editing .pc-rpg-hud-editor-toolbar {
+  display: none !important;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hud-editor-toolbar {
+  position: absolute;
+  right: 18px;
+  top: 330px;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px;
+  border-radius: 9px;
+  pointer-events: auto !important;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hud-editor-toolbar.hidden {
+  display: none !important;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hud-editor-toolbar button,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hud-editor-toolbar select {
+  min-height: 31px;
+  border: 2px solid rgba(216, 168, 74, 0.95);
+  border-radius: 7px;
+  background: linear-gradient(180deg, #f2d27a, #9b5b28);
+  color: #1a1009;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 1000;
+  cursor: pointer;
+  padding: 4px 9px;
+  box-shadow: 0 3px 0 rgba(28, 16, 8, 0.92), inset 0 1px 0 rgba(255,255,255,0.34);
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hud-editor-toolbar select {
+  min-width: 112px;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hud-editor-toolbar span {
+  grid-column: 1 / -1;
+  color: #fff0c4;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+  opacity: 0.92;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active.pc-rpg-hud-editing .pc-rpg-hud {
+  pointer-events: auto;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-profile,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-top-menu,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-currencies,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-quest,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-contract,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-minimap-frame,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-actions,
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-chat {
+  transform: translate(var(--pc-hud-dx, 0px), var(--pc-hud-dy, 0px)) scale(var(--pc-hud-scale, 1));
+  transform-origin: center center;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-boss {
+  transform: translateX(-50%) translate(var(--pc-hud-dx, 0px), var(--pc-hud-dy, 0px)) scale(var(--pc-hud-scale, 1));
+  transform-origin: center center;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-hotbar {
+  transform: translateX(-50%) translate(var(--pc-hud-dx, 0px), var(--pc-hud-dy, 0px)) scale(var(--pc-hud-scale, 1));
+  transform-origin: center center;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active .mini-map {
+  transform: translate(var(--pc-hud-minimap-dx, 0px), var(--pc-hud-minimap-dy, 0px)) scale(var(--pc-hud-minimap-scale, 1)) !important;
+  transform-origin: center center !important;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active.pc-rpg-hud-editing .pc-rpg-movable {
+  cursor: move !important;
+  outline: 2px dashed rgba(255, 238, 130, 0.92);
+  outline-offset: 4px;
+  filter: brightness(1.08) saturate(1.08);
+}
+
+body:not(.is-mobile).pc-rpg-hud-active.pc-rpg-hud-editing .pc-rpg-movable::after {
+  content: attr(data-pc-hud-label);
+  position: absolute;
+  left: 8px;
+  top: -24px;
+  z-index: 31;
+  min-width: max-content;
+  padding: 3px 7px;
+  border: 1px solid rgba(216, 168, 74, 0.95);
+  border-radius: 6px;
+  background: rgba(8, 10, 18, 0.94);
+  color: #fff0a6;
+  font-size: 11px;
+  font-weight: 1000;
+  pointer-events: none;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active.pc-rpg-hud-editing .pc-rpg-movable.is-dragging {
+  outline-color: #69e4ff;
+  opacity: 0.92;
+  z-index: 40 !important;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active.pc-rpg-hud-editing .pc-rpg-movable.is-dragging::after {
+  color: #dffbff;
+  border-color: #69e4ff;
+}
+
+
+body:not(.is-mobile).pc-rpg-hud-active .pc-rpg-movable.pc-rpg-movable-hidden {
+  display: none !important;
+}
+
+body:not(.is-mobile).pc-rpg-hud-active.pc-rpg-hud-editing .pc-rpg-movable.pc-rpg-movable-selected {
+  outline-color: #69e4ff;
+  filter: brightness(1.11) saturate(1.12);
+}
+
+
+/* =========================================================
+   ETERNAL RIFT - MOBILE HUD CLEANUP ONLY
+   Pedido: tirar SOMENTE no mobile HUDs/botões inúteis.
+   Importante:
+   - Não altera PC.
+   - Não altera HUD do PC.
+   - Não altera inventário, casas, NPCs, vila, ferreiro,
+     biomas, personagem, quarto ou sistemas.
+   - É apenas CSS com body.is-mobile.
+   ========================================================= */
+
+body.is-mobile .hud {
+  grid-template-columns: minmax(88px, 0.85fr) minmax(88px, 0.85fr) !important;
+  grid-template-rows: auto auto !important;
+  left: max(6px, env(safe-area-inset-left)) !important;
+  right: auto !important;
+  width: min(240px, calc(100vw - 12px)) !important;
+  gap: 3px !important;
+}
+
+/* Mantém somente informações essenciais no mobile: Herói, Vida e Mana. */
+body.is-mobile .hud > div:nth-child(1) {
+  grid-column: 1 / span 2 !important;
+  grid-row: 1 !important;
+  display: grid !important;
+  min-width: 0 !important;
+}
+
+body.is-mobile .hud > div:nth-child(4) {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  display: grid !important;
+  min-width: 0 !important;
+}
+
+body.is-mobile .hud > div:nth-child(5) {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  display: grid !important;
+  min-width: 0 !important;
+}
+
+/* Esconde SOMENTE NO MOBILE os HUDs que poluem a tela. */
+body.is-mobile .hud > div:nth-child(2),  /* Área */
+body.is-mobile .hud > div:nth-child(3),  /* Missão */
+body.is-mobile .hud > div:nth-child(6),  /* Moedas */
+body.is-mobile .hud > div:nth-child(7),  /* Arma */
+body.is-mobile .hud > div:nth-child(8),  /* Oxigênio */
+body.is-mobile .hud > div:nth-child(9),  /* Poder */
+body.is-mobile .hud > div:nth-child(10), /* Boss */
+body.is-mobile #bossHud,
+body.is-mobile .boss-hud,
+body.is-mobile #saveButton,
+body.is-mobile #resetButton,
+body.is-mobile .hud-menu-button {
+  display: none !important;
+}
+
+/* Remove minimapa apenas no mobile para liberar visão de jogo. */
+body.is-mobile .mini-map,
+body.is-mobile #miniMapCanvas {
+  display: none !important;
+}
+
+/* Remove botões extras do topo apenas no mobile. */
+body.is-mobile .mobile-top-actions,
+body.is-mobile #mobileFullscreenButton,
+body.is-mobile #mobilePauseButton,
+body.is-mobile #mobileDebugButton {
+  display: none !important;
+}
+
+/* O joystick já faz o movimento: esconde o D-pad duplicado apenas no mobile. */
+body.is-mobile .touch-dpad {
+  display: none !important;
+}
+
+/* Enxuga botões de ação duplicados/extras no mobile.
+   Mantidos: Inventário, Q/Bola de Fogo, Dash, Cura, Poção, Ação e Ataque. */
+body.is-mobile #touchShockwaveButton,
+body.is-mobile #touchPowerButton,
+body.is-mobile #touchWeaponButton,
+body.is-mobile #touchPower1Button,
+body.is-mobile #touchPower2Button,
+body.is-mobile #touchPower3Button,
+body.is-mobile #touchPower4Button {
+  display: none !important;
+}
+
+/* Reorganiza os botões restantes sem cobrir a tela. */
+body.is-mobile .touch-actions {
+  right: max(8px, env(safe-area-inset-right)) !important;
+  bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(44px, 56px)) !important;
+  gap: 6px !important;
+  align-items: end !important;
+  justify-items: end !important;
+  max-width: 124px !important;
+  z-index: 12 !important;
+}
+
+body.is-mobile .touch-actions .touch-button {
+  min-width: 44px !important;
+  min-height: 38px !important;
+  padding: 5px 6px !important;
+  font-size: clamp(0.54rem, 2.5vw, 0.72rem) !important;
+  border-radius: 9px !important;
+}
+
+body.is-mobile #touchAttackButton {
+  min-width: 58px !important;
+  min-height: 58px !important;
+  grid-column: 2 !important;
+  font-weight: 900 !important;
+}
+
+body.is-mobile #touchActionButton {
+  min-width: 54px !important;
+  min-height: 44px !important;
+}
+
+/* Deixa o texto contextual menor, para não virar outro botão gigante. */
+body.is-mobile #touchContextLabel {
+  grid-column: 1 / span 2 !important;
+  max-width: 116px !important;
+  font-size: clamp(0.48rem, 2vw, 0.64rem) !important;
+  opacity: 0.82 !important;
+}
+
+/* Mais espaço visual para jogar no celular. */
+body.is-mobile .interaction-hint {
+  top: max(52px, calc(env(safe-area-inset-top) + 46px)) !important;
+  max-width: calc(100vw - 160px) !important;
 }

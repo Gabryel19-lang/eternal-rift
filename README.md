@@ -1,3 +1,52 @@
+
+
+# village-house-static-main-village-20260707
+- Exterior das casas da vila trocado para sprites reais baseados exatamente nas imagens enviadas pelo usuário: CASA.png e CASA (2).png.
+- Nenhuma imagem nova foi gerada; os arquivos enviados foram usados como assets com fundo transparente.
+- O desenho das casas agora usa drawImage no Canvas: assets/casa-blue-reference.png e assets/casa-red-reference.png.
+- Mobile preservado: HUD mobile, joystick, hotbar mobile e inventário legado não foram alterados.
+- HUD PC interativo e rotbar antiga oculta no PC foram mantidos.
+- node --check app.js passou sem erro.
+
+# village-house-exterior-redesign-20260707
+- Exterior das casas da vila redesenhado em Canvas, inspirado nas imagens CASA.png e CASA (2).png.
+- Casas agora têm telhado azul/pedra ou telhado terracota/madeira, janelas iluminadas, chaminé, porta, floreiras, detalhes de pedra/madeira e decoração externa.
+- Não foram geradas imagens novas e não foram adicionados sprites obrigatórios para as casas.
+- Colisão, interiores, HUD PC, HUD mobile, inventário legado mobile, joystick e sistemas de jogo foram preservados.
+- Base usada: versão com HUD PC interativo e rotbar antiga oculta no PC.
+
+# Eternal Rift - HUD PC Interativo Only 20260707
+
+Esta versão mantém a base anterior e adiciona interação real ao HUD novo do PC.
+
+## O que mudou
+- HUD novo do PC agora tem botões clicáveis.
+- Bolsa abre o inventário.
+- Missões abre o painel de missões.
+- Menu abre a pausa.
+- Status/Classe abre o painel de status.
+- Loja tenta interagir com NPC/objeto próximo e avisa quando não houver alvo.
+- Hotbar nova do PC executa ações: trocar arma, usar poder, poção, missões, chave/interação e status.
+- Botões de ação do PC executam ataque, dash, bola de fogo, poder equipado e cura.
+- Mini mapa do PC pode expandir/reduzir ao clicar.
+- Chat visual do HUD registra avisos do próprio HUD.
+
+## Regra principal
+Tudo isso é SOMENTE no PC.
+O mobile continua protegido: joystick, botões touch, hotbar mobile, HUD mobile limpo e inventário legado não foram alterados.
+
+## Versão
+pc-rpg-hud-interactive-only-20260707
+
+
+
+
+# pc-rpg-hud-interactive-only-20260707
+- SOMENTE no PC, a rotbar/hotbar antiga (`#sandbox2DHotbar`, `.sandbox-2d-hotbar` e `.er-mmo-bottom-hotbar`) fica oculta quando o HUD RPG de PC está ativo.
+- A nova hotbar do HUD de PC (`.pc-rpg-hotbar`) continua aparecendo normalmente.
+- Mobile não foi alterado: joystick, botões touch, inventário legado e hotbar mobile continuam preservados.
+- Atualizado cache-busting para `pc-rpg-hud-interactive-only-20260707`.
+- `node --check app.js` deve passar sem erro.
 # mobile-inventory-legacy-20260706
 - No mobile, o inventario voltou para a versao antiga/legada.
 - O Inventory Rework novo continua ativo no PC.
@@ -997,3 +1046,141 @@ Esta versao deixa o Eternal Rift com clima de jogo 2D de exploracao, mineracao e
 - Mantida a animação para subir/descer e a animação de ataque melhorada.
 - Atualizado cache-buster dos sprites para o navegador não usar os antigos.
 - `node --check app.js` passou sem erro.
+
+# pc-rpg-hud-only-20260707
+
+## Ajuste aplicado
+- Criado um novo HUD estilo RPG/MMORPG somente para PC, inspirado na imagem de referência enviada.
+- O HUD antigo do PC é ocultado quando o novo HUD está ativo.
+- O painel lateral de controles do PC é ocultado para deixar a tela mais limpa.
+- O HUD novo mostra: personagem, classe, nível, HP, MP, XP, moedas, cristais, gemas, missão, contrato, boss, mapa tático, ações, hotbar e chat visual.
+
+## Proteção do mobile
+- O mobile não foi alterado.
+- O inventário legado do mobile continua intacto.
+- O HUD mobile limpo continua intacto.
+- Joystick, botões touch, hotbar mobile, menu mobile e otimizações mobile não foram modificados.
+- O HUD novo usa `body.pc-rpg-hud-active` e é bloqueado por `body.is-mobile` e `(pointer: coarse)`.
+
+## Resultado
+- PC recebe o HUD novo.
+- Mobile continua com a versão já ajustada anteriormente.
+- `node --check app.js` passou sem erro.
+
+
+# pc-village-vivid-texture-only-20260707
+- Adicionada textura mais viva para a Vila Principal SOMENTE no PC.
+- O patch adiciona detalhes leves por cima dos tiles existentes: grama mais viva, pequenas flores, rachaduras, pedrinhas, musgo nas bordas, água com reflexos e brilho ambiente discreto no centro/portal.
+- Nada foi removido: casas, HUD PC interativo, rotbar antiga oculta no PC, mobile, joystick, inventário legado, mapas, colisões, NPCs, inimigos e save foram preservados.
+- O overlay não roda em `body.is-mobile`, pointer coarse ou tela menor que 900px.
+
+
+## Atualização 2026-07-07 — inventário novo estilo referência
+- remove o inventário antigo/legado e aplica o inventário novo em PC e mobile.
+- mantém HUD, vila, casas, hotbar, missões, save, áudio e demais sistemas.
+- novo inventário inspirado na referência enviada: topo com resumo, abas, busca, ordenação, painel equipado, grade central e detalhe lateral.
+
+
+## Atualização 2026-07-07 — textura do chão da vila igual à referência
+- textura do chão da Vila Principal refeita para ficar muito mais próxima da referência enviada.
+- não usa a imagem por cima; o chão foi recriado por código/pixel render.
+- mantém inventário novo, HUD, casas, hotbar, áudio e demais sistemas.
+
+
+## Atualização 2026-07-07 — opção de mexer no HUD novo
+- Adicionado botão **Mexer HUD** no HUD novo do PC.
+- No modo edição, é possível arrastar status, menu, recursos, missão, classe, boss, minimapa, ações, hotbar e chat.
+- O layout fica salvo no navegador e pode ser resetado.
+- Mobile permanece protegido e sem mudanças.
+
+
+## Atualização 2026-07-07 — editor do HUD novo com tamanho e ocultação
+- adiciona opções para aumentar, diminuir e sumir com cada bloco do HUD novo no PC.
+- mantém o modo de arrastar, salvar e resetar.
+- mobile continua protegido sem alteração.
+
+
+## Atualização 2026-07-07 — personagem novo com animações
+- personagem trocado usando a sprite sheet enviada pelo usuário.
+- animações adicionadas: parado, andando em quatro direções e ataque.
+- não foi gerada imagem nova; a imagem enviada foi convertida em sprites transparentes do jogo.
+- mantém HUD, inventário, vila, chão, casas, missões, save, áudio e demais sistemas.
+
+
+## NPCs da referência adicionados
+- NPCs com visual novo baseado nas 4 imagens de referência.
+- Animação de idle, caminhada e ação ao interagir.
+- Funções: fazendeira Mina cura e entrega recursos, Ari dá defesa temporária, Vendedor continua com loja, Nico continua com missão, Beto continua com carta.
+- NPCs extras: Téo, Bran, Sora e Lia foram adicionados na vila sem remover os anteriores.
+
+
+## Correção dos NPCs animados
+- sprites dos NPCs recortados novamente por detecção de frames, não por grade fixa quebrada.
+- removidos cortes, barras pretas e partes bugadas dos frames.
+- escala de desenho ajustada para caber melhor na vila.
+
+
+## Correção segura — sem alterar HUD, inventário, casas, NPCs ou chão da vila
+- Esta versão volta para a base boa com HUD, inventário, textura da vila, casas, personagem e NPCs preservados.
+- A Loja do Ferreiro e o interior do Ferreiro foram adicionados como patch isolado, sem substituir casas.
+- O Quarto do Herói foi adicionado apenas dentro da casa do jogador, usando sistema de tilemap interno.
+- O quarto é desenhado por tiles e objetos separados, com camadas ground, floorDecor, objectsBack, player, objectsFront e lighting.
+- node --check app.js passou sem erro.
+
+---
+## Atualização segura — Quarto do Herói fiel em tilemap
+
+Esta versão parte da última base boa restaurada com ferreiro e altera **somente** o interior da casa/quarto do herói.
+
+Mantido sem alteração:
+- HUD
+- inventário
+- casas da vila
+- NPCs
+- textura do chão da vila
+- personagem
+- ferreiro e interior da forja
+- demais sistemas do jogo
+
+O quarto foi reconstruído por `tilemap` e objetos separados, sem usar uma imagem única como fundo.
+Camadas do sistema:
+1. ground
+2. floorDecor
+3. objectsBack
+4. player
+5. objectsFront
+6. lighting
+
+
+## Correção 2026-07-07 — entrada no ferreiro
+- Corrigido erro: `updatePlayerMovement is not defined`.
+- Ajuste isolado: adicionada função de movimento usada apenas pelo update especial do interior do ferreiro.
+- Nenhum sistema visual ou de conteúdo foi alterado.
+
+
+## Correção 2026-07-07 — texturas dos biomas restauradas
+- Corrige o patch que espalhava textura da Vila Principal por outros biomas.
+- Restaura variação visual de grama, floresta, caminho, pedra e água fora da vila central.
+- Mantém HUD, inventário, casas, NPCs, personagem, ferreiro e quarto sem alteração.
+
+## Correção do Ferreiro — updateCamera
+
+Corrige o erro `updateCamera is not defined` ao entrar no interior da Loja do Ferreiro.
+
+Escopo da correção:
+- não altera HUD
+- não altera inventário
+- não altera casas
+- não altera NPCs
+- não altera textura dos biomas
+- não altera personagem
+- não altera quarto
+- não altera visual do ferreiro
+
+
+## mobile-hud-clean-only-20260707
+- Alteração SOMENTE no mobile via CSS (`body.is-mobile`).
+- Mantém no mobile apenas HUD essencial: Herói, Vida e Mana.
+- Esconde no mobile: Área, Missão, Moedas, Arma, Oxigênio, Poder, Boss, minimapa, botões de salvar/reset/menu e botões extras.
+- Mantém controles principais: joystick, inventário, ataque, ação, poção, dash, cura e bola de fogo.
+- Não altera PC, HUD do PC, inventário, casas, NPCs, vila, ferreiro, biomas, personagem ou quarto.

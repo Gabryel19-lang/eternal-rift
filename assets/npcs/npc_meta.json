@@ -1,0 +1,166 @@
+{
+  "farmer": {
+    "path": "assets/npcs/farmer_sheet.png",
+    "cellWidth": 300,
+    "cellHeight": 258,
+    "xIntervals": [
+      [
+        144,
+        318
+      ],
+      [
+        394,
+        572
+      ],
+      [
+        647,
+        824
+      ],
+      [
+        864,
+        1155
+      ]
+    ],
+    "yIntervals": [
+      [
+        83,
+        313
+      ],
+      [
+        371,
+        593
+      ],
+      [
+        661,
+        887
+      ],
+      [
+        945,
+        1164
+      ]
+    ]
+  },
+  "guard": {
+    "path": "assets/npcs/guard_sheet.png",
+    "cellWidth": 298,
+    "cellHeight": 259,
+    "xIntervals": [
+      [
+        174,
+        328
+      ],
+      [
+        434,
+        593
+      ],
+      [
+        664,
+        835
+      ],
+      [
+        867,
+        1183
+      ]
+    ],
+    "yIntervals": [
+      [
+        78,
+        308
+      ],
+      [
+        375,
+        605
+      ],
+      [
+        667,
+        888
+      ],
+      [
+        950,
+        1165
+      ]
+    ]
+  },
+  "merchant": {
+    "path": "assets/npcs/merchant_sheet.png",
+    "cellWidth": 269,
+    "cellHeight": 254,
+    "xIntervals": [
+      [
+        165,
+        301
+      ],
+      [
+        419,
+        556
+      ],
+      [
+        672,
+        813
+      ],
+      [
+        876,
+        1132
+      ]
+    ],
+    "yIntervals": [
+      [
+        76,
+        301
+      ],
+      [
+        378,
+        593
+      ],
+      [
+        660,
+        865
+      ],
+      [
+        941,
+        1154
+      ]
+    ]
+  },
+  "villager": {
+    "path": "assets/npcs/villager_sheet.png",
+    "cellWidth": 284,
+    "cellHeight": 242,
+    "xIntervals": [
+      [
+        162,
+        307
+      ],
+      [
+        427,
+        571
+      ],
+      [
+        672,
+        818
+      ],
+      [
+        870,
+        1143
+      ]
+    ],
+    "yIntervals": [
+      [
+        89,
+        302
+      ],
+      [
+        374,
+        581
+      ],
+      [
+        654,
+        861
+      ],
+      [
+        935,
+        1146
+      ]
+    ]
+  }
+}

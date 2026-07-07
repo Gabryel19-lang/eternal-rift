@@ -37,11 +37,17 @@ if (typeof window !== "undefined") {
 }
 
 
-/* ETERNAL_RIFT_VERSION_MARKER_mobile-inventory-legacy-20260706 */
+/* ETERNAL_RIFT_VERSION_MARKER_pc-hud-movable-editor-20260707 */
 (function eternalRiftVersionMarker() {
   try {
-    window.ETERNAL_RIFT_CURRENT_VERSION = "mobile-inventory-legacy-20260706";
-    console.log("Eternal Rift versão carregada:", "mobile-inventory-legacy-20260706");
+    window.ETERNAL_RIFT_CURRENT_VERSION = "pc-hud-movable-editor-20260707";
+    console.log("Eternal Rift versão carregada:", "pc-hud-movable-editor-20260707");
+    setTimeout(() => {
+      if (typeof showHudToast === "function" && !document.body?.classList.contains("is-mobile") && !window.ETERNAL_RIFT_PC_NO_OLD_ROTBAR_TOAST_SHOWN) {
+        window.ETERNAL_RIFT_PC_NO_OLD_ROTBAR_TOAST_SHOWN = true;
+        showHudToast("HUD PC interativo: village-house-exterior-redesign-20260707", 3.2);
+      }
+    }, 1900);
     setTimeout(() => {
       if (typeof showHudToast === "function" && document.body?.classList.contains("is-mobile") && !window.ETERNAL_RIFT_MOBILE_CLEAN_HUD_TOAST_SHOWN) {
         window.ETERNAL_RIFT_MOBILE_CLEAN_HUD_TOAST_SHOWN = true;
@@ -49464,11 +49470,11 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     { id: "all", label: "Todos" },
     { id: "armas", label: "Armas" },
     { id: "armaduras", label: "Armaduras" },
-    { id: "acessorios", label: "Acessorios" },
-    { id: "consumiveis", label: "Consumiveis" },
+    { id: "acessorios", label: "Acessórios" },
+    { id: "consumiveis", label: "Consumíveis" },
     { id: "materiais", label: "Materiais" },
-    { id: "missao", label: "Missao" },
-    { id: "raros", label: "Raros/Lendarios" }
+    { id: "missao", label: "Missão" },
+    { id: "raros", label: "Raros/Lendários" }
   ];
 
   const INVENTORY_REWORK_SORTS = [
@@ -49681,7 +49687,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
   }
 
   function useLegacyMobileInventory() {
-    return Boolean(document.body?.classList.contains("is-mobile"));
+    return false;
   }
 
   function disableInventoryReworkForMobile() {
@@ -49700,7 +49706,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       return null;
     }
     panel.classList.add("er-inventory-rework-active");
-    panel.setAttribute("aria-label", "Inventario do Aventureiro");
+    panel.setAttribute("aria-label", "Inventário do Aventureiro");
 
     let root = document.getElementById("erInventoryReworkRoot");
     if (root) return root;
@@ -49709,19 +49715,22 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     root.id = "erInventoryReworkRoot";
     root.className = "er-inv-root";
     root.innerHTML = `
-      <div class="er-inv-frame" role="document">
+      <div class="er-inv-frame er-inv-reference-frame" role="document">
         <div class="er-inv-glow" aria-hidden="true"></div>
         <header class="er-inv-top">
           <div class="er-inv-title-block">
-            <p class="er-inv-eyebrow">Eternal Rift</p>
-            <h2>Inventario do Aventureiro</h2>
-            <span id="erInventorySubtitle">Equipamentos, tesouros e recursos do heroi.</span>
+            <div class="er-inv-brand-row">
+              <span class="er-inv-brand-glyph" aria-hidden="true">✦</span>
+              <p class="er-inv-eyebrow">Eternal Rift</p>
+            </div>
+            <h2>Inventário do Aventureiro</h2>
+            <span id="erInventorySubtitle">Equipamentos, tesouros e recursos do herói.</span>
           </div>
           <div id="erInventorySummary" class="er-inv-summary" aria-live="polite"></div>
-          <button id="erInventoryClose" class="er-inv-close" type="button">Fechar</button>
+          <button id="erInventoryClose" class="er-inv-close" type="button" aria-label="Fechar inventário">✕</button>
         </header>
 
-        <nav id="erInventoryTabs" class="er-inv-tabs" aria-label="Categorias do inventario">
+        <nav id="erInventoryTabs" class="er-inv-tabs" aria-label="Categorias do inventário">
           ${INVENTORY_REWORK_TABS.map((tab) => `<button type="button" data-er-inv-tab="${tab.id}">${tab.label}</button>`).join("")}
         </nav>
 
@@ -49740,19 +49749,11 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
 
         <section class="er-inv-body">
           <aside class="er-inv-character">
-            <div class="er-inv-portrait" aria-hidden="true">
-              <div class="er-inv-portrait-aura"></div>
-              <div class="er-inv-portrait-hero">
-                <span class="er-hero-head"></span>
-                <span class="er-hero-body"></span>
-                <span class="er-hero-blade"></span>
-              </div>
-            </div>
             <div id="erInventoryEquipment" class="er-inv-equipment"></div>
           </aside>
 
           <main class="er-inv-bag">
-            <div id="erInventoryGridNew" class="er-inv-grid" aria-label="Itens do inventario"></div>
+            <div id="erInventoryGridNew" class="er-inv-grid" aria-label="Itens do inventário"></div>
             <p id="erInventoryEmptyNew" class="er-inv-empty hidden">Nada encontrado nesta categoria.</p>
           </main>
 
@@ -49892,7 +49893,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     const grid = root.querySelector("#erInventoryGridNew");
     const empty = root.querySelector("#erInventoryEmptyNew");
     if (!grid) return;
-    const slotCount = Math.max(40, items.length);
+    const slotCount = Math.max(49, items.length);
     const parts = [];
     for (let index = 0; index < slotCount; index += 1) {
       const item = items[index];
@@ -49940,23 +49941,40 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     const box = root.querySelector("#erInventoryEquipment");
     if (!box) return;
     const slots = [
-      ["weapon", "Arma"],
-      ["armor", "Armadura"],
-      ["boots", "Bota"],
-      ["ring", "Anel"],
-      ["amulet", "Amuleto"],
-      ["cape", "Capa"],
-      ["special", "Especial"]
+      ["helmet", "Capacete", inventory?.equippedArmorName || "Vazio"],
+      ["weapon", "Arma", getGearValueForRework("weapon")],
+      ["armor", "Armadura", getGearValueForRework("armor")],
+      ["ring", "Anel", getGearValueForRework("ring")],
+      ["amulet", "Amuleto", getGearValueForRework("amulet")],
+      ["cape", "Capa", getGearValueForRework("cape")],
+      ["boots", "Bota", getGearValueForRework("boots")],
+      ["special", "Especial", getGearValueForRework("special")]
     ];
     box.innerHTML = `
-      <h3>Equipado</h3>
+      <div class="er-equip-title-row">
+        <h3>Equipado</h3>
+      </div>
+      <div class="er-equip-hero-card">
+        <div class="er-inv-portrait" aria-hidden="true">
+          <div class="er-inv-portrait-aura"></div>
+          <div class="er-inv-portrait-hero">
+            <span class="er-hero-head"></span>
+            <span class="er-hero-body"></span>
+            <span class="er-hero-blade"></span>
+          </div>
+        </div>
+      </div>
       <div class="er-inv-equipment-grid">
-        ${slots.map(([slot, label]) => `
+        ${slots.map(([slot, label, value]) => `
           <div class="er-equip-slot er-equip-${slot}">
             <span>${label}</span>
-            <strong>${escapeInventoryHtml(getGearValueForRework(slot))}</strong>
+            <strong>${escapeInventoryHtml(value || "Vazio")}</strong>
           </div>
         `).join("")}
+      </div>
+      <div class="er-equip-weapon-box">
+        <p class="er-equip-weapon-label">Arma</p>
+        <strong>${escapeInventoryHtml(getGearValueForRework("weapon"))}</strong>
       </div>
     `;
   }
@@ -62184,4 +62202,3719 @@ if (typeof premiumWorldShadow !== "function") {
   installMainLoop();
   bootExtremePerf();
   setTimeout(bootExtremePerf, 500);
+})();
+
+/* ==================================================
+   ETERNAL RIFT - PC RPG HUD ONLY 20260707
+   - Novo HUD estilo MMORPG SOMENTE no PC.
+   - Mobile fica intocado: joystick, inventario legado e HUD mobile limpo.
+   ================================================== */
+(function eternalRiftPcRpgHudOnlyPatch() {
+  const PATCH_ID = "village-house-exterior-redesign-20260707";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_PC_RPG_HUD_ONLY === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_PC_RPG_HUD_ONLY = PATCH_ID;
+
+  let pcHudToastShown = false;
+  let pcHudLastSyncAt = 0;
+  const pcHudCache = Object.create(null);
+
+  function isCoarsePointer() {
+    try {
+      return window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function isPcHudDevice() {
+    try {
+      return !document.body?.classList.contains("is-mobile") && !isCoarsePointer();
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function isPcHudPlaying() {
+    try {
+      const menuOpen = startScreen && !startScreen.classList.contains("hidden");
+      return Boolean(isPcHudDevice() && gameStarted && !menuOpen && !gameOver);
+    } catch (error) {
+      return isPcHudDevice();
+    }
+  }
+
+  function safeClick(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try { el.click(); } catch (error) {}
+  }
+
+  function make(tag, className, html = "") {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (html) el.innerHTML = html;
+    return el;
+  }
+
+  function pcButton(icon, label, clickId) {
+    const btn = make("button", "pc-rpg-button pc-rpg-corner", `<span>${icon}</span><b>${label}</b>`);
+    btn.type = "button";
+    btn.dataset.pcClick = clickId || "";
+    return btn;
+  }
+
+  function pcSkill(icon, label, clickId, colorClass = "") {
+    const wrap = make("div", `pc-rpg-skill-wrap ${colorClass}`);
+    const btn = make("button", "pc-rpg-skill pc-rpg-corner", `<span>${icon}</span>`);
+    btn.type = "button";
+    btn.dataset.pcClick = clickId || "";
+    const text = make("strong", "", label);
+    wrap.append(btn, text);
+    return wrap;
+  }
+
+  function pcSlot(n, icon, name, clickId, countId = "") {
+    const slot = make("button", "pc-rpg-slot pc-rpg-corner", `
+      <span class="pc-rpg-slot-number">${n}</span>
+      <span class="pc-rpg-slot-icon">${icon}</span>
+      <b>${name}</b>
+      ${countId ? `<em id="${countId}">0</em>` : ""}
+    `);
+    slot.type = "button";
+    slot.dataset.pcClick = clickId || "";
+    return slot;
+  }
+
+  function buildPcHud() {
+    let hud = document.getElementById("pcRpgHud");
+    if (hud) return hud;
+
+    hud = make("div", "pc-rpg-hud");
+    hud.id = "pcRpgHud";
+    hud.dataset.version = PATCH_ID;
+    hud.setAttribute("aria-hidden", "true");
+    hud.innerHTML = `
+      <section class="pc-rpg-profile pc-rpg-panel pc-rpg-corner" aria-label="Status do heroi">
+        <div class="pc-rpg-portrait"><span>🧙</span><i id="pcRpgLevelShield">1</i></div>
+        <div class="pc-rpg-profile-info">
+          <div class="pc-rpg-name-line"><b id="pcRpgName">Heroi</b><span>|</span><strong id="pcRpgClass">Guerreiro</strong><span>Nv. <strong id="pcRpgLevel">1</strong></span></div>
+          <div class="pc-rpg-bar-row"><span>HP</span><div class="pc-rpg-bar"><i id="pcRpgHpFill" class="pc-rpg-hp-fill"></i><b id="pcRpgHpText">0/0</b></div></div>
+          <div class="pc-rpg-bar-row"><span>MP</span><div class="pc-rpg-bar"><i id="pcRpgMpFill" class="pc-rpg-mp-fill"></i><b id="pcRpgMpText">0/0</b></div></div>
+          <div class="pc-rpg-bar-row"><span>XP</span><div class="pc-rpg-bar"><i id="pcRpgXpFill" class="pc-rpg-xp-fill"></i><b id="pcRpgXpText">0/0</b></div></div>
+        </div>
+      </section>
+
+      <nav class="pc-rpg-top-menu" aria-label="Menu principal PC">
+      </nav>
+
+      <section class="pc-rpg-currencies pc-rpg-panel pc-rpg-corner" aria-label="Recursos">
+        <span>🪙 <b id="pcRpgCoins">0</b></span>
+        <span>💎 <b id="pcRpgCrystals">0</b></span>
+        <span>🔮 <b id="pcRpgGems">0</b></span>
+      </section>
+
+      <section class="pc-rpg-quest pc-rpg-panel pc-rpg-corner" aria-label="Missao atual">
+        <small>📍 <span id="pcRpgArea">Vila Principal</span></small>
+        <strong id="pcRpgQuest">Missao</strong>
+        <p id="pcRpgQuestSub">Fale com Nico.</p>
+      </section>
+
+      <section class="pc-rpg-contract pc-rpg-panel pc-rpg-corner" aria-label="Classe e contrato">
+        <strong>🛡️ <span id="pcRpgClassSmall">Guerreiro</span></strong>
+        <p id="pcRpgContract">Contrato: nenhum</p>
+      </section>
+
+      <section id="pcRpgBossPanel" class="pc-rpg-boss pc-rpg-panel pc-rpg-corner hidden" aria-label="Boss">
+        <div><span>💀 Boss</span><strong id="pcRpgBossName">Nenhum</strong></div>
+        <div class="pc-rpg-boss-bar"><i id="pcRpgBossFill"></i></div>
+      </section>
+
+      <section class="pc-rpg-minimap-frame pc-rpg-panel pc-rpg-corner" aria-label="Mapa tatico">
+        <strong>Mapa tático</strong>
+        <span id="pcRpgMiniLabel">Vila/Floresta</span>
+      </section>
+
+      <section class="pc-rpg-actions" aria-label="Acoes PC"></section>
+      <section class="pc-rpg-hotbar pc-rpg-panel pc-rpg-corner" aria-label="Barra de atalhos PC"></section>
+      <section class="pc-rpg-chat pc-rpg-panel pc-rpg-corner" aria-label="Chat visual">
+        <span>💬</span><p><b>[Sistema]</b> Bem-vindo ao Eternal Rift!<br><b>[Mundo]</b> Explore, lute e evolua.</p>
+      </section>
+    `;
+
+    const menu = hud.querySelector(".pc-rpg-top-menu");
+    menu?.append(
+      pcButton("🎒", "Bolsa", "pauseInventoryButton"),
+      pcButton("📜", "Missões", "pauseMissionsButton"),
+      pcButton("🏰", "Loja", "touchActionButton"),
+      pcButton("🏳️", "Eventos", ""),
+      pcButton("☰", "Menu", "hudMenuButton")
+    );
+
+    const actions = hud.querySelector(".pc-rpg-actions");
+    actions?.append(
+      pcSkill("☄️", "Bola de Fogo", "touchFireballButton", "skill-fire"),
+      pcSkill("✦", "Magia", "touchPowerButton", "skill-magic"),
+      pcSkill("✚", "Cura", "touchHealButton", "skill-heal"),
+      pcSkill("⚔️", "Ataque Rápido", "touchDashButton", "skill-quick"),
+      pcSkill("🗡️", "Atacar", "touchAttackButton", "skill-attack")
+    );
+
+    const hotbar = hud.querySelector(".pc-rpg-hotbar");
+    hotbar?.append(
+      pcSlot(1, "🗡️", "Espada", "touchWeaponButton"),
+      pcSlot(2, "⛏️", "Picareta", ""),
+      pcSlot(3, "🔮", "Magia", "touchPowerButton", "pcRpgManaOrbCount"),
+      pcSlot(4, "🧪", "Poção", "touchPotionButton", "pcRpgPotionCount"),
+      pcSlot(5, "🍞", "Pão", ""),
+      pcSlot(6, "📜", "Pergaminho", "pauseMissionsButton", "pcRpgScrollCount"),
+      pcSlot(7, "🗝️", "Chave", "", "pcRpgKeyCount"),
+      pcSlot(8, "💍", "Anel", "")
+    );
+
+    hud.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-pc-click]");
+      if (!button) return;
+      event.preventDefault();
+      const clickId = button.dataset.pcClick;
+      if (!clickId) {
+        try { showHudToast?.("Recurso visual em breve.", 1.5); } catch (error) {}
+        return;
+      }
+      safeClick(clickId);
+    });
+
+    document.body.appendChild(hud);
+    return hud;
+  }
+
+  function setText(id, value) {
+    const text = String(value ?? "");
+    if (pcHudCache[id] === text) return;
+    pcHudCache[id] = text;
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function setWidth(id, current, max) {
+    const safeMax = Math.max(1, Number(max || 1));
+    const pct = Math.max(0, Math.min(100, Number(current || 0) / safeMax * 100));
+    const value = `${pct.toFixed(2)}%`;
+    if (pcHudCache[id] === value) return;
+    pcHudCache[id] = value;
+    const el = document.getElementById(id);
+    if (el) el.style.width = value;
+  }
+
+  function syncPcHud() {
+    const hud = buildPcHud();
+    const active = isPcHudPlaying();
+    document.body?.classList.toggle("pc-rpg-hud-active", active);
+
+    if (!active) {
+      hud.setAttribute("aria-hidden", "true");
+      return;
+    }
+
+    hud.removeAttribute("aria-hidden");
+    if (!pcHudToastShown && typeof showHudToast === "function") {
+      pcHudToastShown = true;
+      showHudToast(`HUD PC RPG carregado: ${PATCH_ID}`, 3.0);
+    }
+
+    const now = performance.now();
+    if (now - pcHudLastSyncAt < 120) return;
+    pcHudLastSyncAt = now;
+
+    normalizeLevelState?.();
+    const playerName = typeof getPlayerHudName === "function" ? getPlayerHudName() : (player?.name || "Heroi");
+    const cls = questBook?.playerClass?.name || document.getElementById("classHudText")?.textContent || "Guerreiro";
+    const contract = document.getElementById("contractHudText")?.textContent || "Contrato: nenhum";
+    const area = typeof getAreaName === "function" ? getAreaName() : (document.getElementById("playerPosition")?.textContent || "Vila Principal");
+    const questText = typeof getCompactMissionText === "function" ? getCompactMissionText() : (document.getElementById("questProgress")?.textContent || "Missão em dia");
+    const weapon = typeof getCurrentWeapon === "function" ? getCurrentWeapon().name : (document.getElementById("weaponHud")?.textContent || "Espada curta");
+    const activeBoss = typeof getActiveBoss === "function" ? getActiveBoss() : null;
+
+    setText("pcRpgName", playerName);
+    setText("pcRpgClass", cls);
+    setText("pcRpgClassSmall", cls);
+    setText("pcRpgLevel", player?.level || 1);
+    setText("pcRpgLevelShield", player?.level || 1);
+    setText("pcRpgHpText", `${Math.ceil(player?.health || 0)}/${player?.maxHealth || 1}`);
+    setText("pcRpgMpText", `${Math.floor(player?.mana || 0)}/${player?.maxMana || 1}`);
+    setText("pcRpgXpText", player?.level >= player?.maxLevel ? "Nível máximo" : `${player?.xp || 0}/${player?.xpToNextLevel || 1}`);
+    setText("pcRpgCoins", inventory?.moedas || 0);
+    setText("pcRpgCrystals", inventory?.cristais || inventory?.manaOrbes || 0);
+    setText("pcRpgGems", inventory?.fragmentos || inventory?.chavesRaras || 0);
+    setText("pcRpgArea", area);
+    setText("pcRpgQuest", questText.length > 32 ? `${questText.slice(0, 32)}...` : questText);
+    setText("pcRpgQuestSub", questText.includes("Fale") ? questText : "XP para o próximo nível e missão ativa.");
+    setText("pcRpgContract", contract);
+    setText("pcRpgMiniLabel", String(area || "Vila").replace(" Principal", ""));
+    setText("pcRpgPotionCount", inventory?.pocoes || 0);
+    setText("pcRpgKeyCount", inventory?.chaves || 0);
+    setText("pcRpgScrollCount", inventory?.cartas || 0);
+    setText("pcRpgManaOrbCount", inventory?.manaOrbes || inventory?.fragmentos || 0);
+
+    const firstSlotName = document.querySelector(".pc-rpg-hotbar .pc-rpg-slot:first-child b");
+    if (firstSlotName && firstSlotName.textContent !== weapon) firstSlotName.textContent = weapon;
+
+    setWidth("pcRpgHpFill", player?.health || 0, player?.maxHealth || 1);
+    setWidth("pcRpgMpFill", player?.mana || 0, player?.maxMana || 1);
+    setWidth("pcRpgXpFill", player?.level >= player?.maxLevel ? 1 : (player?.xp || 0), player?.level >= player?.maxLevel ? 1 : (player?.xpToNextLevel || 1));
+
+    const bossPanel = document.getElementById("pcRpgBossPanel");
+    if (bossPanel) bossPanel.classList.toggle("hidden", !activeBoss);
+    if (activeBoss) {
+      const bossName = typeof getEnemyDisplayName === "function" ? getEnemyDisplayName(activeBoss.kind) : (activeBoss.kind || "Boss");
+      setText("pcRpgBossName", `${bossName}${activeBoss.phase === 2 ? " - fase 2" : ""}`);
+      setWidth("pcRpgBossFill", activeBoss.hp || 0, activeBoss.maxHp || 1);
+    }
+  }
+
+  const updateHudBeforePcRpgHud = typeof updateHud === "function" ? updateHud : null;
+  if (updateHudBeforePcRpgHud) {
+    updateHud = function updateHudPcRpgHudOnly(...args) {
+      const result = updateHudBeforePcRpgHud.apply(this, args);
+      try { syncPcHud(); } catch (error) {}
+      return result;
+    };
+  }
+
+  window.addEventListener("resize", () => setTimeout(syncPcHud, 120), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(syncPcHud, 260), { passive: true });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) setTimeout(syncPcHud, 120); });
+  setInterval(() => { try { syncPcHud(); } catch (error) {} }, 500);
+  setTimeout(() => { try { syncPcHud(); } catch (error) {} }, 280);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - PC HUD INTERATIVO ONLY 20260707
+   - Dá clique real ao HUD novo SOMENTE no PC.
+   - Mobile continua intocado: joystick, hotbar mobile, inventário legado e HUD limpo.
+   ================================================== */
+(function eternalRiftPcHudInteractiveOnlyPatch() {
+  const PATCH_ID = "village-house-exterior-redesign-20260707";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_PC_HUD_INTERACTIVE_ONLY === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_PC_HUD_INTERACTIVE_ONLY = PATCH_ID;
+
+  const actionLabels = {
+    "Bolsa": "inventory",
+    "Missões": "missions",
+    "Loja": "shop",
+    "Eventos": "events",
+    "Menu": "menu",
+    "Bola de Fogo": "fireball",
+    "Magia": "power",
+    "Cura": "heal",
+    "Ataque Rápido": "dash",
+    "Atacar": "attack"
+  };
+
+  const slotActions = {
+    "1": "weapon",
+    "2": "tool",
+    "3": "power",
+    "4": "potion",
+    "5": "food",
+    "6": "missions",
+    "7": "key",
+    "8": "status"
+  };
+
+  const tips = {
+    inventory: "Abrir bolsa/inventário",
+    missions: "Abrir missões",
+    shop: "Interagir com loja/NPC próximo",
+    events: "Ver eventos e avisos",
+    menu: "Abrir menu de pausa",
+    status: "Abrir status do herói",
+    fireball: "Equipar e lançar Bola de Fogo",
+    power: "Usar poder equipado",
+    heal: "Usar cura mágica",
+    dash: "Executar dash/esquiva",
+    attack: "Atacar com a arma atual",
+    weapon: "Trocar arma atual",
+    tool: "Ferramenta: picareta/mineração",
+    potion: "Usar poção",
+    food: "Comida/atalho visual",
+    key: "Usar chave ou interagir com baú próximo",
+    map: "Expandir/reduzir mapa tático",
+    contract: "Ver classe, contrato e status",
+    boss: "Ver informações do boss",
+    chat: "Ver mensagens do sistema"
+  };
+
+  function pcHudActive() {
+    try {
+      return Boolean(
+        document.body?.classList.contains("pc-rpg-hud-active") &&
+        !document.body?.classList.contains("is-mobile") &&
+        !(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function hud() {
+    return document.getElementById("pcRpgHud");
+  }
+
+  function setAction(el, action) {
+    if (!el || !action) return;
+    el.dataset.pcAction = action;
+    el.title = tips[action] || "Ação do HUD";
+    el.setAttribute("aria-label", tips[action] || action);
+  }
+
+  function bindButtonLabels() {
+    const root = hud();
+    if (!root) return;
+
+    root.querySelectorAll(".pc-rpg-top-menu .pc-rpg-button").forEach((button) => {
+      const label = button.querySelector("b")?.textContent?.trim() || "";
+      setAction(button, actionLabels[label]);
+    });
+
+    root.querySelectorAll(".pc-rpg-skill-wrap").forEach((wrap) => {
+      const label = wrap.querySelector("strong")?.textContent?.trim() || "";
+      const action = actionLabels[label];
+      if (action) {
+        setAction(wrap.querySelector("button"), action);
+        setAction(wrap, action);
+      }
+    });
+
+    root.querySelectorAll(".pc-rpg-slot").forEach((slot) => {
+      const number = slot.querySelector(".pc-rpg-slot-number")?.textContent?.trim() || "";
+      setAction(slot, slotActions[number]);
+    });
+
+    setAction(root.querySelector(".pc-rpg-profile"), "status");
+    setAction(root.querySelector(".pc-rpg-currencies"), "inventory");
+    setAction(root.querySelector(".pc-rpg-quest"), "missions");
+    setAction(root.querySelector(".pc-rpg-contract"), "contract");
+    setAction(root.querySelector(".pc-rpg-minimap-frame"), "map");
+    setAction(root.querySelector(".pc-rpg-chat"), "chat");
+    setAction(root.querySelector("#pcRpgBossPanel"), "boss");
+  }
+
+  function logToPcChat(message) {
+    try {
+      const chat = document.querySelector("#pcRpgHud .pc-rpg-chat p");
+      if (!chat) return;
+      const clean = String(message || "").replace(/[<>]/g, "").slice(0, 100);
+      const previous = chat.innerHTML.split("<br>").slice(-2);
+      previous.push(`<b>[HUD]</b> ${clean}`);
+      chat.innerHTML = previous.slice(-3).join("<br>");
+    } catch (error) {}
+  }
+
+  function toast(message, time = 1.8) {
+    try { showHudToast?.(message, time); } catch (error) {}
+    logToPcChat(message);
+  }
+
+  function flashElement(el) {
+    if (!el) return;
+    el.classList.remove("pc-rpg-click-flash");
+    void el.offsetWidth;
+    el.classList.add("pc-rpg-click-flash");
+    setTimeout(() => el.classList.remove("pc-rpg-click-flash"), 260);
+  }
+
+  function openShopOrInteract() {
+    try {
+      const target = typeof findInteraction === "function" ? findInteraction() : null;
+      if (target) {
+        toggleInteraction?.();
+        toast("Interação executada.");
+        return;
+      }
+      showInfo?.("Loja / Interação", "Aproxime-se de um vendedor, NPC, baú, portal ou objeto interativo e clique novamente no botão Loja/Interagir.");
+      toast("Aproxime-se de algo interativo.");
+    } catch (error) {}
+  }
+
+  function showEventsPanel() {
+    try {
+      showInfo?.(
+        "Eventos do Eternal Rift",
+        "Eventos disponíveis no HUD de PC:\n\n- Baús e recompensas especiais\n- Bosses de bioma\n- Missões de NPCs\n- Dungeons e dimensões\n\nEste painel é visual e pode receber eventos reais depois."
+      );
+      toast("Painel de eventos aberto.");
+    } catch (error) {}
+  }
+
+  function showToolInfo() {
+    try {
+      showInfo?.("Ferramentas", "Slot 2 reservado para picareta/ferramenta. Use perto de árvores, pedras ou minérios quando esses sistemas estiverem ativos na área.");
+      toast("Ferramenta selecionada.");
+    } catch (error) {}
+  }
+
+  function useFoodShortcut() {
+    try {
+      if ((inventory?.pocoes || 0) > 0 && player.health < player.maxHealth) {
+        usePotion?.();
+        toast("Poção usada pelo atalho de comida.");
+      } else {
+        showInfo?.("Comida", "Slot 5 reservado para comida/consumíveis. No momento, use poções para recuperar vida.");
+        toast("Nenhuma comida equipada.");
+      }
+    } catch (error) {}
+  }
+
+  function useKeyOrInteract() {
+    try {
+      const target = typeof findInteraction === "function" ? findInteraction() : null;
+      if (target) {
+        toggleInteraction?.();
+        toast("Chave/interação usada.");
+        return;
+      }
+      const keys = Number(inventory?.chaves || 0);
+      showInfo?.("Chaves", keys > 0 ? `Você tem ${keys} chave(s). Aproxime-se de baús, portais ou objetos bloqueados para usar.` : "Você ainda não tem chaves disponíveis.");
+      toast(keys > 0 ? "Aproxime-se de algo bloqueado." : "Sem chaves.");
+    } catch (error) {}
+  }
+
+  function togglePcMap() {
+    try {
+      document.body?.classList.toggle("pc-rpg-map-expanded");
+      const expanded = document.body?.classList.contains("pc-rpg-map-expanded");
+      toast(expanded ? "Mapa tático expandido." : "Mapa tático reduzido.");
+    } catch (error) {}
+  }
+
+  function showContractStatus() {
+    try {
+      if (typeof toggleStatusPanel === "function") toggleStatusPanel(true);
+      else showInfo?.("Classe e Contrato", "Veja aqui classe, contrato, buffs e progresso do herói.");
+      toast("Status/contrato aberto.");
+    } catch (error) {}
+  }
+
+  function showBossInfo() {
+    try {
+      const boss = typeof getActiveBoss === "function" ? getActiveBoss() : null;
+      if (!boss) {
+        showInfo?.("Boss", "Nenhum boss ativo no momento. Entre em uma arena ou aproxime-se de um chefe para ativar a luta.");
+        toast("Nenhum boss ativo.");
+        return;
+      }
+      const name = typeof getEnemyDisplayName === "function" ? getEnemyDisplayName(boss.kind) : (boss.kind || "Boss");
+      showInfo?.("Boss ativo", `${name}\nHP: ${Math.ceil(boss.hp || 0)}/${boss.maxHp || 1}\nFase: ${boss.phase || 1}`);
+      toast("Informações do boss abertas.");
+    } catch (error) {}
+  }
+
+  function showChatInfo() {
+    try {
+      showInfo?.("Chat / Sistema", "Este chat do HUD mostra avisos rápidos do sistema. Ele é somente visual por enquanto, mas já reage aos cliques do HUD.");
+      toast("Chat do sistema aberto.");
+    } catch (error) {}
+  }
+
+  function performPcAction(action) {
+    if (!pcHudActive()) return;
+    try { ensureAudio?.(); } catch (error) {}
+
+    switch (action) {
+      case "inventory":
+        toggleInventory?.(true);
+        toast("Inventário aberto.");
+        break;
+      case "missions":
+        if (typeof toggleMissionsPanel === "function") toggleMissionsPanel(true);
+        else showInfo?.("Missões", document.getElementById("questProgress")?.textContent || "Missões do herói.");
+        toast("Missões abertas.");
+        break;
+      case "status":
+        if (typeof toggleStatusPanel === "function") toggleStatusPanel(true);
+        else showInfo?.("Status", "Status do herói.");
+        toast("Status aberto.");
+        break;
+      case "contract":
+        showContractStatus();
+        break;
+      case "menu":
+        setPause?.(true);
+        toast("Menu aberto.");
+        break;
+      case "shop":
+        openShopOrInteract();
+        break;
+      case "events":
+        showEventsPanel();
+        break;
+      case "attack":
+        triggerPrimaryAttack?.();
+        toast("Ataque!");
+        break;
+      case "dash":
+        dodgeDash?.();
+        toast("Dash ativado.");
+        break;
+      case "fireball":
+        equipPower?.(0);
+        useEquippedPower?.();
+        toast("Bola de Fogo lançada.");
+        break;
+      case "power":
+        useEquippedPower?.();
+        toast("Poder equipado usado.");
+        break;
+      case "heal":
+        equipPower?.(3);
+        useEquippedPower?.();
+        toast("Cura usada.");
+        break;
+      case "weapon":
+        cycleWeapon?.();
+        toast("Arma trocada.");
+        break;
+      case "tool":
+        showToolInfo();
+        break;
+      case "potion":
+        usePotion?.();
+        toast("Poção usada.");
+        break;
+      case "food":
+        useFoodShortcut();
+        break;
+      case "key":
+        useKeyOrInteract();
+        break;
+      case "map":
+        togglePcMap();
+        break;
+      case "boss":
+        showBossInfo();
+        break;
+      case "chat":
+        showChatInfo();
+        break;
+      default:
+        toast("Recurso visual em breve.");
+    }
+  }
+
+  document.addEventListener("click", (event) => {
+    const root = hud();
+    if (!root || !pcHudActive()) return;
+    const target = event.target?.closest?.("[data-pc-action]");
+    if (!target || !root.contains(target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+    flashElement(target);
+    performPcAction(target.dataset.pcAction || "");
+  }, true);
+
+  document.addEventListener("keydown", (event) => {
+    if (!pcHudActive() || event.repeat) return;
+    const tag = String(event.target?.tagName || "").toLowerCase();
+    if (["input", "textarea", "select"].includes(tag)) return;
+    const key = String(event.key || "").toLowerCase();
+    const byKey = {
+      "1": "weapon",
+      "2": "tool",
+      "3": "power",
+      "4": "potion",
+      "5": "food",
+      "6": "missions",
+      "7": "key",
+      "8": "status",
+      "m": "missions",
+      "i": "inventory",
+      "c": "status"
+    };
+    const action = byKey[key];
+    if (!action) return;
+    event.preventDefault();
+    performPcAction(action);
+    const selector = `.pc-rpg-slot[data-pc-action="${action}"], .pc-rpg-button[data-pc-action="${action}"]`;
+    flashElement(document.querySelector(selector));
+  }, true);
+
+  function updateInteractiveState() {
+    const root = hud();
+    if (!root) return;
+    bindButtonLabels();
+    const active = pcHudActive();
+    root.classList.toggle("is-interactive", active);
+    if (!active) return;
+
+    const potionSlot = root.querySelector('[data-pc-action="potion"]');
+    potionSlot?.classList.toggle("is-disabled", Number(inventory?.pocoes || 0) <= 0);
+
+    const mana = Number(player?.mana || 0);
+    root.querySelector('[data-pc-action="fireball"]')?.classList.toggle("is-disabled", mana < (spellCosts?.fireball || 2));
+    root.querySelector('[data-pc-action="heal"]')?.classList.toggle("is-disabled", mana < (spellCosts?.heal || 3) || player.health >= player.maxHealth);
+    root.querySelector('[data-pc-action="power"]')?.classList.toggle("is-selected", true);
+
+    root.querySelectorAll(".pc-rpg-slot").forEach((slot) => slot.classList.remove("is-selected"));
+    root.querySelector('[data-pc-action="weapon"]')?.classList.add("is-selected");
+    root.querySelector('[data-pc-action="power"]')?.classList.add("is-selected");
+
+    const bossPanel = root.querySelector("#pcRpgBossPanel");
+    if (bossPanel) setAction(bossPanel, "boss");
+  }
+
+  const updateHudBeforePcHudInteractions = typeof updateHud === "function" ? updateHud : null;
+  if (updateHudBeforePcHudInteractions) {
+    updateHud = function updateHudPcHudInteractiveOnly(...args) {
+      const result = updateHudBeforePcHudInteractions.apply(this, args);
+      try { updateInteractiveState(); } catch (error) {}
+      return result;
+    };
+  }
+
+  setInterval(() => { try { updateInteractiveState(); } catch (error) {} }, 450);
+  setTimeout(() => {
+    try {
+      updateInteractiveState();
+      if (pcHudActive() && typeof showHudToast === "function") {
+        showHudToast("HUD PC interativo carregado: village-house-exterior-redesign-20260707", 3.0);
+      }
+    } catch (error) {}
+  }, 800);
+})();
+
+
+
+
+/* ==================================================
+   ETERNAL RIFT - PC HUD MOVABLE EDITOR 20260707
+   - Adiciona a opção de mexer no HUD novo do PC.
+   - Arraste os blocos do HUD, salve ou restaure a posição.
+   - Mobile permanece protegido e sem alterações.
+   ================================================== */
+(function eternalRiftPcHudMovableEditorPatch() {
+  const PATCH_ID = "pc-hud-movable-resize-hide-20260707";
+  const STORAGE_KEY = "eternal-rift-pc-hud-layout-v1";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_PC_HUD_MOVABLE_EDITOR === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_PC_HUD_MOVABLE_EDITOR = PATCH_ID;
+
+  const PARTS = [
+    { id: "profile", selector: ".pc-rpg-profile", label: "Status" },
+    { id: "menu", selector: ".pc-rpg-top-menu", label: "Menu" },
+    { id: "currencies", selector: ".pc-rpg-currencies", label: "Recursos" },
+    { id: "quest", selector: ".pc-rpg-quest", label: "Missão" },
+    { id: "contract", selector: ".pc-rpg-contract", label: "Classe" },
+    { id: "boss", selector: ".pc-rpg-boss", label: "Boss" },
+    { id: "minimap", selector: ".pc-rpg-minimap-frame", label: "Mapa" },
+    { id: "actions", selector: ".pc-rpg-actions", label: "Ações" },
+    { id: "hotbar", selector: ".pc-rpg-hotbar", label: "Hotbar" },
+    { id: "chat", selector: ".pc-rpg-chat", label: "Chat" }
+  ];
+
+  let installed = false;
+  let editing = false;
+  let layout = readLayout();
+  let drag = null;
+  let selectedPartId = "profile";
+  let toastShown = false;
+
+  function isPcMode() {
+    try {
+      const coarse = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+      return Boolean(!coarse && !document.body?.classList.contains("is-mobile") && document.body?.classList.contains("pc-rpg-hud-active"));
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function hud() {
+    return document.getElementById("pcRpgHud");
+  }
+
+  function readLayout() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveLayout() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(layout || {}));
+      if (typeof showHudToast === "function") showHudToast("Layout do HUD salvo.", 2.0);
+      return true;
+    } catch (error) {
+      if (typeof showHudToast === "function") showHudToast("Não foi possível salvar o HUD.", 2.0);
+      return false;
+    }
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, Number(value || 0)));
+  }
+
+  function getPartElement(id) {
+    const root = hud();
+    const def = PARTS.find((entry) => entry.id === id);
+    return root && def ? root.querySelector(def.selector) : null;
+  }
+
+  function getPartFromElement(target) {
+    const root = hud();
+    if (!root || !target) return null;
+    for (const def of PARTS) {
+      const el = root.querySelector(def.selector);
+      if (el && (el === target || el.contains(target))) return { ...def, el };
+    }
+    return null;
+  }
+
+  function normalizedLayout(id) {
+    const item = layout?.[id] || {};
+    return {
+      x: Math.round(Number(item.x || 0)),
+      y: Math.round(Number(item.y || 0)),
+      scale: clamp(Number(item.scale || 1), 0.65, 1.55),
+      hidden: Boolean(item.hidden)
+    };
+  }
+
+  function applyPartPosition(id) {
+    const el = getPartElement(id);
+    if (!el) return;
+    const pos = normalizedLayout(id);
+    el.style.setProperty("--pc-hud-dx", `${pos.x}px`);
+    el.style.setProperty("--pc-hud-dy", `${pos.y}px`);
+    el.style.setProperty("--pc-hud-scale", String(pos.scale));
+    el.dataset.pcHudOffsetX = String(pos.x);
+    el.dataset.pcHudOffsetY = String(pos.y);
+    el.dataset.pcHudScale = String(pos.scale);
+    el.classList.toggle("pc-rpg-movable-hidden", pos.hidden);
+    el.classList.toggle("pc-rpg-movable-selected", selectedPartId === id);
+    if (id === "minimap") {
+      document.body?.style.setProperty("--pc-hud-minimap-dx", `${pos.x}px`);
+      document.body?.style.setProperty("--pc-hud-minimap-dy", `${pos.y}px`);
+      document.body?.style.setProperty("--pc-hud-minimap-scale", String(pos.scale));
+    }
+  }
+
+  function applyLayout() {
+    for (const part of PARTS) applyPartPosition(part.id);
+    updateToolbar();
+  }
+
+  function resetLayout() {
+    layout = {};
+    try { localStorage.removeItem(STORAGE_KEY); } catch (error) {}
+    for (const part of PARTS) {
+      const el = getPartElement(part.id);
+      if (!el) continue;
+      el.style.setProperty("--pc-hud-dx", "0px");
+      el.style.setProperty("--pc-hud-dy", "0px");
+      el.style.setProperty("--pc-hud-scale", "1");
+      el.dataset.pcHudOffsetX = "0";
+      el.dataset.pcHudOffsetY = "0";
+      el.dataset.pcHudScale = "1";
+      el.classList.remove("pc-rpg-movable-hidden");
+    }
+    document.body?.style.setProperty("--pc-hud-minimap-dx", "0px");
+    document.body?.style.setProperty("--pc-hud-minimap-dy", "0px");
+    document.body?.style.setProperty("--pc-hud-minimap-scale", "1");
+    applyLayout();
+    if (typeof showHudToast === "function") showHudToast("HUD voltou para o padrão.", 2.2);
+  }
+
+  function ensureToolbar(root) {
+    let toolbar = document.getElementById("pcRpgHudEditorToolbar");
+    if (toolbar) return toolbar;
+    toolbar = document.createElement("div");
+    toolbar.id = "pcRpgHudEditorToolbar";
+    toolbar.className = "pc-rpg-hud-editor-toolbar pc-rpg-panel pc-rpg-corner";
+    toolbar.innerHTML = `
+      <button id="pcRpgHudEditToggle" type="button">Mexer HUD</button>
+      <button id="pcRpgHudSaveLayout" type="button" hidden>Salvar</button>
+      <button id="pcRpgHudResetLayout" type="button" hidden>Resetar</button>
+      <select id="pcRpgHudPartSelect" hidden aria-label="Escolher parte do HUD">
+        ${PARTS.map((part) => `<option value="${part.id}">${part.label}</option>`).join("")}
+      </select>
+      <button id="pcRpgHudScaleDown" type="button" hidden>-</button>
+      <button id="pcRpgHudScaleUp" type="button" hidden>+</button>
+      <button id="pcRpgHudHideToggle" type="button" hidden>Sumir</button>
+      <button id="pcRpgHudShowAll" type="button" hidden>Mostrar tudo</button>
+      <span id="pcRpgHudEditorHint" hidden>Arraste, aumente, diminua ou esconda</span>
+    `;
+    root.appendChild(toolbar);
+
+    toolbar.querySelector("#pcRpgHudEditToggle")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setEditing(!editing);
+    });
+    toolbar.querySelector("#pcRpgHudSaveLayout")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      saveLayout();
+    });
+    toolbar.querySelector("#pcRpgHudResetLayout")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      resetLayout();
+    });
+    toolbar.querySelector("#pcRpgHudPartSelect")?.addEventListener("change", (event) => {
+      selectedPartId = String(event.target.value || PARTS[0].id);
+      applyLayout();
+    });
+    toolbar.querySelector("#pcRpgHudScaleDown")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      adjustSelectedScale(-0.1);
+    });
+    toolbar.querySelector("#pcRpgHudScaleUp")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      adjustSelectedScale(0.1);
+    });
+    toolbar.querySelector("#pcRpgHudHideToggle")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleSelectedHidden();
+    });
+    toolbar.querySelector("#pcRpgHudShowAll")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      showAllHudParts();
+    });
+    return toolbar;
+  }
+
+  function updateToolbar() {
+    const toolbar = document.getElementById("pcRpgHudEditorToolbar");
+    if (!toolbar) return;
+    const editButton = toolbar.querySelector("#pcRpgHudEditToggle");
+    const saveButton = toolbar.querySelector("#pcRpgHudSaveLayout");
+    const resetButton = toolbar.querySelector("#pcRpgHudResetLayout");
+    const partSelect = toolbar.querySelector("#pcRpgHudPartSelect");
+    const scaleDown = toolbar.querySelector("#pcRpgHudScaleDown");
+    const scaleUp = toolbar.querySelector("#pcRpgHudScaleUp");
+    const hideToggle = toolbar.querySelector("#pcRpgHudHideToggle");
+    const showAll = toolbar.querySelector("#pcRpgHudShowAll");
+    const hint = toolbar.querySelector("#pcRpgHudEditorHint");
+    if (editButton) editButton.textContent = editing ? "Parar" : "Mexer HUD";
+    if (saveButton) saveButton.hidden = !editing;
+    if (resetButton) resetButton.hidden = !editing;
+    if (partSelect) {
+      partSelect.hidden = !editing;
+      partSelect.value = selectedPartId;
+    }
+    if (scaleDown) scaleDown.hidden = !editing;
+    if (scaleUp) scaleUp.hidden = !editing;
+    if (showAll) showAll.hidden = !editing;
+    if (hideToggle) {
+      hideToggle.hidden = !editing;
+      const state = normalizedLayout(selectedPartId);
+      hideToggle.textContent = state.hidden ? "Mostrar" : "Sumir";
+    }
+    if (hint) hint.hidden = !editing;
+  }
+
+  function markMovables(root) {
+    for (const part of PARTS) {
+      const el = root.querySelector(part.selector);
+      if (!el) continue;
+      el.classList.add("pc-rpg-movable");
+      el.dataset.pcHudPart = part.id;
+      el.dataset.pcHudLabel = part.label;
+    }
+  }
+
+  function selectPart(id) {
+    if (!PARTS.some((part) => part.id === id)) return;
+    selectedPartId = id;
+    applyLayout();
+  }
+
+  function adjustSelectedScale(delta) {
+    const current = normalizedLayout(selectedPartId);
+    layout[selectedPartId] = { ...current, scale: Math.round(clamp(current.scale + delta, 0.65, 1.55) * 100) / 100 };
+    applyPartPosition(selectedPartId);
+    updateToolbar();
+    saveLayout();
+    if (typeof showHudToast === "function") {
+      showHudToast(`${PARTS.find((part) => part.id === selectedPartId)?.label || "HUD"} ${delta > 0 ? "aumentado" : "diminuído"}.`, 1.6);
+    }
+  }
+
+  function toggleSelectedHidden() {
+    const current = normalizedLayout(selectedPartId);
+    layout[selectedPartId] = { ...current, hidden: !current.hidden };
+    applyPartPosition(selectedPartId);
+    updateToolbar();
+    saveLayout();
+    if (typeof showHudToast === "function") {
+      const label = PARTS.find((part) => part.id === selectedPartId)?.label || "HUD";
+      showHudToast(current.hidden ? `${label} voltou a aparecer.` : `${label} ficou oculto.`, 1.8);
+    }
+  }
+
+  function showAllHudParts() {
+    for (const part of PARTS) {
+      const current = normalizedLayout(part.id);
+      layout[part.id] = { ...current, hidden: false };
+    }
+    applyLayout();
+    saveLayout();
+    if (typeof showHudToast === "function") showHudToast("Todos os blocos do HUD foram mostrados.", 2.0);
+  }
+
+  function setEditing(value) {
+    editing = Boolean(value && isPcMode());
+    document.body?.classList.toggle("pc-rpg-hud-editing", editing);
+    updateToolbar();
+    if (editing && typeof showHudToast === "function") {
+      showHudToast("Modo edição: arraste, aumente, diminua ou esconda os blocos do HUD.", 2.8);
+    }
+    if (!editing) {
+      drag = null;
+      document.querySelectorAll(".pc-rpg-movable.is-dragging").forEach((el) => el.classList.remove("is-dragging"));
+    }
+  }
+
+  function pointerRootRect() {
+    const root = hud();
+    const panel = root?.closest?.(".game-panel");
+    return (panel || root || document.body).getBoundingClientRect();
+  }
+
+  function startDrag(event) {
+    if (!editing || !isPcMode()) return;
+    const toolbar = document.getElementById("pcRpgHudEditorToolbar");
+    if (toolbar && toolbar.contains(event.target)) return;
+    const part = getPartFromElement(event.target);
+    if (!part || !part.el) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+
+    const current = normalizedLayout(part.id);
+    selectPart(part.id);
+    drag = {
+      id: part.id,
+      el: part.el,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startOffsetX: current.x,
+      startOffsetY: current.y
+    };
+    part.el.classList.add("is-dragging");
+    try { part.el.setPointerCapture?.(event.pointerId); } catch (error) {}
+  }
+
+  function moveDrag(event) {
+    if (!drag || !editing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = pointerRootRect();
+    const nextX = clamp(drag.startOffsetX + event.clientX - drag.startX, -rect.width * 0.65, rect.width * 0.65);
+    const nextY = clamp(drag.startOffsetY + event.clientY - drag.startY, -rect.height * 0.65, rect.height * 0.65);
+    const current = normalizedLayout(drag.id);
+    layout[drag.id] = { ...current, x: Math.round(nextX), y: Math.round(nextY) };
+    applyPartPosition(drag.id);
+  }
+
+  function endDrag(event) {
+    if (!drag) return;
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    try { drag.el.releasePointerCapture?.(drag.pointerId); } catch (error) {}
+    drag.el.classList.remove("is-dragging");
+    drag = null;
+    saveLayout();
+  }
+
+  function install() {
+    const root = hud();
+    if (!root) return false;
+    markMovables(root);
+    ensureToolbar(root);
+    applyLayout();
+    updateToolbar();
+
+    if (!installed) {
+      installed = true;
+      root.addEventListener("pointerdown", startDrag, true);
+      window.addEventListener("pointermove", moveDrag, true);
+      window.addEventListener("pointerup", endDrag, true);
+      window.addEventListener("pointercancel", endDrag, true);
+
+      // Bloqueia cliques normais do HUD enquanto o modo de edição está ativo.
+      window.addEventListener("click", (event) => {
+        const rootNow = hud();
+        const toolbar = document.getElementById("pcRpgHudEditorToolbar");
+        if (!editing || !rootNow || !rootNow.contains(event.target)) return;
+        if (toolbar && toolbar.contains(event.target)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+      }, true);
+
+      window.addEventListener("keydown", (event) => {
+        if (!editing) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setEditing(false);
+        }
+      }, true);
+    }
+    return true;
+  }
+
+  function tick() {
+    const ok = install();
+    const active = isPcMode();
+    const toolbar = document.getElementById("pcRpgHudEditorToolbar");
+    if (toolbar) toolbar.classList.toggle("hidden", !active);
+    if (!active && editing) setEditing(false);
+    if (ok && active && !toastShown && typeof showHudToast === "function") {
+      toastShown = true;
+      showHudToast("Editor do HUD novo disponível: mover, diminuir, aumentar e sumir.", 3.0);
+    }
+  }
+
+  setInterval(tick, 500);
+  setTimeout(tick, 800);
+  setTimeout(tick, 1800);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - VILLAGE HOUSE EXTERIOR REDESIGN 20260707
+   - Redesenha o exterior das casas da vila em Canvas.
+   - Usa as imagens CASA.png / CASA (2).png apenas como referencia visual.
+   - Nao carrega sprites novos e nao altera colisao, interior, mobile ou HUD.
+   ================================================== */
+(function eternalRiftVillageHouseExteriorRedesign20260707() {
+  const PATCH_ID = "village-house-exterior-redesign-20260707";
+
+  function safeRect(x, y, w, h, color) {
+    try {
+      ctx.fillStyle = color;
+      ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    } catch (error) {}
+  }
+
+  function safeStrokeRect(x, y, w, h, color, lineWidth = 2) {
+    try {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, Math.round(w), Math.round(h));
+      ctx.restore();
+    } catch (error) {}
+  }
+
+  function safePoly(points, fill, stroke = "#171522", lineWidth = 2) {
+    try {
+      ctx.save();
+      ctx.beginPath();
+      points.forEach(([px, py], index) => {
+        if (index === 0) ctx.moveTo(Math.round(px), Math.round(py));
+        else ctx.lineTo(Math.round(px), Math.round(py));
+      });
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+      }
+      ctx.restore();
+    } catch (error) {}
+  }
+
+  function houseHash(obj, salt = 0) {
+    try {
+      const tx = Math.floor((obj?.x || 0) / TILE);
+      const ty = Math.floor((obj?.y || 0) / TILE);
+      if (typeof visualHashV2 === "function") return visualHashV2(tx, ty, salt);
+      if (typeof visualHash === "function") return visualHash(tx, ty, salt);
+    } catch (error) {}
+    return 0.5;
+  }
+
+  function houseTheme(obj, forcedTitle = "") {
+    const title = String(forcedTitle || obj?.title || "").toLowerCase();
+    if (title.includes("loja") || title.includes("padaria") || title.includes("pousada") || title.includes("armazem")) return "tavern";
+    if (title.includes("minha") || title.includes("lia") || title.includes("prefeito") || title.includes("treinador")) return "blueStone";
+    return houseHash(obj, title.length) > 0.52 ? "blueStone" : "warmTimber";
+  }
+
+  function drawPixelShadow(x, y, w, h) {
+    if (typeof drawSoftShadow === "function") drawSoftShadow(x, y, w, h, 0.32);
+    else safeRect(x, y, w, h, "rgba(0,0,0,0.20)");
+  }
+
+  function drawGlowWindow(x, y, w, h, frame = "#6b3f2e") {
+    safeRect(x - 3, y - 3, w + 6, h + 6, "#171522");
+    safeRect(x - 1, y - 1, w + 2, h + 2, frame);
+    safeRect(x, y, w, h, "#ffd86d");
+    safeRect(x + 2, y + 2, w - 4, h - 4, "#fff2a8");
+    safeRect(x + Math.floor(w / 2) - 1, y, 2, h, "#7a442e");
+    safeRect(x, y + Math.floor(h / 2) - 1, w, 2, "#7a442e");
+    safeRect(x + 3, y + 3, 5, 3, "rgba(255,255,255,0.55)");
+  }
+
+  function drawFlowerBox(x, y, w, flowerA = "#fff2a8", flowerB = "#7bdb73") {
+    safeRect(x - 2, y + 6, w + 4, 7, "#171522");
+    safeRect(x, y + 7, w, 6, "#7d4d38");
+    for (let i = 3; i < w - 2; i += 7) {
+      safeRect(x + i, y + 2 + (i % 2), 4, 4, flowerB);
+      safeRect(x + i + 1, y, 3, 3, flowerA);
+    }
+  }
+
+  function drawStoneWall(x, y, w, h) {
+    safeRect(x - 4, y - 4, w + 8, h + 8, "#171522");
+    safeRect(x, y, w, h, "#b9b0a0");
+    safeRect(x + 3, y + 3, w - 6, h - 6, "#d7cfbd");
+    const colors = ["#9f978a", "#c8c0ae", "#857d75", "#ede2c7"];
+    for (let yy = y + 6; yy < y + h - 6; yy += 12) {
+      const offset = ((yy - y) / 12) % 2 ? 7 : 0;
+      for (let xx = x + 5 - offset; xx < x + w - 5; xx += 18) {
+        const c = colors[Math.abs(Math.floor(xx + yy)) % colors.length];
+        safeRect(xx, yy, 14, 8, c);
+        safeRect(xx, yy + 7, 14, 1, "rgba(43, 37, 43, 0.28)");
+        safeRect(xx + 2, yy + 1, 5, 1, "rgba(255,255,255,0.24)");
+      }
+    }
+  }
+
+  function drawTimberWall(x, y, w, h) {
+    safeRect(x - 4, y - 4, w + 8, h + 8, "#171522");
+    safeRect(x, y, w, h, "#d8c2a0");
+    safeRect(x + 3, y + 3, w - 6, h - 6, "#ead7b5");
+    safeRect(x + 6, y + 2, 7, h - 2, "#7d4d38");
+    safeRect(x + w - 13, y + 2, 7, h - 2, "#7d4d38");
+    safeRect(x + 3, y + 21, w - 6, 7, "#7d4d38");
+    safeRect(x + 3, y + h - 14, w - 6, 7, "#7d4d38");
+    safePoly([[x + 17, y + 3], [x + 24, y + 3], [x + w - 17, y + h - 8], [x + w - 24, y + h - 8]], "#8f5a3f", null);
+    safePoly([[x + w - 24, y + 3], [x + w - 17, y + 3], [x + 24, y + h - 8], [x + 17, y + h - 8]], "#8f5a3f", null);
+    safeRect(x + 15, y + 7, w - 30, 2, "rgba(255,255,255,0.16)");
+  }
+
+  function drawBlueRoof(x, y, w) {
+    safePoly([[x - 12, y + 40], [x + 16, y + 20], [x + w / 2, y + 2], [x + w - 16, y + 20], [x + w + 12, y + 40], [x + w + 3, y + 50], [x - 3, y + 50]], "#16243d", "#171522", 3);
+    safePoly([[x - 7, y + 38], [x + 18, y + 22], [x + w / 2, y + 7], [x + w - 18, y + 22], [x + w + 7, y + 38], [x + w, y + 45], [x, y + 45]], "#245ea8", "#0e223f", 2);
+    safePoly([[x + 34, y + 45], [x + w / 2, y + 9], [x + w - 34, y + 45]], "#2f74c6", "#0e223f", 2);
+    for (let row = 0; row < 4; row++) {
+      const yy = y + 25 + row * 6;
+      const pad = 10 + row * 7;
+      safeRect(x + pad, yy, w - pad * 2, 3, row % 2 ? "#3f8fe5" : "#2f74c6");
+      for (let xx = x + pad + (row % 2 ? 7 : 0); xx < x + w - pad - 8; xx += 15) {
+        safeRect(xx, yy - 1, 9, 4, "rgba(255,255,255,0.12)");
+      }
+    }
+    safeRect(x + w / 2 - 7, y + 5, 14, 42, "rgba(16, 36, 68, 0.18)");
+    safeRect(x + 2, y + 44, w - 4, 5, "#0e223f");
+  }
+
+  function drawTerracottaRoof(x, y, w) {
+    safePoly([[x - 14, y + 43], [x + 13, y + 18], [x + w / 2, y + 3], [x + w - 13, y + 18], [x + w + 14, y + 43], [x + w + 5, y + 52], [x - 5, y + 52]], "#2b1716", "#171522", 3);
+    safePoly([[x - 9, y + 40], [x + 15, y + 21], [x + w / 2, y + 8], [x + w - 15, y + 21], [x + w + 9, y + 40], [x + w + 1, y + 47], [x - 1, y + 47]], "#9d4a28", "#55291f", 2);
+    safePoly([[x + 34, y + 47], [x + w / 2, y + 10], [x + w - 34, y + 47]], "#b85b30", "#55291f", 2);
+    for (let row = 0; row < 5; row++) {
+      const yy = y + 22 + row * 6;
+      const pad = 8 + row * 6;
+      safeRect(x + pad, yy, w - pad * 2, 3, row % 2 ? "#c96f3c" : "#8e3f24");
+      for (let xx = x + pad + (row % 2 ? 6 : 0); xx < x + w - pad - 9; xx += 14) {
+        safeRect(xx, yy - 2, 9, 5, "rgba(255, 190, 104, 0.18)");
+      }
+    }
+    safeRect(x + 0, y + 47, w, 5, "#55291f");
+  }
+
+  function drawChimney(x, y, tall = false) {
+    const h = tall ? 31 : 25;
+    safeRect(x - 3, y - 4, 20, 8, "#171522");
+    safeRect(x, y - 2, 14, 5, "#9d4a28");
+    safeRect(x, y + 3, 14, h, "#6e6a64");
+    safeRect(x + 2, y + 6, 10, 5, "#c8c0ae");
+    safeRect(x + 2, y + 15, 10, 5, "#8f8780");
+    safeRect(x + 2, y + 24, 10, 4, "#c8c0ae");
+    safeStrokeRect(x, y + 3, 14, h, "#171522", 2);
+  }
+
+  function drawWoodDoor(x, y, w = 24, h = 32) {
+    safeRect(x - 3, y - 4, w + 6, h + 5, "#171522");
+    safeRect(x, y, w, h, "#74422e");
+    safeRect(x + 3, y + 2, 5, h - 4, "#a5653e");
+    safeRect(x + 11, y + 2, 4, h - 4, "#5c3327");
+    safeRect(x + w - 8, y + 2, 5, h - 4, "#8f5738");
+    safeRect(x + 2, y + 8, w - 4, 3, "#3a2430");
+    safeRect(x + 2, y + h - 9, w - 4, 3, "#3a2430");
+    safeRect(x + w - 6, y + 16, 4, 4, "#f2c96e");
+    safeRect(x - 5, y + h, w + 10, 4, "#80776f");
+  }
+
+  function drawGroundDecor(x, y, w) {
+    safeRect(x + 4, y + 91, w - 8, 7, "#4f9c4a");
+    for (let i = 0; i < 8; i++) {
+      const px = x + 8 + i * 14;
+      safeRect(px, y + 87 + (i % 2), 5, 7, i % 3 === 0 ? "#7bdb73" : "#5fad55");
+    }
+    safeRect(x + 12, y + 89, 7, 3, "#a59b8f");
+    safeRect(x + w - 24, y + 90, 8, 3, "#b9b0a0");
+  }
+
+  function drawBlueStoneHouse(obj, options = {}) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    drawPixelShadow(x - 7, y + 90, w + 14, 12);
+    drawStoneWall(x + 8, y + 39, w - 16, 52);
+    drawBlueRoof(x, y, w);
+    drawChimney(x + 14, y + 4, true);
+    safeRect(x + 48, y + 37, 32, 27, "#171522");
+    safePoly([[x + 48, y + 36], [x + 64, y + 19], [x + 80, y + 36]], "#8f5a3f", "#171522", 2);
+    safeRect(x + 52, y + 37, 24, 24, "#d7cfbd");
+    safeRect(x + 54, y + 40, 20, 4, "rgba(255,255,255,0.18)");
+    drawGlowWindow(x + 56, y + 44, 16, 15, "#8f5a3f");
+    drawFlowerBox(x + 51, y + 60, 27, "#fff3d6", "#6fbe5c");
+    drawGlowWindow(x + 18, y + 57, 20, 18, "#7d4d38");
+    drawGlowWindow(x + 90, y + 56, 20, 18, "#7d4d38");
+    drawWoodDoor(x + 52, y + 62, 25, 31);
+    safeRect(x + 46, y + 55, 37, 5, "#8f5a3f");
+    safeRect(x + 17, y + 76, 23, 5, "#6b3f2e");
+    safeRect(x + 88, y + 75, 24, 5, "#6b3f2e");
+    safeRect(x + 2, y + 73, 8, 18, "#6b3f2e");
+    safeRect(x + w - 10, y + 73, 8, 18, "#6b3f2e");
+    if (options.banner) {
+      safeRect(x + w - 2, y + 45, 3, 28, "#6b3f2e");
+      safeRect(x + w + 1, y + 48, 18, 23, "#245ea8");
+      safeRect(x + w + 3, y + 51, 14, 3, "#8fcfff");
+      safeRect(x + w + 7, y + 56, 6, 8, "#e9ffff");
+      safeRect(x + w + 5, y + 66, 10, 2, "#e9ffff");
+    }
+    drawGroundDecor(x, y, w);
+  }
+
+  function drawWarmTimberHouse(obj, options = {}) {
+    const x = obj.x;
+    const y = obj.y;
+    const w = obj.width;
+    drawPixelShadow(x - 8, y + 91, w + 16, 12);
+    drawTimberWall(x + 8, y + 39, w - 16, 52);
+    drawTerracottaRoof(x, y, w);
+    drawChimney(x + w - 26, y + 9, false);
+    safeRect(x + 45, y + 35, 38, 27, "#171522");
+    safePoly([[x + 45, y + 35], [x + 64, y + 18], [x + 83, y + 35]], "#7d4d38", "#171522", 2);
+    safeRect(x + 50, y + 36, 28, 25, "#ead7b5");
+    drawGlowWindow(x + 55, y + 42, 18, 15, "#7d4d38");
+    drawWoodDoor(x + 18, y + 62, 26, 30);
+    drawGlowWindow(x + 84, y + 58, 23, 18, "#7d4d38");
+    drawFlowerBox(x + 82, y + 77, 27, "#ff7a73", "#7bdb73");
+    safeRect(x + 13, y + 58, 36, 7, "#9d4a28");
+    safeRect(x + 5, y + 80, 10, 11, "#6b3f2e");
+    safeRect(x + w - 17, y + 79, 12, 12, "#6b3f2e");
+    safeRect(x + w - 14, y + 75, 8, 4, "#7bdb73");
+    safeRect(x + w - 16, y + 72, 4, 4, "#5fad55");
+    if (options.sign) {
+      safeRect(x + 49, y + 54, 36, 13, "#171522");
+      safeRect(x + 52, y + 56, 30, 8, "#f2c96e");
+      safeRect(x + 58, y + 59, 5, 2, "#5b3428");
+      safeRect(x + 67, y + 59, 5, 2, "#5b3428");
+      safeRect(x + 75, y + 59, 3, 2, "#5b3428");
+    }
+    drawGroundDecor(x, y, w);
+  }
+
+  const previousDrawHouse = typeof drawHouse === "function" ? drawHouse : null;
+  const previousDrawPlayerHouse = typeof drawPlayerHouse === "function" ? drawPlayerHouse : null;
+  const previousDrawShop = typeof drawShop === "function" ? drawShop : null;
+
+  drawHouse = function drawVillageHouseExteriorReference20260707(obj) {
+    try {
+      const theme = houseTheme(obj);
+      if (theme === "blueStone") return drawBlueStoneHouse(obj);
+      return drawWarmTimberHouse(obj);
+    } catch (error) {
+      if (previousDrawHouse) return previousDrawHouse(obj);
+    }
+  };
+
+  drawPlayerHouse = function drawPlayerHouseExteriorReference20260707(obj) {
+    try {
+      drawBlueStoneHouse({ ...obj, title: "Minha Casa" }, { banner: true });
+      safeRect(obj.x + 59, obj.y + 21, 10, 5, "#f2c96e");
+      safeRect(obj.x + 62, obj.y + 25, 4, 7, "#245ea8");
+    } catch (error) {
+      if (previousDrawPlayerHouse) return previousDrawPlayerHouse(obj);
+    }
+  };
+
+  drawShop = function drawShopExteriorReference20260707(obj) {
+    try {
+      drawWarmTimberHouse({ ...obj, title: "Loja" }, { sign: true });
+      safeRect(obj.x + 50, obj.y + 52, 40, 14, "#171522");
+      safeRect(obj.x + 53, obj.y + 55, 34, 8, "#f2c96e");
+      safeRect(obj.x + 59, obj.y + 57, 4, 4, "#d24c63");
+      safeRect(obj.x + 68, obj.y + 57, 4, 4, "#245ea8");
+      safeRect(obj.x + 77, obj.y + 57, 4, 4, "#7bdb73");
+    } catch (error) {
+      if (previousDrawShop) return previousDrawShop(obj);
+    }
+  };
+
+  try {
+    window.ETERNAL_RIFT_CURRENT_VERSION = PATCH_ID;
+    console.log("Eternal Rift casas da vila:", PATCH_ID);
+    setTimeout(() => {
+      if (typeof showHudToast === "function") {
+        showHudToast("Casas da vila redesenhadas: " + PATCH_ID, 3.2);
+      }
+    }, 1400);
+  } catch (error) {}
+})();
+
+/* ==================================================
+   ETERNAL RIFT - CASAS IDENTICAS AOS SPRITES ENVIADOS
+   - Nao gera imagem nova.
+   - Usa CASA.png e CASA (2).png, processadas com fundo transparente,
+     como sprites reais desenhados no Canvas.
+   - Mantem HUD PC interativo, rotbar antiga oculta no PC e mobile protegido.
+   ================================================== */
+(function installExactHouseImageSprites20260707() {
+  const VERSION = "village-house-static-main-village-20260707";
+
+  try {
+    window.ETERNAL_RIFT_CURRENT_VERSION = VERSION;
+    setTimeout(() => {
+      if (typeof showHudToast === "function") {
+        showHudToast("Casas da vila fixas carregadas: " + VERSION, 3.2);
+      }
+    }, 1600);
+  } catch (error) {}
+
+  const houseSpriteAssets = {
+    blue: new Image(),
+    red: new Image()
+  };
+
+  houseSpriteAssets.blue.src = "assets/casa-blue-reference.png?v=" + VERSION;
+  houseSpriteAssets.red.src = "assets/casa-red-reference.png?v=" + VERSION;
+
+  function getHouseSpriteVariant(obj, mode) {
+    const title = String(obj?.title || "").toLowerCase();
+    if (mode === "player") return "blue";
+    if (mode === "shop") return "red";
+    if (title.includes("prefeito") || title.includes("pescador") || title.includes("treinador") || title.includes("armazem")) return "blue";
+    if (title.includes("pousada") || title.includes("mina") || title.includes("padaria") || title.includes("atelie")) return "red";
+    const stable = Math.abs(Math.floor((obj?.x || 0) / TILE) * 31 + Math.floor((obj?.y || 0) / TILE) * 17);
+    return stable % 2 === 0 ? "blue" : "red";
+  }
+
+  function drawExactUploadedHouseSprite(obj, mode) {
+    try {
+      if (!ctx || !obj) return false;
+      if (typeof currentScene !== "undefined" && currentScene !== "village") return false;
+
+      const variant = getHouseSpriteVariant(obj, mode);
+      const sprite = houseSpriteAssets[variant] || houseSpriteAssets.red;
+      if (!sprite || !sprite.complete || !sprite.naturalWidth || !sprite.naturalHeight) return false;
+
+      const worldCenterX = obj.x + obj.width / 2;
+      const worldGroundY = obj.y + obj.height + TILE * 0.24;
+      const visualWidth = Math.max(obj.width * 1.72, TILE * 6.0);
+      const visualHeight = visualWidth * (sprite.naturalHeight / sprite.naturalWidth);
+      // IMPORTANTE: o draw() ja aplica a transformacao da camera antes de desenhar objetos.
+      // Por isso a casa deve ser desenhada em coordenadas do mundo, sem subtrair camera.x/y.
+      // Subtrair a camera aqui fazia a casa "deslizar" quando o jogador andava.
+      const drawX = Math.round(worldCenterX - visualWidth / 2);
+      const drawY = Math.round(worldGroundY - visualHeight);
+
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+
+      // Sombra leve no chao para encaixar o sprite no mapa, sem redesenhar a casa.
+      if (typeof premiumWorldShadow === "function") {
+        premiumWorldShadow(
+          worldCenterX - obj.width * 0.54,
+          worldGroundY - TILE * 0.32,
+          obj.width * 1.08,
+          TILE * 0.46,
+          0.24
+        );
+      } else {
+        ctx.globalAlpha = 0.24;
+        ctx.fillStyle = "#070914";
+        ctx.beginPath();
+        ctx.ellipse(worldCenterX, worldGroundY, obj.width * 0.54, TILE * 0.22, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.drawImage(sprite, drawX, drawY, Math.round(visualWidth), Math.round(visualHeight));
+      ctx.restore();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  const previousDrawHouseExactImageSprite = typeof drawHouse === "function" ? drawHouse : null;
+  drawHouse = function drawHouseExactUploadedSprite20260707(obj) {
+    if (drawExactUploadedHouseSprite(obj, "house")) return;
+    return previousDrawHouseExactImageSprite ? previousDrawHouseExactImageSprite(obj) : undefined;
+  };
+
+  const previousDrawPlayerHouseExactImageSprite = typeof drawPlayerHouse === "function" ? drawPlayerHouse : null;
+  drawPlayerHouse = function drawPlayerHouseExactUploadedSprite20260707(obj) {
+    if (drawExactUploadedHouseSprite(obj, "player")) return;
+    return previousDrawPlayerHouseExactImageSprite ? previousDrawPlayerHouseExactImageSprite(obj) : undefined;
+  };
+
+  const previousDrawShopExactImageSprite = typeof drawShop === "function" ? drawShop : null;
+  drawShop = function drawShopExactUploadedSprite20260707(obj) {
+    if (drawExactUploadedHouseSprite(obj, "shop")) return;
+    return previousDrawShopExactImageSprite ? previousDrawShopExactImageSprite(obj) : undefined;
+  };
+
+  // Precarrega e redesenha assim que as casas terminarem de carregar.
+  Object.values(houseSpriteAssets).forEach((img) => {
+    img.onload = () => {
+      try {
+        if (typeof draw === "function") draw();
+      } catch (error) {}
+    };
+  });
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - TEXTURA VIVA DA VILA SOMENTE NO PC
+   Versao: pc-village-vivid-texture-only-20260707
+   - Adiciona overlay visual mais vivo apenas na Vila Principal.
+   - SOMENTE PC: nao roda em body.is-mobile nem pointer coarse.
+   - Nao remove nada: mapa, casas, HUD, mobile, colisao e sistemas continuam iguais.
+   ================================================== */
+(function eternalRiftPcVillageVividTextureOnly20260707() {
+  const PATCH_ID = "pc-village-vivid-texture-only-20260707";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_PC_VILLAGE_VIVID_TEXTURE === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_PC_VILLAGE_VIVID_TEXTURE = PATCH_ID;
+
+  const previousDrawMapPcVillageVivid = typeof drawMap === "function" ? drawMap : null;
+  let toastShown = false;
+
+  function isPcOnlyVisualMode() {
+    try {
+      if (document.body?.classList.contains("is-mobile")) return false;
+      if (window.matchMedia?.("(pointer: coarse)")?.matches) return false;
+      if (window.innerWidth < 900) return false;
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function h(tx, ty, salt = 0) {
+    let n = (tx * 374761393 + ty * 668265263 + salt * 1442695041) | 0;
+    n = (n ^ (n >>> 13)) * 1274126177;
+    n = (n ^ (n >>> 16)) >>> 0;
+    return n / 4294967295;
+  }
+
+  function rect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function line(x1, y1, x2, y2, color, width = 1) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(x1) + 0.5, Math.round(y1) + 0.5);
+    ctx.lineTo(Math.round(x2) + 0.5, Math.round(y2) + 0.5);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGrassLife(px, py, tx, ty, forest = false) {
+    // Verde mais vivo por cima do tile existente, sem substituir o mapa.
+    rect(px, py, TILE, TILE, forest ? "rgba(52, 154, 79, 0.16)" : "rgba(72, 184, 86, 0.14)");
+    if (h(tx, ty, 1) > 0.28) {
+      const base = forest ? "rgba(25, 116, 55, 0.72)" : "rgba(33, 137, 62, 0.70)";
+      const x = px + 4 + Math.floor(h(tx, ty, 2) * 21);
+      const y = py + 9 + Math.floor(h(tx, ty, 3) * 15);
+      rect(x, y, 2, 9, base);
+      rect(x + 2, y + 4, 4, 2, base);
+      rect(x - 3, y + 6, 4, 2, base);
+    }
+    if (h(tx, ty, 4) > 0.84) {
+      const fx = px + 8 + Math.floor(h(tx, ty, 5) * 16);
+      const fy = py + 8 + Math.floor(h(tx, ty, 6) * 14);
+      rect(fx, fy, 2, 2, h(tx, ty, 7) > 0.5 ? "#ffd7f5" : "#fff18a");
+      rect(fx + 2, fy + 1, 2, 2, "rgba(117, 224, 108, 0.9)");
+    }
+    if (h(tx, ty, 8) > 0.78) {
+      rect(px + 2 + Math.floor(h(tx, ty, 9) * 20), py + 25, 7, 2, "rgba(236, 255, 180, 0.16)");
+    }
+  }
+
+  function drawPathLife(px, py, tx, ty, plaza = false) {
+    // Textura de pedra/terra mais rica e quente, mantendo o tile original por baixo.
+    rect(px, py, TILE, TILE, plaza ? "rgba(255, 191, 117, 0.08)" : "rgba(116, 70, 48, 0.10)");
+    rect(px, py + TILE - 2, TILE, 2, "rgba(42, 29, 34, 0.12)");
+    rect(px + TILE - 2, py, 2, TILE, "rgba(42, 29, 34, 0.10)");
+    line(px + 3, py + 9 + Math.floor(h(tx, ty, 11) * 4), px + 15, py + 8, "rgba(255, 233, 171, 0.13)");
+    line(px + 17, py + 23, px + 28, py + 22 - Math.floor(h(tx, ty, 12) * 5), "rgba(66, 41, 42, 0.20)");
+    if (h(tx, ty, 13) > 0.45) rect(px + 5 + Math.floor(h(tx, ty, 14) * 18), py + 6 + Math.floor(h(tx, ty, 15) * 17), 4, 2, "rgba(255, 215, 137, 0.18)");
+    if (h(tx, ty, 16) > 0.68) rect(px + 3 + Math.floor(h(tx, ty, 17) * 20), py + 25, 6, 2, "rgba(86, 124, 65, 0.24)");
+  }
+
+  function drawWaterLife(px, py, tx, ty) {
+    rect(px, py, TILE, TILE, "rgba(63, 200, 238, 0.10)");
+    const y1 = py + 8 + Math.floor(h(tx, ty, 21) * 5);
+    const y2 = py + 19 + Math.floor(h(tx, ty, 22) * 4);
+    rect(px + 4, y1, 10, 2, "rgba(198, 247, 255, 0.42)");
+    rect(px + 17, y2, 11, 2, "rgba(136, 224, 255, 0.34)");
+  }
+
+  function drawTileEdgeMoss(activeMap, x, y, px, py, tile) {
+    const left = activeMap[y]?.[x - 1];
+    const right = activeMap[y]?.[x + 1];
+    const up = activeMap[y - 1]?.[x];
+    const down = activeMap[y + 1]?.[x];
+    const isPath = tile === "D" || tile === "P";
+    if (!isPath) return;
+    if (left === "G" || left === "F") rect(px, py + 4, 2, TILE - 8, "rgba(64, 151, 69, 0.30)");
+    if (right === "G" || right === "F") rect(px + TILE - 2, py + 4, 2, TILE - 8, "rgba(64, 151, 69, 0.30)");
+    if (up === "G" || up === "F") rect(px + 4, py, TILE - 8, 2, "rgba(64, 151, 69, 0.30)");
+    if (down === "G" || down === "F") rect(px + 4, py + TILE - 2, TILE - 8, 2, "rgba(64, 151, 69, 0.30)");
+  }
+
+  function drawVividVillageTextureOverlay() {
+    if (typeof currentScene !== "undefined" && currentScene !== "village") return;
+    if (!Array.isArray(worldMap) || !worldMap.length) return;
+
+    const viewW = typeof getZoomedViewWidth === "function" ? getZoomedViewWidth() : canvas.width;
+    const viewH = typeof getZoomedViewHeight === "function" ? getZoomedViewHeight() : canvas.height;
+    const startCol = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const endCol = Math.min(MAP_COLS - 1, Math.ceil((camera.x + viewW) / TILE) + 1);
+    const startRow = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const endRow = Math.min(MAP_ROWS - 1, Math.ceil((camera.y + viewH) / TILE) + 1);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    for (let y = startRow; y <= endRow; y++) {
+      for (let x = startCol; x <= endCol; x++) {
+        const tile = worldMap[y]?.[x];
+        const px = x * TILE;
+        const py = y * TILE;
+        if (tile === "G") drawGrassLife(px, py, x, y, false);
+        else if (tile === "F") drawGrassLife(px, py, x, y, true);
+        else if (tile === "D") drawPathLife(px, py, x, y, false);
+        else if (tile === "P") drawPathLife(px, py, x, y, true);
+        else if (tile === "W") drawWaterLife(px, py, x, y);
+        drawTileEdgeMoss(worldMap, x, y, px, py, tile);
+      }
+    }
+
+    // Brilho ambiente leve no centro da vila e perto do portal, apenas no PC.
+    const cx = 32 * TILE;
+    const cy = 23 * TILE;
+    const portalX = 34 * TILE + TILE / 2;
+    const portalY = 24 * TILE + TILE / 2;
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = 0.10;
+    ctx.fillStyle = "#f9d279";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, TILE * 9, TILE * 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.14;
+    ctx.fillStyle = "#76e9ff";
+    ctx.beginPath();
+    ctx.ellipse(portalX, portalY, TILE * 2.1, TILE * 2.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  drawMap = function drawMapPcVillageVividTextureOnly20260707() {
+    if (previousDrawMapPcVillageVivid) previousDrawMapPcVillageVivid();
+    if (isPcOnlyVisualMode()) drawVividVillageTextureOverlay();
+  };
+
+  try {
+    window.ETERNAL_RIFT_CURRENT_VERSION = PATCH_ID;
+    setTimeout(() => {
+      if (!toastShown && isPcOnlyVisualMode() && typeof showHudToast === "function") {
+        toastShown = true;
+        showHudToast("Textura viva da vila no PC: " + PATCH_ID, 3.2);
+      }
+    }, 1700);
+  } catch (error) {}
+})();
+
+
+// === Main village ground rework — closer to provided reference screenshot ===
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_VILLAGE_GROUND_EXACT_PATCH) {
+  window.ETERNAL_RIFT_VILLAGE_GROUND_EXACT_PATCH = true;
+
+  const previousDrawGrassGroundPatch = typeof drawGrass === "function" ? drawGrass : null;
+  const previousDrawDirtGroundPatch = typeof drawDirt === "function" ? drawDirt : null;
+  const previousDrawPlazaGroundPatch = typeof drawPlaza === "function" ? drawPlaza : null;
+  const previousVillageGroundDetailsPatch = typeof drawVillageGroundDetailsV2 === "function" ? drawVillageGroundDetailsV2 : null;
+
+  function groundVisibleOnCamera(tileX, tileY) {
+    const x = tileX * TILE;
+    const y = tileY * TILE;
+    return !(x < camera.x - TILE || x > camera.x + getZoomedViewWidth() + TILE || y < camera.y - TILE || y > camera.y + getZoomedViewHeight() + TILE);
+  }
+
+  function sprinklePebbles(x, y, tileX, tileY, warm = true) {
+    const h = visualHashV2(tileX, tileY, warm ? 731 : 732);
+    const pebbleA = warm ? "#dbc9ac" : "#d6c2a4";
+    const pebbleB = warm ? "#8a6b4a" : "#7c6044";
+    const pebbleC = warm ? "#bca586" : "#b39a7f";
+    if (h > 0.10) fillPixelV2(x + 4,  y + 20, 4, 3, pebbleA);
+    if (h > 0.28) fillPixelV2(x + 10, y + 12, 3, 2, pebbleB);
+    if (h > 0.46) fillPixelV2(x + 18, y + 23, 5, 3, pebbleC);
+    if (h > 0.64) fillPixelV2(x + 24, y + 8,  3, 2, pebbleA);
+    if (h > 0.79) fillPixelV2(x + 14, y + 27, 3, 2, pebbleB);
+  }
+
+  function sprinkleTinyFlowers(x, y, tileX, tileY) {
+    const h = visualHashV2(tileX, tileY, 740);
+    if (h > 0.78) {
+      fillPixelV2(x + 7, y + 10, 2, 2, "#fff5d1");
+      fillPixelV2(x + 9, y + 9,  2, 2, "#ff8bc1");
+    }
+    if (h > 0.86) {
+      fillPixelV2(x + 21, y + 18, 2, 2, "#fff5d1");
+      fillPixelV2(x + 23, y + 17, 2, 2, "#7ed2ff");
+    }
+    if (h > 0.92) {
+      fillPixelV2(x + 15, y + 24, 2, 2, "#fff2a6");
+      fillPixelV2(x + 17, y + 23, 2, 2, "#9be06f");
+    }
+  }
+
+  function lushGrassClump(x, y, ox, oy, a, b, c) {
+    fillPixelV2(x + ox,     y + oy,     2, 8, a);
+    fillPixelV2(x + ox + 2, y + oy - 3, 2, 7, b);
+    fillPixelV2(x + ox + 4, y + oy + 1, 2, 6, c);
+    fillPixelV2(x + ox + 6, y + oy - 2, 2, 7, a);
+  }
+
+  drawGrass = function drawGrassVillageExact(x, y, tileX, tileY) {
+    if (currentScene !== "village") {
+      if (previousDrawGrassGroundPatch) return previousDrawGrassGroundPatch(x, y, tileX, tileY);
+      return;
+    }
+
+    const seed = visualHashV2(tileX, tileY, 720);
+    const base = seed < 0.22 ? "#4f9835" : seed < 0.47 ? "#5ea53b" : seed < 0.73 ? "#69ad41" : "#78b94a";
+    const dark = seed < 0.45 ? "#3d7d2f" : "#447f31";
+    const light = seed > 0.70 ? "#98d35b" : "#88c84f";
+
+    fillPixelV2(x, y, TILE, TILE, base);
+    fillPixelV2(x, y + 24, TILE, 8, "rgba(47, 94, 31, 0.18)");
+    fillPixelV2(x + 2, y + 2, TILE - 4, 2, "rgba(188, 235, 120, 0.10)");
+    fillPixelV2(x + 2, y + 6, 10, 2, "rgba(176, 225, 117, 0.12)");
+
+    if (visualHashV2(tileX, tileY, 721) > 0.20) lushGrassClump(x, y, 3, 19, dark, "#4f9835", light);
+    if (visualHashV2(tileX, tileY, 722) > 0.44) lushGrassClump(x, y, 11, 13, dark, "#5ea53b", light);
+    if (visualHashV2(tileX, tileY, 723) > 0.66) lushGrassClump(x, y, 20, 18, dark, "#5a9f39", light);
+    if (visualHashV2(tileX, tileY, 724) > 0.82) lushGrassClump(x, y, 24, 10, dark, "#69ad41", light);
+
+    if (visualHashV2(tileX, tileY, 725) > 0.35) fillPixelV2(x + 14, y + 8, 4, 3, "rgba(165, 215, 99, 0.22)");
+    if (visualHashV2(tileX, tileY, 726) > 0.56) fillPixelV2(x + 7, y + 24, 5, 3, "rgba(71, 119, 49, 0.18)");
+    if (visualHashV2(tileX, tileY, 727) > 0.72) fillPixelV2(x + 22, y + 25, 4, 2, "rgba(211, 244, 126, 0.16)");
+    sprinkleTinyFlowers(x, y, tileX, tileY);
+  };
+
+  drawDirt = function drawDirtVillageExact(x, y, tileX, tileY) {
+    if (currentScene !== "village") {
+      if (previousDrawDirtGroundPatch) return previousDrawDirtGroundPatch(x, y, tileX, tileY);
+      return;
+    }
+
+    const seed = visualHashV2(tileX, tileY, 730);
+    const base = seed < 0.22 ? "#8b5b34" : seed < 0.48 ? "#966239" : seed < 0.72 ? "#a36b40" : "#7f532f";
+    const mid = seed < 0.52 ? "#b37a49" : "#ac7546";
+    const dark = seed < 0.5 ? "#6d4629" : "#72482a";
+
+    fillPixelV2(x, y, TILE, TILE, base);
+    fillPixelV2(x, y + 24, TILE, 8, "rgba(70, 41, 22, 0.20)");
+    fillPixelV2(x + 2, y + 3, TILE - 6, 2, "rgba(215, 168, 112, 0.10)");
+    fillPixelV2(x + 5, y + 8, 9, 3, "rgba(198, 144, 90, 0.14)");
+    fillPixelV2(x + 16, y + 15, 8, 3, "rgba(121, 78, 47, 0.14)");
+    if (visualHashV2(tileX, tileY, 733) > 0.24) fillPixelV2(x + 22, y + 5, 5, 3, mid);
+    if (visualHashV2(tileX, tileY, 734) > 0.41) fillPixelV2(x + 7, y + 18, 4, 2, dark);
+    if (visualHashV2(tileX, tileY, 735) > 0.57) fillPixelV2(x + 12, y + 24, 6, 3, "rgba(214, 180, 127, 0.12)");
+    if (visualHashV2(tileX, tileY, 736) > 0.74) fillPixelV2(x + 25, y + 22, 3, 2, "rgba(95, 61, 37, 0.26)");
+    sprinklePebbles(x, y, tileX, tileY, true);
+  };
+
+  drawPlaza = function drawPlazaVillageExact(x, y, tileX, tileY) {
+    if (currentScene !== "village") {
+      if (previousDrawPlazaGroundPatch) return previousDrawPlazaGroundPatch(x, y, tileX, tileY);
+      return;
+    }
+
+    const seed = visualHashV2(tileX, tileY, 742);
+    const base = seed < 0.5 ? "#ccb083" : "#d5ba91";
+    fillPixelV2(x, y, TILE, TILE, base);
+    ctx.strokeStyle = "rgba(108, 84, 57, 0.38)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+    fillPixelV2(x + 1, y + 1, TILE - 2, 2, "rgba(255,245,220,0.14)");
+    fillPixelV2(x + 2, y + 27, TILE - 4, 2, "rgba(109,83,56,0.12)");
+    if (seed > 0.55) fillPixelV2(x + 10, y + 11, 7, 4, "rgba(244,233,190,0.10)");
+    if (seed > 0.80) fillPixelV2(x + 20, y + 20, 5, 3, "rgba(114,95,68,0.12)");
+  };
+
+  drawVillageGroundDetailsV2 = function drawVillageGroundDetailsExact() {
+    if (currentScene !== "village") {
+      if (previousVillageGroundDetailsPatch) return previousVillageGroundDetailsPatch();
+      return;
+    }
+
+    const startX = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const endX = Math.min(WORLD_WIDTH - 1, Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1);
+    const startY = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const endY = Math.min(WORLD_HEIGHT - 1, Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1);
+
+    for (let ty = startY; ty <= endY; ty += 1) {
+      for (let tx = startX; tx <= endX; tx += 1) {
+        if (!groundVisibleOnCamera(tx, ty)) continue;
+        const tile = worldMap?.[ty]?.[tx];
+        if (tile === GRASS) {
+          const h = visualHashV2(tx, ty, 744);
+          const px = tx * TILE;
+          const py = ty * TILE;
+          if (h > 0.82) drawTinyFlowerPatchV2(px + 6, py + 10, "#fff1cf");
+          if (h > 0.88) drawTinyFlowerPatchV2(px + 18, py + 17, "#7fd0ff");
+          if (h > 0.76 && h < 0.81) drawGrassPatchV2(px + 8, py + 12);
+          if (h > 0.93) drawStoneBitsV2(px + 10, py + 18);
+        }
+        if (tile === DIRT) {
+          const h = visualHashV2(tx, ty, 745);
+          const px = tx * TILE;
+          const py = ty * TILE;
+          if (h > 0.68) drawStoneBitsV2(px + 8, py + 15);
+          if (h > 0.85) {
+            fillPixelV2(px + 6, py + 23, 4, 3, "#d7c4aa");
+            fillPixelV2(px + 10, py + 22, 3, 2, "#8f7456");
+          }
+        }
+      }
+    }
+  };
+}
+
+
+/* ==================================================
+   ETERNAL RIFT - HERO REFERENCE SPRITE ANIMATION 20260707
+   - Usa a imagem enviada pelo usuário como sprites reais.
+   - Não gera imagem nova e não remove sistemas.
+   - Troca o visual do personagem e adiciona animações de parado, andando e atacando.
+   ================================================== */
+(function eternalRiftHeroReferenceSpriteAnimation20260707() {
+  const PATCH_ID = "hero-reference-sprite-animation-20260707";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_REFERENCE_SPRITE_ANIMATION === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_REFERENCE_SPRITE_ANIMATION = PATCH_ID;
+
+  const drawPlayerBeforeHeroReferenceSprite = typeof drawPlayer === "function" ? drawPlayer : null;
+
+  function loadHeroFrame(name) {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = `assets/player/${name}.png?v=${PATCH_ID}`;
+    return img;
+  }
+
+  const HERO_FRAMES = {
+    down: {
+      idle: loadHeroFrame("hero-down-idle"),
+      walk: [loadHeroFrame("hero-down-walk-1"), loadHeroFrame("hero-down-walk-2")],
+      attack: loadHeroFrame("hero-down-attack")
+    },
+    left: {
+      idle: loadHeroFrame("hero-left-idle"),
+      walk: [loadHeroFrame("hero-left-walk-1"), loadHeroFrame("hero-left-walk-2")],
+      attack: loadHeroFrame("hero-left-attack")
+    },
+    right: {
+      idle: loadHeroFrame("hero-right-idle"),
+      walk: [loadHeroFrame("hero-right-walk-1"), loadHeroFrame("hero-right-walk-2")],
+      attack: loadHeroFrame("hero-right-attack")
+    },
+    up: {
+      idle: loadHeroFrame("hero-up-idle"),
+      walk: [loadHeroFrame("hero-up-walk-1"), loadHeroFrame("hero-up-walk-2")],
+      attack: loadHeroFrame("hero-up-attack")
+    }
+  };
+
+  function frameReady(img) {
+    return Boolean(img && img.complete && img.naturalWidth > 0);
+  }
+
+  function allHeroFramesReady() {
+    return ["down", "left", "right", "up"].every((dir) => {
+      const set = HERO_FRAMES[dir];
+      return frameReady(set.idle) && frameReady(set.attack) && set.walk.every(frameReady);
+    });
+  }
+
+  function isHeroAttacking() {
+    if (typeof currentMeleeAttack !== "undefined" && currentMeleeAttack) return true;
+    return Number(attackTimer || 0) > 0 || Number(weaponCooldownTimer || 0) > 0.20;
+  }
+
+  function chooseHeroFrame(direction) {
+    const dir = HERO_FRAMES[direction] ? direction : "down";
+    const set = HERO_FRAMES[dir];
+    if (isHeroAttacking()) return set.attack;
+    if (player?.moving) {
+      const step = Math.floor((performance.now() || 0) / 150) % set.walk.length;
+      return set.walk[step];
+    }
+    return set.idle;
+  }
+
+  function drawHeroAttackSpark(anchorX, anchorY, drawWidth, drawHeight, direction, t) {
+    if (!isHeroAttacking()) return;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    const pulse = 0.45 + Math.sin(t * 18) * 0.16;
+    ctx.fillStyle = `rgba(225, 247, 255, ${pulse})`;
+    if (direction === "right") {
+      ctx.fillRect(Math.round(anchorX + drawWidth - 5), Math.round(anchorY + drawHeight * 0.48), 18, 3);
+      ctx.fillStyle = `rgba(105, 210, 255, ${pulse})`;
+      ctx.fillRect(Math.round(anchorX + drawWidth + 11), Math.round(anchorY + drawHeight * 0.48 + 1), 8, 2);
+    } else if (direction === "left") {
+      ctx.fillRect(Math.round(anchorX - 13), Math.round(anchorY + drawHeight * 0.48), 18, 3);
+      ctx.fillStyle = `rgba(105, 210, 255, ${pulse})`;
+      ctx.fillRect(Math.round(anchorX - 20), Math.round(anchorY + drawHeight * 0.48 + 1), 8, 2);
+    } else if (direction === "up") {
+      ctx.fillRect(Math.round(anchorX + drawWidth * 0.50), Math.round(anchorY - 9), 3, 18);
+      ctx.fillStyle = `rgba(105, 210, 255, ${pulse})`;
+      ctx.fillRect(Math.round(anchorX + drawWidth * 0.50 + 1), Math.round(anchorY - 16), 2, 8);
+    } else {
+      ctx.fillRect(Math.round(anchorX + drawWidth * 0.50), Math.round(anchorY + drawHeight - 4), 3, 18);
+      ctx.fillStyle = `rgba(105, 210, 255, ${pulse})`;
+      ctx.fillRect(Math.round(anchorX + drawWidth * 0.50 + 1), Math.round(anchorY + drawHeight + 12), 2, 8);
+    }
+    ctx.restore();
+  }
+
+  drawPlayer = function drawPlayerHeroReferenceSpriteAnimation() {
+    if (!allHeroFramesReady()) {
+      return drawPlayerBeforeHeroReferenceSprite?.();
+    }
+
+    const direction = player?.direction || "down";
+    const frame = chooseHeroFrame(direction);
+    const t = performance.now() / 1000;
+    const blinking = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 75) % 2 === 0;
+    const bob = player?.moving && !isHeroAttacking() ? Math.sin(t * 12) * 0.45 : 0;
+
+    const drawWidth = frame.naturalWidth || frame.width || 42;
+    const drawHeight = frame.naturalHeight || frame.height || 58;
+    const anchorX = Math.round(player.x + player.width / 2 - drawWidth / 2);
+    const anchorY = Math.round(player.y + player.height + 5 - drawHeight + bob);
+
+    ctx.save();
+    if (blinking) ctx.globalAlpha = 0.45;
+
+    if (player.isSwimming) {
+      ctx.strokeStyle = "rgba(155, 244, 255, 0.72)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(player.x + player.width / 2, player.y + 27, 18, 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (player.levelGlowTimer > 0 || activePowerUps.shield > 0) {
+      const pulse = 0.24 + Math.sin(t * 7) * 0.08;
+      ctx.fillStyle = `rgba(88,223,255,${pulse})`;
+      ctx.fillRect(anchorX - 5, anchorY - 5, drawWidth + 10, drawHeight + 10);
+    }
+
+    ctx.save();
+    ctx.fillStyle = "rgba(7, 9, 18, 0.32)";
+    ctx.beginPath();
+    ctx.ellipse(player.x + player.width / 2, player.y + player.height - 1, 14, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    const smoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(frame, anchorX, anchorY, drawWidth, drawHeight);
+    ctx.imageSmoothingEnabled = smoothing;
+
+    if (equippedPower === "blueRay" || equippedPower === "shockwave") {
+      const sparkle = 0.30 + Math.sin(t * 6) * 0.11;
+      ctx.fillStyle = `rgba(88,223,255,${sparkle})`;
+      ctx.fillRect(anchorX + drawWidth - 7, anchorY + 15, 3, 3);
+      ctx.fillStyle = `rgba(255,232,154,${sparkle})`;
+      ctx.fillRect(anchorX + 3, anchorY + drawHeight - 13, 2, 2);
+    }
+
+    drawHeroAttackSpark(anchorX, anchorY, drawWidth, drawHeight, direction, t);
+    ctx.restore();
+  };
+
+  setTimeout(() => {
+    try { if (typeof showHudToast === "function") showHudToast("Novo personagem animado carregado.", 2.6); } catch (error) {}
+  }, 1200);
+})();
+
+
+
+/* === NPCs da referência animados, com função === */
+(() => {
+  const NPC_REFERENCE_SHEETS = {
+    farmer: "assets/npcs/farmer_sheet.png",
+    guard: "assets/npcs/guard_sheet.png",
+    merchant: "assets/npcs/merchant_sheet.png",
+    villager: "assets/npcs/villager_sheet.png"
+  };
+
+  const npcReferenceImages = {};
+  Object.entries(NPC_REFERENCE_SHEETS).forEach(([key, src]) => {
+    const img = new Image();
+    img.src = src;
+    img.decoding = "async";
+    npcReferenceImages[key] = img;
+  });
+
+  const DIRECTION_TO_ROW = { down: 0, left: 1, right: 2, up: 3 };
+  const NAME_APPEARANCE_MAP = {
+    Nico: "villager",
+    Ari: "guard",
+    Mina: "farmer",
+    Vendedor: "merchant",
+    Beto: "villager",
+    Prefeito: "guard",
+    Orion: "guard",
+    Nyx: "merchant",
+    Mila: "villager",
+    Caio: "guard",
+    Lina: "farmer"
+  };
+
+  function markNpcAction(obj, seconds = 1.4) {
+    if (!obj) return;
+    obj.__npcActionUntil = performance.now() + seconds * 1000;
+  }
+
+  function getNpcAppearance(obj) {
+    if (!obj) return "villager";
+    if (obj.npcAppearance && npcReferenceImages[obj.npcAppearance]) return obj.npcAppearance;
+    if (obj.name && NAME_APPEARANCE_MAP[obj.name]) return NAME_APPEARANCE_MAP[obj.name];
+    if (obj.role === "shopkeeper") return "merchant";
+    if (obj.role === "letterTarget") return "villager";
+    if (obj.role === "mayor") return "guard";
+    if (obj.role === "dimensionMystic") return "merchant";
+    if (obj.role === "dimensionGuide") return "guard";
+    return "villager";
+  }
+
+  function allNpcReferenceTargets() {
+    const lists = [];
+    if (Array.isArray(villageObjects)) lists.push(villageObjects);
+    if (Array.isArray(shopInteriorObjects)) lists.push(shopInteriorObjects);
+    if (Array.isArray(crystalDimensionObjects)) lists.push(crystalDimensionObjects);
+    if (Array.isArray(mayorInteriorObjects)) lists.push(mayorInteriorObjects);
+    return lists;
+  }
+
+  function applyNpcReferenceLook() {
+    allNpcReferenceTargets().forEach((list) => {
+      list.forEach((obj) => {
+        if (!obj || obj.type !== "npc") return;
+        obj.width = 24;
+        obj.height = 28;
+        obj.speed = Number.isFinite(obj.speed) ? obj.speed : 28;
+        obj.npcAppearance = getNpcAppearance(obj);
+      });
+    });
+  }
+
+  applyNpcReferenceLook();
+
+  function chooseNpcReferenceFrame(obj, image) {
+    const cellW = Math.floor((image.naturalWidth || image.width) / 4) || 1;
+    const cellH = Math.floor((image.naturalHeight || image.height) / 4) || 1;
+    const row = DIRECTION_TO_ROW[obj.direction] ?? 0;
+
+    const prevX = Number.isFinite(obj.__npcPrevX) ? obj.__npcPrevX : obj.x;
+    const prevY = Number.isFinite(obj.__npcPrevY) ? obj.__npcPrevY : obj.y;
+    const deltaMove = Math.abs(obj.x - prevX) + Math.abs(obj.y - prevY);
+    const moving = deltaMove > 0.08;
+
+    let col = 0;
+    if ((obj.__npcActionUntil || 0) > performance.now()) col = 3;
+    else if (moving) col = Math.floor(performance.now() / 170) % 2 ? 1 : 2;
+    else col = 0;
+
+    obj.__npcPrevX = obj.x;
+    obj.__npcPrevY = obj.y;
+
+    return { sx: col * cellW, sy: row * cellH, sw: cellW, sh: cellH, moving };
+  }
+
+  const drawNpcBeforeReferenceSheets = typeof drawNpc === "function" ? drawNpc : null;
+  drawNpc = function drawNpcReferenceAnimated(obj) {
+    const appearance = getNpcAppearance(obj);
+    const image = npcReferenceImages[appearance];
+    if (!image || !image.complete || !image.naturalWidth) {
+      return drawNpcBeforeReferenceSheets ? drawNpcBeforeReferenceSheets(obj) : undefined;
+    }
+
+    const { sx, sy, sw, sh, moving } = chooseNpcReferenceFrame(obj, image);
+    const bob = moving ? Math.sin(performance.now() / 125 + (obj.bob || 0)) * 0.5 : 0;
+    const shadowX = obj.x + obj.width / 2;
+    const shadowY = obj.y + obj.height + 1;
+    const targetH = 54;
+    const scale = targetH / sh;
+    const drawW = Math.round(sw * scale);
+    const drawH = Math.round(sh * scale);
+    const drawX = Math.round(obj.x + obj.width / 2 - drawW / 2);
+    const drawY = Math.round(obj.y + obj.height + 4 - drawH + bob);
+
+    ctx.save();
+    ctx.fillStyle = "rgba(7, 9, 18, 0.28)";
+    ctx.beginPath();
+    ctx.ellipse(shadowX, shadowY, 13, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const oldSmooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, sx, sy, sw, sh, drawX, drawY, drawW, drawH);
+    ctx.imageSmoothingEnabled = oldSmooth;
+    ctx.restore();
+  };
+
+  const getQuestMessageBeforeNpcReference = typeof getQuestMessage === "function" ? getQuestMessage : null;
+  getQuestMessage = function getQuestMessageNpcReference(obj) {
+    if (!obj || obj.type !== "npc") {
+      return getQuestMessageBeforeNpcReference ? getQuestMessageBeforeNpcReference(obj) : "";
+    }
+
+    markNpcAction(obj, 1.4);
+
+    if (obj.name === "Mina") {
+      if (!questBook.minaStarterPackClaimed) {
+        questBook.minaStarterPackClaimed = true;
+        player.health = player.maxHealth;
+        player.mana = player.maxMana;
+        inventory.pocoes = Number(inventory.pocoes || 0) + 1;
+        inventory.moedas = Number(inventory.moedas || 0) + 4;
+        try { if (typeof showHudToast === "function") showHudToast("Mina cuidou de voce: vida cheia, mana cheia, +1 poção, +4 moedas.", 3.1); } catch (e) {}
+        return "Mina: Trouxe colheita fresca e remedios da horta. Restaurei sua vida, sua mana e deixei 1 pocao com 4 moedas para sua aventura.";
+      }
+      return "Mina: Se precisar se recompor, passe aqui antes de sair da vila. Nada melhor que comida fresca e um bom descanso.";
+    }
+
+    if (obj.name === "Ari") {
+      player.health = player.maxHealth;
+      player.mana = player.maxMana;
+      activePowerUps.shield = Math.max(Number(activePowerUps.shield || 0), 12);
+      try { if (typeof showHudToast === "function") showHudToast("Ari reforçou sua guarda: vida cheia, mana cheia e escudo temporário.", 3.1); } catch (e) {}
+      return "Ari: Guarda da vila em ação. Reforcei sua defesa: vida e mana restauradas, com um escudo temporario para proteger voce.";
+    }
+
+    if (obj.name === "Vendedor") {
+      return getQuestMessageBeforeNpcReference ? getQuestMessageBeforeNpcReference(obj) : "Vendedor: Bem-vindo à loja.";
+    }
+
+    if (obj.name === "Beto") {
+      return getQuestMessageBeforeNpcReference ? getQuestMessageBeforeNpcReference(obj) : "Beto: Se encontrar alguma carta perdida, pode trazer para mim?";
+    }
+
+    if (obj.name === "Nico") {
+      return getQuestMessageBeforeNpcReference ? getQuestMessageBeforeNpcReference(obj) : "Nico: Tenho uma missão para voce.";
+    }
+
+    if (obj.name === "Prefeito") {
+      if (!questBook.prefeitoBonusClaimed) {
+        questBook.prefeitoBonusClaimed = true;
+        inventory.moedas = Number(inventory.moedas || 0) + 12;
+        try { if (typeof showHudToast === "function") showHudToast("Prefeito: +12 moedas de apoio da vila.", 2.8); } catch (e) {}
+        return "Prefeito: A vila agradece sua coragem. Receba 12 moedas como apoio oficial para continuar sua jornada.";
+      }
+      return "Prefeito: A vila esta em paz por enquanto. Continue ajudando nossos moradores.";
+    }
+
+    if (obj.role === "dimensionGuide") {
+      activePowerUps.speed = Math.max(Number(activePowerUps.speed || 0), 10);
+      markNpcAction(obj, 1.8);
+      return "Orion: Acelerarei seus passos por um tempo. Use essa velocidade extra para explorar e ativar os cristais da dimensao.";
+    }
+
+    if (obj.role === "dimensionMystic") {
+      player.mana = player.maxMana;
+      return "Nyx: Deixei a energia arcana fluir. Sua mana foi restaurada para ajudar nas runas da dimensao.";
+    }
+
+    return getQuestMessageBeforeNpcReference ? getQuestMessageBeforeNpcReference(obj) : (obj.message || "...");
+  };
+
+  // NPCs extras da imagem, sem remover os existentes.
+  function ensureVillageNpc(name, tileX, tileY, message, role, appearance) {
+    if (!Array.isArray(villageObjects)) return;
+    if (villageObjects.some((obj) => obj && obj.type === "npc" && obj.name === name)) return;
+    const created = npc(tileX, tileY, name, message, role);
+    created.npcAppearance = appearance;
+    created.width = 24;
+    created.height = 28;
+    villageObjects.push(created);
+  }
+
+  ensureVillageNpc("Téo", 39, 18, "Téo: Minhas ferramentas sempre ajudam os aventureiros.", "farmerHelper", "farmer");
+  ensureVillageNpc("Bran", 51, 18, "Bran: Nenhum monstro passa pelo portao sem me ver.", "guardHelper", "guard");
+  ensureVillageNpc("Sora", 48, 12, "Sora: Viajo com mercadorias raras e dicas valiosas.", "shopkeeper", "merchant");
+  ensureVillageNpc("Lia", 34, 18, "Lia: Gosto de ajudar quem acabou de chegar na vila.", "villagerHelper", "villager");
+
+  const oldGetQuestMessageWithExtras = getQuestMessage;
+  getQuestMessage = function getQuestMessageNpcReferenceExtras(obj) {
+    if (obj && obj.type === "npc") {
+      markNpcAction(obj, 1.5);
+      if (obj.name === "Téo") {
+        if (!questBook.teoGiftClaimed) {
+          questBook.teoGiftClaimed = true;
+          inventory.moedas = Number(inventory.moedas || 0) + 6;
+          inventory.pocoes = Number(inventory.pocoes || 0) + 1;
+          return "Téo: Separei provisoes para sua jornada. Receba 1 pocao e 6 moedas para começar bem.";
+        }
+        return "Téo: Quando a terra vai bem, a vila toda fica mais forte. Sempre tenha suprimentos antes de sair.";
+      }
+      if (obj.name === "Bran") {
+        player.health = player.maxHealth;
+        activePowerUps.shield = Math.max(Number(activePowerUps.shield || 0), 14);
+        return "Bran: Postura firme! Reforcei sua guarda com um escudo temporario e deixei sua vida cheia.";
+      }
+      if (obj.name === "Sora") {
+        if (typeof openShop === "function") openShop();
+        return "Sora: Minha bolsa esta cheia de itens uteis. Fique a vontade para comprar o que precisar.";
+      }
+      if (obj.name === "Lia") {
+        if (!questBook.liaHintRewardClaimed) {
+          questBook.liaHintRewardClaimed = true;
+          inventory.moedas = Number(inventory.moedas || 0) + 8;
+          return "Lia: Dica de amiga: explore a vila toda e converse com mundo. Tome 8 moedas para ajudar no caminho.";
+        }
+        return "Lia: A vila esconde tesouros, missões e gente disposta a ajudar. Explore cada canto com calma.";
+      }
+    }
+    return oldGetQuestMessageWithExtras ? oldGetQuestMessageWithExtras(obj) : "";
+  };
+
+  setTimeout(() => {
+    try { if (typeof showHudToast === "function") showHudToast("NPCs da referência carregados: visual novo, animações e funções adicionadas.", 3.1); } catch (e) {}
+  }, 1300);
+})();
+
+
+/* ==================================================
+   SAFE PATCH: Loja do Ferreiro + interior, sem alterar vila/HUD/inventario/NPCs
+   Base segura: mantém todas as casas, NPCs, textura, HUD e inventário existentes.
+   ================================================== */
+(function addSafeBlacksmithShopAndInteriorPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_SAFE_BLACKSMITH_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_SAFE_BLACKSMITH_PATCH = true;
+
+  const PATCH_VERSION = "safe-blacksmith-no-reset-20260707";
+  const SHOP_ASSET = `blacksmith-shop-reference.png?v=${PATCH_VERSION}`;
+  const INTERIOR_ASSET = `blacksmith-interior-reference.png?v=${PATCH_VERSION}`;
+  const NPC_SHEET_ASSET = `blacksmith-npc-sheet.png?v=${PATCH_VERSION}`;
+
+  const shopImg = new Image();
+  shopImg.src = SHOP_ASSET;
+  const interiorImg = new Image();
+  interiorImg.src = INTERIOR_ASSET;
+  const smithImg = new Image();
+  smithImg.src = NPC_SHEET_ASSET;
+
+  const BLACKSMITH_SCENE = "blacksmithInterior";
+  const BLACKSMITH_TILE_X = 51;
+  const BLACKSMITH_TILE_Y = 12;
+
+  const blacksmithNpc = {
+    type: "blacksmithNpc",
+    name: "Branor",
+    role: "blacksmithMaster",
+    x: 14 * TILE + 8,
+    y: 8 * TILE + 8,
+    width: 24,
+    height: 32,
+    solid: false,
+    direction: "down",
+    message: "Branor: Bem-vindo à forja. Posso reforçar sua arma por 20 moedas."
+  };
+
+  const blacksmithInteriorObjects = [
+    block(0, 0, HOME_COLS, 1),
+    block(0, 0, 1, HOME_ROWS),
+    block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+    block(0, HOME_ROWS - 1, 12, 1),
+    block(18, HOME_ROWS - 1, HOME_COLS - 18, 1),
+
+    { type: "blacksmithWall", x: 2 * TILE, y: 2 * TILE, width: 26 * TILE, height: 1 * TILE, solid: true },
+    { type: "blacksmithForge", x: 12 * TILE, y: 3 * TILE, width: 6 * TILE, height: 4 * TILE, solid: true, message: "Forja acesa: o calor parece vivo." },
+    { type: "blacksmithWorkbench", x: 2 * TILE, y: 5 * TILE, width: 6 * TILE, height: 3 * TILE, solid: true, message: "Bancada do ferreiro: martelos, tenazes e peças de metal." },
+    { type: "blacksmithRack", x: 21 * TILE, y: 5 * TILE, width: 5 * TILE, height: 3 * TILE, solid: true, message: "Suporte de armas: espadas, lanças e escudos aguardam reparo." },
+    { type: "blacksmithAnvil", x: 17 * TILE, y: 10 * TILE, width: 3 * TILE, height: 2 * TILE, solid: true, message: "Bigorna: marcada por centenas de lâminas reforçadas." },
+    { type: "blacksmithCoal", x: 3 * TILE, y: 12 * TILE, width: 3 * TILE, height: 2 * TILE, solid: true, message: "Caixa de carvão e minério." },
+    { type: "blacksmithBarrel", x: 24 * TILE, y: 12 * TILE, width: 3 * TILE, height: 2 * TILE, solid: true, message: "Barril com peças metálicas e couro." },
+    { type: "blacksmithExit", x: 13 * TILE, y: 18 * TILE, width: 4 * TILE, height: 2 * TILE, solid: false, message: "Sair da Loja do Ferreiro" },
+    blacksmithNpc
+  ];
+
+  function isBlacksmithScene() {
+    return currentScene === BLACKSMITH_SCENE;
+  }
+
+  function ensureBlacksmithShopObject() {
+    if (!Array.isArray(villageObjects)) return null;
+    let obj = villageObjects.find((entry) => entry && entry.type === "blacksmithShop");
+    if (!obj) {
+      obj = {
+        type: "blacksmithShop",
+        role: "blacksmithShop",
+        title: "Loja do Ferreiro",
+        name: "Loja do Ferreiro",
+        x: BLACKSMITH_TILE_X * TILE,
+        y: BLACKSMITH_TILE_Y * TILE,
+        width: TILE * 5,
+        height: TILE * 4,
+        visualWidth: 188,
+        visualHeight: 217,
+        solid: true,
+        message: "Entrar na Loja do Ferreiro"
+      };
+      villageObjects.push(obj);
+    } else {
+      obj.message = "Entrar na Loja do Ferreiro";
+      obj.role = "blacksmithShop";
+      obj.name = obj.name || "Loja do Ferreiro";
+      obj.title = obj.title || "Loja do Ferreiro";
+      obj.solid = true;
+    }
+    return obj;
+  }
+
+  function refreshListsSafe() {
+    if (currentScene === "village") {
+      ensureBlacksmithShopObject();
+      objects = villageObjects;
+      colliders = objects.filter((obj) => obj && obj.solid);
+      interactables = objects.filter((obj) => obj && (obj.message || obj.type === "npc"));
+    } else if (isBlacksmithScene()) {
+      objects = blacksmithInteriorObjects;
+      colliders = objects.filter((obj) => obj && obj.solid);
+      interactables = objects.filter((obj) => obj && (obj.message || obj.type === "blacksmithNpc" || obj.type === "blacksmithExit"));
+    }
+  }
+
+  function enterBlacksmithInterior() {
+    ensureBlacksmithShopObject();
+    lastVillagePosition = { x: player.x, y: player.y };
+    currentScene = BLACKSMITH_SCENE;
+    objects = blacksmithInteriorObjects;
+    colliders = objects.filter((obj) => obj && obj.solid);
+    interactables = objects.filter((obj) => obj && (obj.message || obj.type === "blacksmithNpc" || obj.type === "blacksmithExit"));
+    enemies = [];
+    player.x = 14 * TILE + 8;
+    player.y = 16 * TILE;
+    player.direction = "up";
+    camera.x = clamp(player.x - getZoomedViewWidth() / 2, 0, Math.max(0, getSceneWidth() * TILE - getZoomedViewWidth()));
+    camera.y = clamp(player.y - getZoomedViewHeight() / 2, 0, Math.max(0, getSceneHeight() * TILE - getZoomedViewHeight()));
+    try { if (typeof showHudToast === "function") showHudToast("Loja do Ferreiro carregada.", 2.2); } catch (error) {}
+  }
+
+  function exitBlacksmithInterior() {
+    currentScene = "village";
+    refreshListsSafe();
+    const exterior = ensureBlacksmithShopObject();
+    player.x = exterior ? exterior.x + exterior.width / 2 - player.width / 2 : 51 * TILE;
+    player.y = exterior ? exterior.y + exterior.height + 12 : 17 * TILE;
+    player.direction = "down";
+    try { if (typeof showHudToast === "function") showHudToast("Você saiu da Loja do Ferreiro.", 1.8); } catch (error) {}
+  }
+
+  function drawBlacksmithShop(obj) {
+    const drawW = obj.visualWidth || 188;
+    const drawH = obj.visualHeight || 217;
+    const drawX = Math.round(obj.x + obj.width / 2 - drawW / 2);
+    const drawY = Math.round(obj.y + obj.height - drawH + 16);
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,.24)";
+    ctx.beginPath();
+    ctx.ellipse(obj.x + obj.width / 2, obj.y + obj.height + 7, obj.width * 0.68, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (shopImg.complete && shopImg.naturalWidth > 0) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(shopImg, drawX, drawY, drawW, drawH);
+    } else if (typeof drawShop === "function") {
+      drawShop({ ...obj, type: "shop", title: "Loja do Ferreiro" });
+    }
+    ctx.restore();
+  }
+
+  const drawObjectBeforeSafeBlacksmith = typeof drawObject === "function" ? drawObject : null;
+  drawObject = function drawObjectSafeBlacksmith(obj) {
+    if (obj && obj.type === "blacksmithShop") return drawBlacksmithShop(obj);
+    return drawObjectBeforeSafeBlacksmith ? drawObjectBeforeSafeBlacksmith(obj) : undefined;
+  };
+
+  function runBlacksmithService() {
+    blacksmithNpc.__actionUntil = performance.now() + 1200;
+    if (!questBook.blacksmithFirstRepairDone) {
+      questBook.blacksmithFirstRepairDone = true;
+      player.health = player.maxHealth;
+      player.mana = player.maxMana;
+      inventory.metalFragments = Number(inventory.metalFragments || 0) + 1;
+      return "Branor: Primeira visita, hein? Reparei seu equipamento, restaurei sua vida e mana, e deixei 1 fragmento de metal raro na sua bolsa.";
+    }
+    if (Number(inventory.moedas || 0) >= 20) {
+      inventory.moedas -= 20;
+      player.damageBonus = Number(player.damageBonus || 0) + 1;
+      inventory.metalFragments = Number(inventory.metalFragments || 0) + 1;
+      return `Branor: Martelo quente, lâmina firme! Reforcei sua arma por 20 moedas. Dano bônus atual: +${player.damageBonus}.`;
+    }
+    player.health = Math.min(player.maxHealth, player.health + 1);
+    return "Branor: Para reforçar sua arma eu cobro 20 moedas. Por enquanto, ajeitei uma peça solta e recuperei 1 ponto de vida.";
+  }
+
+  const getQuestMessageBeforeSafeBlacksmith = typeof getQuestMessage === "function" ? getQuestMessage : null;
+  getQuestMessage = function getQuestMessageSafeBlacksmith(target) {
+    if (target && target.type === "blacksmithShop") {
+      enterBlacksmithInterior();
+      return "Entrando na Loja do Ferreiro...";
+    }
+    if (target && target.type === "blacksmithExit") {
+      exitBlacksmithInterior();
+      return "Saindo da Loja do Ferreiro...";
+    }
+    if (target && target.type === "blacksmithNpc") return runBlacksmithService();
+    return getQuestMessageBeforeSafeBlacksmith ? getQuestMessageBeforeSafeBlacksmith(target) : (target?.message || "");
+  };
+
+  const findInteractionBeforeSafeBlacksmith = typeof findInteraction === "function" ? findInteraction : null;
+  findInteraction = function findInteractionSafeBlacksmith() {
+    if (!isBlacksmithScene()) return findInteractionBeforeSafeBlacksmith ? findInteractionBeforeSafeBlacksmith() : null;
+    const playerReach = {
+      x: player.x - 18,
+      y: player.y - 18,
+      width: player.width + 36,
+      height: player.height + 36
+    };
+    const candidates = [blacksmithNpc, blacksmithInteriorObjects.find((obj) => obj.type === "blacksmithExit")].filter(Boolean);
+    return candidates.find((obj) => rectsOverlap(playerReach, obj)) || null;
+  };
+
+  function drawBlacksmithNpcSprite(obj) {
+    if (!smithImg.complete || smithImg.naturalWidth <= 0) {
+      if (typeof drawNpc === "function") return drawNpc({ ...obj, type: "npc" });
+      return;
+    }
+    const cellW = Math.floor(smithImg.naturalWidth / 4);
+    const cellH = Math.floor(smithImg.naturalHeight / 4);
+    const row = obj.direction === "up" ? 3 : obj.direction === "left" ? 1 : obj.direction === "right" ? 2 : 0;
+    const col = (obj.__actionUntil || 0) > performance.now() ? 3 : (Math.floor(performance.now() / 520) % 3);
+    const drawH = 64;
+    const drawW = Math.round(cellW * (drawH / cellH));
+    const drawX = Math.round(obj.x + obj.width / 2 - drawW / 2);
+    const drawY = Math.round(obj.y + obj.height - drawH + 8);
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,.24)";
+    ctx.beginPath();
+    ctx.ellipse(obj.x + obj.width / 2, obj.y + obj.height + 8, 18, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(smithImg, col * cellW, row * cellH, cellW, cellH, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  }
+
+  function drawBlacksmithFallbackInterior() {
+    ctx.fillStyle = "#2e241f";
+    ctx.fillRect(0, 0, HOME_WIDTH, HOME_HEIGHT);
+    for (let y = 1; y < HOME_ROWS - 1; y++) {
+      for (let x = 1; x < HOME_COLS - 1; x++) {
+        ctx.fillStyle = (x + y) % 2 ? "#49372d" : "#3f3028";
+        ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+        ctx.fillStyle = "rgba(255,255,255,.04)";
+        ctx.fillRect(x * TILE + 3, y * TILE + 3, TILE - 6, 2);
+      }
+    }
+    ctx.fillStyle = "#4a3325";
+    ctx.fillRect(2 * TILE, 2 * TILE, 26 * TILE, 4 * TILE);
+    ctx.fillStyle = "#ff8a22";
+    ctx.fillRect(13 * TILE, 3 * TILE, 4 * TILE, 2 * TILE);
+    ctx.fillStyle = "#222";
+    ctx.fillRect(17 * TILE, 10 * TILE, 3 * TILE, 2 * TILE);
+  }
+
+  const drawBeforeSafeBlacksmith = typeof draw === "function" ? draw : null;
+  draw = function drawSafeBlacksmithScene() {
+    if (!isBlacksmithScene()) return drawBeforeSafeBlacksmith ? drawBeforeSafeBlacksmith() : undefined;
+    ensureCanvasSize();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    applyGameCameraTransform(ctx);
+    if (interiorImg.complete && interiorImg.naturalWidth > 0) {
+      ctx.fillStyle = "#1d1714";
+      ctx.fillRect(0, 0, HOME_WIDTH, HOME_HEIGHT);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(interiorImg, 0, 0, HOME_WIDTH, HOME_HEIGHT);
+    } else {
+      drawBlacksmithFallbackInterior();
+    }
+    drawBlacksmithNpcSprite(blacksmithNpc);
+    drawPlayer();
+    drawAttack();
+    drawFloatingTexts();
+    ctx.restore();
+    drawMiniMap();
+  };
+
+  const updateBeforeSafeBlacksmith = typeof update === "function" ? update : null;
+  update = function updateSafeBlacksmith(delta) {
+    if (!isBlacksmithScene()) return updateBeforeSafeBlacksmith ? updateBeforeSafeBlacksmith(delta) : undefined;
+    ensureCanvasSize();
+    updateHud();
+    updateDebugPanel(delta);
+    updateHudToast(delta);
+    if (gameOver || pauseOpen || inventoryOpen || shopOpen || dialogOpen) return;
+    const oldX = player.x;
+    const oldY = player.y;
+    updatePlayerMovement(delta);
+    if (!canMoveTo(player.x, player.y)) {
+      player.x = oldX;
+      player.y = oldY;
+    }
+    updateCamera();
+    const exitZone = blacksmithInteriorObjects.find((obj) => obj.type === "blacksmithExit");
+    const feet = { x: player.x + 6, y: player.y + player.height - 3, width: player.width - 12, height: 5 };
+    if (exitZone && rectsOverlap(feet, exitZone) && player.direction === "down") exitBlacksmithInterior();
+  };
+
+  const canMoveToBeforeSafeBlacksmith = typeof canMoveTo === "function" ? canMoveTo : null;
+  canMoveTo = function canMoveToSafeBlacksmith(nextX, nextY) {
+    if (!isBlacksmithScene()) return canMoveToBeforeSafeBlacksmith ? canMoveToBeforeSafeBlacksmith(nextX, nextY) : true;
+    const rect = { x: nextX + 6, y: nextY + 18, width: player.width - 12, height: player.height - 18 };
+    if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > HOME_WIDTH || rect.y + rect.height > HOME_HEIGHT) return false;
+    return !colliders.some((obj) => rectsOverlap(rect, obj));
+  };
+
+  const getSceneNameBeforeSafeBlacksmith = typeof getSceneName === "function" ? getSceneName : null;
+  getSceneName = function getSceneNameSafeBlacksmith() {
+    if (isBlacksmithScene()) return "Loja do Ferreiro";
+    return getSceneNameBeforeSafeBlacksmith ? getSceneNameBeforeSafeBlacksmith() : "Vila";
+  };
+
+  const getSceneWidthBeforeSafeBlacksmith = typeof getSceneWidth === "function" ? getSceneWidth : null;
+  getSceneWidth = function getSceneWidthSafeBlacksmith() {
+    if (isBlacksmithScene()) return HOME_WIDTH / TILE;
+    return getSceneWidthBeforeSafeBlacksmith ? getSceneWidthBeforeSafeBlacksmith() : HOME_COLS;
+  };
+
+  const getSceneHeightBeforeSafeBlacksmith = typeof getSceneHeight === "function" ? getSceneHeight : null;
+  getSceneHeight = function getSceneHeightSafeBlacksmith() {
+    if (isBlacksmithScene()) return HOME_HEIGHT / TILE;
+    return getSceneHeightBeforeSafeBlacksmith ? getSceneHeightBeforeSafeBlacksmith() : HOME_ROWS;
+  };
+
+  ensureBlacksmithShopObject();
+  refreshListsSafe();
+})();
+
+
+/* ==================================================
+   SAFE PATCH: Sistema de mapas internos por tilemap + Quarto do Heroi
+   Nao altera HUD, inventario, vila, NPCs, casas nem textura externa.
+   Apenas substitui o interior da casa do jogador usando tiles e objetos reutilizaveis.
+   ================================================== */
+(function addSafeHeroRoomTilemapPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_SAFE_HERO_ROOM_TILEMAP_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_SAFE_HERO_ROOM_TILEMAP_PATCH = true;
+
+  const HERO_MAP_ID = "heroRoom";
+  const DOOR_GAP_START = 14;
+  const DOOR_GAP_WIDTH = 2;
+  const registry = window.ETERNAL_RIFT_INTERNAL_MAPS || (window.ETERNAL_RIFT_INTERNAL_MAPS = {});
+
+  function hrTileRect(tileX, tileY, widthTiles = 1, heightTiles = 1) {
+    return { x: tileX * TILE, y: tileY * TILE, width: widthTiles * TILE, height: heightTiles * TILE };
+  }
+
+  function hrSolid(kind, tileX, tileY, widthTiles, heightTiles, message = "") {
+    return { type: `heroRoom_${kind}`, kind, role: kind, ...hrTileRect(tileX, tileY, widthTiles, heightTiles), solid: true, message };
+  }
+
+  function hrDecor(kind, tileX, tileY, widthTiles, heightTiles, message = "") {
+    return { type: `heroRoom_${kind}`, kind, role: kind, ...hrTileRect(tileX, tileY, widthTiles, heightTiles), solid: false, message };
+  }
+
+  function createHeroRoomDefinition() {
+    const cols = HOME_COLS;
+    const rows = HOME_ROWS;
+    const wallTiles = Array.from({ length: rows }, () => Array(cols).fill(false));
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const isDoorGap = y === rows - 1 && x >= DOOR_GAP_START && x < DOOR_GAP_START + DOOR_GAP_WIDTH;
+        if ((y === 0 || x === 0 || x === cols - 1 || y === rows - 1) && !isDoorGap) wallTiles[y][x] = true;
+      }
+    }
+
+    return {
+      id: HERO_MAP_ID,
+      name: "Quarto do Heroi",
+      cols,
+      rows,
+      wallTiles,
+      layers: {
+        ground: [{ kind: "woodFloor" }],
+        floorDecor: [
+          { kind: "rug", variant: "beige", tileX: 4, tileY: 5, widthTiles: 4, heightTiles: 3 },
+          { kind: "rug", variant: "red", tileX: 10, tileY: 5, widthTiles: 10, heightTiles: 4 },
+          { kind: "rug", variant: "blue", tileX: 23, tileY: 5, widthTiles: 4, heightTiles: 3 },
+          { kind: "rug", variant: "runner", tileX: 13, tileY: 11, widthTiles: 4, heightTiles: 2 }
+        ],
+        objectsBack: [
+          { kind: "doorFrame", tileX: 13, tileY: 17, widthTiles: 4, heightTiles: 3 },
+          { kind: "bed", variant: "left", tileX: 1, tileY: 2, widthTiles: 4, heightTiles: 3 },
+          { kind: "bed", variant: "right", tileX: 25, tileY: 2, widthTiles: 4, heightTiles: 3 },
+          { kind: "shelf", tileX: 6, tileY: 2, widthTiles: 4, heightTiles: 2 },
+          { kind: "shelf", tileX: 19, tileY: 2, widthTiles: 4, heightTiles: 2 },
+          { kind: "window", tileX: 13, tileY: 2, widthTiles: 4, heightTiles: 2 },
+          { kind: "banner", tileX: 26, tileY: 1, widthTiles: 2, heightTiles: 3 },
+          { kind: "candle", tileX: 10, tileY: 3, widthTiles: 1, heightTiles: 1 },
+          { kind: "candle", tileX: 18, tileY: 3, widthTiles: 1, heightTiles: 1 }
+        ],
+        player: [],
+        objectsFront: [
+          { kind: "bookshelf", tileX: 2, tileY: 8, widthTiles: 3, heightTiles: 3, solid: true, message: "Estante: livros de aventuras, bestiarios e velhos mapas." },
+          { kind: "bookshelf", tileX: 24, tileY: 8, widthTiles: 3, heightTiles: 3, solid: true, message: "Estante: pergaminhos, frascos e anotações do herói." },
+          { kind: "table", tileX: 12, tileY: 8, widthTiles: 3, heightTiles: 2, solid: true, message: "Mesa: planos de viagem, velas e um mapa aberto." },
+          { kind: "table", tileX: 17, tileY: 8, widthTiles: 3, heightTiles: 2, solid: true, message: "Mesa: ferramentas, pena, tinta e provisões." },
+          { kind: "chair", tileX: 11, tileY: 10, widthTiles: 1, heightTiles: 1 },
+          { kind: "chair", tileX: 20, tileY: 10, widthTiles: 1, heightTiles: 1 },
+          { kind: "chest", tileX: 14, tileY: 14, widthTiles: 2, heightTiles: 2, solid: true, message: "Baú: equipamentos guardados com cuidado." },
+          { kind: "vase", tileX: 2, tileY: 15, widthTiles: 1, heightTiles: 2 },
+          { kind: "vase", tileX: 27, tileY: 15, widthTiles: 1, heightTiles: 2 },
+          { kind: "plant", tileX: 5, tileY: 15, widthTiles: 1, heightTiles: 2 },
+          { kind: "plant", tileX: 24, tileY: 15, widthTiles: 1, heightTiles: 2 },
+          { kind: "smallTable", tileX: 8, tileY: 12, widthTiles: 2, heightTiles: 2, solid: true, message: "Mesa lateral com vela acesa." },
+          { kind: "smallTable", tileX: 20, tileY: 12, widthTiles: 2, heightTiles: 2, solid: true, message: "Mesa lateral com provisões." },
+          { kind: "candle", tileX: 15, tileY: 7, widthTiles: 1, heightTiles: 1 },
+          { kind: "entrySteps", tileX: 13, tileY: 18, widthTiles: 4, heightTiles: 2 },
+          { kind: "entryMat", tileX: 13, tileY: 16, widthTiles: 4, heightTiles: 1 }
+        ],
+        lighting: [
+          { kind: "glow", x: 15 * TILE, y: 3.2 * TILE, radius: 132, color: "rgba(255, 210, 130, 0.34)" },
+          { kind: "glow", x: 10.5 * TILE, y: 3.4 * TILE, radius: 92, color: "rgba(255, 196, 120, 0.22)" },
+          { kind: "glow", x: 18.5 * TILE, y: 3.4 * TILE, radius: 92, color: "rgba(255, 196, 120, 0.22)" },
+          { kind: "glow", x: 9.5 * TILE, y: 11.5 * TILE, radius: 72, color: "rgba(255, 176, 96, 0.20)" },
+          { kind: "glow", x: 21.5 * TILE, y: 11.5 * TILE, radius: 72, color: "rgba(255, 176, 96, 0.20)" }
+        ]
+      }
+    };
+  }
+
+  registry[HERO_MAP_ID] = createHeroRoomDefinition();
+
+  function applyHomeTilemapOnlyInside() {
+    const map = registry[HERO_MAP_ID];
+    if (!Array.isArray(homeMap)) return;
+    for (let y = 0; y < HOME_ROWS; y++) {
+      for (let x = 0; x < HOME_COLS; x++) {
+        homeMap[y][x] = map.wallTiles[y][x] ? "B" : "I";
+      }
+    }
+  }
+
+  function rebuildHeroRoomHomeObjects() {
+    const objectsForRoom = [
+      block(0, 0, HOME_COLS, 1),
+      block(0, 0, 1, HOME_ROWS),
+      block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+      block(0, HOME_ROWS - 1, DOOR_GAP_START, 1),
+      block(DOOR_GAP_START + DOOR_GAP_WIDTH, HOME_ROWS - 1, HOME_COLS - (DOOR_GAP_START + DOOR_GAP_WIDTH), 1),
+      hrSolid("bedLeft", 1, 3, 4, 2, "Cama: o herói recupera as forças aqui."),
+      hrSolid("bedRight", 25, 3, 4, 2, "Cama: pronta para uma noite de descanso."),
+      hrSolid("shelfLeft", 6, 2, 4, 2, "Estante: livros e frascos alinhados."),
+      hrSolid("shelfRight", 19, 2, 4, 2, "Estante: livros, mapas e provisões."),
+      hrSolid("bookshelfLeft", 2, 8, 3, 3, "Estante: tomos e livros raros."),
+      hrSolid("bookshelfRight", 24, 8, 3, 3, "Estante: registros das missões do herói."),
+      hrSolid("tableLeft", 12, 8, 3, 2, "Mesa de trabalho do herói."),
+      hrSolid("tableRight", 17, 8, 3, 2, "Mesa de apoio cheia de itens úteis."),
+      hrSolid("smallTableLeft", 8, 12, 2, 2, "Mesa lateral com vela acesa."),
+      hrSolid("smallTableRight", 20, 12, 2, 2, "Mesa lateral com provisões."),
+      hrSolid("chest", 14, 14, 2, 2, "Baú: equipamentos guardados com cuidado."),
+      hrDecor("exitSign", 13, 18, 4, 2, "Saída do Quarto do Herói: caminhe para baixo para voltar à vila.")
+    ];
+    homeObjects.splice(0, homeObjects.length, ...objectsForRoom);
+    if (currentScene === "home") {
+      objects = homeObjects;
+      colliders = objects.filter((obj) => obj && obj.solid);
+      interactables = objects.filter((obj) => obj && obj.message);
+    }
+  }
+
+  function syncHeroRoomLists() {
+    if (currentScene !== "home") return;
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj && obj.solid);
+    interactables = objects.filter((obj) => obj && obj.message);
+  }
+
+  function roundedRect(x, y, w, h, r, fill, stroke = null) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+  }
+
+  function hrVisible(tileX, tileY, widthTiles = 1, heightTiles = 1) {
+    const px = tileX * TILE;
+    const py = tileY * TILE;
+    return px + widthTiles * TILE >= camera.x - 64 && px <= camera.x + getZoomedViewWidth() + 64 && py + heightTiles * TILE >= camera.y - 64 && py <= camera.y + getZoomedViewHeight() + 64;
+  }
+
+  function drawHeroWoodTile(px, py, x, y) {
+    const base = (x + y) % 2 === 0 ? "#5c3a27" : "#66422d";
+    ctx.fillStyle = base;
+    ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillStyle = (x + y) % 3 === 0 ? "rgba(255,215,160,0.08)" : "rgba(20,8,5,0.10)";
+    ctx.fillRect(px + 1, py + 3, TILE - 2, 4);
+    ctx.fillRect(px + 1, py + 14, TILE - 2, 4);
+    ctx.fillRect(px + 1, py + 24, TILE - 2, 4);
+    ctx.fillStyle = "rgba(30,18,12,0.14)";
+    ctx.fillRect(px, py + TILE - 2, TILE, 2);
+  }
+
+  function drawHeroWalls(map) {
+    for (let y = 0; y < map.rows; y++) {
+      for (let x = 0; x < map.cols; x++) {
+        if (!map.wallTiles[y][x] || !hrVisible(x, y)) continue;
+        const px = x * TILE;
+        const py = y * TILE;
+        ctx.fillStyle = "#6b5443";
+        ctx.fillRect(px, py, TILE, TILE);
+        ctx.fillStyle = "#7b6350";
+        for (let iy = 2; iy < TILE; iy += 8) {
+          for (let ix = 2; ix < TILE; ix += 14) ctx.fillRect(px + ix, py + iy, 10, 5);
+        }
+        ctx.fillStyle = "#4a2e1d";
+        if (y === 0 || y === map.rows - 1) {
+          ctx.fillRect(px, py, TILE, 7);
+          ctx.fillRect(px, py + TILE - 6, TILE, 6);
+        } else {
+          ctx.fillRect(px, py, 6, TILE);
+          ctx.fillRect(px + TILE - 6, py, 6, TILE);
+        }
+      }
+    }
+    ctx.fillStyle = "#3e2618";
+    ctx.fillRect(TILE, TILE, HOME_WIDTH - TILE * 2, 12);
+    ctx.fillRect(TILE, 0, HOME_WIDTH - TILE * 2, 8);
+  }
+
+  function drawHeroGround() {
+    const startCol = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const endCol = Math.min(HOME_COLS - 1, Math.ceil((camera.x + getZoomedViewWidth()) / TILE) + 1);
+    const startRow = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const endRow = Math.min(HOME_ROWS - 1, Math.ceil((camera.y + getZoomedViewHeight()) / TILE) + 1);
+    for (let y = startRow; y <= endRow; y++) {
+      for (let x = startCol; x <= endCol; x++) drawHeroWoodTile(x * TILE, y * TILE, x, y);
+    }
+  }
+
+  function drawHeroFloorDecor(map) {
+    for (const item of map.layers.floorDecor) {
+      if (!hrVisible(item.tileX, item.tileY, item.widthTiles, item.heightTiles)) continue;
+      const x = item.tileX * TILE;
+      const y = item.tileY * TILE;
+      const w = item.widthTiles * TILE;
+      const h = item.heightTiles * TILE;
+      const fill = item.variant === "red" ? "#7d2824" : item.variant === "blue" ? "#1e3d73" : item.variant === "runner" ? "#734d1f" : "#8f7551";
+      const border = item.variant === "red" ? "#b88b42" : item.variant === "blue" ? "#7cb3ff" : "#d7caa0";
+      roundedRect(x + 3, y + 3, w - 6, h - 6, 6, fill, border);
+      ctx.fillStyle = "rgba(255,235,180,0.08)";
+      ctx.fillRect(x + 12, y + 10, w - 24, 3);
+      ctx.fillRect(x + 12, y + h - 13, w - 24, 3);
+    }
+  }
+
+  function shadow(x, y, w, h, alpha = 0.16) {
+    ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+    roundedRect(x + 5, y + h - 10, Math.max(12, w - 10), 10, 5, `rgba(0,0,0,${alpha})`);
+  }
+
+  function drawBed(tileX, tileY, variant) {
+    const x = tileX * TILE, y = tileY * TILE, w = 4 * TILE, h = 3 * TILE;
+    shadow(x, y, w, h, 0.12);
+    ctx.fillStyle = "#52311f"; ctx.fillRect(x + 8, y + 26, w - 16, h - 30);
+    ctx.fillStyle = variant === "right" ? "#35578d" : "#7d6a4a"; ctx.fillRect(x + 12, y + 30, w - 24, h - 42);
+    ctx.fillStyle = "#e7dcc3"; ctx.fillRect(x + 14, y + 10, w - 28, 18);
+    ctx.fillStyle = "#6f4b2f"; ctx.fillRect(x + 6, y + 8, w - 12, 6); ctx.fillRect(x + 6, y + h - 14, w - 12, 6);
+  }
+
+  function drawShelf(tileX, tileY, widthTiles = 4) {
+    const x = tileX * TILE, y = tileY * TILE, w = widthTiles * TILE;
+    ctx.fillStyle = "#4b2f20"; ctx.fillRect(x + 4, y + 10, w - 8, 8); ctx.fillRect(x + 4, y + 30, w - 8, 8); ctx.fillRect(x + 4, y + 50, w - 8, 8);
+    ctx.fillStyle = "#8d693f";
+    for (let i = 0; i < widthTiles * 2; i++) ctx.fillRect(x + 10 + i * 14, y + 16, 8, 12);
+    ctx.fillStyle = "#d8ba6d"; ctx.fillRect(x + 16, y + 34, 6, 6); ctx.fillRect(x + w - 26, y + 16, 6, 6);
+  }
+
+  function drawWindow(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE, w = 4 * TILE, h = 2 * TILE;
+    roundedRect(x + 10, y + 4, w - 20, h - 8, 10, "#a36a3c", "#4f2d1a");
+    ctx.fillStyle = "#f5c56d"; ctx.fillRect(x + 16, y + 10, w - 32, h - 20);
+    ctx.fillStyle = "rgba(255,240,180,0.65)"; ctx.fillRect(x + 18, y + 12, w - 36, 6);
+    ctx.fillStyle = "#5c3d25"; ctx.fillRect(x + w / 2 - 2, y + 10, 4, h - 20); ctx.fillRect(x + 16, y + h / 2 - 2, w - 32, 4);
+  }
+
+  function drawBanner(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE;
+    ctx.fillStyle = "#3d5ea3"; ctx.fillRect(x + 8, y + 8, 36, 52);
+    ctx.beginPath(); ctx.moveTo(x + 8, y + 60); ctx.lineTo(x + 26, y + 74); ctx.lineTo(x + 44, y + 60); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#d8c179"; ctx.fillRect(x + 6, y + 6, 40, 3); ctx.fillRect(x + 24, y + 12, 4, 42); ctx.fillRect(x + 16, y + 28, 20, 4);
+  }
+
+  function drawDoorFrame(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE, w = 4 * TILE, h = 3 * TILE;
+    ctx.fillStyle = "#59341f"; ctx.fillRect(x + 16, y + 18, w - 32, h - 18);
+    ctx.fillStyle = "#7a4c2b"; ctx.fillRect(x + 24, y + 22, w - 48, h - 28);
+    ctx.fillStyle = "#332117"; ctx.fillRect(x + 18, y + 18, 8, h - 18); ctx.fillRect(x + w - 26, y + 18, 8, h - 18); ctx.fillRect(x + 18, y + 18, w - 36, 8);
+  }
+
+  function drawBookshelf(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE, w = 3 * TILE, h = 3 * TILE;
+    shadow(x, y, w, h, 0.14);
+    ctx.fillStyle = "#4a2e1d"; ctx.fillRect(x + 6, y + 6, w - 12, h - 12);
+    ctx.fillStyle = "#6b4328"; ctx.fillRect(x + 8, y + 24, w - 16, 6); ctx.fillRect(x + 8, y + 48, w - 16, 6); ctx.fillRect(x + 8, y + 72, w - 16, 6);
+    ctx.fillStyle = "#a17a45"; for (let i = 0; i < 5; i++) ctx.fillRect(x + 12 + i * 12, y + 12, 8, 10);
+    ctx.fillStyle = "#8468aa"; ctx.fillRect(x + 14, y + 32, 8, 12);
+    ctx.fillStyle = "#3d75b5"; ctx.fillRect(x + 26, y + 34, 8, 10);
+    ctx.fillStyle = "#d8ba6d"; ctx.fillRect(x + 38, y + 34, 8, 10);
+  }
+
+  function drawTable(tileX, tileY, variant = "normal") {
+    const x = tileX * TILE, y = tileY * TILE, w = variant === "small" ? 2 * TILE : 3 * TILE, h = 2 * TILE;
+    shadow(x, y, w, h, 0.15);
+    ctx.fillStyle = "#6f4428"; ctx.fillRect(x + 6, y + 8, w - 12, 18); ctx.fillRect(x + 12, y + 26, 8, h - 26); ctx.fillRect(x + w - 20, y + 26, 8, h - 26);
+    ctx.fillStyle = "#d8bd76"; ctx.fillRect(x + 20, y + 12, 10, 10);
+    if (variant !== "small") { ctx.fillStyle = "#faf2d2"; ctx.fillRect(x + 40, y + 12, 12, 8); }
+  }
+
+  function drawChair(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE;
+    ctx.fillStyle = "#5a3822"; ctx.fillRect(x + 8, y + 8, 16, 6); ctx.fillRect(x + 10, y + 14, 12, 10); ctx.fillRect(x + 10, y + 24, 4, 6); ctx.fillRect(x + 18, y + 24, 4, 6);
+  }
+
+  function drawChest(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE, w = 2 * TILE, h = 2 * TILE;
+    shadow(x, y, w, h, 0.15);
+    ctx.fillStyle = "#6c4526"; ctx.fillRect(x + 6, y + 20, w - 12, h - 24);
+    ctx.fillStyle = "#8d5b31"; ctx.fillRect(x + 6, y + 10, w - 12, 16);
+    ctx.fillStyle = "#d7bd71"; ctx.fillRect(x + w / 2 - 4, y + 22, 8, 12);
+  }
+
+  function drawVase(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE;
+    ctx.fillStyle = "#94653c"; ctx.fillRect(x + 9, y + 20, 14, 18);
+    ctx.fillStyle = "#6aa05c"; ctx.fillRect(x + 12, y + 6, 8, 16); ctx.fillRect(x + 8, y + 10, 4, 10); ctx.fillRect(x + 20, y + 8, 4, 10);
+  }
+
+  function drawPlant(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE;
+    ctx.fillStyle = "#82572f"; ctx.fillRect(x + 8, y + 22, 16, 12);
+    ctx.fillStyle = "#4d8a48"; ctx.fillRect(x + 10, y + 8, 12, 16); ctx.fillRect(x + 5, y + 14, 6, 10); ctx.fillRect(x + 21, y + 12, 6, 10);
+  }
+
+  function drawCandle(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE;
+    ctx.fillStyle = "#e3d7ae"; ctx.fillRect(x + 14, y + 14, 4, 8);
+    ctx.fillStyle = "#ffb04d"; ctx.fillRect(x + 13, y + 10, 6, 5);
+    ctx.fillStyle = "rgba(255, 210, 120, 0.18)"; ctx.fillRect(x + 7, y + 4, 18, 18);
+  }
+
+  function drawEntrySteps(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE;
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "#8c775a" : "#9a8464";
+      ctx.fillRect(x + 10 + i * 8, y + 8 + i * 2, 4 * TILE - 20 - i * 16, 8);
+    }
+  }
+
+  function drawEntryMat(tileX, tileY) {
+    const x = tileX * TILE, y = tileY * TILE;
+    roundedRect(x + 8, y + 6, 4 * TILE - 16, TILE - 12, 6, "#4b3422", "#7c5a35");
+  }
+
+  function drawHeroRoomObject(item) {
+    if (!item || !hrVisible(item.tileX, item.tileY, item.widthTiles, item.heightTiles)) return;
+    switch (item.kind) {
+      case "doorFrame": return drawDoorFrame(item.tileX, item.tileY);
+      case "bed": return drawBed(item.tileX, item.tileY, item.variant);
+      case "shelf": return drawShelf(item.tileX, item.tileY, item.widthTiles);
+      case "window": return drawWindow(item.tileX, item.tileY);
+      case "banner": return drawBanner(item.tileX, item.tileY);
+      case "bookshelf": return drawBookshelf(item.tileX, item.tileY);
+      case "table": return drawTable(item.tileX, item.tileY, "normal");
+      case "smallTable": return drawTable(item.tileX, item.tileY, "small");
+      case "chair": return drawChair(item.tileX, item.tileY);
+      case "chest": return drawChest(item.tileX, item.tileY);
+      case "vase": return drawVase(item.tileX, item.tileY);
+      case "plant": return drawPlant(item.tileX, item.tileY);
+      case "candle": return drawCandle(item.tileX, item.tileY);
+      case "entrySteps": return drawEntrySteps(item.tileX, item.tileY);
+      case "entryMat": return drawEntryMat(item.tileX, item.tileY);
+    }
+  }
+
+  function drawHeroLighting(map) {
+    ctx.fillStyle = "rgba(25, 16, 12, 0.14)";
+    ctx.fillRect(0, 0, HOME_WIDTH, HOME_HEIGHT);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const light of map.layers.lighting) {
+      const gradient = ctx.createRadialGradient(light.x, light.y, 8, light.x, light.y, light.radius);
+      gradient.addColorStop(0, light.color);
+      gradient.addColorStop(0.65, "rgba(255,190,110,0.08)");
+      gradient.addColorStop(1, "rgba(255,190,110,0)");
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(light.x, light.y, light.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawHeroRoomTilemapScene() {
+    const map = registry[HERO_MAP_ID];
+    drawHeroGround();                           // 1 ground
+    drawHeroFloorDecor(map);                    // 2 floorDecor
+    drawHeroWalls(map);
+    map.layers.objectsBack.forEach(drawHeroRoomObject); // 3 objectsBack
+    drawPlayer();                               // 4 player
+    map.layers.objectsFront.forEach(drawHeroRoomObject); // 5 objectsFront
+    drawHeroLighting(map);                      // 6 lighting
+  }
+
+  const getSceneNameBeforeSafeHeroRoom = typeof getSceneName === "function" ? getSceneName : null;
+  getSceneName = function getSceneNameSafeHeroRoom() {
+    if (currentScene === "home") return "Quarto do Heroi";
+    return getSceneNameBeforeSafeHeroRoom ? getSceneNameBeforeSafeHeroRoom() : "Vila";
+  };
+
+  const setActiveSceneBeforeSafeHeroRoom = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneSafeHeroRoom(scene) {
+    const result = setActiveSceneBeforeSafeHeroRoom ? setActiveSceneBeforeSafeHeroRoom(scene) : undefined;
+    if (currentScene === "home") syncHeroRoomLists();
+    return result;
+  };
+
+  const loadGameBeforeSafeHeroRoom = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameSafeHeroRoom() {
+    const ok = loadGameBeforeSafeHeroRoom ? loadGameBeforeSafeHeroRoom() : false;
+    if (currentScene === "home") syncHeroRoomLists();
+    return ok;
+  };
+
+  const drawBeforeSafeHeroRoom = typeof draw === "function" ? draw : null;
+  draw = function drawSafeHeroRoomTilemap() {
+    if (currentScene !== "home") return drawBeforeSafeHeroRoom ? drawBeforeSafeHeroRoom() : undefined;
+    ensureCanvasSize();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    applyGameCameraTransform(ctx);
+    drawHeroRoomTilemapScene();
+    drawMobileTargetMark();
+    drawAttack();
+    drawProjectiles();
+    drawShockwaves();
+    drawDashTrails();
+    drawHealBursts();
+    drawFloatingTexts();
+    drawAimCursor();
+    ctx.restore();
+    drawMiniMap();
+  };
+
+  applyHomeTilemapOnlyInside();
+  rebuildHeroRoomHomeObjects();
+  syncHeroRoomLists();
+})();
+
+/* ==================================================
+   ETERNAL RIFT - HERO ROOM FAITHFUL TILEMAP SAFE PATCH
+   Base: última versão boa restaurada com ferreiro.
+   Escopo: substituir SOMENTE o interior da casa/quarto do herói.
+   Não altera HUD, inventário, casas, NPCs, vila, ferreiro, personagem ou sistemas externos.
+   O quarto é construído por tilemap e objetos separados, sem usar imagem única como fundo.
+   ================================================== */
+(function eternalRiftHeroRoomFaithfulTilemapSafePatch() {
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_HERO_ROOM_FAITHFUL_TILEMAP_SAFE_PATCH) return;
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_HERO_ROOM_FAITHFUL_TILEMAP_SAFE_PATCH = true;
+
+  const PATCH_VERSION = 'hero-room-faithful-tilemap-safe-20260707';
+  const PREFIX = 'hero-room-faithful-';
+  const ENTRY_LEFT = 14;
+  const ENTRY_WIDTH = 2;
+
+  const HERO_ROOM_TILEMAP = {
+    id: 'heroRoomFaithfulTilemap',
+    name: 'Quarto do Herói',
+    cols: HOME_COLS,
+    rows: HOME_ROWS,
+    layers: {
+      ground: { type: 'woodFloor', tile: 'darkOakPlanks' },
+      floorDecor: [
+        { id: 'rug-left-beige', kind: 'rugBeige', x: 4, y: 8, w: 4, h: 3 },
+        { id: 'rug-center-red', kind: 'rugRed', x: 12, y: 7, w: 7, h: 5 },
+        { id: 'rug-right-blue', kind: 'rugBlue', x: 23, y: 9, w: 4, h: 4 },
+        { id: 'floor-cracks', kind: 'floorCracks' },
+        { id: 'bottom-entrance-shadow', kind: 'bottomEntranceShadow' }
+      ],
+      objectsBack: [
+        { id: 'upper-door', kind: 'topDoor', x: 1, y: 1, w: 2, h: 2, solid: true, message: 'Porta interna do quarto.' },
+        { id: 'left-wall-shelf', kind: 'wallShelfLong', x: 4, y: 1, w: 4, h: 1, solid: false, message: 'Prateleira com frascos, livros e velas.' },
+        { id: 'center-window', kind: 'curtainWindow', x: 13, y: 1, w: 4, h: 3, solid: false, message: 'Janela com cortinas vermelhas e vista da vila.' },
+        { id: 'center-shelf-left', kind: 'tallShelf', x: 10, y: 2, w: 3, h: 4, solid: true, message: 'Estante esquerda cheia de livros, potes e mapas.' },
+        { id: 'center-shelf-right', kind: 'tallShelf', x: 17, y: 2, w: 3, h: 4, solid: true, message: 'Estante direita cheia de livros, potes e suprimentos.' },
+        { id: 'right-workbench', kind: 'workbench', x: 21, y: 2, w: 4, h: 2, solid: true, message: 'Bancada com mapa, pergaminhos e ferramentas.' },
+        { id: 'right-banner', kind: 'blueBanner', x: 25, y: 1, w: 2, h: 3, solid: false, message: 'Bandeira azul do herói.' },
+        { id: 'right-portrait', kind: 'tinyPainting', x: 27, y: 1, w: 2, h: 1, solid: false, message: 'Quadro pequeno na parede.' },
+        { id: 'wall-candle-a', kind: 'wallCandle', x: 3, y: 2, w: 1, h: 1, solid: false, message: 'Vela de parede.' },
+        { id: 'wall-candle-b', kind: 'wallCandle', x: 8, y: 2, w: 1, h: 1, solid: false, message: 'Vela de parede.' },
+        { id: 'wall-candle-c', kind: 'wallCandle', x: 20, y: 2, w: 1, h: 1, solid: false, message: 'Vela de parede.' },
+        { id: 'wall-candle-d', kind: 'wallCandle', x: 26, y: 2, w: 1, h: 1, solid: false, message: 'Vela de parede.' }
+      ],
+      player: [],
+      objectsFront: [
+        { id: 'left-bedside-top', kind: 'smallLampTable', x: 0, y: 5, w: 1, h: 2, solid: true, message: 'Mesa lateral com lampião.' },
+        { id: 'left-bed', kind: 'beigeBed', x: 1, y: 5, w: 4, h: 4, solid: true, message: 'Cama principal do herói.' },
+        { id: 'left-bedside-bottom', kind: 'smallLampTable', x: 0, y: 10, w: 1, h: 2, solid: true, message: 'Mesa lateral com frascos.' },
+        { id: 'left-foot-chest', kind: 'footChest', x: 2, y: 10, w: 2, h: 1, solid: true, message: 'Baú aos pés da cama.' },
+        { id: 'left-writing-desk', kind: 'writingDesk', x: 5, y: 2, w: 4, h: 2, solid: true, message: 'Mesa de estudo com livros e ferramentas.' },
+        { id: 'left-stool', kind: 'stool', x: 7, y: 4, w: 1, h: 1, solid: true, message: 'Banquinho da mesa de estudo.' },
+        { id: 'center-side-left', kind: 'candleSideTable', x: 9, y: 9, w: 2, h: 3, solid: true, message: 'Mesa lateral com velas, livros e uma planta.' },
+        { id: 'center-round-table', kind: 'roundTable', x: 13, y: 8, w: 3, h: 3, solid: true, message: 'Mesa redonda iluminada por vela.' },
+        { id: 'center-chair', kind: 'chair', x: 15, y: 9, w: 1, h: 1, solid: true, message: 'Cadeira ao lado da mesa.' },
+        { id: 'center-side-right', kind: 'candleSideTable', x: 18, y: 9, w: 2, h: 3, solid: true, message: 'Mesa lateral com velas e suprimentos.' },
+        { id: 'right-blue-bed', kind: 'blueBed', x: 26, y: 5, w: 3, h: 4, solid: true, message: 'Cama secundária com coberta azul.' },
+        { id: 'right-weapon-rack', kind: 'weaponRack', x: 28, y: 4, w: 1, h: 2, solid: true, message: 'Suporte de armas.' },
+        { id: 'right-drawer', kind: 'drawerLow', x: 24, y: 3, w: 2, h: 2, solid: true, message: 'Móvel baixo com suprimentos.' },
+        { id: 'right-crate', kind: 'roundCrate', x: 25, y: 13, w: 1, h: 1, solid: true, message: 'Caixote com provisões.' },
+        { id: 'right-armor-a', kind: 'armorStand', x: 27, y: 12, w: 1, h: 2, solid: true, message: 'Armadura decorativa.' },
+        { id: 'right-armor-b', kind: 'armorStand', x: 28, y: 12, w: 1, h: 2, solid: true, message: 'Armadura decorativa.' },
+        { id: 'right-tall-rack', kind: 'tallRack', x: 29, y: 10, w: 1, h: 3, solid: true, message: 'Suporte alto de equipamentos.' },
+        { id: 'lower-exit', kind: 'exitMarker', x: 13, y: 17, w: 4, h: 1, solid: false, message: 'Saída do quarto: caminhe para baixo para voltar à vila.' }
+      ],
+      lighting: [
+        { x: 5.2, y: 2.4, r: 120, a: 0.22 },
+        { x: 14.8, y: 2.6, r: 150, a: 0.24 },
+        { x: 23.4, y: 2.5, r: 130, a: 0.20 },
+        { x: 14.5, y: 8.6, r: 110, a: 0.18 },
+        { x: 9.8, y: 9.8, r: 80, a: 0.15 },
+        { x: 18.8, y: 9.8, r: 80, a: 0.15 }
+      ]
+    }
+  };
+
+  if (typeof window !== 'undefined') window.ETERNAL_RIFT_HERO_ROOM_TILEMAP = HERO_ROOM_TILEMAP;
+
+  function heroRoomObjFromTilemap(item) {
+    const obj = furnitureV2(`${PREFIX}${item.id}`, item.x, item.y, item.kind, Boolean(item.solid), item.w, item.h, item.message || 'Objeto do Quarto do Herói.');
+    obj.heroRoomFaithfulTilemap = true;
+    obj.homeInteractive = true;
+    obj.homeHeroRoomInteractive = true;
+    obj.heroRoomAction = item.kind === 'beigeBed' || item.kind === 'blueBed' ? 'sleep' : item.kind.includes('Shelf') || item.kind === 'tallShelf' ? 'read' : 'look';
+    return obj;
+  }
+
+  function resetHomeMapForFaithfulRoom() {
+    if (!Array.isArray(homeMap)) return;
+    for (let y = 0; y < HOME_ROWS; y++) {
+      for (let x = 0; x < HOME_COLS; x++) homeMap[y][x] = 'I';
+    }
+    fillHomeRect(homeMap, 0, 0, HOME_COLS, 1, 'B');
+    fillHomeRect(homeMap, 0, HOME_ROWS - 1, HOME_COLS, 1, 'B');
+    fillHomeRect(homeMap, 0, 0, 1, HOME_ROWS, 'B');
+    fillHomeRect(homeMap, HOME_COLS - 1, 0, 1, HOME_ROWS, 'B');
+    fillHomeRect(homeMap, ENTRY_LEFT, HOME_ROWS - 1, ENTRY_WIDTH, 1, 'I');
+  }
+
+  function rebuildFaithfulHeroRoomOnly() {
+    resetHomeMapForFaithfulRoom();
+    homeObjects.length = 0;
+    homeObjects.push(
+      block(0, 0, HOME_COLS, 1),
+      block(0, 0, 1, HOME_ROWS),
+      block(HOME_COLS - 1, 0, 1, HOME_ROWS),
+      block(0, HOME_ROWS - 1, ENTRY_LEFT, 1),
+      block(ENTRY_LEFT + ENTRY_WIDTH, HOME_ROWS - 1, HOME_COLS - (ENTRY_LEFT + ENTRY_WIDTH), 1),
+      ...HERO_ROOM_TILEMAP.layers.objectsBack.map(heroRoomObjFromTilemap),
+      ...HERO_ROOM_TILEMAP.layers.objectsFront.map(heroRoomObjFromTilemap)
+    );
+    refreshFaithfulHeroRoomCollections();
+  }
+
+  function refreshFaithfulHeroRoomCollections() {
+    if (currentScene !== 'home') return;
+    objects = homeObjects;
+    colliders = objects.filter((obj) => obj && obj.solid);
+    interactables = objects.filter((obj) => obj && obj.message);
+  }
+
+  function rr(x, y, w, h, r, color, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    if (color) { ctx.fillStyle = color; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); }
+  }
+
+  function srect(x, y, w, h, color) { fillPixelV2(Math.round(x), Math.round(y), Math.round(w), Math.round(h), color); }
+  function shadow(x, y, w, h, a = 0.18) { srect(x, y, w, h, `rgba(0,0,0,${a})`); }
+
+  function drawWoodFloorTile(x, y, tileX, tileY) {
+    const palette = ['#5b3827', '#68432f', '#543324', '#6e4832'];
+    const base = palette[Math.abs((tileX * 7 + tileY * 5) % palette.length)];
+    srect(x, y, TILE, TILE, base);
+    srect(x, y + TILE - 2, TILE, 2, 'rgba(32,17,12,0.24)');
+    srect(x, y + 1, TILE, 1, 'rgba(255,227,176,0.06)');
+    srect(x + 1, y + 8, TILE - 2, 1, 'rgba(35,18,12,0.08)');
+    srect(x + 1, y + 18, TILE - 2, 1, 'rgba(255,220,170,0.04)');
+    if (((tileX * 13 + tileY * 11) % 5) === 0) srect(x + 5, y + 13, 10, 2, 'rgba(33,18,12,0.17)');
+    if (((tileX * 17 + tileY * 3) % 7) === 0) srect(x + 19, y + 24, 8, 2, 'rgba(255,235,190,0.07)');
+  }
+
+  function drawBrickWallTile(x, y, tileX, tileY) {
+    const base = ((tileX + tileY) % 2) ? '#714f39' : '#654633';
+    srect(x, y, TILE, TILE, base);
+    srect(x, y + 15, TILE, 2, 'rgba(30,17,12,0.30)');
+    srect(x + 15, y + 1, 2, 14, 'rgba(255,225,175,0.05)');
+    srect(x + 4, y + 5, 11, 2, 'rgba(255,226,174,0.07)');
+    srect(x + 18, y + 20, 8, 2, 'rgba(23,12,8,0.18)');
+  }
+
+  function drawFaithfulHeroRoomBackdrop(scene) {
+    if (scene !== 'home') return;
+
+    // ground layer: repeated wood tiles
+    for (let y = 1; y < HOME_ROWS - 1; y++) {
+      for (let x = 1; x < HOME_COLS - 1; x++) drawWoodFloorTile(x * TILE, y * TILE, x, y);
+    }
+
+    // walls, borders and corners
+    for (let y = 0; y < HOME_ROWS; y++) {
+      for (let x = 0; x < HOME_COLS; x++) {
+        if (y === 0 || x === 0 || x === HOME_COLS - 1 || (y === HOME_ROWS - 1 && !(x >= ENTRY_LEFT && x < ENTRY_LEFT + ENTRY_WIDTH))) {
+          drawBrickWallTile(x * TILE, y * TILE, x, y);
+        }
+      }
+    }
+
+    // back wall band like reference
+    for (let y = 1; y <= 3; y++) {
+      for (let x = 1; x < HOME_COLS - 1; x++) drawBrickWallTile(x * TILE, y * TILE, x, y);
+    }
+    srect(TILE, TILE * 3 + 22, (HOME_COLS - 2) * TILE, 10, '#3b241b');
+    srect(TILE, TILE * 4 - 1, (HOME_COLS - 2) * TILE, 4, 'rgba(255,215,150,0.10)');
+
+    // vertical columns/dividers visible in reference
+    [1, 9, 15, 21, 27].forEach((tx) => {
+      srect(tx * TILE, TILE, 8, (HOME_ROWS - 2) * TILE, '#40271d');
+      srect(tx * TILE + 8, TILE, 5, (HOME_ROWS - 2) * TILE, '#7a5037');
+      srect(tx * TILE + 13, TILE, 2, (HOME_ROWS - 2) * TILE, 'rgba(0,0,0,0.18)');
+    });
+
+    // floorDecor layer
+    function rug(tx, ty, tw, th, outer, inner, trim) {
+      const x = tx * TILE, y = ty * TILE, w = tw * TILE, h = th * TILE;
+      shadow(x + 7, y + h - 4, w - 14, 6, 0.12);
+      rr(x, y, w, h, 4, outer, '#2a1a13');
+      rr(x + 5, y + 5, w - 10, h - 10, 3, inner, trim);
+      srect(x + 13, y + 10, w - 26, 2, 'rgba(255,236,175,0.18)');
+      srect(x + 13, y + h - 12, w - 26, 2, 'rgba(0,0,0,0.14)');
+    }
+    rug(4, 8, 4, 3, '#8e7051', '#b89b73', '#d4bd8c');
+    rug(12, 7, 7, 5, '#651f1d', '#9b2d25', '#d3a057');
+    rug(23, 9, 4, 4, '#152e56', '#234982', '#6393d4');
+
+    // bottom entrance shadow / lower black void
+    srect(0, (HOME_ROWS - 2) * TILE, 7 * TILE, 2 * TILE, '#08101b');
+    srect(23 * TILE, (HOME_ROWS - 2) * TILE, 7 * TILE, 2 * TILE, '#08101b');
+    srect(7 * TILE, (HOME_ROWS - 2) * TILE, 6 * TILE, TILE, '#1a100d');
+    srect(17 * TILE, (HOME_ROWS - 2) * TILE, 6 * TILE, TILE, '#1a100d');
+    srect(13 * TILE, (HOME_ROWS - 2) * TILE, 4 * TILE, TILE, '#0a111d');
+
+    // warm lighting baked as separate lighting layer
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const l of HERO_ROOM_TILEMAP.layers.lighting) {
+      const lx = l.x * TILE;
+      const ly = l.y * TILE;
+      const g = ctx.createRadialGradient(lx, ly, 4, lx, ly, l.r);
+      g.addColorStop(0, `rgba(255,205,118,${l.a})`);
+      g.addColorStop(0.62, `rgba(255,170,80,${l.a * 0.35})`);
+      g.addColorStop(1, 'rgba(255,160,60,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(lx, ly, l.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // final vignette / room atmosphere
+    srect(TILE, TILE, (HOME_COLS - 2) * TILE, 10, 'rgba(0,0,0,0.20)');
+    srect(TILE, (HOME_ROWS - 2) * TILE - 8, (HOME_COLS - 2) * TILE, 8, 'rgba(0,0,0,0.14)');
+  }
+
+  const drawInteriorRoomBackdropV2BeforeFaithfulRoom = drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2 = function drawInteriorRoomBackdropV2FaithfulHeroRoom(scene) {
+    drawInteriorRoomBackdropV2BeforeFaithfulRoom(scene);
+    drawFaithfulHeroRoomBackdrop(scene);
+  };
+
+  const drawFurnitureBeforeFaithfulRoom = drawFurniture;
+  drawFurniture = function drawFurnitureFaithfulHeroRoom(obj) {
+    const kind = obj?.kind || '';
+    const x = obj?.x || 0;
+    const y = obj?.y || 0;
+    const w = obj?.width || TILE;
+    const h = obj?.height || TILE;
+
+    function finishHighlight() {
+      try {
+        const target = typeof findInteraction === 'function' ? findInteraction() : null;
+        if (currentScene === 'home' && target === obj && !dialogOpen && !shopOpen) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255,232,120,0.70)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(Math.round(x - 2) + 0.5, Math.round(y - 2) + 0.5, w + 4, h + 4);
+          ctx.restore();
+        }
+      } catch (error) {}
+    }
+
+    function woodenFrame(fill = '#7e5036', outline = '#2c1b13') {
+      outlinePixelV2(x, y, w, h, fill, outline);
+      srect(x + 4, y + 4, w - 8, 3, 'rgba(255,228,170,0.13)');
+      srect(x + 4, y + h - 7, w - 8, 3, 'rgba(0,0,0,0.14)');
+    }
+
+    if (kind === 'topDoor') {
+      shadow(x + 6, y + h - 3, w - 12, 5, 0.18);
+      woodenFrame('#714a33');
+      srect(x + 8, y + 7, w - 16, h - 12, '#4d2f23');
+      srect(x + 13, y + 12, w - 26, h - 22, '#68402e');
+      srect(x + w - 18, y + Math.floor(h / 2), 5, 5, '#d9b36a');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'wallShelfLong') {
+      srect(x + 2, y + h - 12, w - 4, 7, '#4a2c20');
+      srect(x + 5, y + h - 16, w - 10, 5, '#8a583a');
+      const cols = ['#79d5df', '#d2a55f', '#a8c95f', '#b987d7', '#df7861', '#f5deb0'];
+      for (let i = 0; i < 7; i++) srect(x + 8 + i * 16, y + 5 + (i % 2), 7, 14, cols[i % cols.length]);
+      srect(x + w - 13, y + 1, 4, 18, '#ffe1a1');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'wallCandle') {
+      srect(x + 13, y + 12, 6, 14, '#68402e');
+      srect(x + 15, y + 7, 2, 7, '#f4d396');
+      srect(x + 13, y + 5, 6, 4, '#ffb34e');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'curtainWindow') {
+      srect(x + 30, y + 6, w - 60, h - 18, '#5a3426');
+      srect(x + 34, y + 10, w - 68, h - 26, '#75bce6');
+      srect(x + 34, y + 28, w - 68, 12, '#6cad6d');
+      srect(x + Math.floor(w / 2) - 2, y + 10, 4, h - 26, '#4f3224');
+      srect(x + 34, y + Math.floor(h / 2), w - 68, 4, '#4f3224');
+      srect(x + 4, y + 3, 22, h - 10, '#7d2026');
+      srect(x + w - 26, y + 3, 22, h - 10, '#7d2026');
+      srect(x + 10, y + 7, 7, h - 18, '#b43b3f');
+      srect(x + w - 17, y + 7, 7, h - 18, '#b43b3f');
+      srect(x + 23, y + h - 20, 9, 4, '#d3a35f');
+      srect(x + w - 32, y + h - 20, 9, 4, '#d3a35f');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'tallShelf') {
+      shadow(x + 6, y + h - 4, w - 12, 6, 0.18);
+      woodenFrame('#6f4830');
+      srect(x + 6, y + 7, w - 12, h - 14, '#7d5236');
+      for (let row = 0; row < 3; row++) {
+        const sy = y + 12 + row * 22;
+        srect(x + 8, sy + 13, w - 16, 3, '#3e251b');
+        const cols = ['#d09b55', '#79d5df', '#91b85b', '#b987d7', '#f2d8b5'];
+        for (let i = 0; i < 5; i++) srect(x + 10 + i * 12, sy + (i % 2), 7, 11, cols[(i + row) % cols.length]);
+      }
+      finishHighlight(); return;
+    }
+
+    if (kind === 'workbench' || kind === 'writingDesk') {
+      shadow(x + 8, y + h - 4, w - 16, 6, 0.18);
+      srect(x + 4, y + 10, w - 8, 10, '#845739');
+      srect(x + 8, y + 14, w - 16, 12, '#a06a47');
+      srect(x + 14, y + 15, 22, 10, '#e3d0a4');
+      srect(x + 42, y + 14, 10, 8, '#9fc36b');
+      srect(x + w - 18, y + 13, 10, 12, '#79d5df');
+      srect(x + 12, y + 29, 5, h - 31, '#5a3828');
+      srect(x + w - 17, y + 29, 5, h - 31, '#5a3828');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'blueBanner') {
+      srect(x + 14, y + 2, 36, 6, '#d3b360');
+      srect(x + 17, y + 8, 30, h - 16, '#244d8e');
+      ctx.fillStyle = '#244d8e';
+      ctx.beginPath();
+      ctx.moveTo(x + 17, y + h - 8); ctx.lineTo(x + 32, y + h + 6); ctx.lineTo(x + 47, y + h - 8); ctx.closePath(); ctx.fill();
+      srect(x + 30, y + 14, 4, h - 30, '#e8c96d');
+      srect(x + 23, y + 29, 18, 4, '#e8c96d');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'tinyPainting') {
+      woodenFrame('#263a4a');
+      srect(x + 7, y + 7, w - 14, h - 14, '#5d86aa');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'beigeBed' || kind === 'blueBed') {
+      shadow(x + 6, y + h - 4, w - 12, 8, 0.20);
+      srect(x, y + 8, w, h - 10, '#6a412d');
+      srect(x + 6, y + 12, w - 12, 18, '#efe0c9');
+      const blanket = kind === 'blueBed' ? '#274f8f' : '#ccb08f';
+      const blanket2 = kind === 'blueBed' ? '#3869b6' : '#dfc6a5';
+      srect(x + 7, y + 30, w - 14, h - 42, blanket);
+      srect(x + 10, y + 34, w - 20, 9, blanket2);
+      srect(x + 11, y + 15, w - 22, 10, '#fff5df');
+      srect(x + 10, y + h - 16, w - 20, 6, '#936c53');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'smallLampTable') {
+      shadow(x + 5, y + h - 4, w - 10, 5, 0.14);
+      woodenFrame('#84583c');
+      srect(x + 9, y + 4, w - 18, 11, '#69b7c7');
+      srect(x + 12, y + 16, w - 24, h - 24, '#9c6845');
+      srect(x + Math.floor(w / 2) - 2, y + 9, 4, 8, '#f2d58b');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'footChest' || kind === 'roundCrate') {
+      shadow(x + 6, y + h - 3, w - 12, 5, 0.16);
+      woodenFrame('#8a593c');
+      srect(x + 5, y + 5, w - 10, 8, '#5a3b69');
+      srect(x + Math.floor(w / 2) - 4, y + Math.floor(h / 2) - 2, 8, 8, '#d1ab61');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'stool' || kind === 'chair') {
+      srect(x + 6, y + 8, w - 12, 8, '#87593d');
+      srect(x + 10, y + 16, 4, 10, '#4e3124');
+      srect(x + w - 14, y + 16, 4, 10, '#4e3124');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'candleSideTable') {
+      shadow(x + 6, y + h - 4, w - 12, 6, 0.16);
+      srect(x + 4, y + 10, w - 8, 10, '#85583b');
+      srect(x + 10, y + 20, 5, h - 22, '#593727');
+      srect(x + w - 15, y + 20, 5, h - 22, '#593727');
+      srect(x + 8, y + 4, 5, 10, '#f8d48d');
+      srect(x + w - 13, y + 5, 5, 8, '#f8d48d');
+      srect(x + Math.floor(w / 2) - 4, y + 4, 8, 6, '#75cae4');
+      srect(x + 11, y + 27, 10, 10, '#6aa05a');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'roundTable') {
+      shadow(x + 10, y + h - 4, w - 20, 8, 0.17);
+      rr(x + 12, y + 7, w - 24, 25, 12, '#9a6647', '#3b241a');
+      srect(x + 22, y + 17, w - 44, 6, '#5c3928');
+      srect(x + Math.floor(w / 2) - 2, y + 28, 4, h - 30, '#5c3928');
+      srect(x + Math.floor(w / 2) - 3, y + 10, 6, 10, '#f7d58e');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'drawerLow' || kind === 'tallRack') {
+      shadow(x + 6, y + h - 4, w - 12, 6, 0.16);
+      woodenFrame('#764c34');
+      srect(x + 8, y + 12, w - 16, 8, '#d8bf96');
+      srect(x + 10, y + 24, w - 20, 6, '#c39461');
+      if (kind === 'tallRack') {
+        srect(x + w / 2 - 2, y + 5, 4, h - 10, '#4b2d20');
+        srect(x + 6, y + 14, w - 12, 4, '#8ea0b8');
+      }
+      finishHighlight(); return;
+    }
+
+    if (kind === 'weaponRack') {
+      srect(x + w / 2 - 3, y + 4, 6, h - 8, '#5c3928');
+      srect(x + w / 2 - 1, y + 2, 2, h - 4, '#d4e0ec');
+      srect(x + w / 2 - 6, y + 10, 12, 4, '#d1ab61');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'armorStand') {
+      shadow(x + 6, y + h - 4, w - 12, 5, 0.15);
+      srect(x + w / 2 - 2, y + 8, 4, h - 10, '#5d3a27');
+      srect(x + 6, y + 12, w - 12, 16, '#4b5668');
+      srect(x + 8, y + 15, w - 16, 8, '#8ea0b8');
+      finishHighlight(); return;
+    }
+
+    if (kind === 'exitMarker') {
+      srect(x + 6, y + 8, w - 12, 8, 'rgba(18,24,40,0.55)');
+      srect(x + Math.floor(w / 2) - 26, y + 11, 52, 2, '#d7b46a');
+      finishHighlight(); return;
+    }
+
+    drawFurnitureBeforeFaithfulRoom(obj);
+  };
+
+  const setActiveSceneBeforeFaithfulRoom = setActiveScene;
+  setActiveScene = function setActiveSceneFaithfulHeroRoom(scene) {
+    const result = setActiveSceneBeforeFaithfulRoom(scene);
+    if (currentScene === 'home') refreshFaithfulHeroRoomCollections();
+    return result;
+  };
+
+  const loadGameBeforeFaithfulRoom = loadGame;
+  loadGame = function loadGameFaithfulHeroRoom() {
+    const result = loadGameBeforeFaithfulRoom();
+    if (currentScene === 'home') refreshFaithfulHeroRoomCollections();
+    return result;
+  };
+
+  rebuildFaithfulHeroRoomOnly();
+  console.log('Eternal Rift patch carregado:', PATCH_VERSION);
+})();
+
+/* ==================================================
+   PATCH FIX: updatePlayerMovement ausente no interior do ferreiro
+   Corrige somente o erro ao entrar no ferreiro.
+   Nao altera HUD, inventario, casas, NPCs, vila, personagem, quarto ou sistemas.
+   ================================================== */
+function updatePlayerMovement(delta) {
+  const movement = typeof getMovementInput === "function" ? getMovementInput() : { x: 0, y: 0, strength: 1 };
+  const inputX = Number(movement.x || 0);
+  const inputY = Number(movement.y || 0);
+  const strength = Number.isFinite(Number(movement.strength)) ? Number(movement.strength) : 1;
+
+  player.moving = inputX !== 0 || inputY !== 0;
+
+  if (!player.moving) {
+    player.frame = 0;
+    player.animTimer = 0;
+    return;
+  }
+
+  const length = Math.hypot(inputX, inputY) || 1;
+  const speed = typeof getPlayerSpeed === "function" ? getPlayerSpeed() : Number(player.speed || 120);
+  const moveX = (inputX / length) * speed * strength * delta;
+  const moveY = (inputY / length) * speed * strength * delta;
+
+  if (Math.abs(inputX) > Math.abs(inputY)) {
+    player.direction = inputX > 0 ? "right" : "left";
+  } else if (inputY !== 0) {
+    player.direction = inputY > 0 ? "down" : "up";
+  }
+
+  if (typeof canMoveTo === "function") {
+    if (canMoveTo(player.x + moveX, player.y)) player.x += moveX;
+    if (canMoveTo(player.x, player.y + moveY)) player.y += moveY;
+  } else {
+    player.x += moveX;
+    player.y += moveY;
+  }
+
+  player.animTimer = Number(player.animTimer || 0) + delta;
+  if (player.animTimer > 0.14) {
+    player.frame = (Number(player.frame || 0) + 1) % 4;
+    player.animTimer = 0;
+  }
+}
+
+/* ==================================================
+   PATCH SEGURO: Restaurar textura dos biomas
+   Escopo: corrige somente renderização de chão/biomas no mapa externo.
+   Não altera HUD, inventário, casas, NPCs, ferreiro, personagem ou quarto.
+   Motivo: um patch de textura da vila estava afetando a vila inteira e deixando
+   outros biomas com aparência plana/errada.
+   ================================================== */
+(function eternalRiftRestoreBiomeTexturesPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_RESTORE_BIOME_TEXTURES_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_RESTORE_BIOME_TEXTURES_PATCH = true;
+
+  const prevGrass = typeof drawGrass === "function" ? drawGrass : null;
+  const prevForest = typeof drawForestGrass === "function" ? drawForestGrass : null;
+  const prevDirt = typeof drawDirt === "function" ? drawDirt : null;
+  const prevPlaza = typeof drawPlaza === "function" ? drawPlaza : null;
+  const prevWater = typeof drawWater === "function" ? drawWater : null;
+
+  function bh(tx, ty, salt = 0) {
+    let n = (tx * 374761393 + ty * 668265263 + salt * 1442695041) | 0;
+    n = (n ^ (n >>> 13)) * 1274126177;
+    n = (n ^ (n >>> 16)) >>> 0;
+    return n / 4294967295;
+  }
+
+  function r(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+
+  function mainVillageTextureZone(tx, ty) {
+    return tx >= 16 && tx <= 62 && ty >= 4 && ty <= 44;
+  }
+
+  function inVolcano(tx, ty) { return tx >= 150 && tx <= 224 && ty >= 8 && ty <= 58; }
+  function inShadow(tx, ty) { return tx >= 10 && tx <= 92 && ty >= 102 && ty <= 160; }
+  function inOcean(tx, ty) { return tx >= 112 && tx <= 226 && ty >= 96 && ty <= 164; }
+
+  function drawRestoredGrass(px, py, tx, ty, forest = false) {
+    if (inVolcano(tx, ty)) return drawRestoredAsh(px, py, tx, ty, forest);
+    if (inShadow(tx, ty)) return drawRestoredShadowGrass(px, py, tx, ty, forest);
+    if (inOcean(tx, ty)) return drawRestoredShore(px, py, tx, ty);
+
+    const h = bh(tx, ty, forest ? 210 : 200);
+    const base = forest
+      ? (h < 0.45 ? "#2e7f49" : h < 0.75 ? "#276f40" : "#348a4f")
+      : (h < 0.34 ? "#64a843" : h < 0.68 ? "#75b84d" : "#57973b");
+    r(px, py, TILE, TILE, base);
+    r(px, py + 24, TILE, 8, forest ? "rgba(18,60,34,.28)" : "rgba(35,80,27,.20)");
+    r(px + 2, py + 2, TILE - 4, 2, "rgba(220,255,170,.10)");
+    const blade = forest ? "#1f633c" : "#2f843e";
+    if (bh(tx, ty, 201) > 0.18) { r(px + 5, py + 18, 2, 8, blade); r(px + 8, py + 14, 2, 10, "#3d9a4d"); r(px + 11, py + 21, 2, 5, blade); }
+    if (bh(tx, ty, 202) > 0.52) { r(px + 22, py + 11, 2, 9, blade); r(px + 24, py + 16, 4, 2, "#4eaa55"); }
+    if (!forest && bh(tx, ty, 203) > 0.84) { r(px + 7, py + 9, 2, 2, "#fff0a6"); r(px + 10, py + 8, 2, 2, "#ff9fd3"); }
+    if (forest && bh(tx, ty, 204) > 0.70) { r(px + 14, py + 8, 5, 3, "rgba(20,46,31,.25)"); r(px + 18, py + 18, 7, 3, "rgba(15,38,26,.22)"); }
+  }
+
+  function drawRestoredDirt(px, py, tx, ty, plaza = false) {
+    if (inVolcano(tx, ty)) return drawRestoredBasalt(px, py, tx, ty, plaza);
+    if (inShadow(tx, ty)) return drawRestoredShadowPath(px, py, tx, ty, plaza);
+    if (inOcean(tx, ty)) return plaza ? drawRestoredSubmergedRoad(px, py, tx, ty) : drawRestoredShore(px, py, tx, ty);
+
+    if (plaza) return drawRestoredCobble(px, py, tx, ty);
+    const h = bh(tx, ty, 300);
+    const base = h < 0.38 ? "#9a7147" : h < 0.72 ? "#ad7d4f" : "#815f3c";
+    r(px, py, TILE, TILE, base);
+    r(px, py + 25, TILE, 7, "rgba(51,35,22,.22)");
+    r(px + 2, py + 2, TILE - 4, 2, "rgba(238,202,138,.15)");
+    if (bh(tx, ty, 301) > 0.17) r(px + 5, py + 13, 7, 3, "#d0bb99");
+    if (bh(tx, ty, 302) > 0.37) r(px + 19, py + 8, 5, 3, "#d8c39c");
+    if (bh(tx, ty, 303) > 0.56) r(px + 22, py + 22, 5, 2, "#5f442d");
+    if (bh(tx, ty, 304) > 0.72) { r(px + 2, py + 26, 6, 2, "#547e35"); r(px + 25, py + 25, 5, 2, "#547e35"); }
+  }
+
+  function drawRestoredCobble(px, py, tx, ty) {
+    const base = (tx + ty) % 2 === 0 ? "#b8a68e" : "#a99780";
+    r(px, py, TILE, TILE, base);
+    r(px, py + 25, TILE, 7, "rgba(56,48,41,.18)");
+    ctx.strokeStyle = "rgba(76,65,56,.46)";
+    ctx.lineWidth = 1;
+    const pattern = (tx + ty) % 2 === 0
+      ? [[2,3,11,8],[15,2,14,9],[3,13,9,8],[13,13,8,7],[22,12,7,9],[10,22,12,6]]
+      : [[2,2,10,9],[13,3,8,8],[22,2,8,10],[4,14,11,8],[17,14,11,7],[11,23,10,5]];
+    for (const [ox, oy, w, h] of pattern) {
+      r(px + ox, py + oy, w, h, bh(tx + ox, ty + oy, 310) > 0.5 ? "#c5b197" : "#9d8d78");
+      ctx.strokeRect(Math.round(px + ox) + 0.5, Math.round(py + oy) + 0.5, w - 1, h - 1);
+      if (w > 8) r(px + ox + 2, py + oy + 2, Math.max(2, w - 5), 1, "rgba(255,244,223,.18)");
+    }
+    if (bh(tx, ty, 311) > 0.78) r(px + 6, py + 28, 5, 2, "#6b884f");
+  }
+
+  function drawRestoredWater(px, py, tx, ty) {
+    if (inOcean(tx, ty)) return drawRestoredDeepOcean(px, py, tx, ty);
+    if (inShadow(tx, ty)) return drawRestoredShadowWater(px, py, tx, ty);
+    const t = performance.now() / 1000;
+    const grad = ctx.createLinearGradient(px, py, px + TILE, py + TILE);
+    grad.addColorStop(0, "#3aa6e0"); grad.addColorStop(.58, "#2377b7"); grad.addColorStop(1, "#195d96");
+    ctx.fillStyle = grad; ctx.fillRect(px, py, TILE, TILE);
+    r(px + 4, py + 8 + Math.sin(t * 3 + tx) * 2, 10, 2, "rgba(210,250,255,.58)");
+    r(px + 17, py + 18 + Math.cos(t * 2.2 + ty) * 2, 11, 2, "rgba(150,230,255,.48)");
+  }
+
+  function drawRestoredAsh(px, py, tx, ty, forest = false) {
+    const flicker = 0.10 + Math.sin(performance.now() * 0.006 + tx) * 0.04;
+    r(px, py, TILE, TILE, forest ? "#514047" : "#5d4648");
+    r(px + 3, py + 4, 9, 2, "#7b6264"); r(px + 16, py + 19, 10, 2, "#392c31");
+    r(px + 7, py + 12, 4, 2, `rgba(255,108,50,${flicker})`); r(px + 22, py + 7, 3, 2, `rgba(255,184,72,${flicker})`);
+  }
+
+  function drawRestoredBasalt(px, py, tx, ty, plaza = false) {
+    r(px, py, TILE, TILE, plaza ? "#352f36" : "#46363a");
+    ctx.strokeStyle = "rgba(110,95,104,.48)"; ctx.strokeRect(px + 2.5, py + 2.5, TILE - 5, TILE - 5);
+    r(px + 6, py + 7, 8, 2, "rgba(150,130,128,.25)"); r(px + 14, py + 20, 11, 2, "rgba(255,114,54,.10)");
+  }
+
+  function drawRestoredShadowGrass(px, py, tx, ty, forest = false) {
+    const t = performance.now() / 1000;
+    r(px, py, TILE, TILE, forest ? "#201532" : "#2a1b3d");
+    r(px + 5, py + 6, 8, 2, "rgba(170,110,255,.16)"); r(px + 17, py + 21, 6, 2, "rgba(130,85,200,.20)");
+    if (bh(tx, ty, 420) > 0.50) r(px + 7, py + 17, 2, 9, "#4c326f");
+    if (bh(tx, ty, 421) > 0.77) r(px + 14, py + 10, 4, 4, `rgba(220,188,255,${0.15 + Math.sin(t * 3 + tx) * 0.04})`);
+  }
+
+  function drawRestoredShadowPath(px, py, tx, ty, plaza = false) {
+    r(px, py, TILE, TILE, plaza ? "#665573" : "#554462");
+    r(px + 4, py + 5, 7, 2, "rgba(220,204,255,.16)"); r(px + 18, py + 19, 7, 2, "rgba(35,23,50,.22)");
+    if (bh(tx, ty, 430) > 0.70) r(px + 12, py + 24, 6, 2, "#2d1f3f");
+  }
+
+  function drawRestoredShadowWater(px, py, tx, ty) {
+    const t = performance.now() / 1000;
+    const grad = ctx.createLinearGradient(px, py, px, py + TILE);
+    grad.addColorStop(0, "#4e2c67"); grad.addColorStop(1, "#211532");
+    ctx.fillStyle = grad; ctx.fillRect(px, py, TILE, TILE);
+    ctx.strokeStyle = `rgba(198,150,255,${0.24 + Math.sin(t * 3 + tx) * 0.06})`;
+    ctx.beginPath(); ctx.moveTo(px + 3, py + 12); ctx.lineTo(px + 13, py + 9); ctx.lineTo(px + 27, py + 14); ctx.stroke();
+  }
+
+  function drawRestoredShore(px, py, tx, ty) {
+    r(px, py, TILE, TILE, (tx + ty) % 2 ? "#d2bf84" : "#ddce95");
+    r(px + 3, py + 22, 26, 5, "rgba(65,185,209,.18)"); r(px + 6, py + 24, 8, 1, "rgba(255,255,255,.22)");
+    if (bh(tx, ty, 500) > 0.62) r(px + 20, py + 8, 5, 3, "#7fbf9e");
+  }
+
+  function drawRestoredDeepOcean(px, py, tx, ty) {
+    const t = performance.now() / 1000;
+    const grad = ctx.createLinearGradient(px, py, px + TILE, py + TILE);
+    grad.addColorStop(0, "#0f6d99"); grad.addColorStop(.6, "#0a446d"); grad.addColorStop(1, "#082d49");
+    ctx.fillStyle = grad; ctx.fillRect(px, py, TILE, TILE);
+    ctx.strokeStyle = `rgba(153,244,255,${0.20 + Math.sin(t * 1.6 + ty) * 0.05})`;
+    ctx.beginPath(); ctx.moveTo(px + 4, py + 17); ctx.lineTo(px + 15, py + 14); ctx.lineTo(px + 27, py + 18); ctx.stroke();
+  }
+
+  function drawRestoredSubmergedRoad(px, py, tx, ty) {
+    r(px, py, TILE, TILE, (tx + ty) % 2 ? "#788a9c" : "#8fa0b2");
+    r(px, py, TILE, TILE, "rgba(18,111,148,.25)");
+    r(px + 5, py + 4, 8, 2, "rgba(255,255,255,.15)"); r(px + 18, py + 21, 8, 2, "rgba(5,43,65,.16)");
+  }
+
+  drawGrass = function drawGrassBiomeRestored(x, y, tx, ty) {
+    if (currentScene === "village" && !mainVillageTextureZone(tx, ty)) return drawRestoredGrass(x, y, tx, ty, false);
+    return prevGrass ? prevGrass(x, y, tx, ty) : drawRestoredGrass(x, y, tx, ty, false);
+  };
+
+  drawForestGrass = function drawForestGrassBiomeRestored(x, y, tx, ty) {
+    if (currentScene === "village" && !mainVillageTextureZone(tx, ty)) return drawRestoredGrass(x, y, tx, ty, true);
+    return prevForest ? prevForest(x, y, tx, ty) : drawRestoredGrass(x, y, tx, ty, true);
+  };
+
+  drawDirt = function drawDirtBiomeRestored(x, y, tx, ty) {
+    if (currentScene === "village" && !mainVillageTextureZone(tx, ty)) return drawRestoredDirt(x, y, tx, ty, false);
+    return prevDirt ? prevDirt(x, y, tx, ty) : drawRestoredDirt(x, y, tx, ty, false);
+  };
+
+  drawPlaza = function drawPlazaBiomeRestored(x, y, tx, ty) {
+    if (currentScene === "village" && !mainVillageTextureZone(tx, ty)) return drawRestoredDirt(x, y, tx, ty, true);
+    return prevPlaza ? prevPlaza(x, y, tx, ty) : drawRestoredCobble(x, y, tx, ty);
+  };
+
+  drawWater = function drawWaterBiomeRestored(x, y, tx, ty) {
+    if (currentScene === "village" && !mainVillageTextureZone(tx, ty)) return drawRestoredWater(x, y, tx, ty);
+    return prevWater ? prevWater(x, y, tx, ty) : drawRestoredWater(x, y, tx, ty);
+  };
+
+  // Substitui o overlay global que estava pintando detalhes da Vila Principal em todos os biomas.
+  const prevOverlay = typeof drawSceneGroundOverlayV2 === "function" ? drawSceneGroundOverlayV2 : null;
+  drawSceneGroundOverlayV2 = function drawSceneGroundOverlayBiomeRestored() {
+    if (currentScene !== "village") return prevOverlay ? prevOverlay() : undefined;
+    if (!Array.isArray(worldMap) || !worldMap.length) return;
+    const viewW = typeof getZoomedViewWidth === "function" ? getZoomedViewWidth() : canvas.width;
+    const viewH = typeof getZoomedViewHeight === "function" ? getZoomedViewHeight() : canvas.height;
+    const startCol = Math.max(0, Math.floor(camera.x / TILE) - 1);
+    const endCol = Math.min(worldMap[0].length - 1, Math.ceil((camera.x + viewW) / TILE) + 1);
+    const startRow = Math.max(0, Math.floor(camera.y / TILE) - 1);
+    const endRow = Math.min(worldMap.length - 1, Math.ceil((camera.y + viewH) / TILE) + 1);
+    for (let ty = startRow; ty <= endRow; ty += 1) {
+      for (let tx = startCol; tx <= endCol; tx += 1) {
+        if (!mainVillageTextureZone(tx, ty)) continue;
+        const tile = worldMap[ty]?.[tx];
+        const px = tx * TILE, py = ty * TILE;
+        if ((tile === "G" || tile === "F") && bh(tx, ty, 700) > 0.88) { r(px + 8, py + 10, 2, 2, "#fff5d1"); r(px + 10, py + 9, 2, 2, "#ff8bc1"); }
+        if ((tile === "D" || tile === "P") && bh(tx, ty, 701) > 0.78) { r(px + 7, py + 18, 5, 3, "#d5c4aa"); r(px + 13, py + 17, 3, 2, "#81684d"); }
+      }
+    }
+  };
+
+  try { window.ETERNAL_RIFT_CURRENT_VERSION = "biome-textures-restored-20260707"; } catch (error) {}
+})();
+
+/* ==================================================
+   SAFE FIX: updateCamera ausente no interior do ferreiro
+   Corrige o erro "updateCamera is not defined" sem alterar HUD, inventario,
+   casas, NPCs, biomas, personagem, quarto ou visual do ferreiro.
+   ================================================== */
+function updateCamera() {
+  const viewW = typeof getZoomedViewWidth === "function" ? getZoomedViewWidth() : canvas.width;
+  const viewH = typeof getZoomedViewHeight === "function" ? getZoomedViewHeight() : canvas.height;
+  const sceneW = currentScene === "blacksmithInterior" ? HOME_WIDTH : (typeof getSceneWidth === "function" ? getSceneWidth() : HOME_WIDTH);
+  const sceneH = currentScene === "blacksmithInterior" ? HOME_HEIGHT : (typeof getSceneHeight === "function" ? getSceneHeight() : HOME_HEIGHT);
+  camera.x = clamp(player.x + player.width / 2 - viewW / 2, 0, Math.max(0, sceneW - viewW));
+  camera.y = clamp(player.y + player.height / 2 - viewH / 2, 0, Math.max(0, sceneH - viewH));
+}
+
+(function safeBlacksmithSceneSizeFix() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BLACKSMITH_CAMERA_SIZE_FIX) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BLACKSMITH_CAMERA_SIZE_FIX = true;
+
+  const getSceneWidthBeforeBlacksmithCameraFix = typeof getSceneWidth === "function" ? getSceneWidth : null;
+  const getSceneHeightBeforeBlacksmithCameraFix = typeof getSceneHeight === "function" ? getSceneHeight : null;
+
+  if (getSceneWidthBeforeBlacksmithCameraFix) {
+    getSceneWidth = function getSceneWidthBlacksmithCameraFixed() {
+      if (currentScene === "blacksmithInterior") return HOME_WIDTH;
+      return getSceneWidthBeforeBlacksmithCameraFix();
+    };
+  }
+
+  if (getSceneHeightBeforeBlacksmithCameraFix) {
+    getSceneHeight = function getSceneHeightBlacksmithCameraFixed() {
+      if (currentScene === "blacksmithInterior") return HOME_HEIGHT;
+      return getSceneHeightBeforeBlacksmithCameraFix();
+    };
+  }
 })();

@@ -1,19 +1,33 @@
-ETERNAL RIFT - HITBOX MELHORADA 2026-07-06
-- mobile-inventory-legacy-20260706: inventario antigo restaurado no mobile; o Inventory Rework novo continua ativo no PC.
+hero-reference-sprite-animation-20260707
+- personagem trocado para o herói azul/dourado da referência
+- animação de parado, andar e ataque adicionada
+- sem gerar imagem nova
+- sem remover HUD, inventário, vila, casas ou sistemas
 
-- mobile-clean-hud-only-20260706: HUD principal mobile mais limpo; oxigenio, moedas, classe/contrato e boss fixo ficam ocultos somente no celular, sem alterar PC nem remover sistemas.
 
-- espada, arco e cajado com hitbox direcional melhorada
-- projeteis de arco/cajado saem melhor alinhados
-- mantida a correcao da espada duplicada
+npcs-animated-fixed-20260707
+- corrige sprites dos NPCs da referência
+- remove cortes/partes pretas/frames quebrados
+- ajusta escala dos NPCs para não ficarem gigantes ou bugados
 
-- small-enemy-reference-sprites-20260706-1: inimigos menores com sprites reais enviados pelo usuario.
 
-Hotfix: mobile anti-lag extremo sem remover conteúdo.
+safe-restore-hero-room-tilemap-20260707
+- base restaurada para preservar HUD, inventário, casas, NPCs e chão da vila
+- adiciona Quarto do Herói em tilemap somente no interior da casa do jogador
+- mantém ferreiro como construção extra, sem substituir casas
 
-- mobile-ultra-real-anti-lag-20260706-2: modo ultra real para celular fraco, sem remover conteúdo.
+hero-room-faithful-tilemap-safe-20260707
+- base segura preservada
+- substitui somente o interior do quarto do herói
+- tilemap com móveis separados e iluminação quente
+- não altera HUD, inventário, casas, NPCs, vila, ferreiro ou personagem
 
-- HUD mobile estilo MMORPG igual à foto de referência, sem gerar imagem nova.
+ferreiro-camera-fixed-20260707
+- corrige updateCamera is not defined no interior do ferreiro
+- corrige tamanho de cena do interior do ferreiro para camera
+- preserva as demais alterações
 
-- FINAL REAL: HUD da foto ativado em PC e mobile.
-- FINAL REAL: mobile potato/ultra com canvas menor, mapa leve, IA distante dormindo, HUD/mini mapa com throttle e FPS estável.
+
+mobile-hud-clean-only-20260707
+- remove HUDs/botões inúteis SOMENTE no mobile
+- mantém PC e todos os outros sistemas intactos
