@@ -13392,3 +13392,57 @@ body.is-mobile.er-mobile-classic-hud-only .touch-actions {
   opacity: 1 !important;
   pointer-events: auto !important;
 }
+
+/* =========================================================
+   HARD FIX 20260707: remover o HUD NOVO SOMENTE no mobile
+   Este bloco não altera PC. Ele só age em celular/tela pequena/toque.
+   ========================================================= */
+@media (max-width: 900px), (pointer: coarse) {
+  body #erMmoHud,
+  body .er-mmo-hud,
+  body.er-mmo-hud-active #erMmoHud,
+  body.er-final-photo-hud #erMmoHud,
+  body.er-mobile-no-new-hud-hard #erMmoHud,
+  body.er-mobile-no-new-hud-hard .er-mmo-hud {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    transform: scale(0) !important;
+  }
+
+  /* Se patches antigos ligarem as classes do HUD novo, o HUD mobile limpo continua aparecendo. */
+  body.er-mobile-no-new-hud-hard .hud,
+  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .hud,
+  body.er-mobile-no-new-hud-hard.er-final-photo-hud .hud,
+  body.er-mobile-no-new-hud-hard .touch-actions,
+  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .touch-actions,
+  body.er-mobile-no-new-hud-hard.er-final-photo-hud .touch-actions {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  body.er-mobile-no-new-hud-hard .hud,
+  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .hud,
+  body.er-mobile-no-new-hud-hard.er-final-photo-hud .hud {
+    display: grid !important;
+  }
+
+  body.er-mobile-no-new-hud-hard .touch-actions,
+  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .touch-actions,
+  body.er-mobile-no-new-hud-hard.er-final-photo-hud .touch-actions {
+    display: grid !important;
+  }
+
+  body.er-mobile-no-new-hud-hard .joystick-base,
+  body.er-mobile-no-new-hud-hard.er-mmo-hud-active .joystick-base,
+  body.er-mobile-no-new-hud-hard.er-final-photo-hud .joystick-base {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}

@@ -65973,3 +65973,98 @@ function updateCamera() {
   setTimeout(disableNewMobileHudOnly, 800);
   setInterval(disableNewMobileHudOnly, 700);
 })();
+
+/* =========================================================
+   HARD FIX FINAL: tirar o HUD novo SOMENTE no mobile
+   Não mexe em PC, inventário, casas, NPCs, vila, ferreiro, biomas,
+   personagem, quarto ou sistemas. Apenas bloqueia o #erMmoHud no mobile.
+   ========================================================= */
+(function eternalRiftHardRemoveNewMobileHudOnly() {
+  const PATCH_ID = "mobile-new-hud-hard-removed-20260707";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_HARD_REMOVE_NEW_MOBILE_HUD === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_HARD_REMOVE_NEW_MOBILE_HUD = PATCH_ID;
+
+  function isMobileStrong() {
+    try {
+      return Boolean(
+        document.body?.classList.contains("is-mobile") ||
+        window.matchMedia?.("(max-width: 900px), (pointer: coarse)")?.matches ||
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "")
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function restoreLegacyMiniMapParent() {
+    try {
+      const mini = document.getElementById("miniMapCanvas");
+      const panel = document.querySelector(".game-panel");
+      const anchor = document.getElementById("orientationHint");
+      if (mini && panel && mini.parentElement?.id === "erMmoMiniBox") {
+        panel.insertBefore(mini, anchor || null);
+      }
+    } catch (error) {}
+  }
+
+  function hardDisableNewHudOnly() {
+    if (!isMobileStrong()) {
+      document.body?.classList.remove("er-mobile-no-new-hud-hard");
+      return;
+    }
+
+    document.body?.classList.add("er-mobile-no-new-hud-hard", "er-mobile-classic-hud-only");
+    document.body?.classList.remove("er-mmo-hud-active", "er-final-photo-hud");
+
+    restoreLegacyMiniMapParent();
+
+    const hud = document.getElementById("erMmoHud");
+    if (hud) {
+      hud.setAttribute("aria-hidden", "true");
+      hud.style.setProperty("display", "none", "important");
+      hud.style.setProperty("visibility", "hidden", "important");
+      hud.style.setProperty("opacity", "0", "important");
+      hud.style.setProperty("pointer-events", "none", "important");
+      hud.style.setProperty("width", "0", "important");
+      hud.style.setProperty("height", "0", "important");
+      hud.style.setProperty("overflow", "hidden", "important");
+      hud.style.setProperty("transform", "scale(0)", "important");
+    }
+  }
+
+  const updateHudBeforeHardRemoveMobileHud = typeof updateHud === "function" ? updateHud : null;
+  if (updateHudBeforeHardRemoveMobileHud) {
+    updateHud = function updateHudHardRemoveMobileNewHudOnly(force = false) {
+      const result = updateHudBeforeHardRemoveMobileHud(force);
+      try { hardDisableNewHudOnly(); } catch (error) {}
+      return result;
+    };
+  }
+
+  const ensureCanvasSizeBeforeHardRemoveMobileHud = typeof ensureCanvasSize === "function" ? ensureCanvasSize : null;
+  if (ensureCanvasSizeBeforeHardRemoveMobileHud) {
+    ensureCanvasSize = function ensureCanvasSizeHardRemoveMobileNewHudOnly(force = false) {
+      const result = ensureCanvasSizeBeforeHardRemoveMobileHud(force);
+      try { hardDisableNewHudOnly(); } catch (error) {}
+      return result;
+    };
+  }
+
+  try {
+    const observer = new MutationObserver(() => hardDisableNewHudOnly());
+    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+  } catch (error) {}
+
+  window.addEventListener("resize", () => setTimeout(hardDisableNewHudOnly, 40), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(hardDisableNewHudOnly, 80), { passive: true });
+  window.addEventListener("load", () => hardDisableNewHudOnly(), { passive: true });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) setTimeout(hardDisableNewHudOnly, 40);
+  });
+
+  setTimeout(hardDisableNewHudOnly, 0);
+  setTimeout(hardDisableNewHudOnly, 60);
+  setTimeout(hardDisableNewHudOnly, 180);
+  setTimeout(hardDisableNewHudOnly, 500);
+  setInterval(hardDisableNewHudOnly, 90);
+})();

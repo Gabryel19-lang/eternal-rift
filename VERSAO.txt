@@ -1,37 +1,18 @@
-hero-reference-sprite-animation-20260707
-- personagem trocado para o herói azul/dourado da referência
-- animação de parado, andar e ataque adicionada
-- sem gerar imagem nova
-- sem remover HUD, inventário, vila, casas ou sistemas
+Eternal Rift - mobile-new-hud-hard-removed-20260707
 
+Alterado SOMENTE no mobile:
+- Bloqueado/removido visualmente o HUD novo MMORPG (#erMmoHud).
+- Mantido HUD mobile limpo/anterior, joystick e botões essenciais.
 
-npcs-animated-fixed-20260707
-- corrige sprites dos NPCs da referência
-- remove cortes/partes pretas/frames quebrados
-- ajusta escala dos NPCs para não ficarem gigantes ou bugados
-
-
-safe-restore-hero-room-tilemap-20260707
-- base restaurada para preservar HUD, inventário, casas, NPCs e chão da vila
-- adiciona Quarto do Herói em tilemap somente no interior da casa do jogador
-- mantém ferreiro como construção extra, sem substituir casas
-
-hero-room-faithful-tilemap-safe-20260707
-- base segura preservada
-- substitui somente o interior do quarto do herói
-- tilemap com móveis separados e iluminação quente
-- não altera HUD, inventário, casas, NPCs, vila, ferreiro ou personagem
-
-ferreiro-camera-fixed-20260707
-- corrige updateCamera is not defined no interior do ferreiro
-- corrige tamanho de cena do interior do ferreiro para camera
-- preserva as demais alterações
-
-
-mobile-hud-clean-only-20260707
-- remove HUDs/botões inúteis SOMENTE no mobile
-- mantém PC e todos os outros sistemas intactos
-
-mobile-no-new-hud-only-20260707
-- remove HUD novo somente no mobile
-- mantém PC e todos os outros sistemas intactos
+Não alterado:
+- PC
+- HUD do PC
+- Inventário
+- Casas
+- NPCs
+- Vila
+- Ferreiro
+- Biomas
+- Personagem
+- Quarto
+- Sistemas do jogo
