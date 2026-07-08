@@ -1,0 +1,16 @@
+ETERNAL RIFT - VILA/FLORESTA ORGÂNICA SEM QUADRADO
+
+Correção feita:
+- Corrigido somente o visual da vila e floresta.
+- Agora está orgânico, sem quadrado, mas sem o aspecto torto.
+- O bioma de fogo foi preservado.
+- Boss de 3 fases preservado.
+- HUD, inventário, casas, NPCs, ferreiro, personagem, quarto e sistemas preservados.
+- PC e mobile.
+
+Arquivos usados:
+- assets/terrain/village-forest-reference-sheet.png
+- assets/terrain/fire-biome-reference-sheet.png
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache velho.

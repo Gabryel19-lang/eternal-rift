@@ -1,0 +1,9 @@
+ETERNAL RIFT - MENU INTERATIVO CORRIGIDO SEM REVERTER AO ANTIGO
+
+Correção feita:
+- Usei como base o menu interativo novo, não o menu antigo.
+- Corrigi apenas Novo Jogo / Continuar para fechar o menu quando o jogo começa.
+- Não mexi em biomas, personagem, boss, HUD, inventário, NPCs, casas, ferreiro, combate ou sistemas.
+
+Dica:
+- Abra em pasta limpa ou use Ctrl+F5 para evitar cache.

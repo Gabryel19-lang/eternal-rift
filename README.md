@@ -1194,3 +1194,6 @@ Nesta versao:
 - `app.js` nao foi alterado.
 - Apenas `styles.css` recebeu um bloqueio visual do `#erMmoHud` em mobile.
 - PC e sistemas do jogo permanecem intactos.
+
+
+Alteração aplicada: personagem principal trocado para Rogue/Assassin com spritesheet funcional (idle, walk, attack slash e dash slash), para PC e mobile, sem mexer nas outras partes do jogo.

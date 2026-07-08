@@ -65918,3 +65918,1979 @@ function updateCamera() {
     };
   }
 })();
+
+
+/* ==================================================
+   ETERNAL RIFT - SENHOR DO ECLIPSE FLAMEJANTE
+   Escopo: adiciona somente o chefe de 3 fases no bioma vulcanico.
+   PC + mobile. Usa o spritesheet enviado pelo usuario como asset.
+   Nao altera HUD, inventario, casas, NPCs, vila, ferreiro, quarto ou outros sistemas.
+   ================================================== */
+(function eternalRiftInfernoEclipseRaidPatch() {
+  const PATCH_ID = "inferno-eclipse-3phase-pc-mobile-20260708";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_INFERNO_ECLIPSE_RAID_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_INFERNO_ECLIPSE_RAID_PATCH = PATCH_ID;
+    window.ETERNAL_RIFT_CURRENT_VERSION = PATCH_ID;
+  }
+
+  const INFERNO_KIND = "senhorEclipseFlamejante";
+  const INFERNO_NAME = "Senhor do Eclipse Flamejante";
+  const INFERNO_ITEM = "Nucleo do Eclipse Flamejante";
+  const INFERNO_TILE = { x: 207, y: 31 };
+  const INFERNO_PHASES = {
+    1: { width: 58, height: 68, visualW: 104, visualH: 92, hpLine: 0.66, attackDelay: 1.12, damage: 4, speed: 42 },
+    2: { width: 82, height: 84, visualW: 138, visualH: 122, hpLine: 0.33, attackDelay: 0.94, damage: 6, speed: 48 },
+    3: { width: 106, height: 98, visualW: 176, visualH: 150, hpLine: 0, attackDelay: 0.78, damage: 8, speed: 38 }
+  };
+
+  const atlasImg = new Image();
+  atlasImg.decoding = "async";
+  atlasImg.src = "assets/boss/infernal-eclipse-3phase-atlas.png?v=" + PATCH_ID;
+  const ATLAS = {"p1_idle":[{"x":2,"y":2,"w":102,"h":82},{"x":106,"y":2,"w":97,"h":79},{"x":205,"y":2,"w":100,"h":79},{"x":307,"y":2,"w":100,"h":79},{"x":409,"y":2,"w":98,"h":80},{"x":509,"y":2,"w":103,"h":76},{"x":614,"y":2,"w":99,"h":79}],"p1_attack":[{"x":2,"y":138,"w":94,"h":71},{"x":98,"y":138,"w":96,"h":71},{"x":196,"y":138,"w":104,"h":69},{"x":302,"y":138,"w":104,"h":63},{"x":408,"y":138,"w":104,"h":63},{"x":514,"y":138,"w":99,"h":71},{"x":615,"y":138,"w":104,"h":69},{"x":721,"y":138,"w":61,"h":71}],"p1_skill":[{"x":2,"y":274,"w":82,"h":68},{"x":86,"y":274,"w":104,"h":71},{"x":192,"y":274,"w":104,"h":69},{"x":298,"y":274,"w":104,"h":63},{"x":404,"y":274,"w":104,"h":71},{"x":510,"y":274,"w":104,"h":62},{"x":616,"y":274,"w":104,"h":61},{"x":722,"y":274,"w":220,"h":61}],"p1_hurt":[{"x":2,"y":410,"w":75,"h":54},{"x":79,"y":410,"w":104,"h":62},{"x":185,"y":410,"w":104,"h":62},{"x":291,"y":410,"w":104,"h":62},{"x":397,"y":410,"w":104,"h":62}],"p1_death":[{"x":2,"y":546,"w":104,"h":65},{"x":108,"y":546,"w":104,"h":65},{"x":214,"y":546,"w":104,"h":65},{"x":320,"y":546,"w":98,"h":65},{"x":420,"y":546,"w":99,"h":65},{"x":521,"y":546,"w":104,"h":57},{"x":627,"y":546,"w":104,"h":43}],"p2_idle":[{"x":2,"y":682,"w":104,"h":88},{"x":108,"y":682,"w":104,"h":88},{"x":214,"y":682,"w":104,"h":88},{"x":320,"y":682,"w":104,"h":88},{"x":426,"y":682,"w":104,"h":88},{"x":532,"y":682,"w":104,"h":88},{"x":638,"y":682,"w":104,"h":88}],"p2_attack":[{"x":2,"y":818,"w":98,"h":71},{"x":102,"y":818,"w":104,"h":71},{"x":208,"y":818,"w":104,"h":71},{"x":314,"y":818,"w":104,"h":71},{"x":420,"y":818,"w":180,"h":71},{"x":602,"y":818,"w":104,"h":64}],"p2_skill":[{"x":2,"y":954,"w":100,"h":71},{"x":104,"y":954,"w":104,"h":71},{"x":210,"y":954,"w":104,"h":71},{"x":316,"y":954,"w":104,"h":71},{"x":422,"y":954,"w":104,"h":71},{"x":528,"y":954,"w":210,"h":71},{"x":740,"y":954,"w":98,"h":71}],"p2_hurt":[{"x":2,"y":1090,"w":104,"h":62},{"x":108,"y":1090,"w":93,"h":62},{"x":203,"y":1090,"w":104,"h":62},{"x":309,"y":1090,"w":76,"h":62},{"x":387,"y":1090,"w":104,"h":62}],"p2_death":[{"x":2,"y":1226,"w":94,"h":66},{"x":98,"y":1226,"w":104,"h":66},{"x":204,"y":1226,"w":104,"h":66},{"x":310,"y":1226,"w":104,"h":66},{"x":416,"y":1226,"w":104,"h":66},{"x":522,"y":1226,"w":104,"h":61},{"x":628,"y":1226,"w":104,"h":56},{"x":734,"y":1226,"w":98,"h":45}],"p3_idle":[{"x":2,"y":1362,"w":104,"h":96},{"x":108,"y":1362,"w":104,"h":96},{"x":214,"y":1362,"w":104,"h":96},{"x":320,"y":1362,"w":104,"h":96},{"x":426,"y":1362,"w":104,"h":96},{"x":532,"y":1362,"w":104,"h":96}],"p3_attack":[{"x":2,"y":1498,"w":100,"h":75},{"x":104,"y":1498,"w":104,"h":75},{"x":210,"y":1498,"w":104,"h":75},{"x":316,"y":1498,"w":190,"h":75},{"x":508,"y":1498,"w":220,"h":75}],"p3_skill":[{"x":2,"y":1634,"w":101,"h":71},{"x":105,"y":1634,"w":104,"h":71},{"x":211,"y":1634,"w":104,"h":71},{"x":317,"y":1634,"w":104,"h":71},{"x":423,"y":1634,"w":104,"h":71},{"x":529,"y":1634,"w":104,"h":71},{"x":635,"y":1634,"w":104,"h":71},{"x":741,"y":1634,"w":104,"h":71}],"p3_hurt":[{"x":2,"y":1770,"w":100,"h":65},{"x":104,"y":1770,"w":84,"h":65},{"x":190,"y":1770,"w":104,"h":65},{"x":296,"y":1770,"w":102,"h":65},{"x":400,"y":1770,"w":97,"h":65},{"x":499,"y":1770,"w":104,"h":65}],"p3_death":[{"x":2,"y":1906,"w":103,"h":132},{"x":107,"y":1906,"w":104,"h":132},{"x":213,"y":1906,"w":104,"h":132},{"x":319,"y":1906,"w":99,"h":132},{"x":420,"y":1906,"w":104,"h":132},{"x":526,"y":1906,"w":104,"h":132},{"x":632,"y":1906,"w":104,"h":132}]};
+  const infernoDeathBursts = [];
+
+  function asNumber(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  function isInfernoRaid(obj) {
+    return Boolean(obj && obj.type === "enemy" && obj.kind === INFERNO_KIND && obj.erInfernoRaid === true);
+  }
+
+  function ensureInfernoState() {
+    try {
+      if (!questBook.infernoEclipseRaid || typeof questBook.infernoEclipseRaid !== "object") {
+        questBook.infernoEclipseRaid = { defeated: false, firstSeen: false };
+      }
+      return questBook.infernoEclipseRaid;
+    } catch (error) {
+      return { defeated: false, firstSeen: false };
+    }
+  }
+
+  function getInfernoRaid() {
+    try {
+      if (!Array.isArray(villageObjects)) return null;
+      return villageObjects.find((obj) => isInfernoRaid(obj)) || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function centerOf(obj) {
+    return { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 };
+  }
+
+  function applyInfernoPhaseSize(obj, phase) {
+    const def = INFERNO_PHASES[phase] || INFERNO_PHASES[1];
+    const c = centerOf(obj);
+    obj.erPhase = phase;
+    obj.phase = phase;
+    obj.width = def.width;
+    obj.height = def.height;
+    obj.damage = def.damage;
+    obj.speed = def.speed;
+    obj.attackDelay = def.attackDelay;
+    obj.attackRange = phase === 1 ? 260 : phase === 2 ? 300 : 360;
+    obj.aggroRange = phase === 1 ? 520 : phase === 2 ? 600 : 680;
+    obj.x = c.x - obj.width / 2;
+    obj.y = c.y - obj.height / 2;
+  }
+
+  const getEnemyStatsBeforeInfernoRaid = typeof getEnemyStats === "function" ? getEnemyStats : null;
+  getEnemyStats = function getEnemyStatsInfernoEclipseRaid(kind) {
+    if (kind === INFERNO_KIND) {
+      return {
+        width: INFERNO_PHASES[1].width,
+        height: INFERNO_PHASES[1].height,
+        hp: 520,
+        damage: INFERNO_PHASES[1].damage,
+        speed: INFERNO_PHASES[1].speed,
+        aggroRange: 560,
+        attackRange: 280,
+        attackDelay: INFERNO_PHASES[1].attackDelay,
+        coinReward: 420,
+        projectileType: "fire",
+        defense: 2,
+        boss: false,
+        bossItem: null,
+        xpReward: 260,
+        resistances: { fogo: 0.22, gelo: 1.42, agua: 1.28, sombra: 0.62, fisico: 0.82, magico: 0.9 },
+        dropTable: { coin: 1, potion: 1, powerUp: 1, loot: 1 }
+      };
+    }
+    return getEnemyStatsBeforeInfernoRaid ? getEnemyStatsBeforeInfernoRaid(kind) : {
+      width: 22, height: 20, hp: 3, damage: 1, speed: 45,
+      aggroRange: 190, attackRange: 28, attackDelay: 1.1,
+      coinReward: 3, xpReward: 2, dropTable: {}
+    };
+  };
+
+  function createInfernoRaid() {
+    const obj = typeof enemy === "function" ? enemy(INFERNO_TILE.x, INFERNO_TILE.y, INFERNO_KIND) : {
+      type: "enemy",
+      kind: INFERNO_KIND,
+      x: INFERNO_TILE.x * TILE + 4,
+      y: INFERNO_TILE.y * TILE + 4,
+      width: INFERNO_PHASES[1].width,
+      height: INFERNO_PHASES[1].height,
+      solid: false,
+      hp: 520,
+      maxHp: 520,
+      damage: INFERNO_PHASES[1].damage,
+      speed: INFERNO_PHASES[1].speed,
+      alive: true
+    };
+    obj.name = INFERNO_NAME;
+    obj.erInfernoRaid = true;
+    obj.erSpawnMarker = "inferno-eclipse-raid-207-31";
+    obj.spawnX = INFERNO_TILE.x * TILE + 4;
+    obj.spawnY = INFERNO_TILE.y * TILE + 4;
+    obj.maxHp = Math.max(520, asNumber(obj.maxHp, 520));
+    obj.hp = Math.max(1, Math.min(obj.maxHp, asNumber(obj.hp, obj.maxHp)));
+    obj.boss = false;
+    obj.bossItem = null;
+    obj.bossId = undefined;
+    obj.bossKind = undefined;
+    obj.role = "infernoRaid";
+    obj.state = "idle";
+    obj.projectileType = "fire";
+    obj.direction = "left";
+    obj.erPhase = 1;
+    obj.phase = 1;
+    obj.erAnimClock = 0;
+    obj.erSkillCooldown = 2.2;
+    obj.erSkillVisualTimer = 0;
+    obj.erHurtTimer = 0;
+    obj.erSeenToast = false;
+    obj.erInvokedAt = performance.now();
+    applyInfernoPhaseSize(obj, 1);
+    return obj;
+  }
+
+  function ensureInfernoRaidInWorld() {
+    const state = ensureInfernoState();
+    if (state.defeated) {
+      try {
+        if (Array.isArray(villageObjects)) {
+          for (let i = villageObjects.length - 1; i >= 0; i -= 1) {
+            if (isInfernoRaid(villageObjects[i])) villageObjects.splice(i, 1);
+          }
+        }
+        if (Array.isArray(objects)) {
+          for (let i = objects.length - 1; i >= 0; i -= 1) {
+            if (isInfernoRaid(objects[i])) objects.splice(i, 1);
+          }
+        }
+      } catch (error) {}
+      return null;
+    }
+    if (!Array.isArray(villageObjects)) return null;
+    let obj = getInfernoRaid();
+    if (!obj) {
+      obj = createInfernoRaid();
+      villageObjects.push(obj);
+    }
+    obj.boss = false;
+    obj.bossId = undefined;
+    obj.bossKind = undefined;
+    obj.role = "infernoRaid";
+    obj.name = INFERNO_NAME;
+    obj.erInfernoRaid = true;
+    if (currentScene === "village") {
+      if (Array.isArray(objects) && !objects.includes(obj)) objects.push(obj);
+      try {
+        if (villageObjects.includes(obj)) objects = villageObjects;
+        colliders = objects.filter((item) => item && item.solid);
+        interactables = objects.filter((item) => item && (item.message || item.type === "npc" || item.type === "rareChest" || item.type === "extraMapChest"));
+      } catch (error) {}
+    }
+    return obj;
+  }
+
+  function infernoDistanceToPlayer(obj) {
+    const c = centerOf(obj);
+    return Math.hypot((player.x + player.width / 2) - c.x, (player.y + player.height / 2) - c.y);
+  }
+
+  function infernoVolcanicArea(obj) {
+    const tx = Math.floor((obj.x + obj.width / 2) / TILE);
+    const ty = Math.floor((obj.y + obj.height / 2) / TILE);
+    return tx >= 146 && tx <= 228 && ty >= 8 && ty <= 64;
+  }
+
+  function updateInfernoPhase(obj) {
+    const oldPhase = obj.erPhase || 1;
+    const pct = asNumber(obj.hp, obj.maxHp) / Math.max(1, asNumber(obj.maxHp, 1));
+    const nextPhase = pct <= 0.33 ? 3 : pct <= 0.66 ? 2 : 1;
+    if (nextPhase !== oldPhase) {
+      applyInfernoPhaseSize(obj, nextPhase);
+      obj.erSkillVisualTimer = Math.max(obj.erSkillVisualTimer || 0, 0.85);
+      obj.erSkillCooldown = Math.min(obj.erSkillCooldown || 0, 0.35);
+      try {
+        playSound?.("shockwave");
+        vibrate?.(nextPhase === 3 ? [40, 70, 40] : [28, 40, 28]);
+        showHudToast?.(`${INFERNO_NAME} entrou na Fase ${nextPhase}!`, 2.2);
+        spawnFloatingText?.(`FASE ${nextPhase}`, obj.x + obj.width / 2, obj.y - 28, nextPhase === 2 ? "#ff8b3d" : "#b46dff");
+      } catch (error) {}
+    }
+  }
+
+  function fireInfernoShot(obj, targetX, targetY, offset = 0) {
+    if (typeof fireEnemyProjectile === "function") {
+      fireEnemyProjectile(obj, targetX, targetY, offset);
+      return;
+    }
+    const c = centerOf(obj);
+    const angle = Math.atan2(targetY - c.y, targetX - c.x) + offset;
+    const speed = 230 + (obj.erPhase || 1) * 28;
+    enemyProjectiles.push({
+      type: "fire",
+      x: c.x - 7,
+      y: c.y - 7,
+      width: 14,
+      height: 14,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      timer: 2.4,
+      damage: Math.max(2, obj.damage || 4),
+      distance: 0,
+      maxDistance: 440,
+      damageType: "fogo"
+    });
+  }
+
+  function castInfernoPattern(obj) {
+    const c = centerOf(obj);
+    const px = player.x + player.width / 2;
+    const py = player.y + player.height / 2;
+    const phase = obj.erPhase || 1;
+    obj.erSkillVisualTimer = 0.64 + phase * 0.08;
+    obj.state = "attack";
+
+    if (phase === 1) {
+      fireInfernoShot(obj, px, py, -0.18);
+      fireInfernoShot(obj, px, py, 0);
+      fireInfernoShot(obj, px, py, 0.18);
+    } else if (phase === 2) {
+      for (const off of [-0.34, -0.17, 0, 0.17, 0.34]) fireInfernoShot(obj, px, py, off);
+      enemyProjectiles.push({ type: "bossWave", x: c.x, y: c.y, radius: 14, maxRadius: 118, timer: 0.7, damage: Math.max(2, obj.damage - 2) });
+    } else {
+      for (let i = 0; i < 10; i += 1) fireInfernoShot(obj, c.x + Math.cos((Math.PI * 2 * i) / 10) * 120, c.y + Math.sin((Math.PI * 2 * i) / 10) * 120, 0);
+      for (const off of [-0.28, 0, 0.28]) fireInfernoShot(obj, px, py, off);
+      enemyProjectiles.push({ type: "bossWave", x: c.x, y: c.y, radius: 18, maxRadius: 156, timer: 0.78, damage: Math.max(3, obj.damage - 1) });
+    }
+
+    try {
+      playSound?.("magic");
+      vibrate?.(phase === 3 ? [18, 24, 18] : 18);
+    } catch (error) {}
+  }
+
+  function updateInfernoRaid(delta = 0.016) {
+    const obj = ensureInfernoRaidInWorld();
+    if (!obj || currentScene !== "village" || !obj.alive) return;
+    const dt = Math.min(Math.max(delta || 0.016, 0.001), 0.05);
+    obj.erAnimClock = (obj.erAnimClock || 0) + dt;
+    obj.erSkillCooldown = Math.max(0, (obj.erSkillCooldown || 0) - dt);
+    obj.erSkillVisualTimer = Math.max(0, (obj.erSkillVisualTimer || 0) - dt);
+    obj.erHurtTimer = Math.max(0, (obj.erHurtTimer || 0) - dt);
+    obj.boss = false;
+    obj.bossId = undefined;
+    obj.bossKind = undefined;
+    obj.role = "infernoRaid";
+    updateInfernoPhase(obj);
+
+    const distance = infernoDistanceToPlayer(obj);
+    if (distance < 430 && !ensureInfernoState().firstSeen) {
+      ensureInfernoState().firstSeen = true;
+      try { showHudToast?.(`${INFERNO_NAME} despertou nas Terras Vulcanicas!`, 2.4); } catch (error) {}
+    }
+
+    if (distance < 460 && infernoVolcanicArea(obj) && obj.erSkillCooldown <= 0) {
+      castInfernoPattern(obj);
+      obj.erSkillCooldown = Math.max(1.15, (INFERNO_PHASES[obj.erPhase || 1]?.attackDelay || 1) * (obj.erPhase === 3 ? 1.55 : 2.05));
+    }
+  }
+
+  const damageEnemyBeforeInfernoRaid = typeof damageEnemy === "function" ? damageEnemy : null;
+  damageEnemy = function damageEnemyInfernoEclipseRaid(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = "fisico") {
+    if (!isInfernoRaid(obj)) {
+      return damageEnemyBeforeInfernoRaid ? damageEnemyBeforeInfernoRaid(obj, amount, sourceX, sourceY, knockbackPower, damageType) : false;
+    }
+    if (!obj.alive || obj.invulnerableTimer > 0) return false;
+    const critical = Math.random() < asNumber(player?.critChance, 0.05);
+    const resistance = obj.resistances?.[damageType] ?? 1;
+    const rawDamage = (critical ? amount * 2 : amount) * resistance - (obj.defense || 0);
+    const damage = Math.max(1, Math.round(rawDamage));
+    obj.hp = Math.max(0, asNumber(obj.hp, obj.maxHp) - damage);
+    obj.invulnerableTimer = obj.erPhase === 3 ? 0.18 : 0.22;
+    obj.erHurtTimer = 0.28;
+
+    const c = centerOf(obj);
+    const dx = c.x - sourceX;
+    const dy = c.y - sourceY;
+    const length = Math.hypot(dx, dy) || 1;
+    const kb = Math.min(knockbackPower, obj.erPhase === 3 ? 38 : 54);
+    obj.knockbackX = (dx / length) * kb;
+    obj.knockbackY = (dy / length) * kb;
+
+    try {
+      spawnFloatingText?.(critical ? `CRITICO -${damage}` : `-${damage}`, c.x, obj.y - 10, critical ? "#ff4f62" : "#fff264");
+      playSound?.("hitEnemy");
+      if (typeof hitstopTimer !== "undefined") hitstopTimer = 0.055;
+    } catch (error) {}
+
+    if (obj.hp <= 0) {
+      defeatInfernoRaid(obj);
+    } else {
+      updateInfernoPhase(obj);
+    }
+    return true;
+  };
+
+  function defeatInfernoRaid(obj) {
+    if (!obj || obj.erDefeated) return;
+    obj.erDefeated = true;
+    obj.alive = false;
+    const state = ensureInfernoState();
+    state.defeated = true;
+    const c = centerOf(obj);
+    infernoDeathBursts.push({ x: c.x, y: c.y, phase: 3, timer: 1.35, maxTimer: 1.35 });
+
+    try {
+      inventory.moedas += 420;
+      awardXp?.(260, "Senhor do Eclipse vencido");
+      spawnFloatingText?.("+420 moedas", c.x - 12, c.y - 28, "#fff264");
+      spawnFloatingText?.("Item lendario!", c.x - 18, c.y - 48, "#b46dff");
+      playSound?.("bossDown");
+      vibrate?.([50, 70, 80]);
+      const scatter = [
+        { x: c.x - 26, y: c.y - 6, kind: "moeda", amount: 80 },
+        { x: c.x + 8, y: c.y - 4, kind: "pocao", amount: 1 },
+        { x: c.x - 8, y: c.y + 18, kind: "bossItem", amount: 1, name: INFERNO_ITEM }
+      ];
+      for (const drop of scatter) {
+        if (typeof lootItem === "function") lootItems.push(lootItem(drop.x, drop.y, drop.kind, drop.amount, drop.name));
+      }
+      showHudToast?.(`${INFERNO_NAME} foi derrotado!`, 2.8);
+      updateHud?.();
+      renderInventory?.();
+    } catch (error) {}
+  }
+
+  function getInfernoAnimKey(obj) {
+    const phase = obj.erPhase || 1;
+    if (obj.erSkillVisualTimer > 0) return `p${phase}_skill`;
+    if (obj.erHurtTimer > 0 || obj.invulnerableTimer > 0) return `p${phase}_hurt`;
+    if (obj.state === "attack" || obj.attackCooldown > obj.attackDelay * 0.64) return `p${phase}_attack`;
+    return `p${phase}_idle`;
+  }
+
+  function drawInfernoHp(obj) {
+    const pct = Math.max(0, Math.min(1, asNumber(obj.hp, 0) / Math.max(1, asNumber(obj.maxHp, 1))));
+    const barW = Math.max(72, obj.width + 34);
+    const bx = Math.round(obj.x + obj.width / 2 - barW / 2);
+    const by = Math.round(obj.y - 16);
+    ctx.fillStyle = "rgba(7, 8, 18, 0.86)";
+    ctx.fillRect(bx, by, barW, 6);
+    ctx.fillStyle = obj.erPhase === 1 ? "#ff7a32" : obj.erPhase === 2 ? "#ff4f62" : "#b46dff";
+    ctx.fillRect(bx, by, Math.round(barW * pct), 6);
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillRect(bx, by, Math.round(barW * pct), 1);
+  }
+
+  function drawInfernoRaidSprite(obj) {
+    if (!isInfernoRaid(obj)) return false;
+    if (!atlasImg.complete || atlasImg.naturalWidth <= 0) {
+      return false;
+    }
+    const key = getInfernoAnimKey(obj);
+    const frames = ATLAS[key] || ATLAS[`p${obj.erPhase || 1}_idle`] || ATLAS.p1_idle;
+    const animSpeed = key.includes("idle") ? 6.5 : key.includes("hurt") ? 12 : 10;
+    const index = Math.floor((obj.erAnimClock || 0) * animSpeed) % Math.max(1, frames.length);
+    const frame = frames[index] || frames[0];
+    const phaseDef = INFERNO_PHASES[obj.erPhase || 1] || INFERNO_PHASES[1];
+    const actionBoost = key.includes("skill") ? 1.18 : key.includes("attack") ? 1.08 : 1;
+    let drawW = phaseDef.visualW * actionBoost;
+    let drawH = Math.max(1, drawW * (frame.h / Math.max(1, frame.w)));
+    if (drawH > phaseDef.visualH * actionBoost) {
+      drawH = phaseDef.visualH * actionBoost;
+      drawW = Math.max(1, drawH * (frame.w / Math.max(1, frame.h)));
+    }
+    const drawX = Math.round(obj.x + obj.width / 2 - drawW / 2);
+    const drawY = Math.round(obj.y + obj.height - drawH + 8);
+    const blink = obj.invulnerableTimer > 0 && Math.floor(performance.now() / 70) % 2 === 0;
+    const pulse = 0.18 + Math.sin(performance.now() / 130 + obj.x) * 0.05;
+
+    ctx.save();
+    if (blink) ctx.globalAlpha = 0.50;
+    ctx.fillStyle = "rgba(0, 0, 0, 0.34)";
+    ctx.beginPath();
+    ctx.ellipse(obj.x + obj.width / 2, obj.y + obj.height + 4, Math.max(24, drawW * 0.34), Math.max(7, drawH * 0.08), 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = obj.erPhase === 1 ? `rgba(255, 91, 38, ${pulse})` : obj.erPhase === 2 ? `rgba(255, 55, 34, ${pulse + 0.04})` : `rgba(180, 70, 255, ${pulse + 0.07})`;
+    ctx.fillRect(drawX - 6, drawY - 6, drawW + 12, drawH + 12);
+    ctx.imageSmoothingEnabled = false;
+    const flip = obj.direction === "right";
+    if (flip) {
+      ctx.translate(drawX + drawW / 2, drawY + drawH / 2);
+      ctx.scale(-1, 1);
+      ctx.drawImage(atlasImg, frame.x, frame.y, frame.w, frame.h, -drawW / 2, -drawH / 2, drawW, drawH);
+    } else {
+      ctx.drawImage(atlasImg, frame.x, frame.y, frame.w, frame.h, drawX, drawY, drawW, drawH);
+    }
+    drawInfernoHp(obj);
+    ctx.restore();
+    return true;
+  }
+
+  const drawEnemyBeforeInfernoRaid = typeof drawEnemy === "function" ? drawEnemy : null;
+  drawEnemy = function drawEnemyInfernoEclipseRaid(obj) {
+    if (drawInfernoRaidSprite(obj)) return;
+    return drawEnemyBeforeInfernoRaid ? drawEnemyBeforeInfernoRaid(obj) : undefined;
+  };
+
+  function drawInfernoDeathBursts() {
+    if (!infernoDeathBursts.length) return;
+    ctx.save();
+    for (let i = infernoDeathBursts.length - 1; i >= 0; i -= 1) {
+      const fx = infernoDeathBursts[i];
+      const pct = Math.max(0, fx.timer / Math.max(0.001, fx.maxTimer));
+      const progress = 1 - pct;
+      const radius = 22 + progress * 118;
+      ctx.globalAlpha = pct;
+      ctx.fillStyle = `rgba(255, 93, 32, ${0.28 * pct})`;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(180, 70, 255, ${0.72 * pct})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(fx.x, fx.y, radius * 0.72, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(255, 214, 104, ${0.9 * pct})`;
+      for (let s = 0; s < 16; s += 1) {
+        const a = (Math.PI * 2 * s) / 16 + progress * 3;
+        ctx.fillRect(fx.x + Math.cos(a) * radius - 2, fx.y + Math.sin(a) * radius - 2, 4, 4);
+      }
+    }
+    ctx.restore();
+  }
+
+  function updateInfernoDeathBursts(delta) {
+    for (let i = infernoDeathBursts.length - 1; i >= 0; i -= 1) {
+      infernoDeathBursts[i].timer -= delta;
+      if (infernoDeathBursts[i].timer <= 0) infernoDeathBursts.splice(i, 1);
+    }
+  }
+
+  function updateInfernoRaidHud() {
+    try {
+      const obj = getInfernoRaid();
+      const shouldShow = Boolean(obj && obj.alive && currentScene === "village" && infernoDistanceToPlayer(obj) < 760);
+      if (!bossHud || !bossNameHud || !bossFill) return;
+      bossHud.classList.toggle("hidden", !shouldShow);
+      if (!shouldShow) return;
+      const phase = obj.erPhase || 1;
+      const pct = Math.max(0, Math.min(100, (asNumber(obj.hp, 0) / Math.max(1, asNumber(obj.maxHp, 1))) * 100));
+      bossNameHud.textContent = `${INFERNO_NAME} - Fase ${phase}/3`;
+      bossFill.style.width = `${pct}%`;
+    } catch (error) {}
+  }
+
+  const getActiveBossBeforeInfernoRaid = typeof getActiveBoss === "function" ? getActiveBoss : null;
+  getActiveBoss = function getActiveInfernoEclipseRaid() {
+    const obj = getInfernoRaid();
+    if (obj && obj.alive && currentScene === "village" && infernoDistanceToPlayer(obj) < 760) return obj;
+    return getActiveBossBeforeInfernoRaid ? getActiveBossBeforeInfernoRaid() : null;
+  };
+
+  const updateBeforeInfernoRaid = typeof update === "function" ? update : null;
+  update = function updateInfernoEclipseRaid(deltaTime) {
+    const dt = Math.min(Math.max(deltaTime || 0.016, 0.001), 0.05);
+    const result = updateBeforeInfernoRaid ? updateBeforeInfernoRaid(deltaTime) : undefined;
+    updateInfernoRaid(dt);
+    updateInfernoDeathBursts(dt);
+    updateInfernoRaidHud();
+    return result;
+  };
+
+  const setActiveSceneBeforeInfernoRaid = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneInfernoEclipseRaid(scene) {
+    const result = setActiveSceneBeforeInfernoRaid ? setActiveSceneBeforeInfernoRaid(scene) : undefined;
+    ensureInfernoRaidInWorld();
+    updateInfernoRaidHud();
+    return result;
+  };
+
+  const loadGameBeforeInfernoRaid = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameInfernoEclipseRaid() {
+    const result = loadGameBeforeInfernoRaid ? loadGameBeforeInfernoRaid() : false;
+    ensureInfernoRaidInWorld();
+    updateInfernoRaidHud();
+    return result;
+  };
+
+  const resetProgressBeforeInfernoRaid = typeof resetProgressForNewGame === "function" ? resetProgressForNewGame : null;
+  resetProgressForNewGame = function resetProgressForNewGameInfernoEclipseRaid(name) {
+    const result = resetProgressBeforeInfernoRaid ? resetProgressBeforeInfernoRaid(name) : undefined;
+    try { questBook.infernoEclipseRaid = { defeated: false, firstSeen: false }; } catch (error) {}
+    ensureInfernoRaidInWorld();
+    return result;
+  };
+
+  const drawBeforeInfernoRaid = typeof draw === "function" ? draw : null;
+  draw = function drawInfernoEclipseRaid() {
+    if (drawBeforeInfernoRaid) drawBeforeInfernoRaid();
+    if (!infernoDeathBursts.length) return;
+    try {
+      ctx.save();
+      applyGameCameraTransform(ctx);
+      drawInfernoDeathBursts();
+      ctx.restore();
+    } catch (error) {}
+  };
+
+  try {
+    ensureInfernoRaidInWorld();
+    setTimeout(() => { ensureInfernoRaidInWorld(); updateInfernoRaidHud(); }, 250);
+    setTimeout(() => { ensureInfernoRaidInWorld(); updateInfernoRaidHud(); }, 1300);
+    console.log("Eternal Rift patch carregado:", PATCH_ID);
+  } catch (error) {}
+})();
+
+/* ==================================================
+   ETERNAL RIFT - suporte visual mobile do Senhor do Eclipse
+   Escopo: mostra somente a barra deste chefe no mobile enquanto ele esta ativo.
+   ================================================== */
+(function eternalRiftInfernoEclipseMobileBarPatch() {
+  const PATCH_ID = "inferno-eclipse-mobile-bossbar-20260708";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_INFERNO_ECLIPSE_MOBILE_BAR === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_INFERNO_ECLIPSE_MOBILE_BAR = PATCH_ID;
+
+  try {
+    const style = document.createElement("style");
+    style.id = "inferno-eclipse-mobile-bossbar-style";
+    style.textContent = `
+      body.is-mobile #bossHud.er-inferno-eclipse-visible,
+      body.is-mobile .boss-hud.er-inferno-eclipse-visible {
+        display: grid !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: absolute !important;
+        left: 50% !important;
+        right: auto !important;
+        top: max(62px, calc(env(safe-area-inset-top) + 58px)) !important;
+        bottom: auto !important;
+        transform: translateX(-50%) !important;
+        width: min(44vw, 300px) !important;
+        min-width: 168px !important;
+        min-height: 18px !important;
+        padding: 3px 6px 4px !important;
+        border-radius: 5px !important;
+        background: rgba(26, 31, 61, 0.70) !important;
+        box-shadow: 0 0 0 1px rgba(255, 79, 98, 0.42), 0 0 12px rgba(180, 70, 255, 0.22) !important;
+        z-index: 118 !important;
+        pointer-events: none !important;
+      }
+      body.is-mobile #bossHud.er-inferno-eclipse-visible #bossNameHud,
+      body.is-mobile #bossHud.er-inferno-eclipse-visible #bossFill,
+      body.is-mobile #bossHud.er-inferno-eclipse-visible .boss-bar {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+      body.is-mobile #bossHud.er-inferno-eclipse-visible .hud-label {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (error) {}
+
+  function syncInfernoMobileBossBar() {
+    try {
+      const active = Boolean(
+        bossHud && bossNameHud &&
+        !bossHud.classList.contains("hidden") &&
+        String(bossNameHud.textContent || "").includes("Senhor do Eclipse Flamejante")
+      );
+      bossHud?.classList.toggle("er-inferno-eclipse-visible", active);
+    } catch (error) {}
+  }
+
+  const updateBeforeInfernoMobileBar = typeof update === "function" ? update : null;
+  update = function updateInfernoEclipseMobileBar(deltaTime) {
+    const result = updateBeforeInfernoMobileBar ? updateBeforeInfernoMobileBar(deltaTime) : undefined;
+    syncInfernoMobileBossBar();
+    return result;
+  };
+
+  setTimeout(syncInfernoMobileBossBar, 600);
+})();
+
+
+
+
+/* ==================================================
+   ETERNAL RIFT - OTIMIZAÇÃO PC + MOBILE DOS TERRENOS
+   Escopo: mantém a beleza dos terrenos pedidos, mas pré-renderiza
+   floresta, deserto e fogo em chunks/cache para não redesenhar tudo
+   pesado a cada frame. Não remove detalhes pedidos.
+   Preserva HUD, inventário, casas, NPCs, ferreiro, boss, personagem,
+   quarto e sistemas.
+   ================================================== */
+(function eternalRiftOptimizedTerrainChunkCachePatch() {
+  const PATCH_ID = "terrain-optimized-chunk-cache-pc-mobile-20260708";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_TERRAIN_OPTIMIZED_CHUNK_CACHE === PATCH_ID) return;
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_TERRAIN_OPTIMIZED_CHUNK_CACHE = PATCH_ID;
+    window.ETERNAL_RIFT_CURRENT_VERSION = PATCH_ID;
+  }
+
+  const CHUNK_TILES = 8;
+  const MAX_CACHE = (typeof isMobile !== "undefined" && isMobile) ? 70 : 150;
+  const cache = new Map();
+
+  const fireSheet = new Image();
+  fireSheet.decoding = "async";
+  fireSheet.src = "assets/terrain/fire-biome-reference-sheet.png?v=" + PATCH_ID;
+  fireSheet.onload = function clearFireFallbackCache() {
+    cache.clear();
+    try { if (typeof draw === "function") draw(); } catch (error) {}
+  };
+
+  const AREAS = {
+    forest: { x1: 0, y1: 0, x2: 89, y2: 63 },
+    desert: { x1: 90, y1: 8, x2: 142, y2: 40 },
+    fire: { x1: 146, y1: 8, x2: 228, y2: 64 }
+  };
+
+  const FIRE_SRC = {
+    ash: [
+      { x: 28,  y: 26,  s: 104 }, { x: 158, y: 26,  s: 104 },
+      { x: 270, y: 26,  s: 104 }, { x: 390, y: 26,  s: 104 },
+      { x: 504, y: 26,  s: 104 }
+    ],
+    lava: [
+      { x: 27,  y: 263, s: 104 }, { x: 158, y: 263, s: 104 },
+      { x: 27,  y: 378, s: 104 }, { x: 158, y: 378, s: 104 }
+    ],
+    basalt: [
+      { x: 807,  y: 26,  s: 104 }, { x: 926,  y: 26,  s: 104 },
+      { x: 1045, y: 26,  s: 104 }, { x: 1163, y: 26,  s: 104 },
+      { x: 1280, y: 26,  s: 104 }
+    ],
+    path: [
+      { x: 807,  y: 145, s: 104 }, { x: 925,  y: 145, s: 104 },
+      { x: 1045, y: 145, s: 104 }, { x: 1163, y: 145, s: 104 },
+      { x: 1280, y: 145, s: 104 }
+    ],
+    cracked: [
+      { x: 590, y: 384, s: 104 }, { x: 703, y: 384, s: 104 },
+      { x: 590, y: 500, s: 104 }, { x: 703, y: 500, s: 104 }
+    ]
+  };
+
+  function hash(tx, ty, salt = 0) {
+    let n = (tx * 374761393 + ty * 668265263 + salt * 1442695041) | 0;
+    n = (n ^ (n >>> 13)) * 1274126177;
+    n = (n ^ (n >>> 16)) >>> 0;
+    return n / 4294967295;
+  }
+
+  function pick(list, tx, ty, salt = 0) {
+    return list[Math.floor(hash(tx, ty, salt) * list.length) % list.length];
+  }
+
+  function tileAt(tx, ty) {
+    try { return worldMap?.[ty]?.[tx] || "G"; }
+    catch (error) { return "G"; }
+  }
+
+  function inArea(area, tx, ty) {
+    return tx >= area.x1 && tx <= area.x2 && ty >= area.y1 && ty <= area.y2;
+  }
+
+  function isTargetTile(tx, ty) {
+    return inArea(AREAS.forest, tx, ty) || inArea(AREAS.desert, tx, ty) || inArea(AREAS.fire, tx, ty);
+  }
+
+  function forestKind(tile) {
+    if (tile === "W") return "water";
+    if (tile === "D") return "path";
+    if (tile === "P") return "stone";
+    if (tile === "F") return "forest";
+    if (tile === "I" || tile === "B" || tile === "R" || tile === "C" || tile === "Q" || tile === "M") return "other";
+    return "grass";
+  }
+
+  function desertKind(tile) {
+    if (tile === "W") return "water";
+    if (tile === "D") return "path";
+    if (tile === "P") return "ruin";
+    if (tile === "X") return "quicksand";
+    return "sand";
+  }
+
+  function fireKind(tile) {
+    if (tile === "r") return "lava";
+    if (tile === "z") return "basalt";
+    if (tile === "P" || tile === "D") return "path";
+    return "ash";
+  }
+
+  function createCanvas(w, h) {
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w));
+    c.height = Math.max(1, Math.round(h));
+    return c;
+  }
+
+  function localCenter(startX, startY, tx, ty, salt = 0) {
+    return {
+      x: tx * TILE - startX + TILE / 2 + (hash(tx, ty, 1000 + salt) - 0.5) * 2.2,
+      y: ty * TILE - startY + TILE / 2 + (hash(tx, ty, 1100 + salt) - 0.5) * 2.2
+    };
+  }
+
+  function drawBlob(g, cx, cy, rx, ry, fill, alpha = 1, seed = 0) {
+    g.save();
+    g.globalAlpha = alpha;
+    g.fillStyle = fill;
+    g.beginPath();
+    const steps = 16;
+    for (let i = 0; i <= steps; i += 1) {
+      const a = (Math.PI * 2 * i) / steps;
+      const wobble = 0.95 + Math.sin(seed + i * 1.31) * 0.045 + Math.cos(seed * 0.73 + i * 1.91) * 0.03;
+      const x = cx + Math.cos(a) * rx * wobble;
+      const y = cy + Math.sin(a) * ry * wobble;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+
+  function drawBridge(g, a, b, width, fill, alpha = 1) {
+    g.save();
+    g.globalAlpha = alpha;
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    g.lineWidth = width;
+    g.strokeStyle = fill;
+    g.beginPath();
+    g.moveTo(a.x, a.y);
+    g.lineTo(b.x, b.y);
+    g.stroke();
+    g.restore();
+  }
+
+  function drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, area, wanted, getKind, layers, salt) {
+    for (const layer of layers) {
+      for (let ty = startTy; ty <= endTy; ty += 1) {
+        for (let tx = startTx; tx <= endTx; tx += 1) {
+          if (!inArea(area, tx, ty) || getKind(tileAt(tx, ty)) !== wanted) continue;
+          const c = localCenter(startX, startY, tx, ty, salt);
+          if (inArea(area, tx + 1, ty) && getKind(tileAt(tx + 1, ty)) === wanted) {
+            drawBridge(g, c, localCenter(startX, startY, tx + 1, ty, salt), layer.width, layer.color, layer.alpha);
+          }
+          if (inArea(area, tx, ty + 1) && getKind(tileAt(tx, ty + 1)) === wanted) {
+            drawBridge(g, c, localCenter(startX, startY, tx, ty + 1, salt), layer.width, layer.color, layer.alpha);
+          }
+          drawBlob(g, c.x, c.y, layer.rx || layer.width * 0.56, layer.ry || layer.width * 0.44, layer.color, layer.alpha, tx * 0.41 + ty * 0.57 + salt + layer.width);
+        }
+      }
+    }
+  }
+
+  function drawForestChunk(g, startX, startY, startTx, startTy, endTx, endTy) {
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (!inArea(AREAS.forest, tx, ty)) continue;
+        const x = tx * TILE - startX;
+        const y = ty * TILE - startY;
+        const grad = g.createLinearGradient(x, y, x + TILE, y + TILE);
+        grad.addColorStop(0, "#5a9f36");
+        grad.addColorStop(0.42, "#74b844");
+        grad.addColorStop(1, "#4b8e2e");
+        g.fillStyle = grad;
+        g.fillRect(x, y, TILE, TILE);
+        const r = hash(tx, ty, 20);
+        if (r > 0.52) {
+          g.fillStyle = r > 0.85 ? "rgba(242,224,170,.34)" : "rgba(37,111,41,.20)";
+          g.beginPath();
+          g.ellipse(x + 7 + hash(tx, ty, 21) * 18, y + 8 + hash(tx, ty, 22) * 17, 2.5, 1.6, hash(tx, ty, 23) * Math.PI, 0, Math.PI * 2);
+          g.fill();
+        }
+        if (r > 0.88) {
+          g.fillStyle = "rgba(255,255,255,.45)";
+          g.fillRect(x + 8 + hash(tx, ty, 24) * 15, y + 8 + hash(tx, ty, 25) * 12, 2, 2);
+          g.fillStyle = "rgba(255,206,90,.35)";
+          g.fillRect(x + 12 + hash(tx, ty, 26) * 11, y + 10 + hash(tx, ty, 27) * 10, 2, 2);
+        }
+      }
+    }
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, AREAS.forest, "forest", (tile) => forestKind(tile), [
+      { width: 35, color: "rgba(26,84,34,.42)", alpha: 1 },
+      { width: 28, color: "#2f7a33", alpha: .88 },
+      { width: 22, color: "rgba(58,123,52,.22)", alpha: .82 }
+    ], 30);
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, AREAS.forest, "path", (tile) => forestKind(tile), [
+      { width: 31, color: "rgba(86,71,39,.22)", alpha: 1 },
+      { width: 24, color: "#b79659", alpha: .98 },
+      { width: 18, color: "rgba(229,210,150,.18)", alpha: .84 }
+    ], 40);
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, AREAS.forest, "stone", (tile) => forestKind(tile), [
+      { width: 28, color: "rgba(78,65,44,.24)", alpha: 1 },
+      { width: 22, color: "#7a735f", alpha: .94 },
+      { width: 16, color: "rgba(185,181,165,.18)", alpha: .78 }
+    ], 50);
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, AREAS.forest, "water", (tile) => forestKind(tile), [
+      { width: 37, color: "rgba(80,64,40,.34)", alpha: 1 },
+      { width: 31, color: "rgba(160,131,74,.42)", alpha: 1 },
+      { width: 24, color: "#157ea2", alpha: .98 },
+      { width: 18, color: "rgba(194,239,255,.18)", alpha: .86 }
+    ], 60);
+  }
+
+  function drawDesertChunk(g, startX, startY, startTx, startTy, endTx, endTy) {
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (!inArea(AREAS.desert, tx, ty)) continue;
+        const x = tx * TILE - startX;
+        const y = ty * TILE - startY;
+        const grad = g.createLinearGradient(x, y, x + TILE, y + TILE);
+        grad.addColorStop(0, "#d7ae61");
+        grad.addColorStop(0.42, "#efce7b");
+        grad.addColorStop(1, "#b97f43");
+        g.fillStyle = grad;
+        g.fillRect(x, y, TILE, TILE);
+        const r = hash(tx, ty, 70);
+        if (r > 0.30) {
+          g.strokeStyle = r > 0.68 ? "rgba(255,231,164,.28)" : "rgba(145,93,45,.16)";
+          g.lineWidth = 1.2;
+          g.lineCap = "round";
+          g.beginPath();
+          g.moveTo(x + 4, y + 9 + hash(tx, ty, 71) * 7);
+          g.quadraticCurveTo(x + 14, y + 5 + hash(tx, ty, 72) * 9, x + 28, y + 9 + hash(tx, ty, 73) * 7);
+          g.stroke();
+        }
+        if (r > 0.92) {
+          g.fillStyle = "rgba(73,126,76,.35)";
+          g.fillRect(x + 12, y + 9, 3, 12);
+          g.fillRect(x + 8, y + 14, 5, 3);
+          g.fillRect(x + 15, y + 12, 5, 3);
+        }
+      }
+    }
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, AREAS.desert, "path", (tile) => desertKind(tile), [
+      { width: 29, color: "rgba(151,96,48,.24)", alpha: 1 },
+      { width: 23, color: "#d8ad62", alpha: .96 },
+      { width: 16, color: "rgba(255,232,173,.18)", alpha: .82 }
+    ], 20);
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, AREAS.desert, "ruin", (tile) => desertKind(tile), [
+      { width: 31, color: "rgba(100,68,39,.36)", alpha: 1 },
+      { width: 25, color: "#b98750", alpha: .96 },
+      { width: 18, color: "rgba(239,199,125,.22)", alpha: .90 }
+    ], 30);
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, AREAS.desert, "quicksand", (tile) => desertKind(tile), [
+      { width: 36, color: "rgba(112,69,48,.32)", alpha: 1 },
+      { width: 28, color: "#b88455", alpha: .88 },
+      { width: 20, color: "rgba(86,55,42,.24)", alpha: .86 }
+    ], 40);
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, AREAS.desert, "water", (tile) => desertKind(tile), [
+      { width: 36, color: "rgba(134,95,50,.30)", alpha: 1 },
+      { width: 29, color: "rgba(232,195,115,.44)", alpha: 1 },
+      { width: 23, color: "#1789b6", alpha: .98 },
+      { width: 17, color: "rgba(196,245,255,.18)", alpha: .86 }
+    ], 50);
+  }
+
+  function fireReady() {
+    return fireSheet.complete && fireSheet.naturalWidth > 0 && fireSheet.naturalHeight > 0;
+  }
+
+  function drawFireSrc(g, src, x, y, alpha = 1) {
+    g.save();
+    g.globalAlpha = alpha;
+    g.imageSmoothingEnabled = false;
+    if (fireReady() && src) g.drawImage(fireSheet, src.x, src.y, src.s, src.s, Math.round(x), Math.round(y), TILE, TILE);
+    else {
+      g.fillStyle = "#2b2023";
+      g.fillRect(Math.round(x), Math.round(y), TILE, TILE);
+    }
+    g.restore();
+  }
+
+  function edgeRect(g, x, y, side, color, size = 4) {
+    g.save();
+    g.fillStyle = color;
+    if (side === "top") g.fillRect(x, y, TILE, size);
+    if (side === "bottom") g.fillRect(x, y + TILE - size, TILE, size);
+    if (side === "left") g.fillRect(x, y, size, TILE);
+    if (side === "right") g.fillRect(x + TILE - size, y, size, TILE);
+    g.restore();
+  }
+
+  function drawFireChunk(g, startX, startY, startTx, startTy, endTx, endTy) {
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (!inArea(AREAS.fire, tx, ty)) continue;
+        const x = tx * TILE - startX;
+        const y = ty * TILE - startY;
+        const k = fireKind(tileAt(tx, ty));
+        if (k === "lava") drawFireSrc(g, pick(FIRE_SRC.lava, tx, ty, 10), x, y, 1);
+        else if (k === "basalt") drawFireSrc(g, hash(tx, ty, 11) > .80 ? pick(FIRE_SRC.cracked, tx, ty, 12) : pick(FIRE_SRC.basalt, tx, ty, 13), x, y, 1);
+        else if (k === "path") drawFireSrc(g, pick(FIRE_SRC.path, tx, ty, 14), x, y, 1);
+        else drawFireSrc(g, pick(FIRE_SRC.ash, tx, ty, 15), x, y, 1);
+
+        const r = hash(tx, ty, 90);
+        if (k !== "lava" && r > 0.70) {
+          g.fillStyle = "rgba(12,10,12,.45)";
+          g.beginPath();
+          g.ellipse(x + 7 + hash(tx, ty, 91) * 18, y + 7 + hash(tx, ty, 92) * 18, 2.4, 1.7, hash(tx, ty, 93) * Math.PI, 0, Math.PI * 2);
+          g.fill();
+        }
+        if (k !== "lava" && r > 0.86) {
+          g.fillStyle = "rgba(255,92,37,.38)";
+          g.fillRect(Math.round(x + 8 + hash(tx, ty, 94) * 17), Math.round(y + 8 + hash(tx, ty, 95) * 16), 2, 2);
+        }
+      }
+    }
+
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (!inArea(AREAS.fire, tx, ty)) continue;
+        const x = tx * TILE - startX;
+        const y = ty * TILE - startY;
+        const k = fireKind(tileAt(tx, ty));
+        if (k !== "lava") {
+          if (fireKind(tileAt(tx, ty - 1)) === "lava") edgeRect(g, x, y, "top", "rgba(255,112,38,.34)", 5);
+          if (fireKind(tileAt(tx + 1, ty)) === "lava") edgeRect(g, x, y, "right", "rgba(255,112,38,.34)", 5);
+          if (fireKind(tileAt(tx, ty + 1)) === "lava") edgeRect(g, x, y, "bottom", "rgba(255,112,38,.34)", 5);
+          if (fireKind(tileAt(tx - 1, ty)) === "lava") edgeRect(g, x, y, "left", "rgba(255,112,38,.34)", 5);
+        }
+      }
+    }
+  }
+
+  function chunkHasTarget(startTx, startTy, endTx, endTy) {
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (isTargetTile(tx, ty)) return true;
+      }
+    }
+    return false;
+  }
+
+  function renderChunk(cx, cy) {
+    const startTx = cx * CHUNK_TILES;
+    const startTy = cy * CHUNK_TILES;
+    const endTx = startTx + CHUNK_TILES - 1;
+    const endTy = startTy + CHUNK_TILES - 1;
+    if (!chunkHasTarget(startTx, startTy, endTx, endTy)) return { empty: true };
+
+    const startX = startTx * TILE;
+    const startY = startTy * TILE;
+    const c = createCanvas(CHUNK_TILES * TILE, CHUNK_TILES * TILE);
+    const g = c.getContext("2d");
+    g.imageSmoothingEnabled = false;
+
+    drawForestChunk(g, startX, startY, startTx, startTy, endTx, endTy);
+    drawDesertChunk(g, startX, startY, startTx, startTy, endTx, endTy);
+    drawFireChunk(g, startX, startY, startTx, startTy, endTx, endTy);
+
+    return { empty: false, canvas: c, x: startX, y: startY };
+  }
+
+  function getChunk(cx, cy) {
+    const key = `${PATCH_ID}:${fireReady() ? "fire-img" : "fire-fallback"}:${cx}:${cy}`;
+    if (cache.has(key)) {
+      const item = cache.get(key);
+      cache.delete(key);
+      cache.set(key, item);
+      return item;
+    }
+    const item = renderChunk(cx, cy);
+    cache.set(key, item);
+    while (cache.size > MAX_CACHE) {
+      const firstKey = cache.keys().next().value;
+      cache.delete(firstKey);
+    }
+    return item;
+  }
+
+  function drawDynamicHighlights(startCol, endCol, startRow, endRow) {
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.lineCap = "round";
+    for (let ty = startRow; ty <= endRow; ty += 1) {
+      for (let tx = startCol; tx <= endCol; tx += 1) {
+        const x = tx * TILE;
+        const y = ty * TILE;
+        if (inArea(AREAS.fire, tx, ty) && fireKind(tileAt(tx, ty)) === "lava" && hash(tx, ty, 800) > .34) {
+          ctx.strokeStyle = "rgba(255,247,178,.34)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + 4, y + 11 + Math.sin(t * 3.2 + tx) * 1.2);
+          ctx.lineTo(x + 14, y + 9 + Math.cos(t * 2.5 + ty) * 1.2);
+          ctx.lineTo(x + 26, y + 13 + Math.sin(t * 2.8 + ty) * 1.2);
+          ctx.stroke();
+        }
+        if (inArea(AREAS.forest, tx, ty) && forestKind(tileAt(tx, ty)) === "water" && hash(tx, ty, 600) > .35) {
+          const c = localCenter(0, 0, tx, ty, 8);
+          ctx.strokeStyle = "rgba(215,247,255,.36)";
+          ctx.lineWidth = 1.1;
+          ctx.beginPath();
+          ctx.moveTo(c.x - 10, c.y + Math.sin(t * 2.8 + tx) * 1.5);
+          ctx.quadraticCurveTo(c.x, c.y - 3 + Math.cos(t * 2.2 + ty) * 1.2, c.x + 10, c.y + Math.sin(t * 2.5 + ty) * 1.4);
+          ctx.stroke();
+        }
+        if (inArea(AREAS.desert, tx, ty) && desertKind(tileAt(tx, ty)) === "water" && hash(tx, ty, 500) > .38) {
+          const c = localCenter(0, 0, tx, ty, 9);
+          ctx.strokeStyle = "rgba(218,250,255,.38)";
+          ctx.lineWidth = 1.1;
+          ctx.beginPath();
+          ctx.moveTo(c.x - 9, c.y + Math.sin(t * 2.6 + tx) * 1.3);
+          ctx.quadraticCurveTo(c.x, c.y - 3 + Math.cos(t * 2.0 + ty) * 1.2, c.x + 10, c.y + Math.sin(t * 2.3 + ty) * 1.3);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawOptimizedTerrainChunks() {
+    if (currentScene !== "village") return;
+    if (!Array.isArray(worldMap) || !worldMap.length) return;
+    const viewW = typeof getZoomedViewWidth === "function" ? getZoomedViewWidth() : canvas.width;
+    const viewH = typeof getZoomedViewHeight === "function" ? getZoomedViewHeight() : canvas.height;
+    const startCol = Math.max(0, Math.floor(camera.x / TILE) - 2);
+    const endCol = Math.min(worldMap[0].length - 1, Math.ceil((camera.x + viewW) / TILE) + 2);
+    const startRow = Math.max(0, Math.floor(camera.y / TILE) - 2);
+    const endRow = Math.min(worldMap.length - 1, Math.ceil((camera.y + viewH) / TILE) + 2);
+    const startChunkX = Math.floor(startCol / CHUNK_TILES);
+    const endChunkX = Math.floor(endCol / CHUNK_TILES);
+    const startChunkY = Math.floor(startRow / CHUNK_TILES);
+    const endChunkY = Math.floor(endRow / CHUNK_TILES);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (let cy = startChunkY; cy <= endChunkY; cy += 1) {
+      for (let cx = startChunkX; cx <= endChunkX; cx += 1) {
+        const item = getChunk(cx, cy);
+        if (!item || item.empty || !item.canvas) continue;
+        ctx.drawImage(item.canvas, item.x, item.y);
+      }
+    }
+    ctx.restore();
+    drawDynamicHighlights(startCol, endCol, startRow, endRow);
+  }
+
+  const drawMapBeforeOptimizedTerrain = typeof drawMap === "function" ? drawMap : null;
+  drawMap = function drawMapWithOptimizedTerrainChunks() {
+    if (drawMapBeforeOptimizedTerrain) drawMapBeforeOptimizedTerrain();
+    drawOptimizedTerrainChunks();
+  };
+
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - PÂNTANO ESTILO REFERÊNCIA, SEM PNG ESTÁTICO
+   Escopo: altera somente os tiles/visual do bioma de pântano.
+   Não usa a imagem enviada como PNG no mapa; desenha o bioma via Canvas
+   com água escura, lama, ilhas úmidas, passarelas de madeira e detalhes.
+   PC + mobile. Preserva HUD, inventário, casas, NPCs, vila, ferreiro,
+   floresta, deserto, fogo, boss, personagem, quarto e sistemas.
+   ================================================== */
+(function eternalRiftSwampReferenceStyleOptimizedPatch() {
+  const PATCH_ID = "swamp-reference-style-no-png-pc-mobile-20260708";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_SWAMP_REFERENCE_STYLE_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_SWAMP_REFERENCE_STYLE_PATCH = PATCH_ID;
+    window.ETERNAL_RIFT_CURRENT_VERSION = PATCH_ID;
+  }
+
+  const SWAMP = { x1: 10, y1: 64, x2: 86, y2: 94 };
+  const CHUNK_TILES = 8;
+  const MAX_CACHE = (typeof isMobile !== 'undefined' && isMobile) ? 45 : 90;
+  const swampCache = new Map();
+
+  function hash(tx, ty, salt = 0) {
+    let n = (tx * 374761393 + ty * 668265263 + salt * 1442695041) | 0;
+    n = (n ^ (n >>> 13)) * 1274126177;
+    n = (n ^ (n >>> 16)) >>> 0;
+    return n / 4294967295;
+  }
+
+  function tileAt(tx, ty) {
+    try { return worldMap?.[ty]?.[tx] || 'G'; }
+    catch (error) { return 'G'; }
+  }
+
+  function inSwamp(tx, ty) {
+    return currentScene === 'village' && tx >= SWAMP.x1 && tx <= SWAMP.x2 && ty >= SWAMP.y1 && ty <= SWAMP.y2;
+  }
+
+  function swampKind(tile) {
+    if (tile === 'V' || tile === 'W') return 'water';
+    if (tile === 'U') return 'mud';
+    if (tile === 'D') return 'boardwalk';
+    if (tile === 'P') return 'stone';
+    return 'marsh';
+  }
+
+  function createCanvas(w, h) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w));
+    c.height = Math.max(1, Math.round(h));
+    return c;
+  }
+
+  function localCenter(startX, startY, tx, ty, salt = 0) {
+    return {
+      x: tx * TILE - startX + TILE / 2 + (hash(tx, ty, 1000 + salt) - 0.5) * 2.0,
+      y: ty * TILE - startY + TILE / 2 + (hash(tx, ty, 1100 + salt) - 0.5) * 2.0
+    };
+  }
+
+  function drawBlob(g, cx, cy, rx, ry, fill, alpha = 1, seed = 0) {
+    g.save();
+    g.globalAlpha = alpha;
+    g.fillStyle = fill;
+    g.beginPath();
+    const steps = 16;
+    for (let i = 0; i <= steps; i += 1) {
+      const a = (Math.PI * 2 * i) / steps;
+      const wobble = 0.95 + Math.sin(seed + i * 1.25) * 0.045 + Math.cos(seed * 0.72 + i * 1.91) * 0.03;
+      const x = cx + Math.cos(a) * rx * wobble;
+      const y = cy + Math.sin(a) * ry * wobble;
+      if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+
+  function drawBridge(g, a, b, width, fill, alpha = 1) {
+    g.save();
+    g.globalAlpha = alpha;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.lineWidth = width;
+    g.strokeStyle = fill;
+    g.beginPath();
+    g.moveTo(a.x, a.y);
+    g.lineTo(b.x, b.y);
+    g.stroke();
+    g.restore();
+  }
+
+  function drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, wanted, layers, salt) {
+    for (const layer of layers) {
+      for (let ty = startTy; ty <= endTy; ty += 1) {
+        for (let tx = startTx; tx <= endTx; tx += 1) {
+          if (!inSwamp(tx, ty) || swampKind(tileAt(tx, ty)) !== wanted) continue;
+          const c = localCenter(startX, startY, tx, ty, salt);
+          if (inSwamp(tx + 1, ty) && swampKind(tileAt(tx + 1, ty)) === wanted) {
+            drawBridge(g, c, localCenter(startX, startY, tx + 1, ty, salt), layer.width, layer.color, layer.alpha);
+          }
+          if (inSwamp(tx, ty + 1) && swampKind(tileAt(tx, ty + 1)) === wanted) {
+            drawBridge(g, c, localCenter(startX, startY, tx, ty + 1, salt), layer.width, layer.color, layer.alpha);
+          }
+          drawBlob(g, c.x, c.y, layer.rx || layer.width * 0.56, layer.ry || layer.width * 0.44, layer.color, layer.alpha, tx * 0.37 + ty * 0.49 + salt + layer.width);
+        }
+      }
+    }
+  }
+
+  function drawMarshBase(g, startX, startY, startTx, startTy, endTx, endTy) {
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (!inSwamp(tx, ty)) continue;
+        const x = tx * TILE - startX;
+        const y = ty * TILE - startY;
+        const grad = g.createLinearGradient(x, y, x + TILE, y + TILE);
+        grad.addColorStop(0, '#31463e');
+        grad.addColorStop(0.48, '#42554d');
+        grad.addColorStop(1, '#22332e');
+        g.fillStyle = grad;
+        g.fillRect(x, y, TILE, TILE);
+
+        const r = hash(tx, ty, 10);
+        if (r > 0.30) {
+          g.fillStyle = r > 0.76 ? 'rgba(93, 128, 86, .20)' : 'rgba(31, 52, 41, .18)';
+          g.beginPath();
+          g.ellipse(x + 7 + hash(tx, ty, 11) * 18, y + 8 + hash(tx, ty, 12) * 17, 3.4, 2.2, hash(tx, ty, 13) * Math.PI, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+  }
+
+  function drawMarshGround(g, startX, startY, startTx, startTy, endTx, endTy) {
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, 'marsh', [
+      { width: 33, color: 'rgba(20, 47, 36, .34)', alpha: 1 },
+      { width: 26, color: '#405a4a', alpha: .92 },
+      { width: 19, color: 'rgba(106, 131, 92, .16)', alpha: .84 }
+    ], 20);
+  }
+
+  function drawMud(g, startX, startY, startTx, startTy, endTx, endTy) {
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, 'mud', [
+      { width: 34, color: 'rgba(35, 28, 19, .30)', alpha: 1 },
+      { width: 27, color: '#5b4730', alpha: .94 },
+      { width: 20, color: 'rgba(137, 112, 72, .16)', alpha: .76 }
+    ], 30);
+  }
+
+  function drawWater(g, startX, startY, startTx, startTy, endTx, endTy) {
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, 'water', [
+      { width: 38, color: 'rgba(61, 52, 33, .36)', alpha: 1 },
+      { width: 32, color: 'rgba(109, 114, 69, .22)', alpha: .9 },
+      { width: 25, color: '#2b5f67', alpha: .98 },
+      { width: 19, color: 'rgba(163, 205, 191, .14)', alpha: .82 }
+    ], 40);
+  }
+
+  function drawStone(g, startX, startY, startTx, startTy, endTx, endTy) {
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, 'stone', [
+      { width: 26, color: 'rgba(33, 34, 31, .30)', alpha: 1 },
+      { width: 20, color: '#5f6056', alpha: .94 },
+      { width: 14, color: 'rgba(154, 160, 148, .16)', alpha: .78 }
+    ], 50);
+  }
+
+  function drawBoardwalk(g, startX, startY, startTx, startTy, endTx, endTy) {
+    drawNetwork(g, startX, startY, startTx, startTy, endTx, endTy, 'boardwalk', [
+      { width: 26, color: 'rgba(26, 18, 11, .34)', alpha: 1 },
+      { width: 18, color: '#5a4330', alpha: .98 },
+      { width: 13, color: 'rgba(139, 108, 74, .22)', alpha: .88 }
+    ], 60);
+
+    g.save();
+    g.strokeStyle = 'rgba(186, 152, 101, .28)';
+    g.lineWidth = 1;
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (!inSwamp(tx, ty) || swampKind(tileAt(tx, ty)) !== 'boardwalk') continue;
+        const x = tx * TILE - startX;
+        const y = ty * TILE - startY;
+        const horiz = swampKind(tileAt(tx - 1, ty)) === 'boardwalk' || swampKind(tileAt(tx + 1, ty)) === 'boardwalk';
+        if (horiz) {
+          for (let px = 4; px < TILE - 2; px += 6) {
+            g.beginPath();
+            g.moveTo(x + px, y + 6);
+            g.lineTo(x + px, y + TILE - 6);
+            g.stroke();
+          }
+        } else {
+          for (let py = 4; py < TILE - 2; py += 6) {
+            g.beginPath();
+            g.moveTo(x + 6, y + py);
+            g.lineTo(x + TILE - 6, y + py);
+            g.stroke();
+          }
+        }
+      }
+    }
+    g.restore();
+  }
+
+  function drawDetails(g, startX, startY, startTx, startTy, endTx, endTy) {
+    g.save();
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (!inSwamp(tx, ty)) continue;
+        const x = tx * TILE - startX;
+        const y = ty * TILE - startY;
+        const k = swampKind(tileAt(tx, ty));
+        const r = hash(tx, ty, 70);
+
+        if ((k === 'marsh' || k === 'mud') && r > 0.76) {
+          g.strokeStyle = k === 'mud' ? 'rgba(145, 153, 95, .45)' : 'rgba(99, 128, 88, .48)';
+          g.lineWidth = 1.2;
+          const baseX = x + 6 + hash(tx, ty, 71) * 16;
+          const baseY = y + 22 + hash(tx, ty, 72) * 4;
+          for (let i = 0; i < 3; i += 1) {
+            g.beginPath();
+            g.moveTo(baseX + i * 2, baseY);
+            g.lineTo(baseX + i * 2 + (hash(tx, ty, 73 + i) - 0.5) * 3, baseY - 6 - hash(tx, ty, 76 + i) * 5);
+            g.stroke();
+          }
+        }
+
+        if (k === 'water' && r > 0.70 && r < 0.88) {
+          g.fillStyle = 'rgba(97, 125, 75, .34)';
+          g.beginPath();
+          g.ellipse(x + 7 + hash(tx, ty, 80) * 16, y + 8 + hash(tx, ty, 81) * 14, 3.5, 2.3, hash(tx, ty, 82) * Math.PI, 0, Math.PI * 2);
+          g.fill();
+          if (r > 0.82) {
+            g.fillStyle = 'rgba(216, 216, 180, .34)';
+            g.fillRect(x + 8 + hash(tx, ty, 83) * 14, y + 8 + hash(tx, ty, 84) * 13, 2, 2);
+          }
+        }
+
+        if ((k === 'marsh' || k === 'mud') && r > 0.9) {
+          g.fillStyle = 'rgba(180, 189, 164, .18)';
+          g.beginPath();
+          g.ellipse(x + 8 + hash(tx, ty, 90) * 16, y + 8 + hash(tx, ty, 91) * 15, 3.8, 2.6, hash(tx, ty, 92) * Math.PI, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
+    }
+    g.restore();
+  }
+
+  function chunkHasSwamp(startTx, startTy, endTx, endTy) {
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (inSwamp(tx, ty)) return true;
+      }
+    }
+    return false;
+  }
+
+  function renderSwampChunk(cx, cy) {
+    const startTx = cx * CHUNK_TILES;
+    const startTy = cy * CHUNK_TILES;
+    const endTx = startTx + CHUNK_TILES - 1;
+    const endTy = startTy + CHUNK_TILES - 1;
+    if (!chunkHasSwamp(startTx, startTy, endTx, endTy)) return { empty: true };
+
+    const startX = startTx * TILE;
+    const startY = startTy * TILE;
+    const c = createCanvas(CHUNK_TILES * TILE, CHUNK_TILES * TILE);
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+
+    drawMarshBase(g, startX, startY, startTx, startTy, endTx, endTy);
+    drawMarshGround(g, startX, startY, startTx, startTy, endTx, endTy);
+    drawMud(g, startX, startY, startTx, startTy, endTx, endTy);
+    drawWater(g, startX, startY, startTx, startTy, endTx, endTy);
+    drawStone(g, startX, startY, startTx, startTy, endTx, endTy);
+    drawBoardwalk(g, startX, startY, startTx, startTy, endTx, endTy);
+    drawDetails(g, startX, startY, startTx, startTy, endTx, endTy);
+
+    return { empty: false, canvas: c, x: startX, y: startY };
+  }
+
+  function getSwampChunk(cx, cy) {
+    const key = `${PATCH_ID}:${cx}:${cy}`;
+    if (swampCache.has(key)) {
+      const item = swampCache.get(key);
+      swampCache.delete(key);
+      swampCache.set(key, item);
+      return item;
+    }
+    const item = renderSwampChunk(cx, cy);
+    swampCache.set(key, item);
+    while (swampCache.size > MAX_CACHE) {
+      const firstKey = swampCache.keys().next().value;
+      swampCache.delete(firstKey);
+    }
+    return item;
+  }
+
+  function drawSwampDynamicHighlights(startCol, endCol, startRow, endRow) {
+    const t = performance.now() / 1000;
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (let ty = startRow; ty <= endRow; ty += 1) {
+      for (let tx = startCol; tx <= endCol; tx += 1) {
+        if (!inSwamp(tx, ty)) continue;
+        const k = swampKind(tileAt(tx, ty));
+        if (k === 'water' && hash(tx, ty, 300) > 0.34) {
+          const cx = tx * TILE + TILE / 2;
+          const cy = ty * TILE + TILE / 2;
+          ctx.strokeStyle = 'rgba(180, 220, 210, .24)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(cx - 9, cy + Math.sin(t * 2.4 + tx) * 1.2);
+          ctx.quadraticCurveTo(cx, cy - 2 + Math.cos(t * 2.1 + ty) * 1.2, cx + 9, cy + Math.sin(t * 2.0 + ty) * 1.1);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawSwampReferenceStyle() {
+    if (currentScene !== 'village') return;
+    if (!Array.isArray(worldMap) || !worldMap.length) return;
+
+    const viewW = typeof getZoomedViewWidth === 'function' ? getZoomedViewWidth() : canvas.width;
+    const viewH = typeof getZoomedViewHeight === 'function' ? getZoomedViewHeight() : canvas.height;
+    const startCol = Math.max(SWAMP.x1, Math.floor(camera.x / TILE) - 2);
+    const endCol = Math.min(SWAMP.x2, Math.ceil((camera.x + viewW) / TILE) + 2);
+    const startRow = Math.max(SWAMP.y1, Math.floor(camera.y / TILE) - 2);
+    const endRow = Math.min(SWAMP.y2, Math.ceil((camera.y + viewH) / TILE) + 2);
+    if (endCol < SWAMP.x1 || startCol > SWAMP.x2 || endRow < SWAMP.y1 || startRow > SWAMP.y2) return;
+
+    const startChunkX = Math.floor(startCol / CHUNK_TILES);
+    const endChunkX = Math.floor(endCol / CHUNK_TILES);
+    const startChunkY = Math.floor(startRow / CHUNK_TILES);
+    const endChunkY = Math.floor(endRow / CHUNK_TILES);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (let cy = startChunkY; cy <= endChunkY; cy += 1) {
+      for (let cx = startChunkX; cx <= endChunkX; cx += 1) {
+        const item = getSwampChunk(cx, cy);
+        if (!item || item.empty || !item.canvas) continue;
+        ctx.drawImage(item.canvas, item.x, item.y);
+      }
+    }
+    ctx.restore();
+
+    drawSwampDynamicHighlights(startCol, endCol, startRow, endRow);
+  }
+
+  const drawMapBeforeSwampReference = typeof drawMap === 'function' ? drawMap : null;
+  drawMap = function drawMapWithSwampReferenceStyle() {
+    if (drawMapBeforeSwampReference) drawMapBeforeSwampReference();
+    drawSwampReferenceStyle();
+  };
+
+  try { console.log('Eternal Rift patch carregado:', PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - DIMENSAO TRANQUILA ESTILO REFERENCIA, SEM PNG
+   Escopo: altera somente os tiles/visual da Dimensao Tranquila.
+   PC + mobile. Sem mexer nos outros biomas/sistemas.
+   ================================================== */
+(function eternalRiftTranquilDimensionReferenceStylePatch() {
+  const PATCH_ID = "tranquil-dimension-reference-style-no-png-pc-mobile-20260708b";
+  if (typeof window !== 'undefined' && window.ETERNAL_RIFT_TRANQUIL_DIMENSION_REFERENCE_STYLE_PATCH === PATCH_ID) return;
+  if (typeof window !== 'undefined') {
+    window.ETERNAL_RIFT_TRANQUIL_DIMENSION_REFERENCE_STYLE_PATCH = PATCH_ID;
+    window.ETERNAL_RIFT_CURRENT_VERSION = PATCH_ID;
+  }
+
+  let tranquilCacheCanvas = null;
+  let tranquilCacheKey = '';
+
+  function createCanvasLocal(w, h) {
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w));
+    c.height = Math.max(1, Math.round(h));
+    return c;
+  }
+
+  function hash(tx, ty, salt = 0) {
+    let n = (tx * 374761393 + ty * 668265263 + salt * 1442695041) | 0;
+    n = (n ^ (n >>> 13)) * 1274126177;
+    n = (n ^ (n >>> 16)) >>> 0;
+    return n / 4294967295;
+  }
+
+  function crystalTile(tx, ty) {
+    if (tx < 0 || ty < 0 || tx >= CRYSTAL_COLS || ty >= CRYSTAL_ROWS) return 'M';
+    return crystalDimensionMap?.[ty]?.[tx] || 'C';
+  }
+
+  function shapePath(g, pts, fill) {
+    g.fillStyle = fill;
+    g.beginPath();
+    for (let i = 0; i < pts.length; i += 1) {
+      const p = pts[i];
+      if (i === 0) g.moveTo(p[0], p[1]);
+      else g.lineTo(p[0], p[1]);
+    }
+    g.closePath();
+    g.fill();
+  }
+
+  function drawTuft(g, x, y, ox, oy, color) {
+    g.fillStyle = color;
+    g.fillRect(x + ox, y + oy + 4, 1.5, 7);
+    g.fillRect(x + ox + 1.5, y + oy + 2, 1.5, 9);
+    g.fillRect(x + ox + 3, y + oy + 5, 1.5, 5);
+  }
+
+  function drawFlower(g, x, y, tx, ty) {
+    const px = x + 5 + hash(tx, ty, 101) * 20;
+    const py = y + 8 + hash(tx, ty, 102) * 16;
+    g.fillStyle = 'rgba(80,130,80,.6)';
+    g.fillRect(px, py + 2, 1.5, 5);
+    const palette = ['#ffd8f2', '#d4b8ff', '#f6f2ff', '#9cf1ff', '#f8ff9e'];
+    const petal = palette[Math.floor(hash(tx, ty, 103) * palette.length) % palette.length];
+    g.fillStyle = petal;
+    g.fillRect(px - 1, py, 2, 2); g.fillRect(px + 1, py, 2, 2); g.fillRect(px, py - 1, 2, 2); g.fillRect(px, py + 1, 2, 2);
+    g.fillStyle = '#fff6d6';
+    g.fillRect(px, py, 1.5, 1.5);
+  }
+
+  function drawGrassTile(g, x, y, tx, ty) {
+    const grad = g.createLinearGradient(x, y, x + TILE, y + TILE);
+    grad.addColorStop(0, '#bff3a7');
+    grad.addColorStop(0.52, '#9ddf80');
+    grad.addColorStop(1, '#7fc96d');
+    g.fillStyle = grad;
+    g.fillRect(x, y, TILE, TILE);
+
+    g.fillStyle = 'rgba(255,255,255,.10)';
+    if (hash(tx, ty, 1) > 0.5) g.fillRect(x, y, TILE, 2.5);
+    g.fillStyle = 'rgba(71,117,63,.10)';
+    g.fillRect(x, y + TILE - 4, TILE, 4);
+
+    drawTuft(g, x, y, 4 + hash(tx, ty, 2) * 4, 5 + hash(tx, ty, 3) * 4, '#4c9c61');
+    if (hash(tx, ty, 4) > 0.32) drawTuft(g, x, y, 18 + hash(tx, ty, 5) * 5, 16 + hash(tx, ty, 6) * 4, '#3b8f55');
+    if (hash(tx, ty, 7) > 0.68) drawFlower(g, x, y, tx, ty);
+    if (hash(tx, ty, 8) > 0.86) {
+      g.fillStyle = 'rgba(177,255,255,.55)';
+      g.fillRect(x + 14, y + 10, 2, 2);
+      g.fillStyle = 'rgba(255,255,255,.45)';
+      g.fillRect(x + 16, y + 9, 1, 1);
+    }
+  }
+
+  function drawConnectedOrganicShape(g, x, y, tileGetter, tx, ty, target, outerColor, innerColor, glowColor, coreR = 9.5, innerR = 7.2) {
+    const n = tileGetter(tx, ty - 1) === target;
+    const s = tileGetter(tx, ty + 1) === target;
+    const w = tileGetter(tx - 1, ty) === target;
+    const e = tileGetter(tx + 1, ty) === target;
+    const nw = tileGetter(tx - 1, ty - 1) === target;
+    const ne = tileGetter(tx + 1, ty - 1) === target;
+    const sw = tileGetter(tx - 1, ty + 1) === target;
+    const se = tileGetter(tx + 1, ty + 1) === target;
+    const cx = x + TILE / 2;
+    const cy = y + TILE / 2;
+
+    function paint(fill, radius, connectExtra = 0) {
+      g.fillStyle = fill;
+      g.beginPath();
+      g.arc(cx, cy, radius, 0, Math.PI * 2);
+      g.fill();
+      if (n) g.fillRect(cx - radius + 1, y, radius * 2 - 2, TILE / 2 + connectExtra);
+      if (s) g.fillRect(cx - radius + 1, cy - connectExtra, radius * 2 - 2, TILE / 2 + connectExtra);
+      if (w) g.fillRect(x, cy - radius + 1, TILE / 2 + connectExtra, radius * 2 - 2);
+      if (e) g.fillRect(cx - connectExtra, cy - radius + 1, TILE / 2 + connectExtra, radius * 2 - 2);
+      if (n && w && nw) g.fillRect(x, y, TILE / 2 + 2, TILE / 2 + 2);
+      if (n && e && ne) g.fillRect(cx - 2, y, TILE / 2 + 2, TILE / 2 + 2);
+      if (s && w && sw) g.fillRect(x, cy - 2, TILE / 2 + 2, TILE / 2 + 2);
+      if (s && e && se) g.fillRect(cx - 2, cy - 2, TILE / 2 + 2, TILE / 2 + 2);
+    }
+
+    paint(outerColor, coreR, 1);
+    paint(innerColor, innerR, 0);
+    if (glowColor) {
+      g.fillStyle = glowColor;
+      g.fillRect(x + 7, y + 7, 6, 2);
+      g.fillRect(x + 17, y + 19, 8, 2);
+    }
+  }
+
+  function drawWaterTile(g, x, y, tx, ty) {
+    drawConnectedOrganicShape(g, x, y, crystalTile, tx, ty, 'M', 'rgba(83,108,84,.95)', '#49b6da', 'rgba(215,252,255,.40)', 12.6, 10.2);
+    g.fillStyle = 'rgba(18,88,130,.24)';
+    g.fillRect(x, y + TILE - 4, TILE, 4);
+    if (hash(tx, ty, 201) > 0.5) {
+      g.strokeStyle = 'rgba(223,255,255,.34)';
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(x + 5, y + 14);
+      g.quadraticCurveTo(x + 15, y + 11, x + 27, y + 14);
+      g.stroke();
+    }
+  }
+
+  function drawPathTile(g, x, y, tx, ty) {
+    drawConnectedOrganicShape(g, x, y, crystalTile, tx, ty, 'Q', 'rgba(136,123,111,.90)', '#d7ccb2', null, 12.0, 10.0);
+    g.fillStyle = 'rgba(120,101,86,.20)';
+    if (hash(tx, ty, 301) > 0.35) g.fillRect(x + 6, y + 6, 5, 3);
+    if (hash(tx, ty, 302) > 0.4) g.fillRect(x + 18, y + 18, 6, 3);
+    if (hash(tx, ty, 303) > 0.7) g.fillRect(x + 12, y + 23, 4, 2);
+    g.strokeStyle = 'rgba(245,239,228,.24)';
+    g.strokeRect(x + 4.5, y + 4.5, TILE - 9, TILE - 9);
+  }
+
+  function drawCliffTouchShadows(g, tx, ty, x, y) {
+    const neighbors = [crystalTile(tx, ty - 1), crystalTile(tx + 1, ty), crystalTile(tx, ty + 1), crystalTile(tx - 1, ty)];
+    if (neighbors.includes('M')) {
+      g.fillStyle = 'rgba(93,116,74,.16)';
+      g.fillRect(x, y, TILE, TILE);
+    }
+  }
+
+  function drawDimensionBackground(g) {
+    g.imageSmoothingEnabled = false;
+    for (let ty = 0; ty < CRYSTAL_ROWS; ty += 1) {
+      for (let tx = 0; tx < CRYSTAL_COLS; tx += 1) {
+        const tile = crystalTile(tx, ty);
+        const x = tx * TILE;
+        const y = ty * TILE;
+        drawGrassTile(g, x, y, tx, ty);
+        drawCliffTouchShadows(g, tx, ty, x, y);
+        if (tile === 'Q') drawPathTile(g, x, y, tx, ty);
+        else if (tile === 'M') drawWaterTile(g, x, y, tx, ty);
+      }
+    }
+
+    // subtle stone edging near water to imitate serene carved banks
+    g.fillStyle = 'rgba(126,124,118,.20)';
+    for (let ty = 0; ty < CRYSTAL_ROWS; ty += 1) {
+      for (let tx = 0; tx < CRYSTAL_COLS; tx += 1) {
+        const tile = crystalTile(tx, ty);
+        if (tile === 'M') continue;
+        const x = tx * TILE;
+        const y = ty * TILE;
+        if (crystalTile(tx, ty - 1) === 'M') g.fillRect(x + 4, y + 1, TILE - 8, 2);
+        if (crystalTile(tx, ty + 1) === 'M') g.fillRect(x + 4, y + TILE - 3, TILE - 8, 2);
+        if (crystalTile(tx - 1, ty) === 'M') g.fillRect(x + 1, y + 4, 2, TILE - 8);
+        if (crystalTile(tx + 1, ty) === 'M') g.fillRect(x + TILE - 3, y + 4, 2, TILE - 8);
+      }
+    }
+  }
+
+  function ensureTranquilCache() {
+    const key = `${PATCH_ID}:${CRYSTAL_COLS}x${CRYSTAL_ROWS}:${crystalDimensionMap.flat().join('')}`;
+    if (tranquilCacheCanvas && tranquilCacheKey === key) return tranquilCacheCanvas;
+    tranquilCacheKey = key;
+    tranquilCacheCanvas = createCanvasLocal(CRYSTAL_WIDTH, CRYSTAL_HEIGHT);
+    const g = tranquilCacheCanvas.getContext('2d');
+    drawDimensionBackground(g);
+    return tranquilCacheCanvas;
+  }
+
+  function drawDynamicShimmer() {
+    const t = performance.now() / 1000;
+    ctx.save();
+    for (let ty = 0; ty < CRYSTAL_ROWS; ty += 1) {
+      for (let tx = 0; tx < CRYSTAL_COLS; tx += 1) {
+        if (crystalTile(tx, ty) !== 'M') continue;
+        const x = tx * TILE;
+        const y = ty * TILE;
+        if (hash(tx, ty, 401) > 0.42) {
+          ctx.strokeStyle = 'rgba(232,255,255,.20)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + 6, y + 12 + Math.sin(t * 2.2 + tx * 0.4) * 1.2);
+          ctx.quadraticCurveTo(x + 15, y + 10 + Math.cos(t * 2.0 + ty * 0.4) * 1.2, x + 26, y + 13 + Math.sin(t * 1.8 + ty * 0.5) * 1.2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // tiny magical motes above some grass tiles
+    for (let ty = 0; ty < CRYSTAL_ROWS; ty += 1) {
+      for (let tx = 0; tx < CRYSTAL_COLS; tx += 1) {
+        if (crystalTile(tx, ty) !== 'C') continue;
+        if (hash(tx, ty, 402) < 0.93) continue;
+        const x = tx * TILE + 8 + hash(tx, ty, 403) * 14;
+        const y = ty * TILE + 8 + hash(tx, ty, 404) * 12 + Math.sin(t * 2 + tx) * 1.5;
+        ctx.fillStyle = 'rgba(173,241,255,.35)';
+        ctx.fillRect(x, y, 2, 2);
+        ctx.fillStyle = 'rgba(255,255,255,.25)';
+        ctx.fillRect(x + 1, y - 1, 1, 1);
+      }
+    }
+    ctx.restore();
+  }
+
+  const drawMapBeforeTranquilDimensionPatch = typeof drawMap === 'function' ? drawMap : null;
+  drawMap = function drawMapWithTranquilDimensionReferenceStyle() {
+    if (currentScene !== 'crystalDimension') {
+      if (drawMapBeforeTranquilDimensionPatch) return drawMapBeforeTranquilDimensionPatch();
+      return;
+    }
+    const cache = ensureTranquilCache();
+    ctx.drawImage(cache, 0, 0);
+    drawDynamicShimmer();
+  };
+
+  try { console.log('Eternal Rift patch carregado:', PATCH_ID); } catch (error) {}
+})();
+
+
+/* === Rogue/Assassin principal corrigido (spritesheet funcional) === */
+(() => {
+  const ROGUE_CELL = 96;
+  const rogueIdleWalkSheet = new Image();
+  const rogueCombatSheet = new Image();
+  let rogueIdleWalkReady = false;
+  let rogueCombatReady = false;
+  rogueIdleWalkSheet.onload = () => (rogueIdleWalkReady = true);
+  rogueCombatSheet.onload = () => (rogueCombatReady = true);
+  rogueIdleWalkSheet.src = "assets/player_rogue_assassin/rogue_idle_walk_sheet.png";
+  rogueCombatSheet.src = "assets/player_rogue_assassin/rogue_combat_sheet.png";
+
+  const drawPlayerBeforeRogueAssassinFunctional = drawPlayer;
+  const originalDodgeDashForRogueAssassin = typeof dodgeDash === 'function' ? dodgeDash : null;
+  let rogueDashVisualUntil = 0;
+
+  if (originalDodgeDashForRogueAssassin) {
+    dodgeDash = function rogueAssassinWrappedDodgeDash(...args) {
+      const prevX = player.x;
+      const prevY = player.y;
+      const result = originalDodgeDashForRogueAssassin.apply(this, args);
+      if (Math.hypot(player.x - prevX, player.y - prevY) > 1) {
+        rogueDashVisualUntil = performance.now() + 240;
+      }
+      return result;
+    };
+  }
+
+  const rowIndexForDirection = (direction) => ({ down: 0, up: 1, left: 2, right: 3 })[direction] ?? 0;
+  const currentRogueAction = () => {
+    const now = performance.now();
+    if (rogueDashVisualUntil > now) return 'dash';
+    if ((typeof attackWindupTimer === 'number' && attackWindupTimer > 0.015) ||
+        (typeof attackTimer === 'number' && attackTimer > 0.015) ||
+        (typeof attackRecoveryTimer === 'number' && attackRecoveryTimer > 0.015)) {
+      return 'attack';
+    }
+    if (player.moving) return 'walk';
+    return 'idle';
+  };
+
+  const currentRogueFrame = (action) => {
+    if (action === 'idle') return Math.floor(performance.now() / 220) % 4;
+    if (action === 'walk') return Number.isFinite(player.frame) ? (player.frame % 4) : (Math.floor(performance.now() / 110) % 4);
+    if (action === 'dash') {
+      const left = Math.max(0, rogueDashVisualUntil - performance.now());
+      return Math.min(3, Math.floor((240 - left) / 60));
+    }
+    const wind = Math.max(0, Number(typeof attackWindupTimer === 'number' ? attackWindupTimer : 0));
+    const actv = Math.max(0, Number(typeof attackTimer === 'number' ? attackTimer : 0));
+    const reco = Math.max(0, Number(typeof attackRecoveryTimer === 'number' ? attackRecoveryTimer : 0));
+    if (wind > 0.001) return wind > 0.06 ? 0 : 1;
+    if (actv > 0.001) return 2;
+    return 3;
+  };
+
+  function drawRogueSheetFrame(sheet, row, col, drawX, drawY, drawW, drawH) {
+    const sx = col * ROGUE_CELL;
+    const sy = row * ROGUE_CELL;
+    const smoothing = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(sheet, sx, sy, ROGUE_CELL, ROGUE_CELL, drawX, drawY, drawW, drawH);
+    ctx.imageSmoothingEnabled = smoothing;
+  }
+
+  drawPlayer = function drawPlayerRogueAssassinFunctional() {
+    if (!rogueIdleWalkReady || !rogueCombatReady) return drawPlayerBeforeRogueAssassinFunctional?.();
+
+    const action = currentRogueAction();
+    const frame = currentRogueFrame(action);
+    const row = rowIndexForDirection(player.direction);
+    const col = action === 'idle' ? frame : action === 'walk' ? 4 + frame : action === 'attack' ? frame : 4 + frame;
+    const sheet = action === 'attack' || action === 'dash' ? rogueCombatSheet : rogueIdleWalkSheet;
+
+    const blink = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 75) % 2 === 0;
+    const bob = player.moving && action === 'walk' ? Math.sin(performance.now() / 85) * 1.2 : 0;
+    const drawW = 64;
+    const drawH = 64;
+    const drawX = Math.round(player.x + player.width / 2 - drawW / 2);
+    const drawY = Math.round(player.y + player.height - drawH + 9 + bob);
+
+    ctx.save();
+    if (blink) ctx.globalAlpha = 0.45;
+
+    if (player.isSwimming) {
+      ctx.strokeStyle = 'rgba(155, 244, 255, 0.72)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(player.x + player.width / 2, player.y + 27, 18, 6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (player.levelGlowTimer > 0 || (activePowerUps && activePowerUps.shield > 0)) {
+      const pulse = 0.20 + Math.sin(performance.now() / 110) * 0.06;
+      ctx.fillStyle = `rgba(88,223,255,${pulse})`;
+      ctx.fillRect(drawX - 4, drawY - 4, drawW + 8, drawH + 8);
+    }
+
+    ctx.fillStyle = 'rgba(7, 9, 18, 0.32)';
+    ctx.beginPath();
+    ctx.ellipse(player.x + player.width / 2, player.y + player.height - 1, 14, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    drawRogueSheetFrame(sheet, row, col, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  };
+
+  try {
+    if (typeof showHudToast === 'function') setTimeout(() => showHudToast('Personagem Rogue/Assassin corrigido.', 2.4), 900);
+  } catch (error) {}
+})();
+
+
+/* ==================================================
+   MENU INICIAL INTERATIVO TAVERNA - SOMENTE MENU
+   - Seleção visual de classe
+   - Zoom decorativo do menu
+   - Sem alterar gameplay, biomas, personagem, boss ou sistemas
+   ================================================== */
+(() => {
+  const MENU_PATCH_ID = "menu-inicial-interativo-taverna-20260708";
+  if (window.ETERNAL_RIFT_MENU_INICIAL_INTERATIVO === MENU_PATCH_ID) return;
+  window.ETERNAL_RIFT_MENU_INICIAL_INTERATIVO = MENU_PATCH_ID;
+
+  const classLabels = {
+    warrior: "Guerreiro: Mais vida, espada forte e armadura azul-dourada.",
+    archer: "Arqueiro: Mais velocidade, arco inicial e muitas flechas.",
+    mage: "Mago: Mais mana, cajado e magia inicial mais forte.",
+    assassin: "Assassino: Muito rápido, crítico alto e menos vida."
+  };
+
+  function currentStartMenuOpen() {
+    return Boolean(startScreen && !startScreen.classList.contains("hidden"));
+  }
+
+  function markMenuState() {
+    document.body.classList.toggle("start-menu-open", currentStartMenuOpen());
+  }
+
+  function selectMenuClass(id) {
+    const chosen = classLabels[id] ? id : "warrior";
+    document.querySelectorAll("#classSelectPanel [data-class-choice]").forEach((button) => {
+      button.classList.toggle("is-selected", button.dataset.classChoice === chosen);
+      button.setAttribute("aria-pressed", button.dataset.classChoice === chosen ? "true" : "false");
+    });
+    const summary = document.getElementById("classSelectSummary");
+    if (summary) summary.textContent = classLabels[chosen];
+    try { localStorage.setItem("eternalRiftPreferredClass", JSON.stringify({ selected: chosen })); } catch (error) {}
+  }
+
+  function initMenuClasses() {
+    const panel = document.getElementById("classSelectPanel");
+    if (!panel || panel.dataset.erMenuBound === "true") return;
+    panel.dataset.erMenuBound = "true";
+    panel.querySelectorAll("[data-class-choice]").forEach((button) => {
+      button.addEventListener("click", () => {
+        selectMenuClass(button.dataset.classChoice);
+        try { if (typeof playSound === "function") playSound("selectItem"); } catch (error) {}
+      });
+    });
+    const active = panel.querySelector("[data-class-choice].is-selected")?.dataset.classChoice || "warrior";
+    selectMenuClass(active);
+  }
+
+  function initMenuZoom() {
+    const label = document.getElementById("erMenuZoomLabel");
+    const root = document.querySelector(".er-menu-tavern");
+    if (!label || !root || root.dataset.erZoomBound === "true") return;
+    root.dataset.erZoomBound = "true";
+    let zoom = 85;
+    const sync = () => {
+      label.textContent = `${zoom}%`;
+      root.style.setProperty("--er-menu-display-zoom", String(zoom / 100));
+    };
+    document.querySelectorAll("[data-menu-zoom]").forEach((button) => {
+      button.addEventListener("click", () => {
+        zoom += button.dataset.menuZoom === "up" ? 5 : -5;
+        zoom = Math.max(70, Math.min(110, zoom));
+        sync();
+      });
+    });
+    sync();
+  }
+
+  function initMenuNameDefault() {
+    if (!characterNameInput) return;
+    if (!String(characterNameInput.value || "").trim()) characterNameInput.value = "Blade";
+  }
+
+  function initMenuPatch() {
+    initMenuClasses();
+    initMenuZoom();
+    initMenuNameDefault();
+    markMenuState();
+  }
+
+  initMenuPatch();
+  setTimeout(initMenuPatch, 200);
+  setTimeout(initMenuPatch, 900);
+
+  const observer = new MutationObserver(() => markMenuState());
+  if (startScreen) observer.observe(startScreen, { attributes: true, attributeFilter: ["class"] });
+
+  document.getElementById("playButton")?.addEventListener("click", markMenuState, true);
+  document.getElementById("continueButton")?.addEventListener("click", markMenuState, true);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - CORREÇÃO DO MENU INTERATIVO SEM REVERTER
+   Escopo: mantém o menu novo e corrige Novo Jogo / Continuar.
+   ================================================== */
+(function eternalRiftMenuInterativoSemReverterFix() {
+  const PATCH_ID = "menu-interativo-sem-reverter-botoes-corrigidos-20260708";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_MENU_INTERATIVO_SEM_REVERTER_FIX === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_MENU_INTERATIVO_SEM_REVERTER_FIX = PATCH_ID;
+
+  function syncMenuClass() {
+    try {
+      if (!startScreen) return;
+      const open = !startScreen.classList.contains("hidden") && !(typeof gameStarted !== "undefined" && gameStarted);
+      document.body.classList.toggle("start-menu-open", open);
+      document.body.classList.toggle("game-started", typeof gameStarted !== "undefined" && gameStarted);
+    } catch (error) {}
+  }
+
+  function closeOnlyNewMenuIfStarted() {
+    try {
+      if (!startScreen) return;
+      if (typeof gameStarted !== "undefined" && gameStarted) {
+        startScreen.classList.add("hidden");
+        document.body.classList.remove("start-menu-open");
+        document.body.classList.add("game-started");
+        if (typeof updateHud === "function") updateHud();
+        if (typeof draw === "function") draw();
+      } else {
+        syncMenuClass();
+      }
+    } catch (error) { console.warn("Menu interativo sem reverter fix:", error); }
+  }
+
+  const originalStartNewGame = typeof startNewGame === "function" ? startNewGame : null;
+  if (originalStartNewGame && !originalStartNewGame.__erInteractiveMenuNoRevertFix) {
+    startNewGame = function startNewGameInteractiveMenuNoRevert(...args) {
+      const result = originalStartNewGame.apply(this, args);
+      closeOnlyNewMenuIfStarted();
+      setTimeout(closeOnlyNewMenuIfStarted, 50);
+      setTimeout(closeOnlyNewMenuIfStarted, 180);
+      return result;
+    };
+    startNewGame.__erInteractiveMenuNoRevertFix = true;
+  }
+
+  const originalStartGame = typeof startGame === "function" ? startGame : null;
+  if (originalStartGame && !originalStartGame.__erInteractiveMenuNoRevertFix) {
+    startGame = function startGameInteractiveMenuNoRevert(...args) {
+      const result = originalStartGame.apply(this, args);
+      closeOnlyNewMenuIfStarted();
+      setTimeout(closeOnlyNewMenuIfStarted, 50);
+      setTimeout(closeOnlyNewMenuIfStarted, 180);
+      return result;
+    };
+    startGame.__erInteractiveMenuNoRevertFix = true;
+  }
+
+  ["playButton", "continueButton"].forEach((id) => {
+    const button = document.getElementById(id);
+    if (!button || button.dataset.erInteractiveNoRevertBound === "true") return;
+    button.dataset.erInteractiveNoRevertBound = "true";
+    button.addEventListener("click", () => {
+      setTimeout(closeOnlyNewMenuIfStarted, 0);
+      setTimeout(closeOnlyNewMenuIfStarted, 80);
+      setTimeout(closeOnlyNewMenuIfStarted, 220);
+    }, false);
+  });
+
+  if (startScreen) {
+    const observer = new MutationObserver(syncMenuClass);
+    observer.observe(startScreen, { attributes: true, attributeFilter: ["class"] });
+  }
+
+  syncMenuClass();
+  setTimeout(syncMenuClass, 200);
+})();

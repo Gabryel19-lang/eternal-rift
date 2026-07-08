@@ -1,0 +1,12 @@
+ETERNAL RIFT - DIMENSÃO TRANQUILA ESTILO REFERÊNCIA, SEM PNG
+
+Alteração feita:
+- Corrigido somente o visual/tile da Dimensão Tranquila.
+- Não usei a imagem como PNG estático no mapa.
+- Agora a dimensão é desenhada via Canvas em estilo orgânico:
+  grama mágica, caminhos de pedra, água clara brilhante e detalhes suaves.
+- PC e mobile.
+- HUD, inventário, casas, NPCs, vila, ferreiro, biomas, personagem, quarto, boss e sistemas preservados.
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache antigo.

@@ -1,0 +1,14 @@
+ETERNAL RIFT - FLORESTA ESTILO REFERÊNCIA, SEM PNG ESTÁTICO
+
+Alteração feita:
+- Corrigido somente o visual/tile da floresta principal.
+- Não usei a imagem como PNG dentro do mapa.
+- A floresta agora é desenhada via Canvas: grama, floresta, caminhos, água/rios/lago, bordas rochosas e detalhes.
+- PC e mobile.
+- Deserto preservado.
+- Bioma de fogo preservado.
+- Boss de 3 fases preservado.
+- HUD, inventário, casas, NPCs, ferreiro, personagem, quarto e sistemas preservados.
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache velho.

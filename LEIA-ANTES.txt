@@ -1,0 +1,16 @@
+ETERNAL RIFT - TERRENO COM TILES CORRETOS
+
+Alteração feita:
+- Corrigido somente o terreno da vila/floresta.
+- Agora as texturas vêm dos exemplos de AUTOTILE da imagem, não dos quadrados crus do painel.
+- Grama, caminho, floresta, água e pedra usam fontes visuais corretas.
+- Mantém caminhos e água orgânicos, sem aparência de quadrado.
+- PC e mobile.
+- Boss de 3 fases mantido.
+- Sem mexer em HUD, inventário, casas, NPCs, ferreiro, personagem, quarto ou sistemas.
+
+Arquivo novo:
+- assets/terrain/village-forest-reference-sheet.png
+
+Dica:
+- Abra em uma pasta limpa ou pressione Ctrl+F5 para limpar cache.

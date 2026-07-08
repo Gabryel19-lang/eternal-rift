@@ -1,0 +1,16 @@
+ETERNAL RIFT - MENU INICIAL INTERATIVO
+
+Alteração feita:
+- Alterado somente o menu inicial.
+- Menu novo inspirado na imagem de referência, mas sem usar a imagem como PNG estático.
+- Campo de nome funcional.
+- Seleção de classe: Guerreiro, Arqueiro, Mago e Assassino.
+- Botões: Novo Jogo, Continuar, Tela cheia, Como Jogar e Créditos.
+- Layout responsivo para PC e mobile.
+- Botões decorativos de zoom do menu.
+
+Preservado:
+- Biomas, personagem, boss, HUD, inventário, NPCs, casas, ferreiro, combate e sistemas.
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache antigo.

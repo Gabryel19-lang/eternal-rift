@@ -1,0 +1,16 @@
+ETERNAL RIFT - VILA/FLORESTA COM TILES ENCAIXADOS
+
+Correção feita:
+- Corrigido somente o visual da vila e floresta.
+- Agora a vila/floresta ficou com os tiles alinhados/encaixados igual ao bioma de fogo.
+- Mantidas água, caminhos, grama, floresta e pedra.
+- PC e mobile.
+- Boss de 3 fases e bioma de fogo preservados.
+- HUD, inventário, casas, NPCs, ferreiro, personagem, quarto e sistemas preservados.
+
+Arquivos usados:
+- assets/terrain/village-forest-reference-sheet.png
+- assets/terrain/fire-biome-reference-sheet.png
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache velho.

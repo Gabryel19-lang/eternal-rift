@@ -1,0 +1,14 @@
+ETERNAL RIFT - OTIMIZAÇÃO PC + MOBILE
+
+O que foi feito:
+- Mantive a beleza dos terrenos pedidos.
+- Removi os patches antigos/pesados de terreno que estavam desenhando várias camadas a cada frame.
+- Floresta, deserto e bioma de fogo agora são pré-renderizados em chunks/cache.
+- O jogo não precisa redesenhar todos os detalhes pesados a cada frame.
+- Mantive brilhos leves de água/lava para não perder vida visual.
+- PC e mobile.
+- Boss de 3 fases preservado.
+- HUD, inventário, casas, NPCs, ferreiro, personagem, quarto e sistemas preservados.
+
+Importante:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache velho.

@@ -1,0 +1,11 @@
+ETERNAL RIFT - PÂNTANO ESTILO REFERÊNCIA, SEM PNG ESTÁTICO
+
+Alteração feita:
+- Corrigido somente o visual/tile do bioma de pântano.
+- Não usei a imagem como PNG dentro do mapa.
+- O pântano agora é desenhado via Canvas: água escura, lama, ilhas úmidas, passarelas de madeira e detalhes orgânicos.
+- PC e mobile.
+- Floresta, deserto, bioma de fogo, boss, HUD, inventário, casas, NPCs, ferreiro, personagem, quarto e sistemas preservados.
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache velho.

@@ -1,0 +1,16 @@
+ETERNAL RIFT - BIOMA DE FOGO (PC + MOBILE)
+
+Alteração feita:
+- Corrigido somente o visual do bioma de fogo / Terras Vulcanicas.
+- Inclui terreno, lava, caminhos e pedras vulcânicas.
+- Feito com bordas orgânicas, sem aparência de quadrado.
+- Usa a imagem enviada como referência visual de textura.
+- PC e mobile.
+- Boss de 3 fases mantido.
+- Vila/floresta, HUD, inventário, casas, NPCs, ferreiro, personagem, quarto e sistemas preservados.
+
+Arquivo novo:
+- assets/terrain/fire-biome-reference-sheet.png
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache velho.

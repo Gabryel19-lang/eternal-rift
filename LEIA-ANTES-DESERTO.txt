@@ -1,0 +1,14 @@
+ETERNAL RIFT - DESERTO ESTILO REFERÊNCIA, SEM PNG ESTÁTICO
+
+Alteração feita:
+- Corrigido somente o visual/tile do bioma de deserto.
+- Não usei a imagem como PNG dentro do mapa.
+- O deserto agora é desenhado via Canvas: areia, caminhos, pedras, oásis/água, ruínas, areia movediça, bordas de penhasco e detalhes.
+- PC e mobile.
+- Bioma de fogo preservado.
+- Vila/floresta preservadas.
+- Boss de 3 fases preservado.
+- HUD, inventário, casas, NPCs, ferreiro, personagem, quarto e sistemas preservados.
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache velho.
