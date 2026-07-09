@@ -1,0 +1,15 @@
+Correção aplicada: Rasgo Dimensional desaparecendo corretamente.
+
+O que foi corrigido:
+- A fenda agora tem tempo máximo de vida.
+- Se o update falhar por algum motivo, o desenho também remove efeitos vencidos.
+- Limite de fendas simultâneas para não acumular no mapa.
+
+Mantido igual:
+- dano
+- custo de mana
+- cooldown
+- animação
+- PC e mobile
+- inventário/poderes
+- demais sistemas

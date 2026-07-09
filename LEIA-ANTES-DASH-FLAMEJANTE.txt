@@ -1,0 +1,6 @@
+Patch aplicado: Dash flamejante
+- Melhora somente o dash/esquiva.
+- Adiciona visual flamejante, animação de rastro de fogo e partículas.
+- Mantém distância, cooldown, invulnerabilidade e funcionamento iguais.
+- Compatível com PC e mobile.
+- Não mexe em outros sistemas.

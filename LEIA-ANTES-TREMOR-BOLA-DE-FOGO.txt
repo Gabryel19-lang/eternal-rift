@@ -1,0 +1,8 @@
+ETERNAL RIFT - TREMOR DA BOLA DE FOGO CORRIGIDO
+
+Correção feita:
+- Reduzi somente o tremor de tela da Bola de Fogo.
+- O efeito visual, rastro, explosão, dano, cooldown, mana e alcance continuam iguais.
+- O Raio Azul melhorado foi preservado.
+- PC e mobile.
+- Nada mais foi alterado de propósito.

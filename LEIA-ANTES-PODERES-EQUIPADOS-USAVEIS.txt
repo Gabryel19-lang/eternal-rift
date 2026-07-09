@@ -1,0 +1,11 @@
+Correção aplicada: poderes equipados no inventário agora podem ser usados.
+
+Corrigido:
+- Botões da aba Poderes agora gravam o poder no slot real.
+- O Slot ativo passa a usar o poder equipado.
+- Q / botão Poder usa o poder selecionado no inventário.
+- PC e mobile atualizam o slot ativo.
+
+Preservado:
+- dano, mana, cooldown e efeitos visuais dos poderes.
+- biomas, personagem, boss, HUD, menu, NPCs, casas, ferreiro e sistemas.

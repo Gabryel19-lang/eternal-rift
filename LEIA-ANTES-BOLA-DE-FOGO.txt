@@ -1,0 +1,13 @@
+ETERNAL RIFT - BOLA DE FOGO MELHORADA
+
+Alteração feita:
+- Melhorado somente o visual/feedback da Bola de Fogo.
+- A imagem enviada foi usada como referência visual de chama pixel art.
+- Não foi colocada como PNG estático no jogo.
+- Adicionado lançamento com partículas, rastro de fogo, explosão ao sumir/acertar, pequeno tremor e partículas.
+- Dano, cooldown, mana, alcance e colisão foram mantidos como antes.
+- PC e mobile.
+- Menu, biomas, personagem, boss, HUD, inventário, NPCs, casas, ferreiro, combate geral, save e sistemas preservados.
+
+Dica:
+- Abra em pasta limpa ou aperte Ctrl+F5 para evitar cache antigo.

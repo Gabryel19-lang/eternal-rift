@@ -1,0 +1,11 @@
+ETERNAL RIFT - ABA DE PODERES NO INVENTÁRIO
+
+Alteração feita:
+- Criada a aba "Poderes" no inventário.
+- Agora os poderes podem ser equipados nos Slots 1, 2, 3 e 4.
+- Equipar um poder em um slot NÃO remove o poder da coleção/lista.
+- Preparado para poderes futuros.
+- Funciona em PC e mobile.
+
+Preservado:
+- Menu, biomas, personagem, boss, HUD, inventário geral, NPCs, casas, ferreiro, combate e sistemas.

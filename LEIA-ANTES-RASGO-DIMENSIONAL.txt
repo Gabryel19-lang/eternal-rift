@@ -1,0 +1,6 @@
+Patch aplicado: Rasgo Dimensional
+- Adiciona somente o poder Rasgo Dimensional.
+- O poder fica acessível no Slot 4 para PC e mobile.
+- Ao usar, abre uma fenda roxa na frente do jogador e corta inimigos em linha.
+- Não usa PNG no jogo e não gera imagem nova.
+- Mantém o restante do jogo preservado.

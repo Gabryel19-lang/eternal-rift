@@ -1,0 +1,11 @@
+ETERNAL RIFT - PODERES EM Z X C V
+
+Correção aplicada:
+- Z usa o poder equipado no Slot 1.
+- X usa o poder equipado no Slot 2.
+- C usa o poder equipado no Slot 3.
+- V usa o poder equipado no Slot 4.
+- No mobile, os botões dos slots também usam o poder direto.
+
+Mantido:
+- dano, mana, cooldown, efeitos visuais, inventário, mapa, personagem, boss, menu e sistemas.

@@ -1,0 +1,18 @@
+ETERNAL RIFT - RAIO AZUL MELHORADO
+
+Esta versão melhora somente o poder Raio Azul.
+
+Inclui:
+- efeito visual de raio mágico
+- brilho e núcleo energético
+- impacto ao acertar / sumir
+- partículas e pequenos arcos elétricos
+- pequeno tremor de câmera
+
+Mantido igual:
+- dano
+- mana
+- cooldown
+- alcance
+- sistemas gerais do jogo
+- PC e mobile

@@ -49471,6 +49471,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     { id: "armas", label: "Armas" },
     { id: "armaduras", label: "Armaduras" },
     { id: "acessorios", label: "Acessórios" },
+    { id: "poderes", label: "Poderes" },
     { id: "consumiveis", label: "Consumíveis" },
     { id: "materiais", label: "Materiais" },
     { id: "missao", label: "Missão" },
@@ -49540,6 +49541,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     if (normalized.includes("arma") || normalized.includes("weapon")) return "armas";
     if (normalized.includes("armadura") || normalized.includes("armor")) return "armaduras";
     if (normalized.includes("acessor") || normalized.includes("anel") || normalized.includes("amuleto") || normalized.includes("bota") || normalized.includes("capa") || normalized.includes("boots") || normalized.includes("ring")) return "acessorios";
+    if (normalized.includes("poder") || normalized.includes("power") || normalized.includes("magia") || normalized.includes("spell") || normalized.includes("skill") || normalized.includes("habilidade")) return "poderes";
     if (normalized.includes("consum") || normalized.includes("poc") || normalized.includes("food") || normalized.includes("comida")) return "consumiveis";
     if (normalized.includes("material") || normalized.includes("recurso") || normalized.includes("resource") || normalized.includes("minerio") || normalized.includes("cristal") || normalized.includes("fragmento") || normalized.includes("ore")) return "materiais";
     if (normalized.includes("miss") || normalized.includes("quest") || normalized.includes("carta") || normalized.includes("chave") || normalized.includes("key")) return "missao";
@@ -49590,6 +49592,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     if (gearSlot === "armor") category = "armaduras";
     else if (gearSlot) category = "acessorios";
     if (item?.weaponKey || item?.action === "equipWeapon") category = "armas";
+    if (item?.powerKey || item?.action === "equipPower" || item?.action === "equipPowerSlot") category = "poderes";
     if (item?.action === "usePotion") category = "consumiveis";
     const name = stripText(item?.name || def?.name || "Item");
     const id = stripText(item?.id || `${category}-${slugify(name)}-${index}`);
@@ -49666,6 +49669,62 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       try { showErrorMessage?.(error); } catch (innerError) {}
     }
     if (!Array.isArray(rawItems)) rawItems = [];
+    try {
+      const existingPowerKeys = new Set(rawItems.map((item) => item?.powerKey).filter(Boolean));
+      const keys = new Set(["fireball", "blueRay", "shockwave", "heal"]);
+      const addKeys = (list) => {
+        if (!Array.isArray(list)) return;
+        for (const key of list) if (key) keys.add(String(key));
+      };
+      addKeys(questBook?.eternalPowerTest?.unlocked);
+      addKeys(questBook?.eternalPowerTest?.loadout);
+      addKeys(questBook?.eternalPowerProduction?.unlocked);
+      for (const key of Object.keys(powerNames || {})) if (spellCosts?.[key] !== undefined) keys.add(key);
+      const iconForPower = (key) => {
+        if (key === "fireball") return "F";
+        if (key === "blueRay") return "R";
+        if (key === "shockwave") return "O";
+        if (key === "heal") return "+";
+        if (key === "dimensionalSlash") return "◇";
+        if (key === "staticField") return "✹";
+        if (key === "venomRoots") return "♧";
+        if (key === "eternalIceExplosion") return "❄";
+        if (key === "solarSandTornado") return "☀";
+        if (key === "celestialSpear") return "✦";
+        return "P";
+      };
+      const rarityForPower = (key) => {
+        if (key === "heal") return "incomum";
+        if (key === "dimensionalSlash" || key === "crimsonMeteor") return "lendario";
+        if (key === "staticField" || key === "shockwave" || key === "eternalIceExplosion" || key === "solarSandTornado" || key === "celestialSpear") return "epico";
+        return "raro";
+      };
+      const descForPower = (key) => {
+        try { if (typeof getPowerDescription === "function") return getPowerDescription(key); } catch (error) {}
+        if (key === "staticField") return "Cria uma área elétrica que paralisa inimigos por pouco tempo.";
+        if (key === "dimensionalSlash") return "Abre uma fenda roxa na frente do jogador e corta inimigos.";
+        return "Poder equipado pelo jogador.";
+      };
+      for (const key of keys) {
+        if (!key || existingPowerKeys.has(key)) continue;
+        if (spellCosts?.[key] === undefined && !powerNames?.[key] && !["fireball", "blueRay", "shockwave", "heal"].includes(key)) continue;
+        rawItems.push({
+          id: `power-loadout-${key}`,
+          name: powerNames?.[key] || key,
+          icon: iconForPower(key),
+          quantity: 1,
+          category: "poderes",
+          typeLabel: "Poder",
+          rarity: rarityForPower(key),
+          description: descForPower(key),
+          effect: `Custo de mana: ${spellCosts?.[key] ?? 0}. Pode ser equipado em qualquer slot sem apagar a coleção.`,
+          action: "equipPowerSlot",
+          powerKey: key,
+          hotbarEligible: true
+        });
+        existingPowerKeys.add(key);
+      }
+    } catch (error) {}
     return rawItems.map(normalizeUnifiedInventoryItem);
   }
 
@@ -49948,6 +50007,10 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       ["amulet", "Amuleto", getGearValueForRework("amulet")],
       ["cape", "Capa", getGearValueForRework("cape")],
       ["boots", "Bota", getGearValueForRework("boots")],
+      ["power1", "Poder 1", powerNames?.[powerSlots?.[0]] || powerSlots?.[0] || "Vazio"],
+      ["power2", "Poder 2", powerNames?.[powerSlots?.[1]] || powerSlots?.[1] || "Vazio"],
+      ["power3", "Poder 3", powerNames?.[powerSlots?.[2]] || powerSlots?.[2] || "Vazio"],
+      ["power4", "Poder 4", powerNames?.[powerSlots?.[3]] || powerSlots?.[3] || "Vazio"],
       ["special", "Especial", getGearValueForRework("special")]
     ];
     box.innerHTML = `
@@ -49997,9 +50060,14 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
       const equipped = typeof getCurrentWeaponKey === "function" && item.weaponKey === getCurrentWeaponKey();
       buttons.push(`<button type="button" data-er-inv-action="${equipped ? "unequipWeapon" : "equipWeapon"}" data-item-id="${escapeInventoryHtml(item.id)}">${equipped ? "Desequipar" : "Equipar"}</button>`);
     }
-    if (item.action === "equipPower" && item.powerKey) {
-      const equipped = item.powerKey === equippedPower;
-      buttons.push(`<button type="button" data-er-inv-action="equipPower" data-item-id="${escapeInventoryHtml(item.id)}"${equipped ? " disabled" : ""}>${equipped ? "Equipado" : "Equipar"}</button>`);
+    if (item.powerKey && (item.action === "equipPower" || item.action === "equipPowerSlot" || item.category === "poderes")) {
+      const currentSlot = Array.isArray(powerSlots) ? powerSlots.indexOf(item.powerKey) : -1;
+      for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+        const inSlot = currentSlot === slotIndex;
+        const activeSlot = (typeof questBook !== "undefined" && questBook?.eternalPowerTest?.activeSlot === slotIndex) || (inSlot && item.powerKey === equippedPower);
+        const label = activeSlot ? `Ativo no Slot ${slotIndex + 1}` : inSlot ? `No Slot ${slotIndex + 1}` : `Equipar Slot ${slotIndex + 1}`;
+        buttons.push(`<button type="button" data-er-inv-action="equipPowerSlot" data-item-id="${escapeInventoryHtml(item.id)}" data-slot-index="${slotIndex}">${label}</button>`);
+      }
     }
     if (item.action === "useCustomItem" || item.customUsable) {
       const equipped = isCustomGearEquipped(item);
@@ -50118,6 +50186,29 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
     if (action === "unequipWeapon") {
       if (typeof window !== "undefined" && typeof window.unequipWeapon === "function") window.unequipWeapon();
       else equipWeapon?.("unarmed");
+      renderInventoryRework();
+      return;
+    }
+    if (action === "equipPowerSlot" && item?.powerKey) {
+      const key = item.powerKey;
+      const index = Math.max(0, Math.min(3, Number(button?.dataset?.slotIndex || 0)));
+      if (Array.isArray(powerSlots)) powerSlots[index] = key;
+      if (typeof questBook !== "undefined") {
+        if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") questBook.eternalPowerTest = { unlocked: [], loadout: ["fireball", "blueRay", "shockwave", "heal"], activeSlot: 0 };
+        if (!Array.isArray(questBook.eternalPowerTest.unlocked)) questBook.eternalPowerTest.unlocked = [];
+        if (!questBook.eternalPowerTest.unlocked.includes(key)) questBook.eternalPowerTest.unlocked.push(key);
+        if (!Array.isArray(questBook.eternalPowerTest.loadout)) questBook.eternalPowerTest.loadout = ["fireball", "blueRay", "shockwave", "heal"];
+        while (questBook.eternalPowerTest.loadout.length < 4) questBook.eternalPowerTest.loadout.push(["fireball", "blueRay", "shockwave", "heal"][questBook.eternalPowerTest.loadout.length] || "fireball");
+        questBook.eternalPowerTest.loadout[index] = key;
+        questBook.eternalPowerTest.activeSlot = index;
+      }
+      if (typeof player !== "undefined" && player?.spellCooldowns && player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+      equippedPower = key;
+      showHudToast?.(`${powerNames?.[key] || item.name || "Poder"} equipado no Slot ${index + 1}`);
+      try { spawnFloatingText?.(`${powerNames?.[key] || item.name || "Poder"} no Slot ${index + 1}`, player.x + 12, player.y - 18, "#fff264"); } catch (error) {}
+      try { playSound?.("equipItem"); } catch (error) {}
+      updateMobilePowerButtons?.();
+      updateHud?.(true);
       renderInventoryRework();
       return;
     }
@@ -67893,4 +67984,2181 @@ function updateCamera() {
 
   syncMenuClass();
   setTimeout(syncMenuClass, 200);
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - BOLA DE FOGO MELHORADA
+   Escopo: melhora somente o visual/feedback da Bola de Fogo.
+   Mantém dano, cooldown, mana, alcance e colisão iguais aos originais.
+   PC + mobile. Não altera menu, biomas, personagem, boss, HUD,
+   inventário, NPCs, casas, ferreiro, combate geral, save ou sistemas.
+   ================================================== */
+(function eternalRiftBetterFireballPatch() {
+  const PATCH_ID = "fireball-visual-upgrade-ref-style-pc-mobile-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BETTER_FIREBALL_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BETTER_FIREBALL_PATCH = PATCH_ID;
+
+  let fireVisualId = 1;
+  const fireParticles = [];
+  const fireExplosions = [];
+  let fireScreenShakeTimer = 0;
+  let fireScreenShakePower = 0;
+
+  function clamp01(value) { return Math.max(0, Math.min(1, value)); }
+  function nowMs() { return performance && performance.now ? performance.now() : Date.now(); }
+  function rand(seed) {
+    const s = Math.sin(seed * 999.91) * 43758.5453;
+    return s - Math.floor(s);
+  }
+  function centerOfProjectile(obj) {
+    return { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 };
+  }
+
+  function addFireParticle(x, y, vx, vy, life, size, color, kind = "ember") {
+    fireParticles.push({ x, y, vx, vy, life, maxLife: life, size, color, kind });
+    const limit = (typeof isMobile !== "undefined" && isMobile) ? 95 : 160;
+    if (fireParticles.length > limit) fireParticles.splice(0, fireParticles.length - limit);
+  }
+
+  function spawnFireLaunchBurst(x, y, angle) {
+    for (let i = 0; i < 12; i += 1) {
+      const spread = (i / 11 - 0.5) * 1.25;
+      const speed = 35 + rand(i + fireVisualId * 3) * 65;
+      const a = angle + Math.PI + spread;
+      addFireParticle(
+        x + Math.cos(angle) * 8,
+        y + Math.sin(angle) * 8,
+        Math.cos(a) * speed,
+        Math.sin(a) * speed,
+        0.22 + rand(i + 40) * 0.18,
+        2 + rand(i + 90) * 3,
+        i % 3 === 0 ? "#fff264" : i % 3 === 1 ? "#ff9b1a" : "#e32616",
+        "launch"
+      );
+    }
+  }
+
+  function spawnFireTrail(obj) {
+    if (!obj || obj.type !== "fireball") return;
+    const c = centerOfProjectile(obj);
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    const speed = Math.hypot(obj.vx || 0, obj.vy || 0) || 1;
+    const backX = c.x - Math.cos(angle) * 10;
+    const backY = c.y - Math.sin(angle) * 10;
+    const side = angle + Math.PI / 2;
+    const count = (typeof isMobile !== "undefined" && isMobile) ? 1 : 2;
+    for (let i = 0; i < count; i += 1) {
+      const offset = (rand((obj.__erFireVisualId || 1) + obj.distance + i) - 0.5) * 9;
+      const flicker = rand((obj.__erFireVisualId || 1) * 7 + obj.distance * 0.07 + i);
+      addFireParticle(
+        backX + Math.cos(side) * offset,
+        backY + Math.sin(side) * offset,
+        -Math.cos(angle) * (speed * 0.08 + 26 * flicker) + Math.cos(side) * offset * 1.4,
+        -Math.sin(angle) * (speed * 0.08 + 26 * flicker) + Math.sin(side) * offset * 1.4,
+        0.20 + flicker * 0.20,
+        2.5 + flicker * 4.2,
+        flicker > 0.66 ? "#fff264" : flicker > 0.32 ? "#ff7a13" : "#d61a0b",
+        "trail"
+      );
+    }
+  }
+
+  function spawnFireExplosion(x, y, strength = 1) {
+    fireExplosions.push({ x, y, timer: 0.38, maxTimer: 0.38, strength });
+    const max = (typeof isMobile !== "undefined" && isMobile) ? 8 : 14;
+    for (let i = 0; i < max; i += 1) {
+      const a = (Math.PI * 2 * i) / max + rand(i + x + y) * 0.35;
+      const speed = 70 + rand(i * 10 + x) * 160;
+      addFireParticle(
+        x + Math.cos(a) * 2,
+        y + Math.sin(a) * 2,
+        Math.cos(a) * speed,
+        Math.sin(a) * speed,
+        0.30 + rand(i + y) * 0.25,
+        3 + rand(i + x) * 5,
+        i % 4 === 0 ? "#fffad1" : i % 4 === 1 ? "#fff264" : i % 4 === 2 ? "#ff7a13" : "#d61a0b",
+        "explosion"
+      );
+    }
+    fireScreenShakeTimer = Math.max(fireScreenShakeTimer, 0.07);
+    fireScreenShakePower = Math.max(fireScreenShakePower, ((typeof isMobile !== "undefined" && isMobile) ? 0.45 : 0.65) * strength);
+  }
+
+  const spawnPlayerProjectileBeforeBetterFireball = typeof spawnPlayerProjectile === "function" ? spawnPlayerProjectile : null;
+  if (spawnPlayerProjectileBeforeBetterFireball) {
+    spawnPlayerProjectile = function spawnPlayerProjectileBetterFireball(config) {
+      const beforeLength = playerProjectiles.length;
+      const result = spawnPlayerProjectileBeforeBetterFireball.apply(this, arguments);
+      if (config && config.type === "fireball") {
+        const obj = playerProjectiles[playerProjectiles.length - 1];
+        if (obj && playerProjectiles.length > beforeLength) {
+          obj.__erFireVisualId = fireVisualId++;
+          obj.__erFireBornAt = nowMs();
+          obj.__erFireLastTrailAt = 0;
+          const c = centerOfProjectile(obj);
+          const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+          spawnFireLaunchBurst(c.x, c.y, angle);
+        }
+      }
+      return result;
+    };
+  }
+
+  const updateProjectilesBeforeBetterFireball = typeof updateProjectiles === "function" ? updateProjectiles : null;
+  if (updateProjectilesBeforeBetterFireball) {
+    updateProjectiles = function updateProjectilesBetterFireball(delta) {
+      const before = projectiles
+        .filter((obj) => obj && obj.type === "fireball")
+        .map((obj) => ({ obj, x: obj.x + obj.width / 2, y: obj.y + obj.height / 2, distance: Number(obj.distance || 0) }));
+
+      updateProjectilesBeforeBetterFireball.apply(this, arguments);
+
+      for (const item of before) {
+        if (!projectiles.includes(item.obj)) {
+          const strength = item.distance < 30 ? 0.75 : 1;
+          spawnFireExplosion(item.x, item.y, strength);
+        }
+      }
+    };
+  }
+
+  const updateEffectsBeforeBetterFireball = typeof updateEffects === "function" ? updateEffects : null;
+  if (updateEffectsBeforeBetterFireball) {
+    updateEffects = function updateEffectsBetterFireball(delta) {
+      updateEffectsBeforeBetterFireball.apply(this, arguments);
+      fireScreenShakeTimer = Math.max(0, fireScreenShakeTimer - delta);
+      if (fireScreenShakeTimer <= 0) fireScreenShakePower = 0;
+
+      for (let i = fireParticles.length - 1; i >= 0; i -= 1) {
+        const p = fireParticles[i];
+        p.life -= delta;
+        p.x += p.vx * delta;
+        p.y += p.vy * delta;
+        p.vx *= Math.pow(0.025, delta);
+        p.vy *= Math.pow(0.025, delta);
+        if (p.kind !== "smoke") p.vy -= 12 * delta;
+        if (p.life <= 0) fireParticles.splice(i, 1);
+      }
+
+      for (let i = fireExplosions.length - 1; i >= 0; i -= 1) {
+        fireExplosions[i].timer -= delta;
+        if (fireExplosions[i].timer <= 0) fireExplosions.splice(i, 1);
+      }
+    };
+  }
+
+  const applyGameCameraTransformBeforeBetterFireball = typeof applyGameCameraTransform === "function" ? applyGameCameraTransform : null;
+  if (applyGameCameraTransformBeforeBetterFireball) {
+    applyGameCameraTransform = function applyGameCameraTransformBetterFireball(targetCtx = ctx) {
+      applyGameCameraTransformBeforeBetterFireball(targetCtx);
+      if (fireScreenShakeTimer > 0 && fireScreenShakePower > 0) {
+        const t = nowMs() / 18;
+        const fade = clamp01(fireScreenShakeTimer / 0.07);
+        const power = fireScreenShakePower * fade;
+        targetCtx.translate(Math.sin(t * 1.7) * power, Math.cos(t * 2.1) * power);
+      }
+    };
+  }
+
+  function pixelRect(x, y, w, h, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    ctx.restore();
+  }
+
+  function drawBetterFireball(obj) {
+    if (!obj || obj.type !== "fireball") return;
+    const c = centerOfProjectile(obj);
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    const born = Number(obj.__erFireBornAt || nowMs());
+    const age = Math.max(0, (nowMs() - born) / 1000);
+    const pulse = 1 + Math.sin(age * 18 + (obj.__erFireVisualId || 1)) * 0.08;
+
+    if (nowMs() - Number(obj.__erFireLastTrailAt || 0) > ((typeof isMobile !== "undefined" && isMobile) ? 34 : 22)) {
+      spawnFireTrail(obj);
+      obj.__erFireLastTrailAt = nowMs();
+    }
+
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(angle);
+    ctx.imageSmoothingEnabled = false;
+
+    // rastro grosso, em camadas, inspirado na referência de chama pixel art.
+    for (let i = 0; i < 8; i += 1) {
+      const t = i / 8;
+      const x = -7 - i * 4.5;
+      const sway = Math.sin(age * 13 + i * 1.7 + (obj.__erFireVisualId || 1)) * (2.6 + i * 0.18);
+      const size = Math.max(2, 8 - i * 0.72);
+      const alpha = Math.max(0.08, 0.42 - i * 0.04);
+      pixelRect(x, sway - size / 2, size * 1.4, size, i < 2 ? "#fff264" : i < 5 ? "#ff7a13" : "#d61a0b", alpha);
+      if (i % 2 === 0) pixelRect(x - 2, sway - size / 2 - 4, size * 0.8, 3, "#ff2b00", alpha * 0.75);
+    }
+
+    // aura externa flamejante
+    pixelRect(-8, -9 * pulse, 19, 18 * pulse, "rgba(255, 43, 0, 0.35)", 1);
+    pixelRect(-5, -7 * pulse, 17, 14 * pulse, "#d61a0b", 0.92);
+    pixelRect(-2, -6 * pulse, 15, 12 * pulse, "#ff4a00", 0.98);
+    pixelRect(0, -4 * pulse, 11, 8 * pulse, "#ff9b1a", 1);
+    pixelRect(3, -3, 7, 6, "#fff264", 1);
+    pixelRect(5, -2, 4, 4, "#fffad1", 1);
+
+    // pontas de fogo
+    pixelRect(10, -3, 5, 6, "#ff4a00", 0.9);
+    pixelRect(12, -1, 4, 3, "#fff264", 0.85);
+    pixelRect(-2, -12, 4, 5, "#d61a0b", 0.88);
+    pixelRect(-1, 9, 4, 5, "#ff7a13", 0.84);
+
+    ctx.restore();
+  }
+
+  function drawFireParticles() {
+    for (const p of fireParticles) {
+      const progress = clamp01(1 - p.life / Math.max(0.001, p.maxLife));
+      const alpha = 1 - progress;
+      const size = Math.max(1, p.size * (1 - progress * 0.55));
+      pixelRect(p.x - size / 2, p.y - size / 2, size, size, p.color, alpha);
+      if (p.kind === "explosion") pixelRect(p.x - size * 0.25, p.y - size * 0.25, Math.max(1, size * 0.5), Math.max(1, size * 0.5), "#fffad1", alpha * 0.65);
+    }
+  }
+
+  function drawFireExplosions() {
+    for (const e of fireExplosions) {
+      const progress = clamp01(1 - e.timer / e.maxTimer);
+      const radius = 7 + progress * 31 * e.strength;
+      const alpha = 1 - progress;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.translate(e.x, e.y);
+      ctx.globalAlpha *= alpha;
+
+      ctx.fillStyle = "rgba(255, 70, 0, 0.26)";
+      ctx.fillRect(-radius, -radius * 0.75, radius * 2, radius * 1.5);
+      ctx.strokeStyle = `rgba(255, 242, 100, ${0.85 * alpha})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.62, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const chunks = 10;
+      for (let i = 0; i < chunks; i += 1) {
+        const a = (Math.PI * 2 * i) / chunks + progress * 1.8;
+        const d = radius * (0.28 + progress * 0.75);
+        const s = 3 + (i % 3);
+        pixelRect(Math.cos(a) * d - s / 2, Math.sin(a) * d - s / 2, s, s, i % 2 ? "#ff7a13" : "#d61a0b", alpha);
+      }
+      pixelRect(-5, -5, 10, 10, "#fff264", alpha * 0.9);
+      pixelRect(-3, -3, 6, 6, "#fffad1", alpha * 0.95);
+      ctx.restore();
+    }
+  }
+
+  const drawProjectilesBeforeBetterFireball = typeof drawProjectiles === "function" ? drawProjectiles : null;
+  if (drawProjectilesBeforeBetterFireball) {
+    drawProjectiles = function drawProjectilesBetterFireball() {
+      const extracted = [];
+      for (let i = projectiles.length - 1; i >= 0; i -= 1) {
+        const obj = projectiles[i];
+        if (obj && obj.type === "fireball") {
+          extracted.push({ index: i, obj });
+          projectiles.splice(i, 1);
+        }
+      }
+      extracted.reverse();
+      drawProjectilesBeforeBetterFireball.apply(this, arguments);
+      for (const item of extracted) projectiles.splice(item.index, 0, item.obj);
+      for (const item of extracted) drawBetterFireball(item.obj);
+      drawFireExplosions();
+      drawFireParticles();
+    };
+  }
+
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   Patch final: raio azul melhorado
+   - efeito de raio mágico, brilho, impacto, partículas e animação melhor
+   - sem alterar dano, cooldown, mana, alcance ou outros sistemas
+   ================================================== */
+(function betterBlueRayPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_BETTER_BLUE_RAY_PATCH) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_BETTER_BLUE_RAY_PATCH = true;
+
+  let blueVisualId = 1;
+  const blueParticles = [];
+  const blueImpacts = [];
+  let blueScreenShakeTimer = 0;
+  let blueScreenShakePower = 0;
+
+  function blueNowMs() {
+    return (typeof nowMs === "function") ? nowMs() : Date.now();
+  }
+
+  function blueClamp01(v) {
+    if (typeof clamp01 === "function") return clamp01(v);
+    return Math.max(0, Math.min(1, v));
+  }
+
+  function centerOfBlue(obj) {
+    return { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
+  }
+
+  function blueRand(seed) {
+    const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  function addBlueParticle(x, y, vx, vy, life, size, color, kind = "trail") {
+    blueParticles.push({ x, y, vx, vy, life, maxLife: life, size, color, kind });
+  }
+
+  function spawnBlueLaunchBurst(x, y, angle) {
+    const count = (typeof isMobile !== "undefined" && isMobile) ? 7 : 12;
+    for (let i = 0; i < count; i += 1) {
+      const side = angle + (i % 2 === 0 ? -1 : 1) * (0.4 + blueRand(i + x) * 0.7);
+      const speed = 46 + blueRand(i + y) * 95;
+      addBlueParticle(
+        x + Math.cos(side) * (2 + (i % 3)),
+        y + Math.sin(side) * (2 + (i % 3)),
+        Math.cos(side) * speed,
+        Math.sin(side) * speed,
+        0.16 + blueRand(i * 3 + x) * 0.13,
+        2 + blueRand(i * 7 + y) * 2.8,
+        i % 3 === 0 ? "#efffff" : i % 3 === 1 ? "#55e8ff" : "#2e59ff",
+        "launch"
+      );
+    }
+    blueScreenShakeTimer = Math.max(blueScreenShakeTimer, 0.05);
+    blueScreenShakePower = Math.max(blueScreenShakePower, 0.9);
+  }
+
+  function spawnBlueTrail(obj) {
+    if (!obj || obj.type !== "blueRay") return;
+    const c = centerOfBlue(obj);
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    const speed = Math.hypot(obj.vx || 0, obj.vy || 0) || 1;
+    const backX = c.x - Math.cos(angle) * 11;
+    const backY = c.y - Math.sin(angle) * 11;
+    const side = angle + Math.PI / 2;
+    const count = (typeof isMobile !== "undefined" && isMobile) ? 2 : 4;
+    for (let i = 0; i < count; i += 1) {
+      const spread = (blueRand((obj.__erBlueVisualId || 1) + obj.distance * 0.17 + i * 9) - 0.5) * 11;
+      const flicker = blueRand((obj.__erBlueVisualId || 1) * 5 + obj.distance * 0.07 + i * 13);
+      addBlueParticle(
+        backX + Math.cos(side) * spread,
+        backY + Math.sin(side) * spread,
+        -Math.cos(angle) * (speed * 0.12 + 24 * flicker) + Math.cos(side) * spread * 1.3,
+        -Math.sin(angle) * (speed * 0.12 + 24 * flicker) + Math.sin(side) * spread * 1.3,
+        0.10 + flicker * 0.10,
+        1.8 + flicker * 2.4,
+        flicker > 0.7 ? "#ffffff" : flicker > 0.35 ? "#67efff" : "#2e59ff",
+        flicker > 0.82 ? "spark" : "trail"
+      );
+    }
+  }
+
+  function spawnBlueImpact(x, y, strength = 1) {
+    blueImpacts.push({ x, y, timer: 0.28, maxTimer: 0.28, strength });
+    const count = (typeof isMobile !== "undefined" && isMobile) ? 10 : 18;
+    for (let i = 0; i < count; i += 1) {
+      const a = (Math.PI * 2 * i) / count + blueRand(i + x * 0.1) * 0.35;
+      const speed = 55 + blueRand(i * 10 + y * 0.1) * 145 * strength;
+      addBlueParticle(
+        x + Math.cos(a) * 3,
+        y + Math.sin(a) * 3,
+        Math.cos(a) * speed,
+        Math.sin(a) * speed,
+        0.18 + blueRand(i * 13 + x) * 0.18,
+        2.2 + blueRand(i * 17 + y) * 3.8,
+        i % 4 === 0 ? "#ffffff" : i % 4 === 1 ? "#b6fbff" : i % 4 === 2 ? "#55e8ff" : "#2e59ff",
+        i % 3 === 0 ? "spark" : "impact"
+      );
+    }
+    blueScreenShakeTimer = Math.max(blueScreenShakeTimer, 0.12);
+    blueScreenShakePower = Math.max(blueScreenShakePower, 1.65 * strength);
+  }
+
+  const spawnPlayerProjectileBeforeBluePatch = typeof spawnPlayerProjectile === "function" ? spawnPlayerProjectile : null;
+  if (spawnPlayerProjectileBeforeBluePatch) {
+    spawnPlayerProjectile = function spawnPlayerProjectileBluePatch(config) {
+      const beforeLength = playerProjectiles.length;
+      const result = spawnPlayerProjectileBeforeBluePatch.apply(this, arguments);
+      if (config && config.type === "blueRay") {
+        const obj = playerProjectiles[playerProjectiles.length - 1];
+        if (obj && playerProjectiles.length > beforeLength) {
+          obj.__erBlueVisualId = blueVisualId++;
+          obj.__erBlueBornAt = blueNowMs();
+          obj.__erBlueLastTrailAt = 0;
+          const c = centerOfBlue(obj);
+          const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+          spawnBlueLaunchBurst(c.x, c.y, angle);
+        }
+      }
+      return result;
+    };
+  }
+
+  const updateProjectilesBeforeBluePatch = typeof updateProjectiles === "function" ? updateProjectiles : null;
+  if (updateProjectilesBeforeBluePatch) {
+    updateProjectiles = function updateProjectilesBluePatch(delta) {
+      const before = projectiles
+        .filter((obj) => obj && obj.type === "blueRay")
+        .map((obj) => ({ obj, x: obj.x + obj.width / 2, y: obj.y + obj.height / 2, distance: Number(obj.distance || 0) }));
+      updateProjectilesBeforeBluePatch.apply(this, arguments);
+      for (const item of before) {
+        if (!projectiles.includes(item.obj)) {
+          const strength = item.distance < 20 ? 0.7 : item.distance > 200 ? 1.0 : 0.85;
+          spawnBlueImpact(item.x, item.y, strength);
+        }
+      }
+    };
+  }
+
+  const updateEffectsBeforeBluePatch = typeof updateEffects === "function" ? updateEffects : null;
+  if (updateEffectsBeforeBluePatch) {
+    updateEffects = function updateEffectsBluePatch(delta) {
+      updateEffectsBeforeBluePatch.apply(this, arguments);
+      blueScreenShakeTimer = Math.max(0, blueScreenShakeTimer - delta);
+      if (blueScreenShakeTimer <= 0) blueScreenShakePower = 0;
+
+      for (let i = blueParticles.length - 1; i >= 0; i -= 1) {
+        const p = blueParticles[i];
+        p.life -= delta;
+        p.x += p.vx * delta;
+        p.y += p.vy * delta;
+        p.vx *= Math.pow(0.03, delta);
+        p.vy *= Math.pow(0.03, delta);
+        if (p.kind === "spark") p.vy *= Math.pow(0.2, delta);
+        if (p.life <= 0) blueParticles.splice(i, 1);
+      }
+
+      for (let i = blueImpacts.length - 1; i >= 0; i -= 1) {
+        blueImpacts[i].timer -= delta;
+        if (blueImpacts[i].timer <= 0) blueImpacts.splice(i, 1);
+      }
+    };
+  }
+
+  const applyGameCameraTransformBeforeBluePatch = typeof applyGameCameraTransform === "function" ? applyGameCameraTransform : null;
+  if (applyGameCameraTransformBeforeBluePatch) {
+    applyGameCameraTransform = function applyGameCameraTransformBluePatch(targetCtx = ctx) {
+      applyGameCameraTransformBeforeBluePatch(targetCtx);
+      if (blueScreenShakeTimer > 0 && blueScreenShakePower > 0) {
+        const t = blueNowMs() / 20;
+        const fade = blueClamp01(blueScreenShakeTimer / 0.12);
+        const power = blueScreenShakePower * fade;
+        targetCtx.translate(Math.sin(t * 2.8) * power, Math.cos(t * 3.1) * power);
+      }
+    };
+  }
+
+  function bluePixelRect(x, y, w, h, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    ctx.restore();
+  }
+
+  function drawBlueLightningLine(x1, y1, x2, y2, thickness, seed, color, alpha) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const segments = 5;
+    let px = x1;
+    let py = y1;
+    for (let i = 1; i <= segments; i += 1) {
+      const t = i / segments;
+      let tx = x1 + dx * t;
+      let ty = y1 + dy * t;
+      if (i < segments) {
+        const offset = (blueRand(seed + i * 19) - 0.5) * 7;
+        tx += nx * offset;
+        ty += ny * offset;
+      }
+      const ang = Math.atan2(ty - py, tx - px);
+      const segLen = Math.hypot(tx - px, ty - py);
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(ang);
+      bluePixelRect(0, -thickness / 2, segLen, thickness, color, alpha);
+      ctx.restore();
+      px = tx;
+      py = ty;
+    }
+  }
+
+  function drawBetterBlueRay(obj) {
+    if (!obj || obj.type !== "blueRay") return;
+    const c = centerOfBlue(obj);
+    const angle = Math.atan2(obj.vy || 0, obj.vx || 1);
+    const born = Number(obj.__erBlueBornAt || blueNowMs());
+    const age = Math.max(0, (blueNowMs() - born) / 1000);
+    const pulse = 1 + Math.sin(age * 18 + (obj.__erBlueVisualId || 1)) * 0.08;
+
+    if (blueNowMs() - Number(obj.__erBlueLastTrailAt || 0) > ((typeof isMobile !== "undefined" && isMobile) ? 28 : 16)) {
+      spawnBlueTrail(obj);
+      obj.__erBlueLastTrailAt = blueNowMs();
+    }
+
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(angle);
+    ctx.imageSmoothingEnabled = false;
+
+    // halo mágico
+    bluePixelRect(-20, -14, 40, 28, "rgba(85,232,255,0.20)", 1);
+    bluePixelRect(-14, -10, 28, 20, "rgba(189,249,255,0.14)", 1);
+
+    // rastro principal em camadas
+    for (let i = 0; i < 7; i += 1) {
+      const shift = -7 - i * 5.2;
+      const sway = Math.sin(age * 22 + i * 1.4 + (obj.__erBlueVisualId || 1)) * (1.7 + i * 0.25);
+      const size = Math.max(2, 7 - i * 0.65);
+      bluePixelRect(shift, sway - size / 2, size * 1.8, size, i < 2 ? "#eaffff" : i < 5 ? "#55e8ff" : "#2e59ff", 0.88 - i * 0.08);
+      if (i % 2 === 0) bluePixelRect(shift - 2, sway - size / 2 - 3, size * 0.7, 2, "#8cf6ff", 0.62 - i * 0.05);
+    }
+
+    // núcleo do projétil como relâmpago comprimido
+    bluePixelRect(-4, -7 * pulse, 12, 14 * pulse, "#2c47c9", 0.95);
+    bluePixelRect(-1, -6 * pulse, 10, 12 * pulse, "#55e8ff", 1);
+    bluePixelRect(2, -4 * pulse, 5, 8 * pulse, "#efffff", 1);
+    bluePixelRect(8, -2, 5, 4, "#ffffff", 0.9);
+    bluePixelRect(10, -4, 3, 2, "#8cf6ff", 0.78);
+    bluePixelRect(10, 2, 3, 2, "#8cf6ff", 0.78);
+
+    // pequenos arcos laterais mágicos
+    for (let i = 0; i < 3; i += 1) {
+      const lx1 = -2 - i * 4;
+      const ly1 = -4 + i * 2;
+      const lx2 = -10 - i * 4;
+      const ly2 = (i % 2 === 0 ? -9 : 9) + Math.sin(age * 16 + i) * 2;
+      drawBlueLightningLine(lx1, ly1, lx2, ly2, 2, (obj.__erBlueVisualId || 1) * (i + 3), i === 0 ? "#bdf9ff" : "#4fdfff", 0.72);
+    }
+
+    ctx.restore();
+
+    // brilhos em volta do projétil
+    for (let i = 0; i < 6; i += 1) {
+      const sparkAngle = angle + Math.sin(age * 14 + i * 1.7) * 1.1;
+      const dist = 8 + i * 2.3;
+      const sx = c.x + Math.cos(sparkAngle) * dist;
+      const sy = c.y + Math.sin(sparkAngle) * dist;
+      bluePixelRect(sx - 1, sy - 1, 2, 2, i % 2 === 0 ? "#ffffff" : "#67efff", 0.9);
+      if (i % 3 === 0) {
+        bluePixelRect(sx - 0.5, sy - 4, 1, 7, "#8cf6ff", 0.55);
+        bluePixelRect(sx - 4, sy - 0.5, 7, 1, "#8cf6ff", 0.55);
+      }
+    }
+  }
+
+  function drawBlueParticles() {
+    for (const p of blueParticles) {
+      const progress = blueClamp01(1 - p.life / Math.max(0.001, p.maxLife));
+      const alpha = 1 - progress;
+      const size = Math.max(1, p.size * (1 - progress * 0.52));
+      bluePixelRect(p.x - size / 2, p.y - size / 2, size, size, p.color, alpha);
+      if (p.kind === "spark" || p.kind === "launch") {
+        bluePixelRect(p.x - size * 0.16, p.y - size, Math.max(1, size * 0.34), Math.max(1, size * 2), "#eaffff", alpha * 0.42);
+        bluePixelRect(p.x - size, p.y - size * 0.16, Math.max(1, size * 2), Math.max(1, size * 0.34), "#8cf6ff", alpha * 0.35);
+      }
+    }
+  }
+
+  function drawBlueImpacts() {
+    for (const e of blueImpacts) {
+      const progress = blueClamp01(1 - e.timer / e.maxTimer);
+      const radius = 8 + progress * 22 * e.strength;
+      const alpha = 1 - progress;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.translate(e.x, e.y);
+      ctx.globalAlpha *= alpha;
+
+      // brilho e anel de impacto
+      bluePixelRect(-radius, -radius * 0.55, radius * 2, radius * 1.1, "rgba(85,232,255,0.16)", 1);
+      ctx.strokeStyle = `rgba(214,255,255,${0.88 * alpha})`;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.55, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // rajadas de raio
+      const spikes = 7;
+      for (let i = 0; i < spikes; i += 1) {
+        const a = (Math.PI * 2 * i) / spikes + progress * 2.6;
+        const inner = radius * 0.1;
+        const outer = radius * (0.7 + (i % 2) * 0.22);
+        drawBlueLightningLine(
+          Math.cos(a) * inner,
+          Math.sin(a) * inner,
+          Math.cos(a) * outer,
+          Math.sin(a) * outer,
+          i % 2 === 0 ? 2 : 3,
+          e.x * 0.1 + e.y * 0.2 + i * 11,
+          i % 2 === 0 ? "#55e8ff" : "#efffff",
+          0.80 * alpha
+        );
+      }
+
+      // núcleo do impacto
+      bluePixelRect(-6, -6, 12, 12, "#2e59ff", alpha * 0.95);
+      bluePixelRect(-4, -4, 8, 8, "#55e8ff", alpha * 1);
+      bluePixelRect(-2, -2, 4, 4, "#efffff", alpha * 1);
+      ctx.restore();
+    }
+  }
+
+  const drawProjectilesBeforeBluePatch = typeof drawProjectiles === "function" ? drawProjectiles : null;
+  if (drawProjectilesBeforeBluePatch) {
+    drawProjectiles = function drawProjectilesBluePatch() {
+      const extracted = [];
+      for (let i = projectiles.length - 1; i >= 0; i -= 1) {
+        const obj = projectiles[i];
+        if (obj && obj.type === "blueRay") {
+          extracted.push({ index: i, obj });
+          projectiles.splice(i, 1);
+        }
+      }
+      extracted.reverse();
+      drawProjectilesBeforeBluePatch.apply(this, arguments);
+      for (const item of extracted) projectiles.splice(item.index, 0, item.obj);
+      for (const item of extracted) drawBetterBlueRay(item.obj);
+      drawBlueImpacts();
+      drawBlueParticles();
+    };
+  }
+
+  try { console.log("Eternal Rift patch carregado: raio azul melhorado"); } catch (error) {}
+})();
+
+/* Ajuste: tremor da Bola de Fogo reduzido para ficar confortável no PC e mobile, sem alterar dano/cooldown/visual. */
+
+
+/* ==================================================
+   ETERNAL RIFT - DASH FLAMEJANTE
+   Escopo: melhora somente o visual do dash/esquiva.
+   Mantém distância, invulnerabilidade, cooldown e funcionamento.
+   PC + mobile. Não altera outros sistemas.
+   ================================================== */
+(function eternalRiftFlameDashPatch() {
+  const PATCH_ID = "flame-dash-visual-upgrade-ref-style-pc-mobile-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_FLAME_DASH_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_FLAME_DASH_PATCH = PATCH_ID;
+
+  const flameDashParticles = [];
+  let flameDashSeed = 1;
+
+  function fdNow() {
+    return (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  }
+  function fdClamp01(v) { return Math.max(0, Math.min(1, v)); }
+  function fdRand(seed) {
+    const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return value - Math.floor(value);
+  }
+  function fdDirAngle(direction) {
+    switch (direction) {
+      case "up": return -Math.PI / 2;
+      case "down": return Math.PI / 2;
+      case "left": return Math.PI;
+      default: return 0;
+    }
+  }
+  function fdAddParticle(x, y, vx, vy, life, size, color, kind = "ember") {
+    flameDashParticles.push({ x, y, vx, vy, life, maxLife: life, size, color, kind });
+    const limit = (typeof isMobile !== "undefined" && isMobile) ? 50 : 90;
+    if (flameDashParticles.length > limit) flameDashParticles.splice(0, flameDashParticles.length - limit);
+  }
+  function fdTrailCenter(obj) {
+    return { x: obj.x + ((typeof player !== "undefined" ? player.width : 28) / 2), y: obj.y + ((typeof player !== "undefined" ? player.height : 28) / 2) };
+  }
+  function fdSpawnBurst(x, y, direction, strength = 1) {
+    const angle = fdDirAngle(direction);
+    const count = (typeof isMobile !== "undefined" && isMobile) ? 5 : 9;
+    for (let i = 0; i < count; i += 1) {
+      const spread = (fdRand(flameDashSeed + i * 17 + x) - 0.5) * 1.25;
+      const a = angle + Math.PI + spread;
+      const speed = (28 + fdRand(flameDashSeed + i * 31 + y) * 84) * strength;
+      const lift = (fdRand(flameDashSeed + i * 11) - 0.5) * 16;
+      fdAddParticle(
+        x + Math.cos(angle) * 4,
+        y + Math.sin(angle) * 4,
+        Math.cos(a) * speed + Math.cos(angle + Math.PI / 2) * lift,
+        Math.sin(a) * speed + Math.sin(angle + Math.PI / 2) * lift,
+        0.16 + fdRand(flameDashSeed + i * 13) * 0.20,
+        2 + fdRand(flameDashSeed + i * 19) * 3.4,
+        i % 4 === 0 ? "#fff7b0" : i % 4 === 1 ? "#ffd34d" : i % 4 === 2 ? "#ff7a13" : "#d61a0b",
+        i % 3 === 0 ? "spark" : "ember"
+      );
+    }
+    flameDashSeed += 1;
+  }
+  function fdMarkNewTrails(fromIndex, mode) {
+    if (!Array.isArray(dashTrails)) return;
+    for (let i = fromIndex; i < dashTrails.length; i += 1) {
+      const obj = dashTrails[i];
+      if (!obj || obj.__flameDashPatched) continue;
+      obj.__flameDashPatched = true;
+      obj.__flameMaxTimer = obj.timer || (mode === "dodge" ? 0.18 : 0.22);
+      obj.__flameMode = mode;
+      obj.__flameCreatedAt = fdNow();
+      const c = fdTrailCenter(obj);
+      fdSpawnBurst(c.x, c.y, obj.direction || "right", mode === "dodge" ? 0.72 : 1);
+    }
+  }
+
+  const originalDash = typeof dash === "function" ? dash : null;
+  if (originalDash) {
+    dash = function dashFlameWrapped() {
+      const before = Array.isArray(dashTrails) ? dashTrails.length : 0;
+      const oldX = player.x + player.width / 2;
+      const oldY = player.y + player.height / 2;
+      const oldDir = player.direction;
+      const result = originalDash.apply(this, arguments);
+      if ((Array.isArray(dashTrails) ? dashTrails.length : 0) > before) {
+        fdMarkNewTrails(before, "power");
+        fdSpawnBurst(oldX, oldY, oldDir, 1.08);
+        fdSpawnBurst(player.x + player.width / 2, player.y + player.height / 2, player.direction, 0.88);
+      }
+      return result;
+    };
+  }
+
+  const originalDodgeDash = typeof dodgeDash === "function" ? dodgeDash : null;
+  if (originalDodgeDash) {
+    dodgeDash = function dodgeDashFlameWrapped() {
+      const before = Array.isArray(dashTrails) ? dashTrails.length : 0;
+      const oldX = player.x + player.width / 2;
+      const oldY = player.y + player.height / 2;
+      const oldDir = player.direction;
+      const result = originalDodgeDash.apply(this, arguments);
+      if ((Array.isArray(dashTrails) ? dashTrails.length : 0) > before) {
+        fdMarkNewTrails(before, "dodge");
+        fdSpawnBurst(oldX, oldY, oldDir, 0.82);
+        fdSpawnBurst(player.x + player.width / 2, player.y + player.height / 2, player.direction, 0.68);
+      }
+      return result;
+    };
+  }
+
+  const originalUpdateEffectsForFlameDash = typeof updateEffects === "function" ? updateEffects : null;
+  if (originalUpdateEffectsForFlameDash) {
+    updateEffects = function updateEffectsFlameDash(delta) {
+      originalUpdateEffectsForFlameDash.apply(this, arguments);
+      for (let i = flameDashParticles.length - 1; i >= 0; i -= 1) {
+        const p = flameDashParticles[i];
+        p.life -= delta;
+        p.x += p.vx * delta;
+        p.y += p.vy * delta;
+        p.vx *= Math.pow(0.045, delta);
+        p.vy *= Math.pow(0.06, delta);
+        p.vy -= 8 * delta;
+        if (p.life <= 0) flameDashParticles.splice(i, 1);
+      }
+    };
+  }
+
+  function fdPixelRect(x, y, w, h, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+    ctx.restore();
+  }
+
+  function fdDrawSingleTrail(obj) {
+    if (!obj) return;
+    const maxTimer = Math.max(0.001, Number(obj.__flameMaxTimer || obj.timer || 0.22));
+    const life = fdClamp01((obj.timer || 0) / maxTimer);
+    const flicker = 0.92 + Math.sin((fdNow() - Number(obj.__flameCreatedAt || 0)) * 0.03 + obj.x * 0.08 + obj.y * 0.05) * 0.08;
+    const modeScale = obj.__flameMode === "dodge" ? 0.82 : 1;
+    const c = fdTrailCenter(obj);
+    const angle = fdDirAngle(obj.direction || "right");
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(angle);
+    ctx.imageSmoothingEnabled = false;
+
+    const length = (26 + life * 18) * modeScale;
+    const height = (13 + life * 4) * modeScale;
+    const alpha = Math.max(0.06, life * 0.92);
+
+    // brilho externo
+    fdPixelRect(-length * 0.72, -height * 0.55, length * 1.08, height * 1.1, "rgba(255, 84, 0, 0.18)", alpha * 0.75);
+
+    // corpo da chama em camadas
+    fdPixelRect(-length * 0.70, -height * 0.42, length * 0.92, height * 0.84, "#d61a0b", alpha);
+    fdPixelRect(-length * 0.52, -height * 0.34, length * 0.78, height * 0.68, "#ff5b12", alpha * 0.98);
+    fdPixelRect(-length * 0.34, -height * 0.25, length * 0.62, height * 0.50, "#ff9b1a", alpha);
+    fdPixelRect(-length * 0.12, -height * 0.16, length * 0.42, height * 0.32, "#fff264", alpha * 0.98);
+    fdPixelRect(length * 0.14, -height * 0.10, length * 0.16, height * 0.20, "#fffad1", alpha * 0.94);
+
+    // ponta aguda para frente
+    fdPixelRect(length * 0.24, -height * 0.16, Math.max(3, 6 * modeScale), height * 0.32, "#ff7a13", alpha * 0.94);
+    fdPixelRect(length * 0.30, -height * 0.08, Math.max(2, 4 * modeScale), height * 0.16, "#fff7b0", alpha * 0.95);
+
+    // línguas de fogo para trás
+    for (let i = 0; i < 4; i += 1) {
+      const t = i / 3;
+      const sway = Math.sin(fdNow() * 0.016 + i * 1.7 + obj.x * 0.03) * (2 + i * 0.8) * flicker;
+      const segLen = length * (0.24 + (1 - t) * 0.26);
+      const segX = -length * (0.72 + t * 0.12);
+      const segH = Math.max(2, height * (0.16 + (1 - t) * 0.10));
+      fdPixelRect(segX, sway - segH * 0.5 - (i % 2 === 0 ? height * 0.24 : -height * 0.24), segLen, segH, i < 2 ? "#ff4a00" : "#d61a0b", alpha * (0.88 - i * 0.12));
+    }
+
+    // partículas embutidas no rastro
+    if (life > 0.18) {
+      fdPixelRect(-length * 0.16, -height * 0.06, 2, 2, "#fffad1", alpha * 0.9);
+      fdPixelRect(-length * 0.34, height * 0.08, 2, 2, "#ffd34d", alpha * 0.78);
+    }
+
+    ctx.restore();
+  }
+
+  function fdDrawParticles() {
+    for (const p of flameDashParticles) {
+      const progress = fdClamp01(1 - p.life / Math.max(0.001, p.maxLife));
+      const alpha = 1 - progress;
+      const size = Math.max(1, p.size * (1 - progress * 0.45));
+      fdPixelRect(p.x - size / 2, p.y - size / 2, size, size, p.color, alpha);
+      if (p.kind === "spark") fdPixelRect(p.x - 0.5, p.y - 0.5, 1.5, 1.5, "#fffad1", alpha * 0.85);
+    }
+  }
+
+  drawDashTrails = function drawDashTrailsFlame() {
+    if (Array.isArray(dashTrails)) {
+      for (const obj of dashTrails) fdDrawSingleTrail(obj);
+    }
+    fdDrawParticles();
+  };
+
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - RASGO DIMENSIONAL
+   Escopo: adiciona somente o poder Rasgo Dimensional.
+   Descrição: abre uma fenda na frente do jogador e corta inimigos.
+   PC + mobile. Sem PNG, sem gerar imagem e sem alterar outros sistemas.
+   ================================================== */
+(function eternalRiftRasgoDimensionalPatch() {
+  const PATCH_ID = "rasgo-dimensional-power-pc-mobile-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_RASGO_DIMENSIONAL_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_RASGO_DIMENSIONAL_PATCH = PATCH_ID;
+
+  const POWER_KEY = "dimensionalSlash";
+  const POWER_NAME = "Rasgo Dimensional";
+  const POWER_COST = 5;
+  const POWER_COOLDOWN = 5.5;
+  const rasgoEffects = [];
+  let rasgoSeed = 1;
+
+  function rdNow() {
+    return (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  }
+
+  function rdClamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+  function rdRand(seed) {
+    const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  function rdCenterPlayer() {
+    return { x: player.x + player.width / 2, y: player.y + player.height / 2 };
+  }
+
+  function rdEnemies() {
+    const list = currentScene === "village" ? villageObjects : objects;
+    return Array.isArray(list) ? list.filter((obj) => obj && obj.type === "enemy" && obj.alive) : [];
+  }
+
+  function rdEnemyCenter(obj) {
+    return { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 };
+  }
+
+  function rdDistancePointToSegment(px, py, ax, ay, bx, by) {
+    const abx = bx - ax;
+    const aby = by - ay;
+    const apx = px - ax;
+    const apy = py - ay;
+    const lengthSq = abx * abx + aby * aby || 1;
+    const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / lengthSq));
+    const cx = ax + abx * t;
+    const cy = ay + aby * t;
+    return Math.hypot(px - cx, py - cy);
+  }
+
+  function rdDamageLine(fx) {
+    let hits = 0;
+    for (const obj of rdEnemies()) {
+      const c = rdEnemyCenter(obj);
+      if (rdDistancePointToSegment(c.x, c.y, fx.ax, fx.ay, fx.bx, fx.by) <= fx.width) {
+        if (typeof damageEnemy === "function" && damageEnemy(obj, fx.damage, fx.ax, fx.ay, 280, "dimensional")) hits += 1;
+      }
+    }
+    if (hits > 0 && typeof spawnFloatingText === "function") {
+      spawnFloatingText(`${hits} cortados`, fx.x, fx.y - 42, "#dca6ff");
+    }
+  }
+
+  function rdEnsurePower() {
+    try {
+      powerNames[POWER_KEY] = POWER_NAME;
+      spellCosts[POWER_KEY] = POWER_COST;
+      if (player.spellCooldowns[POWER_KEY] === undefined) player.spellCooldowns[POWER_KEY] = 0;
+
+      if (!questBook.eternalPowerProduction || typeof questBook.eternalPowerProduction !== "object") {
+        questBook.eternalPowerProduction = { unlocked: [], initializedOldLoadout: true, chestRewards: {}, bossRewards: {} };
+      }
+      if (!Array.isArray(questBook.eternalPowerProduction.unlocked)) questBook.eternalPowerProduction.unlocked = [];
+      if (!questBook.eternalPowerProduction.unlocked.includes(POWER_KEY)) questBook.eternalPowerProduction.unlocked.push(POWER_KEY);
+
+      if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") {
+        questBook.eternalPowerTest = { loadout: ["fireball", "blueRay", "shockwave", POWER_KEY], activeSlot: 0 };
+      }
+      if (!Array.isArray(questBook.eternalPowerTest.loadout)) questBook.eternalPowerTest.loadout = ["fireball", "blueRay", "shockwave", POWER_KEY];
+      while (questBook.eternalPowerTest.loadout.length < 4) questBook.eternalPowerTest.loadout.push(["fireball", "blueRay", "shockwave", POWER_KEY][questBook.eternalPowerTest.loadout.length] || "fireball");
+
+      // Mantém o poder acessível no Slot 4 para PC e mobile, sem alterar os 3 primeiros poderes.
+      if (!questBook.eternalPowerTest.loadout.includes(POWER_KEY)) questBook.eternalPowerTest.loadout[3] = POWER_KEY;
+      for (let i = 0; i < 4; i += 1) powerSlots[i] = questBook.eternalPowerTest.loadout[i];
+    } catch (error) {}
+  }
+
+  function rdGetAim() {
+    if (typeof updateDirectionFromAim === "function") updateDirectionFromAim();
+    const aim = typeof getAimVector === "function" ? getAimVector() : { x: 1, y: 0, angle: 0 };
+    const len = Math.hypot(aim.x || 0, aim.y || 0) || 1;
+    return { x: (aim.x || 0) / len, y: (aim.y || 0) / len, angle: aim.angle ?? Math.atan2(aim.y || 0, aim.x || 1) };
+  }
+
+  function castRasgoDimensional() {
+    rdEnsurePower();
+    if (typeof canUsePower === "function" && !canUsePower(POWER_KEY, POWER_COST)) return true;
+
+    const center = rdCenterPlayer();
+    const aim = rdGetAim();
+    const length = 410;
+    const back = 26;
+    const ax = center.x - aim.x * back;
+    const ay = center.y - aim.y * back;
+    const bx = center.x + aim.x * length;
+    const by = center.y + aim.y * length;
+    const sideX = Math.cos(aim.angle + Math.PI / 2);
+    const sideY = Math.sin(aim.angle + Math.PI / 2);
+
+    const fx = {
+      x: center.x + aim.x * 86,
+      y: center.y + aim.y * 86,
+      ax,
+      ay,
+      bx,
+      by,
+      angle: aim.angle,
+      sideX,
+      sideY,
+      width: 42,
+      timer: 0.52,
+      maxTimer: 0.52,
+      hitDelay: 0.08,
+      hitDone: false,
+      damage: 7,
+      seed: rasgoSeed++,
+      createdAt: rdNow(),
+      expiresAt: rdNow() + 560,
+      shards: []
+    };
+
+    const shardCount = (typeof isMobile !== "undefined" && isMobile) ? 12 : 22;
+    for (let i = 0; i < shardCount; i += 1) {
+      const t = rdRand(fx.seed * 17 + i * 5);
+      const along = -0.02 + t * 1.04;
+      const jitter = (rdRand(fx.seed * 31 + i * 7) - 0.5) * 80;
+      fx.shards.push({
+        t: along,
+        off: jitter,
+        size: 2 + rdRand(fx.seed * 43 + i) * 4,
+        spin: rdRand(fx.seed * 53 + i) * Math.PI * 2,
+        color: i % 3 === 0 ? "#f7eaff" : i % 3 === 1 ? "#b46dff" : "#14051e"
+      });
+    }
+
+    rasgoEffects.push(fx);
+    if (rasgoEffects.length > 5) rasgoEffects.splice(0, rasgoEffects.length - 5);
+    player.spellCooldowns[POWER_KEY] = POWER_COOLDOWN;
+    if (typeof spawnFloatingText === "function") spawnFloatingText("Rasgo Dimensional!", center.x + aim.x * 54, center.y + aim.y * 54 - 30, "#dca6ff");
+    if (typeof showHudToast === "function") showHudToast("Rasgo Dimensional aberto!");
+    if (typeof playSound === "function") {
+      playSound("magic");
+      setTimeout(() => { try { playSound("attack"); } catch (error) {} }, 80);
+    }
+    if (typeof vibrate === "function") vibrate([18, 28, 18]);
+    return true;
+  }
+
+  const useEquippedPowerBeforeRasgo = typeof useEquippedPower === "function" ? useEquippedPower : null;
+  useEquippedPower = function useEquippedPowerRasgoDimensionalPatch() {
+    rdEnsurePower();
+    if (equippedPower === POWER_KEY) return castRasgoDimensional();
+    return useEquippedPowerBeforeRasgo ? useEquippedPowerBeforeRasgo.apply(this, arguments) : undefined;
+  };
+
+  const equipPowerBeforeRasgo = typeof equipPower === "function" ? equipPower : null;
+  if (equipPowerBeforeRasgo) {
+    equipPower = function equipPowerRasgoDimensionalPatch(slotIndex) {
+      rdEnsurePower();
+      return equipPowerBeforeRasgo.apply(this, arguments);
+    };
+  }
+
+  const updateBeforeRasgo = typeof update === "function" ? update : null;
+  if (updateBeforeRasgo) {
+    update = function updateRasgoDimensionalPatch(delta) {
+      rdEnsurePower();
+      updateBeforeRasgo.apply(this, arguments);
+      rdEnsurePower();
+    };
+  }
+
+  const updateEffectsBeforeRasgo = typeof updateEffects === "function" ? updateEffects : null;
+  if (updateEffectsBeforeRasgo) {
+    updateEffects = function updateEffectsRasgoDimensionalPatch(delta) {
+      updateEffectsBeforeRasgo.apply(this, arguments);
+      const safeDelta = Number.isFinite(delta) ? Math.max(0, delta) : 1 / 60;
+      const now = rdNow();
+      for (let i = rasgoEffects.length - 1; i >= 0; i -= 1) {
+        const fx = rasgoEffects[i];
+        if (!fx) {
+          rasgoEffects.splice(i, 1);
+          continue;
+        }
+        if (!Number.isFinite(fx.timer)) fx.timer = 0;
+        fx.timer -= safeDelta;
+        if (!Number.isFinite(fx.expiresAt)) fx.expiresAt = now + Math.max(0, fx.timer) * 1000;
+        if (!fx.hitDone && fx.maxTimer - fx.timer >= fx.hitDelay) {
+          fx.hitDone = true;
+          rdDamageLine(fx);
+        }
+        if (fx.timer <= 0 || now >= fx.expiresAt) rasgoEffects.splice(i, 1);
+      }
+    };
+  }
+
+  function rdRect(x, y, w, h, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+    ctx.restore();
+  }
+
+  function rdDrawLightning(ax, ay, bx, by, thickness, color, alpha, seed, amplitude = 20, segments = 8) {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.hypot(dx, dy) || 1;
+    const sx = -dy / len;
+    const sy = dx / len;
+    let px = ax;
+    let py = ay;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha *= alpha;
+    ctx.lineWidth = thickness;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    for (let i = 1; i <= segments; i += 1) {
+      const t = i / segments;
+      let x = ax + dx * t;
+      let y = ay + dy * t;
+      if (i < segments) {
+        const off = (rdRand(seed + i * 13) - 0.5) * amplitude;
+        x += sx * off;
+        y += sy * off;
+      }
+      ctx.lineTo(x, y);
+      px = x;
+      py = y;
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function rdDrawRasgo(fx) {
+    const progress = rdClamp01(1 - fx.timer / fx.maxTimer);
+    const alpha = rdClamp01(fx.timer / fx.maxTimer);
+    const open = Math.sin(progress * Math.PI);
+    const pulse = 0.72 + Math.sin(rdNow() / 45 + fx.seed) * 0.16;
+    const length = Math.hypot(fx.bx - fx.ax, fx.by - fx.ay);
+    const midX = (fx.ax + fx.bx) / 2;
+    const midY = (fx.ay + fx.by) / 2;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    // Sombra roxa larga da fenda.
+    rdDrawLightning(fx.ax, fx.ay, fx.bx, fx.by, 34 * open, "#13031f", alpha * 0.82, fx.seed, 34, 10);
+    rdDrawLightning(fx.ax, fx.ay, fx.bx, fx.by, 26 * open, "#4a0878", alpha * 0.72, fx.seed + 90, 28, 10);
+    rdDrawLightning(fx.ax, fx.ay, fx.bx, fx.by, 15 * open, "#9b32ff", alpha * 0.86 * pulse, fx.seed + 180, 22, 9);
+    rdDrawLightning(fx.ax, fx.ay, fx.bx, fx.by, 5 * open, "#f7eaff", alpha * 0.94, fx.seed + 270, 12, 8);
+
+    // Núcleo escuro rasgado com pixel blocks.
+    ctx.save();
+    ctx.translate(midX, midY);
+    ctx.rotate(fx.angle);
+    const coreW = length * (0.82 + open * 0.08);
+    const coreH = 15 + 19 * open;
+    rdRect(-coreW / 2, -coreH / 2, coreW, coreH, "rgba(7, 1, 13, 0.78)", alpha);
+    rdRect(-coreW / 2 + 8, -coreH / 2 + 4, coreW - 16, Math.max(2, coreH - 8), "rgba(43, 8, 75, 0.64)", alpha);
+    rdRect(-coreW / 2 + 18, -2, coreW - 36, 4, "#f7eaff", alpha * 0.75 * pulse);
+    rdRect(-coreW / 2 + 10, -5, coreW - 20, 2, "#b46dff", alpha * 0.72);
+    rdRect(-coreW / 2 + 10, 4, coreW - 20, 2, "#7721d9", alpha * 0.72);
+
+    // Pontas afiadas do rasgo.
+    rdRect(-coreW / 2 - 16, -2, 24, 4, "#f7eaff", alpha * 0.78);
+    rdRect(coreW / 2 - 8, -2, 24, 4, "#f7eaff", alpha * 0.78);
+    rdRect(-coreW / 2 - 6, -8, 18, 3, "#7b19ca", alpha * 0.58);
+    rdRect(coreW / 2 - 12, 6, 18, 3, "#7b19ca", alpha * 0.58);
+    ctx.restore();
+
+    // Fragmentos e estilhaços roxos saindo da fenda.
+    for (const sh of fx.shards) {
+      const x = fx.ax + (fx.bx - fx.ax) * sh.t + fx.sideX * sh.off * open;
+      const y = fx.ay + (fx.by - fx.ay) * sh.t + fx.sideY * sh.off * open;
+      const drift = (progress - 0.3) * 14;
+      const s = sh.size * (0.72 + open * 0.6);
+      rdRect(x + Math.cos(sh.spin) * drift - s / 2, y + Math.sin(sh.spin) * drift - s / 2, s, s, sh.color, alpha * 0.82);
+      if (sh.size > 3) rdRect(x - 1, y - 1, 2, 2, "#f7eaff", alpha * 0.55);
+    }
+
+    // Estalos laterais, como a referência roxa elétrica.
+    const sparks = 7;
+    for (let i = 0; i < sparks; i += 1) {
+      const t = 0.08 + (i / (sparks - 1)) * 0.84;
+      const baseX = fx.ax + (fx.bx - fx.ax) * t;
+      const baseY = fx.ay + (fx.by - fx.ay) * t;
+      const side = i % 2 === 0 ? 1 : -1;
+      const len = (18 + rdRand(fx.seed + i * 23) * 34) * open;
+      const sx = baseX + fx.sideX * side * 9;
+      const sy = baseY + fx.sideY * side * 9;
+      const ex = baseX + fx.sideX * side * len;
+      const ey = baseY + fx.sideY * side * len;
+      rdDrawLightning(sx, sy, ex, ey, i % 2 ? 2 : 3, i % 2 ? "#b46dff" : "#f7eaff", alpha * 0.62, fx.seed + i * 41, 10, 4);
+    }
+
+    ctx.restore();
+  }
+
+  const drawDashTrailsBeforeRasgo = typeof drawDashTrails === "function" ? drawDashTrails : null;
+  drawDashTrails = function drawDashTrailsRasgoDimensionalPatch() {
+    if (drawDashTrailsBeforeRasgo) drawDashTrailsBeforeRasgo.apply(this, arguments);
+    const now = rdNow();
+    for (let i = rasgoEffects.length - 1; i >= 0; i -= 1) {
+      const fx = rasgoEffects[i];
+      if (!fx || !Number.isFinite(fx.timer) || fx.timer <= 0 || (Number.isFinite(fx.expiresAt) && now >= fx.expiresAt)) {
+        rasgoEffects.splice(i, 1);
+        continue;
+      }
+      rdDrawRasgo(fx);
+    }
+  };
+
+  const getInventoryItemsBeforeRasgo = typeof getInventoryItems === "function" ? getInventoryItems : null;
+  if (getInventoryItemsBeforeRasgo) {
+    getInventoryItems = function getInventoryItemsRasgoDimensionalPatch() {
+      rdEnsurePower();
+      const items = getInventoryItemsBeforeRasgo.apply(this, arguments);
+      for (const item of items) {
+        if (item && item.powerKey === POWER_KEY) {
+          item.name = POWER_NAME;
+          item.icon = "◇";
+          item.rarity = "lendario";
+          item.description = "Abre uma fenda roxa na frente do jogador e corta inimigos.";
+          item.effect = `Corte em linha, atravessa inimigos. Custo de mana: ${POWER_COST}.`;
+        }
+      }
+      return items;
+    };
+  }
+
+  const getPowerDescriptionBeforeRasgo = typeof getPowerDescription === "function" ? getPowerDescription : null;
+  if (getPowerDescriptionBeforeRasgo) {
+    getPowerDescription = function getPowerDescriptionRasgoDimensionalPatch(powerKey) {
+      if (powerKey === POWER_KEY) return "Abre uma fenda roxa na frente do jogador e corta inimigos.";
+      return getPowerDescriptionBeforeRasgo.apply(this, arguments);
+    };
+  }
+
+  const getPowerHudTextBeforeRasgo = typeof getPowerHudText === "function" ? getPowerHudText : null;
+  if (getPowerHudTextBeforeRasgo) {
+    getPowerHudText = function getPowerHudTextRasgoDimensionalPatch() {
+      rdEnsurePower();
+      return getPowerHudTextBeforeRasgo.apply(this, arguments).replace("Corte Dimensional", POWER_NAME);
+    };
+  }
+
+  rdEnsurePower();
+  setTimeout(() => {
+    try {
+      rdEnsurePower();
+      if (typeof renderInventory === "function") renderInventory();
+      if (typeof updateMobilePowerButtons === "function") updateMobilePowerButtons();
+      if (typeof updateHud === "function") updateHud();
+      if (typeof showHudToast === "function") showHudToast("Rasgo Dimensional adicionado no Slot 4.");
+    } catch (error) {}
+  }, 500);
+
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - ABA DE PODERES NO INVENTÁRIO
+   Escopo: cria uma aba de poderes para equipar poderes nos slots 1-4
+   sem remover outros poderes. Compatível com PC + mobile.
+   ================================================== */
+(function eternalRiftPowerInventoryTabPatch() {
+  const PATCH_ID = "power-inventory-tab-loadout-pc-mobile-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_POWER_INVENTORY_TAB_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_POWER_INVENTORY_TAB_PATCH = PATCH_ID;
+
+  const DEFAULT_POWERS = ["fireball", "blueRay", "shockwave", "heal"];
+
+  function ensurePowerLoadoutStateSafe() {
+    try {
+      if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") {
+        questBook.eternalPowerTest = { unlocked: [...DEFAULT_POWERS], loadout: [...DEFAULT_POWERS], activeSlot: 0 };
+      }
+      if (!Array.isArray(questBook.eternalPowerTest.unlocked)) questBook.eternalPowerTest.unlocked = [...DEFAULT_POWERS];
+      if (!Array.isArray(questBook.eternalPowerTest.loadout)) questBook.eternalPowerTest.loadout = [...DEFAULT_POWERS];
+      while (questBook.eternalPowerTest.loadout.length < 4) questBook.eternalPowerTest.loadout.push(DEFAULT_POWERS[questBook.eternalPowerTest.loadout.length] || "fireball");
+      questBook.eternalPowerTest.loadout = questBook.eternalPowerTest.loadout.slice(0, 4);
+      for (const key of DEFAULT_POWERS) if (!questBook.eternalPowerTest.unlocked.includes(key)) questBook.eternalPowerTest.unlocked.push(key);
+      for (const key of Object.keys(powerNames || {})) {
+        if (spellCosts?.[key] !== undefined && !questBook.eternalPowerTest.unlocked.includes(key)) questBook.eternalPowerTest.unlocked.push(key);
+      }
+      if (typeof powerSlots !== "undefined" && Array.isArray(powerSlots)) {
+        for (let i = 0; i < 4; i += 1) powerSlots[i] = questBook.eternalPowerTest.loadout[i] || DEFAULT_POWERS[i] || "fireball";
+      }
+      questBook.eternalPowerTest.activeSlot = Math.max(0, Math.min(3, Number(questBook.eternalPowerTest.activeSlot || 0)));
+    } catch (error) {}
+  }
+
+  function powerRaritySafe(key) {
+    if (key === "heal") return "incomum";
+    if (key === "shockwave" || key === "celestialSpear" || key === "eternalIceExplosion" || key === "solarSandTornado" || key === "divineShield") return "epico";
+    if (key === "dimensionalSlash" || key === "crimsonMeteor") return "lendario";
+    if (key === "staticField") return "epico";
+    return "raro";
+  }
+
+  function powerIconSafe(key) {
+    if (key === "fireball") return "F";
+    if (key === "blueRay") return "R";
+    if (key === "shockwave") return "O";
+    if (key === "heal") return "+";
+    if (key === "dimensionalSlash") return "◇";
+    if (key === "staticField") return "✹";
+    if (key === "venomRoots") return "♧";
+    if (key === "eternalIceExplosion") return "❄";
+    if (key === "solarSandTornado") return "☀";
+    if (key === "celestialSpear") return "✦";
+    return "Q";
+  }
+
+  const getInventoryItemsBeforePowerInventoryTab = typeof getInventoryItems === "function" ? getInventoryItems : null;
+  if (getInventoryItemsBeforePowerInventoryTab) {
+    getInventoryItems = function getInventoryItemsPowerInventoryTab() {
+      ensurePowerLoadoutStateSafe();
+      const items = getInventoryItemsBeforePowerInventoryTab.apply(this, arguments) || [];
+      const existing = new Set(items.map((item) => item?.powerKey).filter(Boolean));
+      const unlocked = questBook?.eternalPowerTest?.unlocked || DEFAULT_POWERS;
+      for (const key of unlocked) {
+        if (existing.has(key)) continue;
+        items.push({
+          id: `power-loadout-${key}`,
+          name: powerNames?.[key] || key,
+          icon: powerIconSafe(key),
+          quantity: 1,
+          category: "poderes",
+          typeLabel: "Poder",
+          rarity: powerRaritySafe(key),
+          description: typeof getPowerDescription === "function" ? getPowerDescription(key) : "Poder equipado pelo jogador.",
+          effect: `Custo de mana: ${spellCosts?.[key] || 0}. Pode ser colocado em qualquer slot sem apagar a coleção.`,
+          action: "equipPowerSlot",
+          powerKey: key,
+          hotbarEligible: true
+        });
+      }
+      return items;
+    };
+  }
+
+  const getFilteredInventoryItemsBeforePowerInventoryTab = typeof getFilteredInventoryItems === "function" ? getFilteredInventoryItems : null;
+  if (getFilteredInventoryItemsBeforePowerInventoryTab) {
+    getFilteredInventoryItems = function getFilteredInventoryItemsPowerInventoryTab(items) {
+      if (inventoryTab === "poderes") return (items || []).filter((item) => item?.category === "poderes" || item?.powerKey || item?.typeLabel === "Poder");
+      return getFilteredInventoryItemsBeforePowerInventoryTab.apply(this, arguments);
+    };
+  }
+
+  const renderInventoryBeforePowerInventoryTab = typeof renderInventory === "function" ? renderInventory : null;
+  if (renderInventoryBeforePowerInventoryTab) {
+    renderInventory = function renderInventoryPowerInventoryTab() {
+      ensurePowerLoadoutStateSafe();
+      const result = renderInventoryBeforePowerInventoryTab.apply(this, arguments);
+      try {
+        if (inventoryTabs && !inventoryTabs.querySelector('[data-inventory-tab="poderes"]')) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.inventoryTab = "poderes";
+          button.textContent = "Poderes";
+          inventoryTabs.appendChild(button);
+        }
+        const reworkTabs = document.getElementById("erInventoryTabs");
+        if (reworkTabs && !reworkTabs.querySelector('[data-er-inv-tab="poderes"]')) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.erInvTab = "poderes";
+          button.textContent = "Poderes";
+          reworkTabs.insertBefore(button, reworkTabs.querySelector('[data-er-inv-tab="consumiveis"]') || null);
+        }
+      } catch (error) {}
+      return result;
+    };
+  }
+
+  const handleInventoryActionBeforePowerInventoryTab = typeof handleInventoryAction === "function" ? handleInventoryAction : null;
+  if (handleInventoryActionBeforePowerInventoryTab) {
+    handleInventoryAction = function handleInventoryActionPowerInventoryTab(actionButton) {
+      if (actionButton?.dataset?.inventoryAction === "equipPowerSlot") {
+        ensurePowerLoadoutStateSafe();
+        const key = actionButton.dataset.powerKey;
+        const index = Math.max(0, Math.min(3, Number(actionButton.dataset.slotIndex || 0)));
+        if (Array.isArray(powerSlots)) powerSlots[index] = key;
+        questBook.eternalPowerTest.loadout[index] = key;
+        questBook.eternalPowerTest.activeSlot = index;
+        equippedPower = key;
+        showHudToast?.(`${powerNames?.[key] || "Poder"} equipado no Slot ${index + 1}`);
+        try { playSound?.("equipItem"); } catch (error) {}
+        updateMobilePowerButtons?.();
+        updateHud?.(true);
+        renderInventory?.();
+        return;
+      }
+      return handleInventoryActionBeforePowerInventoryTab.apply(this, arguments);
+    };
+  }
+
+  const powerInventoryStyle = document.createElement("style");
+  powerInventoryStyle.id = "er-power-inventory-tab-style";
+  powerInventoryStyle.textContent = `
+    .power-slot-actions, .er-detail-actions { gap: 8px; flex-wrap: wrap; }
+    .power-slot-actions button, .er-detail-actions [data-er-inv-action="equipPowerSlot"] {
+      border-color: rgba(180,109,255,.7) !important;
+      box-shadow: 0 0 16px rgba(180,109,255,.16), inset 0 0 10px rgba(85,232,255,.06);
+    }
+    .er-inv-tabs [data-er-inv-tab="poderes"].is-active,
+    .inventory-tabs [data-inventory-tab="poderes"].is-active {
+      color: #fff7c8;
+      text-shadow: 0 0 8px rgba(180,109,255,.72);
+    }
+  `;
+  if (!document.getElementById(powerInventoryStyle.id)) document.head.appendChild(powerInventoryStyle);
+
+  ensurePowerLoadoutStateSafe();
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - CAMPO ESTÁTICO
+   Escopo: adiciona somente o poder Campo Estático.
+   Descrição: cria uma área elétrica que paralisa inimigos por pouco tempo.
+   PC + mobile. Sem PNG, sem gerar imagem e sem alterar outros sistemas.
+   ================================================== */
+(function eternalRiftStaticFieldPowerPatch() {
+  const PATCH_ID = "static-field-power-pc-mobile-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_STATIC_FIELD_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_STATIC_FIELD_PATCH = PATCH_ID;
+
+  const POWER_KEY = "staticField";
+  const POWER_NAME = "Campo Estático";
+  const POWER_COST = 4;
+  const POWER_COOLDOWN = 4.4;
+  const FIELD_RADIUS = 112;
+  const FIELD_DURATION = 1.65;
+  const fields = [];
+  const particles = [];
+  let fieldSeed = 1;
+
+  function sfNow() {
+    return (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  }
+
+  function sfClamp01(value) { return Math.max(0, Math.min(1, value)); }
+
+  function sfRand(seed) {
+    const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  function sfPlayerCenter() {
+    return { x: player.x + player.width / 2, y: player.y + player.height / 2 };
+  }
+
+  function sfAim() {
+    if (typeof updateDirectionFromAim === "function") updateDirectionFromAim();
+    const aim = typeof getAimVector === "function" ? getAimVector() : { x: 1, y: 0, angle: 0 };
+    const len = Math.hypot(aim.x || 0, aim.y || 0) || 1;
+    return { x: (aim.x || 0) / len, y: (aim.y || 0) / len, angle: aim.angle ?? Math.atan2(aim.y || 0, aim.x || 1) };
+  }
+
+  function sfEnemies() {
+    const list = currentScene === "village" ? villageObjects : objects;
+    return Array.isArray(list) ? list.filter((obj) => obj && obj.type === "enemy" && obj.alive) : [];
+  }
+
+  function sfEnemyCenter(obj) {
+    return { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 };
+  }
+
+  function sfEnsurePower() {
+    try {
+      powerNames[POWER_KEY] = POWER_NAME;
+      spellCosts[POWER_KEY] = POWER_COST;
+      if (!player.spellCooldowns) player.spellCooldowns = {};
+      if (player.spellCooldowns[POWER_KEY] === undefined) player.spellCooldowns[POWER_KEY] = 0;
+
+      if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") {
+        questBook.eternalPowerTest = { unlocked: ["fireball", "blueRay", "shockwave", "heal"], loadout: ["fireball", "blueRay", "shockwave", "heal"], activeSlot: 0 };
+      }
+      if (!Array.isArray(questBook.eternalPowerTest.unlocked)) questBook.eternalPowerTest.unlocked = ["fireball", "blueRay", "shockwave", "heal"];
+      if (!Array.isArray(questBook.eternalPowerTest.loadout)) questBook.eternalPowerTest.loadout = ["fireball", "blueRay", "shockwave", "heal"];
+      while (questBook.eternalPowerTest.loadout.length < 4) questBook.eternalPowerTest.loadout.push(["fireball", "blueRay", "shockwave", "heal"][questBook.eternalPowerTest.loadout.length] || "fireball");
+      questBook.eternalPowerTest.loadout = questBook.eternalPowerTest.loadout.slice(0, 4);
+      if (!questBook.eternalPowerTest.unlocked.includes(POWER_KEY)) questBook.eternalPowerTest.unlocked.push(POWER_KEY);
+
+      if (!questBook.eternalPowerProduction || typeof questBook.eternalPowerProduction !== "object") {
+        questBook.eternalPowerProduction = { unlocked: [], initializedOldLoadout: true, chestRewards: {}, bossRewards: {} };
+      }
+      if (!Array.isArray(questBook.eternalPowerProduction.unlocked)) questBook.eternalPowerProduction.unlocked = [];
+      if (!questBook.eternalPowerProduction.unlocked.includes(POWER_KEY)) questBook.eternalPowerProduction.unlocked.push(POWER_KEY);
+
+      if (typeof powerSlots !== "undefined" && Array.isArray(powerSlots)) {
+        for (let i = 0; i < 4; i += 1) powerSlots[i] = questBook.eternalPowerTest.loadout[i] || powerSlots[i] || "fireball";
+      }
+    } catch (error) {}
+  }
+
+  function sfAddParticle(x, y, vx, vy, life, size, color, kind = "spark") {
+    particles.push({ x, y, vx, vy, life, maxLife: life, size, color, kind });
+    const limit = (typeof isMobile !== "undefined" && isMobile) ? 100 : 170;
+    if (particles.length > limit) particles.splice(0, particles.length - limit);
+  }
+
+  function sfSpawnRingParticles(x, y, radius, seed) {
+    const count = (typeof isMobile !== "undefined" && isMobile) ? 18 : 32;
+    for (let i = 0; i < count; i += 1) {
+      const a = (Math.PI * 2 * i) / count + sfRand(seed + i * 7) * 0.16;
+      const d = radius * (0.72 + sfRand(seed + i * 11) * 0.28);
+      const speed = 12 + sfRand(seed + i * 13) * 44;
+      sfAddParticle(
+        x + Math.cos(a) * d,
+        y + Math.sin(a) * d,
+        Math.cos(a) * speed * 0.25,
+        Math.sin(a) * speed * 0.25,
+        0.35 + sfRand(seed + i * 17) * 0.38,
+        2 + sfRand(seed + i * 19) * 3.2,
+        i % 4 === 0 ? "#efffff" : i % 4 === 1 ? "#74f4ff" : i % 4 === 2 ? "#2b8cff" : "#1d45d8",
+        i % 5 === 0 ? "star" : "spark"
+      );
+    }
+  }
+
+  function sfApplyParalysis(field, firstHit = false) {
+    let hits = 0;
+    for (const obj of sfEnemies()) {
+      const c = sfEnemyCenter(obj);
+      const distance = Math.hypot(c.x - field.x, c.y - field.y);
+      if (distance > field.radius + Math.max(obj.width || 0, obj.height || 0) * 0.45) continue;
+      obj.frozenTimer = Math.max(Number(obj.frozenTimer || 0), 0.62);
+      obj.frozenX = obj.x;
+      obj.frozenY = obj.y;
+      obj.staffStunTimer = Math.max(Number(obj.staffStunTimer || 0), 0.62);
+      obj.attackCooldown = Math.max(Number(obj.attackCooldown || 0), 0.55);
+      if (firstHit && !field.hitIds.has(obj.__erStaticId || obj.id || obj.name || obj)) {
+        const id = obj.__erStaticId || (obj.__erStaticId = `sf-${field.seed}-${field.hitIds.size}-${Math.random()}`);
+        field.hitIds.add(id);
+        if (typeof damageEnemy === "function") damageEnemy(obj, 1, field.x, field.y, 150, "magico");
+        hits += 1;
+      }
+    }
+    if (firstHit && hits > 0 && typeof spawnFloatingText === "function") {
+      spawnFloatingText(`${hits} paralisados`, field.x, field.y - field.radius - 16, "#8cf6ff");
+    }
+  }
+
+  function castStaticField() {
+    sfEnsurePower();
+    if (typeof canUsePower === "function" && !canUsePower(POWER_KEY, POWER_COST)) return true;
+
+    const center = sfPlayerCenter();
+    const aim = sfAim();
+    const x = center.x + aim.x * 86;
+    const y = center.y + aim.y * 86;
+    const seed = fieldSeed++;
+    const field = {
+      x,
+      y,
+      radius: FIELD_RADIUS,
+      timer: FIELD_DURATION,
+      maxTimer: FIELD_DURATION,
+      tick: 0,
+      seed,
+      pulseSeed: sfRand(seed * 7) * 1000,
+      hitIds: new Set()
+    };
+    fields.push(field);
+    if (fields.length > 3) fields.splice(0, fields.length - 3);
+    sfSpawnRingParticles(x, y, FIELD_RADIUS, seed);
+    sfApplyParalysis(field, true);
+
+    player.spellCooldowns[POWER_KEY] = POWER_COOLDOWN;
+    if (typeof spawnFloatingText === "function") spawnFloatingText("Campo Estático!", x, y - FIELD_RADIUS - 28, "#8cf6ff");
+    if (typeof showHudToast === "function") showHudToast("Campo Estático criado!");
+    if (typeof playSound === "function") {
+      playSound("magic");
+      setTimeout(() => { try { playSound("shockwave"); } catch (error) {} }, 80);
+    }
+    if (typeof vibrate === "function") vibrate([10, 18, 10]);
+    return true;
+  }
+
+  const useEquippedPowerBeforeStaticField = typeof useEquippedPower === "function" ? useEquippedPower : null;
+  useEquippedPower = function useEquippedPowerStaticFieldPatch() {
+    sfEnsurePower();
+    if (equippedPower === POWER_KEY) return castStaticField();
+    return useEquippedPowerBeforeStaticField ? useEquippedPowerBeforeStaticField.apply(this, arguments) : undefined;
+  };
+
+  const updateBeforeStaticField = typeof update === "function" ? update : null;
+  if (updateBeforeStaticField) {
+    update = function updateStaticFieldPatch(delta) {
+      sfEnsurePower();
+      updateBeforeStaticField.apply(this, arguments);
+    };
+  }
+
+  const updateEffectsBeforeStaticField = typeof updateEffects === "function" ? updateEffects : null;
+  if (updateEffectsBeforeStaticField) {
+    updateEffects = function updateEffectsStaticFieldPatch(delta) {
+      updateEffectsBeforeStaticField.apply(this, arguments);
+      const safeDelta = Number.isFinite(delta) ? Math.max(0, delta) : 1 / 60;
+
+      for (let i = fields.length - 1; i >= 0; i -= 1) {
+        const field = fields[i];
+        field.timer -= safeDelta;
+        field.tick -= safeDelta;
+        if (field.tick <= 0) {
+          field.tick = 0.18;
+          sfApplyParalysis(field, false);
+          if (sfRand(field.seed + field.timer * 47) > 0.35) sfSpawnRingParticles(field.x, field.y, field.radius * 0.86, field.seed + Math.floor(field.timer * 100));
+        }
+        if (field.timer <= 0) fields.splice(i, 1);
+      }
+
+      for (let i = particles.length - 1; i >= 0; i -= 1) {
+        const p = particles[i];
+        p.life -= safeDelta;
+        p.x += p.vx * safeDelta;
+        p.y += p.vy * safeDelta;
+        p.vx *= Math.pow(0.08, safeDelta);
+        p.vy *= Math.pow(0.08, safeDelta);
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    };
+  }
+
+  function sfRect(x, y, w, h, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h)));
+    ctx.restore();
+  }
+
+  function sfLightningLine(x1, y1, x2, y2, thickness, color, alpha, seed, amplitude = 9, segments = 5) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    let px = x1;
+    let py = y1;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha *= alpha;
+    ctx.lineWidth = thickness;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    for (let i = 1; i <= segments; i += 1) {
+      const t = i / segments;
+      let x = x1 + dx * t;
+      let y = y1 + dy * t;
+      if (i < segments) {
+        const off = (sfRand(seed + i * 23) - 0.5) * amplitude;
+        x += nx * off;
+        y += ny * off;
+      }
+      ctx.lineTo(x, y);
+      px = x;
+      py = y;
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function sfDrawField(field) {
+    const life = sfClamp01(field.timer / field.maxTimer);
+    const progress = 1 - life;
+    const t = sfNow() / 1000 + field.pulseSeed;
+    const alpha = Math.min(1, life * 1.4) * Math.min(1, progress * 3.2);
+    const pulse = 1 + Math.sin(t * 8) * 0.035;
+    const r = field.radius * pulse;
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(field.x, field.y);
+
+    // Aura azul translúcida, desenhada por código e sem PNG.
+    ctx.globalAlpha *= alpha;
+    ctx.fillStyle = "rgba(55, 152, 255, 0.11)";
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(85, 232, 255, 0.07)";
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.72, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Borda elétrica irregular.
+    const spikes = 28;
+    for (let i = 0; i < spikes; i += 1) {
+      const a1 = (Math.PI * 2 * i) / spikes;
+      const a2 = (Math.PI * 2 * (i + 0.75)) / spikes;
+      const jitter1 = r * (0.92 + sfRand(field.seed * 31 + i * 5 + Math.floor(t * 6)) * 0.14);
+      const jitter2 = r * (0.92 + sfRand(field.seed * 43 + i * 7 + Math.floor(t * 6)) * 0.14);
+      sfLightningLine(
+        Math.cos(a1) * jitter1,
+        Math.sin(a1) * jitter1,
+        Math.cos(a2) * jitter2,
+        Math.sin(a2) * jitter2,
+        i % 3 === 0 ? 3.2 : 2.2,
+        i % 4 === 0 ? "#efffff" : "#55e8ff",
+        0.60 * alpha,
+        field.seed * 101 + i * 17 + Math.floor(t * 12),
+        7,
+        3
+      );
+    }
+
+    // Raios internos em forma de rede.
+    const lines = (typeof isMobile !== "undefined" && isMobile) ? 7 : 12;
+    for (let i = 0; i < lines; i += 1) {
+      const a = (Math.PI * 2 * i) / lines + Math.sin(t * 1.7 + i) * 0.12;
+      const a2 = a + Math.PI + Math.sin(t * 1.2 + i * 2) * 0.35;
+      const d1 = r * (0.18 + sfRand(field.seed + i * 13) * 0.38);
+      const d2 = r * (0.42 + sfRand(field.seed + i * 19) * 0.50);
+      sfLightningLine(
+        Math.cos(a) * d1,
+        Math.sin(a) * d1,
+        Math.cos(a2) * d2,
+        Math.sin(a2) * d2,
+        i % 2 === 0 ? 2 : 1.4,
+        i % 3 === 0 ? "#ffffff" : "#74f4ff",
+        0.34 * alpha,
+        field.seed * 71 + i * 29 + Math.floor(t * 10),
+        15,
+        5
+      );
+    }
+
+    // Núcleo e estrelas.
+    sfRect(-9, -9, 18, 18, "rgba(85, 232, 255, 0.20)", alpha);
+    sfRect(-5, -5, 10, 10, "rgba(239, 255, 255, 0.34)", alpha);
+    for (let i = 0; i < 8; i += 1) {
+      const a = t * 0.9 + i * Math.PI * 0.25;
+      const d = r * (0.20 + (i % 4) * 0.15);
+      const x = Math.cos(a) * d;
+      const y = Math.sin(a) * d;
+      sfRect(x - 1, y - 5, 2, 10, "#efffff", alpha * 0.42);
+      sfRect(x - 5, y - 1, 10, 2, "#74f4ff", alpha * 0.38);
+      sfRect(x - 1.5, y - 1.5, 3, 3, "#ffffff", alpha * 0.66);
+    }
+
+    ctx.restore();
+  }
+
+  function sfDrawParticles() {
+    for (const p of particles) {
+      const progress = sfClamp01(1 - p.life / Math.max(0.001, p.maxLife));
+      const alpha = 1 - progress;
+      const size = Math.max(1, p.size * (1 - progress * 0.55));
+      sfRect(p.x - size / 2, p.y - size / 2, size, size, p.color, alpha);
+      if (p.kind === "star") {
+        sfRect(p.x - 0.5, p.y - size, 1, size * 2, "#efffff", alpha * 0.42);
+        sfRect(p.x - size, p.y - 0.5, size * 2, 1, "#74f4ff", alpha * 0.35);
+      }
+    }
+  }
+
+  const drawEffectsBeforeStaticField = typeof drawEffects === "function" ? drawEffects : null;
+  if (drawEffectsBeforeStaticField) {
+    drawEffects = function drawEffectsStaticFieldPatch() {
+      drawEffectsBeforeStaticField.apply(this, arguments);
+      for (const field of fields) sfDrawField(field);
+      sfDrawParticles();
+    };
+  }
+
+  const getInventoryItemsBeforeStaticField = typeof getInventoryItems === "function" ? getInventoryItems : null;
+  if (getInventoryItemsBeforeStaticField) {
+    getInventoryItems = function getInventoryItemsStaticFieldPatch() {
+      sfEnsurePower();
+      const items = getInventoryItemsBeforeStaticField.apply(this, arguments) || [];
+      for (const item of items) {
+        if (item && item.powerKey === POWER_KEY) {
+          item.name = POWER_NAME;
+          item.icon = "✹";
+          item.rarity = "epico";
+          item.description = "Cria uma área elétrica que paralisa inimigos por pouco tempo.";
+          item.effect = `Paralisa inimigos próximos. Custo de mana: ${POWER_COST}.`;
+        }
+      }
+      return items;
+    };
+  }
+
+  const getPowerDescriptionBeforeStaticField = typeof getPowerDescription === "function" ? getPowerDescription : null;
+  if (getPowerDescriptionBeforeStaticField) {
+    getPowerDescription = function getPowerDescriptionStaticFieldPatch(powerKey) {
+      if (powerKey === POWER_KEY) return "Cria uma área elétrica que paralisa inimigos por pouco tempo.";
+      return getPowerDescriptionBeforeStaticField.apply(this, arguments);
+    };
+  }
+
+  const getPowerHudTextBeforeStaticField = typeof getPowerHudText === "function" ? getPowerHudText : null;
+  if (getPowerHudTextBeforeStaticField) {
+    getPowerHudText = function getPowerHudTextStaticFieldPatch() {
+      sfEnsurePower();
+      return getPowerHudTextBeforeStaticField.apply(this, arguments).replace("staticField", POWER_NAME);
+    };
+  }
+
+  sfEnsurePower();
+  setTimeout(() => {
+    try {
+      sfEnsurePower();
+      if (typeof renderInventory === "function") renderInventory();
+      if (typeof updateMobilePowerButtons === "function") updateMobilePowerButtons();
+      if (typeof updateHud === "function") updateHud();
+      if (typeof showHudToast === "function") showHudToast("Campo Estático adicionado na aba Poderes.");
+    } catch (error) {}
+  }, 500);
+
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - CORREÇÃO FINAL DOS PODERES EQUIPADOS
+   Escopo: corrigir a aba Poderes para que o poder equipado no inventário
+   realmente entre no slot escolhido e possa ser usado no PC e mobile.
+   Não altera dano, visual, mapa, personagem, boss, menu ou inventário geral.
+   ================================================== */
+(function eternalRiftPowerLoadoutUseFix() {
+  const PATCH_ID = "power-loadout-usable-fix-pc-mobile-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_POWER_LOADOUT_USE_FIX === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_POWER_LOADOUT_USE_FIX = PATCH_ID;
+
+  const DEFAULT_LOADOUT = ["fireball", "blueRay", "shockwave", "heal"];
+  const KNOWN_EXTRA_POWERS = ["dimensionalSlash", "staticField"];
+
+  function safePowerName(key) {
+    try { return powerNames?.[key] || key || "Poder"; } catch (error) { return key || "Poder"; }
+  }
+
+  function safePowerIcon(key) {
+    if (key === "fireball") return "🔥";
+    if (key === "blueRay") return "⚡";
+    if (key === "shockwave") return "◎";
+    if (key === "heal") return "+";
+    if (key === "dimensionalSlash") return "◇";
+    if (key === "staticField") return "✹";
+    return "✦";
+  }
+
+  function ensurePowerStateForUse() {
+    try {
+      if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") {
+        questBook.eternalPowerTest = { unlocked: [...DEFAULT_LOADOUT], loadout: [...DEFAULT_LOADOUT], activeSlot: 0 };
+      }
+      const state = questBook.eternalPowerTest;
+      if (!Array.isArray(state.unlocked)) state.unlocked = [...DEFAULT_LOADOUT];
+      if (!Array.isArray(state.loadout)) state.loadout = [...DEFAULT_LOADOUT];
+      while (state.loadout.length < 4) state.loadout.push(DEFAULT_LOADOUT[state.loadout.length] || "fireball");
+      state.loadout = state.loadout.slice(0, 4);
+
+      for (const key of DEFAULT_LOADOUT) if (!state.unlocked.includes(key)) state.unlocked.push(key);
+      for (const key of KNOWN_EXTRA_POWERS) {
+        if ((powerNames?.[key] || spellCosts?.[key] !== undefined) && !state.unlocked.includes(key)) state.unlocked.push(key);
+      }
+      try {
+        for (const key of Object.keys(powerNames || {})) {
+          if (spellCosts?.[key] !== undefined && !state.unlocked.includes(key)) state.unlocked.push(key);
+        }
+      } catch (error) {}
+
+      if (!Array.isArray(powerSlots)) return state;
+      for (let i = 0; i < 4; i += 1) {
+        powerSlots[i] = state.loadout[i] || powerSlots[i] || DEFAULT_LOADOUT[i] || "fireball";
+      }
+      state.activeSlot = Math.max(0, Math.min(3, Number(state.activeSlot || 0)));
+      if (!powerSlots[state.activeSlot]) powerSlots[state.activeSlot] = state.loadout[state.activeSlot] || "fireball";
+      if (!equippedPower || !state.loadout.includes(equippedPower)) equippedPower = powerSlots[state.activeSlot] || "fireball";
+      if (player?.spellCooldowns) {
+        for (const key of state.unlocked) if (player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+      }
+      return state;
+    } catch (error) {
+      return questBook?.eternalPowerTest || null;
+    }
+  }
+
+  function findPowerKeyFromButton(button) {
+    if (!button) return "";
+    const direct = button.dataset?.powerKey;
+    if (direct) return direct;
+    const itemId = button.dataset?.itemId || button.closest?.("[data-item-id]")?.dataset?.itemId || button.closest?.("[data-er-inv-item]")?.dataset?.erInvItem || "";
+    if (!itemId) return "";
+    try {
+      const items = typeof getInventoryItems === "function" ? getInventoryItems() : [];
+      const item = (items || []).find((entry) => entry && String(entry.id) === String(itemId));
+      return item?.powerKey || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function commitPowerToSlot(key, slotIndex, silent = false) {
+    if (!key) return false;
+    const index = Math.max(0, Math.min(3, Number(slotIndex || 0)));
+    const state = ensurePowerStateForUse();
+    if (!state) return false;
+
+    if (!state.unlocked.includes(key)) state.unlocked.push(key);
+    if (!Array.isArray(state.loadout)) state.loadout = [...DEFAULT_LOADOUT];
+    while (state.loadout.length < 4) state.loadout.push(DEFAULT_LOADOUT[state.loadout.length] || "fireball");
+    state.loadout[index] = key;
+    state.activeSlot = index;
+
+    if (Array.isArray(powerSlots)) powerSlots[index] = key;
+    equippedPower = key;
+    if (player?.spellCooldowns && player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+
+    try { updateMobilePowerButtons?.(); } catch (error) {}
+    try { updateHud?.(true); } catch (error) {}
+    if (!silent) {
+      try { showHudToast?.(`${safePowerName(key)} equipado no Slot ${index + 1}. Aperte Q ou o botão Poder para usar.`); } catch (error) {}
+      try { spawnFloatingText?.(`${safePowerName(key)} no Slot ${index + 1}`, player.x + 12, player.y - 18, "#55e8ff"); } catch (error) {}
+      try { playSound?.("equipItem"); } catch (error) {}
+    }
+    return true;
+  }
+
+  // Captura os botões da aba Poderes do inventário antigo e do inventário novo.
+  document.addEventListener("click", (event) => {
+    const button = event.target?.closest?.('[data-er-inv-action="equipPowerSlot"], [data-inventory-action="equipPowerSlot"]');
+    if (!button) return;
+    const key = findPowerKeyFromButton(button);
+    if (!key) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+    const index = Math.max(0, Math.min(3, Number(button.dataset?.slotIndex || 0)));
+    commitPowerToSlot(key, index);
+    try { if (typeof renderInventoryRework === "function") renderInventoryRework(); else renderInventory?.(); } catch (error) {}
+  }, true);
+
+  const equipPowerBeforeLoadoutUseFix = typeof equipPower === "function" ? equipPower : null;
+  equipPower = function equipPowerLoadoutUseFix(slotIndex) {
+    const state = ensurePowerStateForUse();
+    const index = Math.max(0, Math.min(3, Number(slotIndex || 0)));
+    const key = state?.loadout?.[index] || powerSlots?.[index] || DEFAULT_LOADOUT[index] || "fireball";
+    commitPowerToSlot(key, index, true);
+    try {
+      spawnFloatingText?.(`Slot ${index + 1}: ${safePowerName(key)}`, player.x + 12, player.y - 18, "#55e8ff");
+      showHudToast?.(`Slot ${index + 1} selecionado: ${safePowerName(key)}`);
+      playSound?.("powerup");
+      vibrate?.(10);
+    } catch (error) {}
+    try { updateMobilePowerButtons?.(); updateHud?.(true); } catch (error) {}
+    return true;
+  };
+
+  const useEquippedPowerBeforeLoadoutUseFix = typeof useEquippedPower === "function" ? useEquippedPower : null;
+  useEquippedPower = function useEquippedPowerLoadoutUseFix() {
+    const state = ensurePowerStateForUse();
+    const active = Math.max(0, Math.min(3, Number(state?.activeSlot || 0)));
+    const key = equippedPower || state?.loadout?.[active] || powerSlots?.[active] || "fireball";
+    equippedPower = key;
+    if (Array.isArray(powerSlots)) powerSlots[active] = state?.loadout?.[active] || key;
+
+    if (useEquippedPowerBeforeLoadoutUseFix) return useEquippedPowerBeforeLoadoutUseFix.apply(this, arguments);
+  };
+
+  const updateMobilePowerButtonsBeforeLoadoutUseFix = typeof updateMobilePowerButtons === "function" ? updateMobilePowerButtons : null;
+  updateMobilePowerButtons = function updateMobilePowerButtonsLoadoutUseFix() {
+    const state = ensurePowerStateForUse();
+    const buttons = [touchPower1Button, touchPower2Button, touchPower3Button, touchPower4Button];
+    buttons.forEach((button, index) => {
+      if (!button) return;
+      const key = state?.loadout?.[index] || powerSlots?.[index] || DEFAULT_LOADOUT[index] || "fireball";
+      const active = index === Number(state?.activeSlot || 0) && key === equippedPower;
+      button.classList.toggle("is-equipped", active);
+      button.title = `Slot ${index + 1}: ${safePowerName(key)}`;
+      button.setAttribute("aria-label", `Slot ${index + 1}: ${safePowerName(key)}`);
+      button.textContent = String(index + 1);
+    });
+    try { updateMobilePowerButtonsBeforeLoadoutUseFix?.(); } catch (error) {}
+  };
+
+  const getPowerHudTextBeforeLoadoutUseFix = typeof getPowerHudText === "function" ? getPowerHudText : null;
+  if (getPowerHudTextBeforeLoadoutUseFix) {
+    getPowerHudText = function getPowerHudTextLoadoutUseFix() {
+      const state = ensurePowerStateForUse();
+      const slot = Math.max(0, Math.min(3, Number(state?.activeSlot || 0))) + 1;
+      const key = equippedPower || powerSlots?.[slot - 1] || "fireball";
+      const cooldown = player?.spellCooldowns?.[key] || 0;
+      const cd = cooldown > 0 && typeof formatCooldown === "function" ? ` ${formatCooldown(cooldown)}` : "";
+      return `Slot ${slot}: ${safePowerName(key)}${cd}`;
+    };
+  }
+
+  const updateBeforeLoadoutUseFix = typeof update === "function" ? update : null;
+  if (updateBeforeLoadoutUseFix) {
+    update = function updateLoadoutUseFix(delta) {
+      ensurePowerStateForUse();
+      const result = updateBeforeLoadoutUseFix.apply(this, arguments);
+      ensurePowerStateForUse();
+      return result;
+    };
+  }
+
+  const renderInventoryBeforeLoadoutUseFix = typeof renderInventory === "function" ? renderInventory : null;
+  if (renderInventoryBeforeLoadoutUseFix) {
+    renderInventory = function renderInventoryLoadoutUseFix() {
+      ensurePowerStateForUse();
+      return renderInventoryBeforeLoadoutUseFix.apply(this, arguments);
+    };
+  }
+
+  function paintPcPowerLabels() {
+    try {
+      const state = ensurePowerStateForUse();
+      const root = document.getElementById("pcRpgHud");
+      if (!root || !state) return;
+      const special = root.querySelector(".er-equip-special strong, .er-equip-special b");
+      if (special) special.textContent = safePowerName(equippedPower || state.loadout[state.activeSlot] || "fireball");
+      const firstSlotName = root.querySelector('.pc-rpg-slot[data-pc-action="power"] b, .pc-rpg-skill-wrap [data-pc-action="power"] b');
+      if (firstSlotName) firstSlotName.textContent = safePowerName(equippedPower || state.loadout[state.activeSlot] || "fireball");
+    } catch (error) {}
+  }
+
+  const updateHudBeforeLoadoutUseFix = typeof updateHud === "function" ? updateHud : null;
+  if (updateHudBeforeLoadoutUseFix) {
+    updateHud = function updateHudLoadoutUseFix(...args) {
+      const result = updateHudBeforeLoadoutUseFix.apply(this, args);
+      try { updateMobilePowerButtons?.(); paintPcPowerLabels(); } catch (error) {}
+      return result;
+    };
+  }
+
+  ensurePowerStateForUse();
+  setTimeout(() => {
+    try {
+      ensurePowerStateForUse();
+      updateMobilePowerButtons?.();
+      updateHud?.(true);
+      if (typeof renderInventory === "function" && inventoryOpen) renderInventory();
+      showHudToast?.("Equipamento de poderes corrigido.", 2.4);
+    } catch (error) {}
+  }, 500);
+
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - Z X C V USAM OS PODERES DOS SLOTS
+   Escopo: quando um poder é equipado no inventário, ele passa a ser usado
+   diretamente pelas teclas Z, X, C e V. Não altera dano, visual, mapa,
+   inventário geral ou outros sistemas.
+   ================================================== */
+(function eternalRiftZxcvUseEquippedPowerSlotsPatch() {
+  const PATCH_ID = "zxcv-use-equipped-power-slots-pc-mobile-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ZXCV_USE_POWER_SLOTS === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ZXCV_USE_POWER_SLOTS = PATCH_ID;
+
+  const DEFAULT_LOADOUT = ["fireball", "blueRay", "shockwave", "heal"];
+  const KEY_TO_SLOT = { z: 0, x: 1, c: 2, v: 3 };
+  const SLOT_KEYS = ["Z", "X", "C", "V"];
+
+  function isTypingSafe() {
+    try {
+      if (typeof isTypingInTextField === "function" && isTypingInTextField()) return true;
+      const el = document.activeElement;
+      if (!el) return false;
+      const tag = String(el.tagName || "").toLowerCase();
+      return tag === "input" || tag === "textarea" || el.isContentEditable;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function powerNameSafe(key) {
+    try { return powerNames?.[key] || key || "Poder"; } catch (error) { return key || "Poder"; }
+  }
+
+  function ensurePowerLoadoutSafe() {
+    try {
+      if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") {
+        questBook.eternalPowerTest = { unlocked: [...DEFAULT_LOADOUT], loadout: [...DEFAULT_LOADOUT], activeSlot: 0 };
+      }
+      const state = questBook.eternalPowerTest;
+      if (!Array.isArray(state.unlocked)) state.unlocked = [...DEFAULT_LOADOUT];
+      if (!Array.isArray(state.loadout)) state.loadout = [...DEFAULT_LOADOUT];
+      while (state.loadout.length < 4) state.loadout.push(DEFAULT_LOADOUT[state.loadout.length] || "fireball");
+      state.loadout = state.loadout.slice(0, 4);
+      state.activeSlot = Math.max(0, Math.min(3, Number(state.activeSlot || 0)));
+
+      if (Array.isArray(powerSlots)) {
+        for (let i = 0; i < 4; i += 1) {
+          const key = state.loadout[i] || powerSlots[i] || DEFAULT_LOADOUT[i] || "fireball";
+          state.loadout[i] = key;
+          powerSlots[i] = key;
+          if (spellCosts?.[key] !== undefined && player?.spellCooldowns && player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+        }
+      }
+      return state;
+    } catch (error) {
+      return questBook?.eternalPowerTest || null;
+    }
+  }
+
+  function gameplayBlockedForZxcv() {
+    try {
+      return Boolean(
+        !gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen || dialogOpen || missionsOpen || statusOpen || isTypingSafe()
+      );
+    } catch (error) {
+      return true;
+    }
+  }
+
+  function usePowerSlotDirect(slotIndex, source = "keyboard") {
+    const state = ensurePowerLoadoutSafe();
+    const index = Math.max(0, Math.min(3, Number(slotIndex || 0)));
+    const key = state?.loadout?.[index] || powerSlots?.[index] || DEFAULT_LOADOUT[index] || "fireball";
+
+    if (state) {
+      state.activeSlot = index;
+      state.loadout[index] = key;
+    }
+    if (Array.isArray(powerSlots)) powerSlots[index] = key;
+    equippedPower = key;
+
+    try { updateMobilePowerButtons?.(); } catch (error) {}
+    try { updateHud?.(true); } catch (error) {}
+
+    if (source !== "silent") {
+      try { spawnFloatingText?.(`${SLOT_KEYS[index]}: ${powerNameSafe(key)}`, player.x + 12, player.y - 18, "#55e8ff"); } catch (error) {}
+    }
+
+    try {
+      if (typeof useEquippedPower === "function") {
+        useEquippedPower();
+        return true;
+      }
+    } catch (error) {
+      try { console.warn("Erro ao usar poder do slot", index + 1, key, error); } catch (_) {}
+    }
+    return false;
+  }
+
+  // Usa captura no window para ganhar prioridade sobre patches antigos que só selecionavam o slot.
+  window.addEventListener("keydown", (event) => {
+    const key = String(event.key || "").toLowerCase();
+    if (!(key in KEY_TO_SLOT)) return;
+    if (gameplayBlockedForZxcv()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+    usePowerSlotDirect(KEY_TO_SLOT[key], "keyboard");
+  }, true);
+
+  // No mobile, os botões dos 4 slots também passam a usar o poder do slot, não só selecionar.
+  window.addEventListener("pointerdown", (event) => {
+    const button = event.target?.closest?.("#touchPower1Button, #touchPower2Button, #touchPower3Button, #touchPower4Button");
+    if (!button || gameplayBlockedForZxcv()) return;
+    const ids = ["touchPower1Button", "touchPower2Button", "touchPower3Button", "touchPower4Button"];
+    const index = ids.indexOf(button.id);
+    if (index < 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+    try { button.classList.add("is-pressed"); setTimeout(() => button.classList.remove("is-pressed"), 160); } catch (error) {}
+    usePowerSlotDirect(index, "mobile");
+  }, true);
+
+  const updateMobilePowerButtonsBeforeZxcvUse = typeof updateMobilePowerButtons === "function" ? updateMobilePowerButtons : null;
+  if (updateMobilePowerButtonsBeforeZxcvUse) {
+    updateMobilePowerButtons = function updateMobilePowerButtonsZxcvUsePatch() {
+      const result = updateMobilePowerButtonsBeforeZxcvUse.apply(this, arguments);
+      try {
+        ensurePowerLoadoutSafe();
+        const buttons = [touchPower1Button, touchPower2Button, touchPower3Button, touchPower4Button];
+        buttons.forEach((button, index) => {
+          if (!button) return;
+          const key = powerSlots?.[index] || questBook?.eternalPowerTest?.loadout?.[index] || DEFAULT_LOADOUT[index] || "fireball";
+          button.title = `${SLOT_KEYS[index]} usa ${powerNameSafe(key)}`;
+          button.setAttribute("aria-label", `${SLOT_KEYS[index]} usa ${powerNameSafe(key)}`);
+          button.dataset.powerUseKey = SLOT_KEYS[index];
+        });
+      } catch (error) {}
+      return result;
+    };
+  }
+
+  ensurePowerLoadoutSafe();
+  setTimeout(() => {
+    try { updateMobilePowerButtons?.(); updateHud?.(true); } catch (error) {}
+    try { showHudToast?.("Poderes agora usam Z, X, C e V direto.", 3); } catch (error) {}
+  }, 600);
+
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
 })();

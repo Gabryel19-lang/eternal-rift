@@ -1,0 +1,12 @@
+ETERNAL RIFT - CAMPO ESTÁTICO
+
+Alteração feita:
+- Adicionado somente o poder Campo Estático.
+- Cria uma área elétrica na frente do jogador.
+- Paralisa inimigos por pouco tempo.
+- Visual e animação feitos por código/Canvas, sem PNG no mapa e sem imagem gerada.
+- Compatível com PC e mobile.
+- O poder fica disponível na aba Poderes para equipar futuramente sem apagar outros poderes.
+
+Mantido:
+- menu, biomas, personagem, boss, HUD, inventário geral, NPCs, casas, ferreiro, combate base e sistemas.

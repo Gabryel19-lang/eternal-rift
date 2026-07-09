@@ -1,0 +1,5 @@
+Correção aplicada:
+- O Campo Estático agora aparece na aba Poderes do inventário novo.
+- A correção integra poderes adicionados depois do rework do inventário.
+- Não altera dano, duração, mana, cooldown ou visual dos poderes.
+- Mantém PC e mobile.
