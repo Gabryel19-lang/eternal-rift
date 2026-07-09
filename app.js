@@ -70162,3 +70162,539 @@ function updateCamera() {
 
   try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
 })();
+
+/* ==================================================
+   ETERNAL RIFT - PACOTE DE PODERES ELEMENTAIS
+   Escopo: adiciona somente os poderes de água, sombra e gelo das referências.
+   Não usa PNG no jogo, não gera imagem, desenha tudo via Canvas.
+   Compatível com PC + mobile e com a aba Poderes / slots Z X C V.
+   ================================================== */
+(function eternalRiftAllElementalPowersPatch() {
+  const PATCH_ID = "all-water-shadow-ice-powers-pc-mobile-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_ALL_ELEMENTAL_POWERS_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ALL_ELEMENTAL_POWERS_PATCH = PATCH_ID;
+
+  const POWER_DEFS = {
+    waterJet: { name: "Jato d'Água", icon: "💧", rarity: "raro", cost: 3, cooldown: 2.3, group: "agua", desc: "Dispara um jato de água que empurra inimigos para trás." },
+    protectiveBubble: { name: "Bolha Protetora", icon: "◌", rarity: "epico", cost: 4, cooldown: 8.0, group: "agua", desc: "Cria uma bolha protetora ao redor do jogador por alguns segundos." },
+    aquaticHeal: { name: "Cura Aquática", icon: "+", rarity: "raro", cost: 4, cooldown: 6.0, group: "agua", desc: "Cura o jogador com energia da água. Cura melhor perto ou dentro da água." },
+    bubblePrison: { name: "Prisão de Bolha", icon: "◎", rarity: "epico", cost: 4, cooldown: 7.2, group: "agua", desc: "Prende inimigos em bolhas por pouco tempo." },
+    lakeWave: { name: "Onda do Lago", icon: "≈", rarity: "epico", cost: 5, cooldown: 6.8, group: "agua", desc: "Lança uma onda forte que avança e derruba inimigos." },
+
+    shadowOrb: { name: "Orbe Sombrio", icon: "●", rarity: "raro", cost: 3, cooldown: 2.8, group: "sombra", desc: "Projétil sombrio lento, forte e com brilho roxo." },
+    lifeSteal: { name: "Roubo de Vida", icon: "♥", rarity: "epico", cost: 4, cooldown: 6.0, group: "sombra", desc: "Causa dano e cura o jogador." },
+    shadowClone: { name: "Sombra Clone", icon: "☾", rarity: "epico", cost: 4, cooldown: 9.0, group: "sombra", desc: "Cria uma cópia sombria que distrai inimigos próximos." },
+    shadowExplosion: { name: "Explosão Sombria", icon: "✹", rarity: "epico", cost: 5, cooldown: 7.5, group: "sombra", desc: "Explode energia sombria e empurra inimigos ao redor." },
+    deathMark: { name: "Marca da Morte", icon: "☠", rarity: "lendario", cost: 5, cooldown: 8.5, group: "sombra", desc: "Marca um inimigo para receber mais dano por alguns segundos." },
+
+    iceSpike: { name: "Espinho de Gelo", icon: "❄", rarity: "raro", cost: 3, cooldown: 3.0, group: "gelo", desc: "Cria uma ponta de gelo no chão que perfura inimigos." },
+    freezing: { name: "Congelamento", icon: "✣", rarity: "raro", cost: 3, cooldown: 5.8, group: "gelo", desc: "Reduz a velocidade/congela inimigos por alguns segundos." },
+    iceWall: { name: "Muralha de Gelo", icon: "▥", rarity: "epico", cost: 5, cooldown: 9.0, group: "gelo", desc: "Cria uma parede temporária de gelo que segura inimigos." },
+    blizzard: { name: "Nevasca", icon: "✺", rarity: "epico", cost: 5, cooldown: 8.5, group: "gelo", desc: "Cria uma área grande com neve que causa dano leve e lentidão." },
+    glacialArmor: { name: "Armadura Glacial", icon: "⬡", rarity: "epico", cost: 4, cooldown: 10.5, group: "gelo", desc: "Reduz dano recebido por alguns segundos com uma armadura de gelo." }
+  };
+
+  const POWER_KEYS = Object.keys(POWER_DEFS);
+  const elementalState = {
+    effects: [],
+    projectiles: [],
+    particles: [],
+    clones: [],
+    glacialArmorTimer: 0,
+    protectiveBubbleTimer: 0,
+    seed: 1
+  };
+
+  function nowMsEP() { return (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now(); }
+  function clamp01EP(v) { return Math.max(0, Math.min(1, v)); }
+  function randEP(seed) { const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453; return value - Math.floor(value); }
+  function centerPlayerEP() { return { x: player.x + player.width / 2, y: player.y + player.height / 2 }; }
+  function enemyCenterEP(obj) { return { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 }; }
+  function aimEP() {
+    try { updateDirectionFromAim?.(); } catch (error) {}
+    const aim = typeof getAimVector === "function" ? getAimVector() : { x: 1, y: 0, angle: 0 };
+    const len = Math.hypot(aim.x || 0, aim.y || 0) || 1;
+    return { x: (aim.x || 0) / len, y: (aim.y || 0) / len, angle: aim.angle ?? Math.atan2(aim.y || 0, aim.x || 1) };
+  }
+  function enemiesEP() {
+    const list = currentScene === "village" ? villageObjects : objects;
+    return Array.isArray(list) ? list.filter((obj) => obj && obj.type === "enemy" && obj.alive) : [];
+  }
+  function pointToSegmentEP(px, py, ax, ay, bx, by) {
+    const abx = bx - ax, aby = by - ay, apx = px - ax, apy = py - ay;
+    const len = abx * abx + aby * aby || 1;
+    const t = Math.max(0, Math.min(1, (apx * abx + apy * aby) / len));
+    const x = ax + abx * t, y = ay + aby * t;
+    return Math.hypot(px - x, py - y);
+  }
+  function applyDamageEP(obj, amount, x, y, knockback = 180, type = "magico") {
+    try { return damageEnemy(obj, amount, x, y, knockback, type); } catch (error) { return false; }
+  }
+  function damageRadiusEP(x, y, radius, amount, type, knock = 180, onHit = null) {
+    let hits = 0;
+    for (const obj of enemiesEP()) {
+      const c = enemyCenterEP(obj);
+      if (Math.hypot(c.x - x, c.y - y) <= radius) {
+        if (applyDamageEP(obj, amount, x, y, knock, type)) hits += 1;
+        if (onHit) onHit(obj, c);
+      }
+    }
+    return hits;
+  }
+  function damageLineEP(ax, ay, bx, by, width, amount, type, onHit = null) {
+    let hits = 0;
+    for (const obj of enemiesEP()) {
+      const c = enemyCenterEP(obj);
+      if (pointToSegmentEP(c.x, c.y, ax, ay, bx, by) <= width) {
+        if (applyDamageEP(obj, amount, ax, ay, 260, type)) hits += 1;
+        if (onHit) onHit(obj, c);
+      }
+    }
+    return hits;
+  }
+  function nearestEnemyEP(x, y, maxDistance = 310) {
+    let best = null;
+    let bestD = maxDistance;
+    for (const obj of enemiesEP()) {
+      const c = enemyCenterEP(obj);
+      const d = Math.hypot(c.x - x, c.y - y);
+      if (d < bestD) { bestD = d; best = obj; }
+    }
+    return best;
+  }
+  function tileIsWaterEP(x, y) {
+    try {
+      const tx = Math.floor(x / TILE), ty = Math.floor(y / TILE);
+      const tile = currentScene === "crystalDimension" ? crystalDimensionMap?.[ty]?.[tx] : worldMap?.[ty]?.[tx];
+      return tile === "W" || tile === "V" || tile === "M";
+    } catch (error) { return false; }
+  }
+  function addFxEP(fx) {
+    elementalState.effects.push({ timer: fx.duration || 1, maxTimer: fx.duration || 1, tick: 0, hitDone: false, seed: elementalState.seed++, ...fx });
+    const limit = (typeof isMobile !== "undefined" && isMobile) ? 28 : 45;
+    if (elementalState.effects.length > limit) elementalState.effects.splice(0, elementalState.effects.length - limit);
+  }
+  function addParticleEP(x, y, vx, vy, life, size, color, kind) {
+    elementalState.particles.push({ x, y, vx, vy, life, maxLife: life, size, color, kind, seed: elementalState.seed++ });
+    const limit = (typeof isMobile !== "undefined" && isMobile) ? 110 : 190;
+    if (elementalState.particles.length > limit) elementalState.particles.splice(0, elementalState.particles.length - limit);
+  }
+  function burstEP(x, y, colors, count, radius, life = 0.45, kind = "spark") {
+    const max = (typeof isMobile !== "undefined" && isMobile) ? Math.ceil(count * 0.55) : count;
+    for (let i = 0; i < max; i += 1) {
+      const a = (Math.PI * 2 * i) / max + randEP(elementalState.seed + i) * 0.35;
+      const speed = 35 + randEP(elementalState.seed + i * 7) * radius;
+      addParticleEP(x, y, Math.cos(a) * speed, Math.sin(a) * speed, life * (0.7 + randEP(i) * 0.6), 2 + randEP(i * 13) * 4, colors[i % colors.length], kind);
+    }
+  }
+
+  function ensureAllElementalPowers() {
+    try {
+      if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") questBook.eternalPowerTest = { unlocked: [], loadout: ["fireball", "blueRay", "shockwave", "heal"], activeSlot: 0 };
+      if (!Array.isArray(questBook.eternalPowerTest.unlocked)) questBook.eternalPowerTest.unlocked = [];
+      if (!Array.isArray(questBook.eternalPowerTest.loadout)) questBook.eternalPowerTest.loadout = ["fireball", "blueRay", "shockwave", "heal"];
+      while (questBook.eternalPowerTest.loadout.length < 4) questBook.eternalPowerTest.loadout.push(["fireball", "blueRay", "shockwave", "heal"][questBook.eternalPowerTest.loadout.length] || "fireball");
+      questBook.eternalPowerTest.loadout = questBook.eternalPowerTest.loadout.slice(0, 4);
+      for (const key of POWER_KEYS) {
+        const def = POWER_DEFS[key];
+        powerNames[key] = def.name;
+        spellCosts[key] = def.cost;
+        if (player?.spellCooldowns && player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+        if (!questBook.eternalPowerTest.unlocked.includes(key)) questBook.eternalPowerTest.unlocked.push(key);
+      }
+      if (Array.isArray(powerSlots)) {
+        for (let i = 0; i < 4; i += 1) powerSlots[i] = questBook.eternalPowerTest.loadout[i] || powerSlots[i] || "fireball";
+      }
+      if (!equippedPower || (spellCosts?.[equippedPower] === undefined && !["fireball", "blueRay", "shockwave", "heal"].includes(equippedPower))) equippedPower = powerSlots?.[0] || "fireball";
+    } catch (error) {}
+  }
+
+  function castElementalPower(key) {
+    ensureAllElementalPowers();
+    const def = POWER_DEFS[key];
+    if (!def) return false;
+    if (typeof canUsePower === "function" && !canUsePower(key, def.cost)) return true;
+    const c = centerPlayerEP();
+    const aim = aimEP();
+    const target = { x: c.x + aim.x * 150, y: c.y + aim.y * 150 };
+
+    if (key === "waterJet") {
+      const bx = c.x + aim.x * 245, by = c.y + aim.y * 245;
+      const hits = damageLineEP(c.x, c.y, bx, by, 34, 2, "agua", (obj) => { obj.x += aim.x * 20; obj.y += aim.y * 20; });
+      addFxEP({ kind: "waterJet", x: c.x, y: c.y, ax: c.x, ay: c.y, bx, by, angle: aim.angle, duration: 0.34, hits });
+      burstEP(c.x + aim.x * 38, c.y + aim.y * 38, ["#eaffff", "#55e8ff", "#2b83ff"], 16, 95, 0.32, "water");
+    } else if (key === "protectiveBubble") {
+      elementalState.protectiveBubbleTimer = Math.max(elementalState.protectiveBubbleTimer, 4.8);
+      activePowerUps.shield = Math.max(activePowerUps.shield || 0, 4.8);
+      playerInvulnerableTimer = Math.max(playerInvulnerableTimer, 0.35);
+      addFxEP({ kind: "protectiveBubble", x: c.x, y: c.y, radius: 44, duration: 4.8 });
+      burstEP(c.x, c.y, ["#dffbff", "#55e8ff", "#3ea9ff"], 20, 75, 0.52, "bubble");
+    } else if (key === "aquaticHeal") {
+      const nearWater = tileIsWaterEP(c.x, c.y) || tileIsWaterEP(c.x + 32, c.y) || tileIsWaterEP(c.x - 32, c.y) || tileIsWaterEP(c.x, c.y + 32) || tileIsWaterEP(c.x, c.y - 32);
+      const heal = nearWater ? 3 : 2;
+      player.health = Math.min(player.maxHealth, player.health + heal);
+      player.mana = Math.min(player.maxMana, player.mana + (nearWater ? 1 : 0));
+      addFxEP({ kind: "aquaticHeal", x: c.x, y: c.y, radius: nearWater ? 78 : 55, duration: 0.85, heal, nearWater });
+      spawnFloatingText?.(`+${heal}`, c.x, c.y - 36, "#75ffbc");
+      burstEP(c.x, c.y, ["#75ffbc", "#55e8ff", "#eaffff"], 22, 80, 0.65, "healWater");
+    } else if (key === "bubblePrison") {
+      const enemy = nearestEnemyEP(target.x, target.y, 240) || nearestEnemyEP(c.x, c.y, 330);
+      const px = enemy ? enemyCenterEP(enemy).x : target.x;
+      const py = enemy ? enemyCenterEP(enemy).y : target.y;
+      const hits = damageRadiusEP(px, py, 80, 1, "agua", 80, (obj) => { obj.rootedTimer = Math.max(obj.rootedTimer || 0, 3.0); obj.rootedX = obj.x; obj.rootedY = obj.y; });
+      addFxEP({ kind: "bubblePrison", x: px, y: py, radius: 68, duration: 3.0, hits });
+      burstEP(px, py, ["#eaffff", "#55e8ff", "#5fb5ff"], 18, 70, 0.52, "bubble");
+    } else if (key === "lakeWave") {
+      const bx = c.x + aim.x * 300, by = c.y + aim.y * 300;
+      const hits = damageLineEP(c.x, c.y, bx, by, 60, 3, "agua", (obj) => { obj.x += aim.x * 28; obj.y += aim.y * 28; obj.frozenTimer = Math.max(obj.frozenTimer || 0, 0.25); });
+      addFxEP({ kind: "lakeWave", x: c.x, y: c.y, ax: c.x, ay: c.y, bx, by, angle: aim.angle, duration: 0.62, hits });
+      burstEP(c.x + aim.x * 45, c.y + aim.y * 45, ["#dffbff", "#55e8ff", "#2079d8"], 24, 120, 0.38, "water");
+    } else if (key === "shadowOrb") {
+      elementalState.projectiles.push({ kind: "shadowOrb", x: c.x + aim.x * 18, y: c.y + aim.y * 18, vx: aim.x * 230, vy: aim.y * 230, timer: 1.75, maxTimer: 1.75, radius: 18, damage: 4, hit: new Set(), seed: elementalState.seed++ });
+      burstEP(c.x, c.y, ["#f1c6ff", "#8f49ff", "#16051e"], 12, 70, 0.28, "shadow");
+    } else if (key === "lifeSteal") {
+      const bx = c.x + aim.x * 275, by = c.y + aim.y * 275;
+      let healed = 0;
+      const hits = damageLineEP(c.x, c.y, bx, by, 38, 2, "sombra", () => { if (healed < 2) { healed += 1; player.health = Math.min(player.maxHealth, player.health + 1); } });
+      addFxEP({ kind: "lifeSteal", x: c.x, y: c.y, ax: c.x, ay: c.y, bx, by, angle: aim.angle, duration: 0.58, hits, healed });
+      if (healed > 0) spawnFloatingText?.(`+${healed}`, c.x, c.y - 42, "#ff5d7e");
+    } else if (key === "shadowClone") {
+      const backX = c.x - aim.x * 42, backY = c.y - aim.y * 42;
+      elementalState.clones.push({ x: backX, y: backY, timer: 4.0, maxTimer: 4.0, seed: elementalState.seed++ });
+      for (const obj of enemiesEP()) {
+        const ec = enemyCenterEP(obj);
+        if (Math.hypot(ec.x - backX, ec.y - backY) <= 240) { obj.confusedTimer = Math.max(obj.confusedTimer || 0, 3.2); obj.confusedX = backX; obj.confusedY = backY; }
+      }
+      addFxEP({ kind: "shadowClone", x: backX, y: backY, radius: 45, duration: 0.8 });
+      burstEP(backX, backY, ["#d9a6ff", "#8f49ff", "#16051e"], 18, 85, 0.55, "shadow");
+    } else if (key === "shadowExplosion") {
+      const hits = damageRadiusEP(c.x, c.y, 125, 3, "sombra", 360, (obj, ec) => { const dx = ec.x - c.x, dy = ec.y - c.y; const d = Math.hypot(dx, dy) || 1; obj.x += (dx / d) * 24; obj.y += (dy / d) * 24; });
+      addFxEP({ kind: "shadowExplosion", x: c.x, y: c.y, radius: 125, duration: 0.75, hits });
+      burstEP(c.x, c.y, ["#d9a6ff", "#8f49ff", "#1a0826"], 28, 180, 0.65, "shadow");
+    } else if (key === "deathMark") {
+      const enemy = nearestEnemyEP(target.x, target.y, 280) || nearestEnemyEP(c.x, c.y, 360);
+      if (enemy) {
+        enemy.deathMarkTimer = Math.max(enemy.deathMarkTimer || 0, 6.0);
+        enemy.deathMarkMultiplier = 1.25;
+        const ec = enemyCenterEP(enemy);
+        addFxEP({ kind: "deathMark", x: ec.x, y: ec.y, target: enemy, radius: 52, duration: 6.0 });
+        burstEP(ec.x, ec.y, ["#ff355d", "#d10035", "#39000f"], 20, 90, 0.55, "deathMark");
+      } else {
+        spawnFloatingText?.("Sem alvo", c.x, c.y - 24, "#ff5d7e");
+      }
+    } else if (key === "iceSpike") {
+      const px = target.x, py = target.y;
+      const hits = damageRadiusEP(px, py, 66, 4, "gelo", 180, (obj) => { obj.frozenTimer = Math.max(obj.frozenTimer || 0, 0.8); obj.frozenX = obj.x; obj.frozenY = obj.y; });
+      addFxEP({ kind: "iceSpike", x: px, y: py, radius: 66, duration: 0.92, hits });
+      burstEP(px, py, ["#ffffff", "#9ee9ff", "#55c8ff"], 20, 85, 0.55, "ice");
+    } else if (key === "freezing") {
+      const bx = c.x + aim.x * 235, by = c.y + aim.y * 235;
+      const hits = damageLineEP(c.x, c.y, bx, by, 52, 1, "gelo", (obj) => { obj.frozenTimer = Math.max(obj.frozenTimer || 0, 2.5); obj.frozenX = obj.x; obj.frozenY = obj.y; });
+      addFxEP({ kind: "freezing", x: c.x, y: c.y, ax: c.x, ay: c.y, bx, by, angle: aim.angle, duration: 0.72, hits });
+      burstEP(c.x + aim.x * 55, c.y + aim.y * 55, ["#ffffff", "#bcefff", "#55c8ff"], 18, 110, 0.45, "ice");
+    } else if (key === "iceWall") {
+      const wallX = c.x + aim.x * 90, wallY = c.y + aim.y * 90;
+      addFxEP({ kind: "iceWall", x: wallX, y: wallY, angle: aim.angle + Math.PI / 2, width: 150, radius: 84, duration: 4.3, tick: 0.1 });
+      damageRadiusEP(wallX, wallY, 90, 1, "gelo", 120, (obj) => { obj.rootedTimer = Math.max(obj.rootedTimer || 0, 0.55); obj.rootedX = obj.x; obj.rootedY = obj.y; });
+      burstEP(wallX, wallY, ["#ffffff", "#a6edff", "#57c8ff"], 24, 90, 0.55, "ice");
+    } else if (key === "blizzard") {
+      const bx = target.x, by = target.y;
+      addFxEP({ kind: "blizzard", x: bx, y: by, radius: 145, duration: 3.4, tick: 0.2 });
+      burstEP(bx, by, ["#ffffff", "#bcefff", "#55c8ff"], 30, 160, 0.65, "snow");
+    } else if (key === "glacialArmor") {
+      elementalState.glacialArmorTimer = Math.max(elementalState.glacialArmorTimer, 5.8);
+      activePowerUps.shield = Math.max(activePowerUps.shield || 0, 5.8);
+      playerInvulnerableTimer = Math.max(playerInvulnerableTimer, 0.45);
+      addFxEP({ kind: "glacialArmor", x: c.x, y: c.y, radius: 58, duration: 5.8 });
+      burstEP(c.x, c.y, ["#ffffff", "#a6edff", "#55c8ff"], 24, 95, 0.7, "ice");
+    }
+
+    player.spellCooldowns[key] = def.cooldown;
+    try { playSound?.(def.group === "sombra" ? "magic" : def.group === "gelo" ? "crystal" : "water"); } catch (error) { try { playSound?.("magic"); } catch (_) {} }
+    try { vibrate?.(def.rarity === "lendario" ? [18, 26, 18] : 16); } catch (error) {}
+    try { spawnFloatingText?.(def.name, c.x + aim.x * 28, c.y + aim.y * 28 - 28, def.group === "sombra" ? "#d9a6ff" : def.group === "gelo" ? "#bcefff" : "#55e8ff"); } catch (error) {}
+    try { updateHud?.(true); } catch (error) {}
+    return true;
+  }
+
+  const useEquippedPowerBeforeElementalPack = typeof useEquippedPower === "function" ? useEquippedPower : null;
+  useEquippedPower = function useEquippedPowerElementalPack() {
+    ensureAllElementalPowers();
+    if (POWER_DEFS[equippedPower]) return castElementalPower(equippedPower);
+    return useEquippedPowerBeforeElementalPack ? useEquippedPowerBeforeElementalPack.apply(this, arguments) : undefined;
+  };
+
+  const damageEnemyBeforeElementalPack = typeof damageEnemy === "function" ? damageEnemy : null;
+  if (damageEnemyBeforeElementalPack) {
+    damageEnemy = function damageEnemyElementalPack(obj, amount, sourceX, sourceY, knockback, damageType) {
+      let finalAmount = amount;
+      if (obj && obj.deathMarkTimer > 0) finalAmount = Math.ceil(Number(amount || 0) * Number(obj.deathMarkMultiplier || 1.25));
+      return damageEnemyBeforeElementalPack.call(this, obj, finalAmount, sourceX, sourceY, knockback, damageType);
+    };
+  }
+
+  const updateEffectsBeforeElementalPack = typeof updateEffects === "function" ? updateEffects : null;
+  if (updateEffectsBeforeElementalPack) {
+    updateEffects = function updateEffectsElementalPack(delta) {
+      updateEffectsBeforeElementalPack.apply(this, arguments);
+      const dt = Number.isFinite(delta) ? Math.max(0, delta) : 1 / 60;
+      elementalState.protectiveBubbleTimer = Math.max(0, elementalState.protectiveBubbleTimer - dt);
+      elementalState.glacialArmorTimer = Math.max(0, elementalState.glacialArmorTimer - dt);
+      if (elementalState.protectiveBubbleTimer > 0 || elementalState.glacialArmorTimer > 0) {
+        activePowerUps.shield = Math.max(activePowerUps.shield || 0, 0.25);
+        if (elementalState.glacialArmorTimer > 0) playerInvulnerableTimer = Math.max(playerInvulnerableTimer, 0.08);
+      }
+
+      for (const obj of enemiesEP()) {
+        if (obj.deathMarkTimer > 0) obj.deathMarkTimer = Math.max(0, obj.deathMarkTimer - dt);
+        if (obj.rootedTimer > 0) { obj.rootedTimer = Math.max(0, obj.rootedTimer - dt); obj.x = obj.rootedX ?? obj.x; obj.y = obj.rootedY ?? obj.y; obj.attackCooldown = Math.max(obj.attackCooldown || 0, 0.2); }
+        if (obj.frozenTimer > 0) { obj.frozenTimer = Math.max(0, obj.frozenTimer - dt); obj.frozenX = obj.frozenX ?? obj.x; obj.frozenY = obj.frozenY ?? obj.y; obj.x = obj.frozenX; obj.y = obj.frozenY; obj.attackCooldown = Math.max(obj.attackCooldown || 0, 0.28); }
+        if (obj.confusedTimer > 0 && obj.confusedX !== undefined && obj.confusedY !== undefined) { obj.attackCooldown = Math.max(obj.attackCooldown || 0, 0.25); }
+      }
+
+      for (let i = elementalState.projectiles.length - 1; i >= 0; i -= 1) {
+        const p = elementalState.projectiles[i];
+        p.timer -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if (p.kind === "shadowOrb") {
+          burstEP(p.x, p.y, ["#d9a6ff", "#8f49ff", "#16051e"], 2, 34, 0.22, "shadow");
+          for (const obj of enemiesEP()) {
+            if (p.hit.has(obj)) continue;
+            const ec = enemyCenterEP(obj);
+            if (Math.hypot(ec.x - p.x, ec.y - p.y) <= p.radius + 16) {
+              p.hit.add(obj); applyDamageEP(obj, p.damage, p.x, p.y, 140, "sombra"); burstEP(p.x, p.y, ["#f1c6ff", "#8f49ff", "#16051e"], 16, 100, 0.45, "shadow"); p.timer = Math.min(p.timer, 0.18);
+            }
+          }
+        }
+        if (p.timer <= 0) elementalState.projectiles.splice(i, 1);
+      }
+
+      for (let i = elementalState.clones.length - 1; i >= 0; i -= 1) {
+        const sh = elementalState.clones[i];
+        sh.timer -= dt;
+        for (const obj of enemiesEP()) {
+          const ec = enemyCenterEP(obj);
+          if (Math.hypot(ec.x - sh.x, ec.y - sh.y) < 230) { obj.confusedTimer = Math.max(obj.confusedTimer || 0, 0.25); obj.confusedX = sh.x; obj.confusedY = sh.y; }
+        }
+        if (sh.timer <= 0) elementalState.clones.splice(i, 1);
+      }
+
+      for (let i = elementalState.effects.length - 1; i >= 0; i -= 1) {
+        const fx = elementalState.effects[i];
+        fx.timer -= dt;
+        fx.tick -= dt;
+        if (fx.kind === "blizzard" && fx.tick <= 0) {
+          fx.tick = 0.55;
+          damageRadiusEP(fx.x, fx.y, fx.radius, 1, "gelo", 60, (obj) => { obj.frozenTimer = Math.max(obj.frozenTimer || 0, 0.55); obj.frozenX = obj.x; obj.frozenY = obj.y; });
+          burstEP(fx.x, fx.y, ["#ffffff", "#bcefff", "#55c8ff"], 8, 155, 0.42, "snow");
+        }
+        if (fx.kind === "iceWall" && fx.tick <= 0) {
+          fx.tick = 0.28;
+          damageRadiusEP(fx.x, fx.y, fx.radius, 0, "gelo", 80, (obj) => { obj.rootedTimer = Math.max(obj.rootedTimer || 0, 0.35); obj.rootedX = obj.x; obj.rootedY = obj.y; });
+        }
+        if ((fx.kind === "protectiveBubble" || fx.kind === "glacialArmor") && fx.timer > 0) { fx.x = centerPlayerEP().x; fx.y = centerPlayerEP().y; }
+        if (fx.kind === "deathMark" && fx.target?.alive) { const ec = enemyCenterEP(fx.target); fx.x = ec.x; fx.y = ec.y; fx.timer = Math.min(fx.timer, fx.target.deathMarkTimer || fx.timer); }
+        if (fx.timer <= 0) elementalState.effects.splice(i, 1);
+      }
+
+      for (let i = elementalState.particles.length - 1; i >= 0; i -= 1) {
+        const p = elementalState.particles[i];
+        p.life -= dt;
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        p.vx *= Math.pow(0.05, dt); p.vy *= Math.pow(0.05, dt);
+        if (p.kind === "snow") p.vy += 10 * dt;
+        if (p.life <= 0) elementalState.particles.splice(i, 1);
+      }
+    };
+  }
+
+  function rectEP(x, y, w, h, color, alpha = 1) { ctx.save(); ctx.globalAlpha *= alpha; ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); ctx.restore(); }
+  function lightningEP(x1, y1, x2, y2, color, alpha, thick, seed, amp = 10, segments = 5) {
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+    ctx.save(); ctx.strokeStyle = color; ctx.globalAlpha *= alpha; ctx.lineWidth = thick; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.beginPath(); ctx.moveTo(x1, y1);
+    for (let i = 1; i <= segments; i += 1) { const t = i / segments; let x = x1 + dx * t, y = y1 + dy * t; if (i < segments) { const off = (randEP(seed + i * 31) - 0.5) * amp; x += nx * off; y += ny * off; } ctx.lineTo(x, y); }
+    ctx.stroke(); ctx.restore();
+  }
+  function drawCircleGlowEP(x, y, r, color, alpha) { ctx.save(); ctx.globalAlpha *= alpha; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+
+  function drawLineEffectEP(fx, colors, width, jagged = false) {
+    const life = clamp01EP(fx.timer / fx.maxTimer), alpha = Math.min(1, life * 1.8) * Math.min(1, (1 - life) * 5);
+    if (jagged) {
+      lightningEP(fx.ax, fx.ay, fx.bx, fx.by, colors[0], alpha, width, fx.seed, 28, 7);
+      lightningEP(fx.ax, fx.ay, fx.bx, fx.by, colors[1], alpha * 0.85, Math.max(2, width * 0.45), fx.seed + 99, 18, 6);
+    } else {
+      ctx.save(); ctx.lineCap = "round"; ctx.strokeStyle = colors[0]; ctx.globalAlpha = alpha * 0.35; ctx.lineWidth = width * 2.2; ctx.beginPath(); ctx.moveTo(fx.ax, fx.ay); ctx.lineTo(fx.bx, fx.by); ctx.stroke(); ctx.strokeStyle = colors[1]; ctx.globalAlpha = alpha * 0.85; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(fx.ax, fx.ay); ctx.lineTo(fx.bx, fx.by); ctx.stroke(); ctx.strokeStyle = colors[2] || "#ffffff"; ctx.globalAlpha = alpha; ctx.lineWidth = Math.max(2, width * 0.32); ctx.beginPath(); ctx.moveTo(fx.ax, fx.ay); ctx.lineTo(fx.bx, fx.by); ctx.stroke(); ctx.restore();
+    }
+  }
+
+  function drawElementalEffect(fx) {
+    const life = clamp01EP(fx.timer / fx.maxTimer), progress = 1 - life, alpha = Math.min(1, life * 1.45) * Math.min(1, progress * 4 + 0.1);
+    const t = nowMsEP() / 1000 + fx.seed;
+    if (fx.kind === "waterJet") drawLineEffectEP(fx, ["#2079d8", "#55e8ff", "#eaffff"], 15, false);
+    else if (fx.kind === "lakeWave") {
+      const offset = Math.sin(t * 10) * 5;
+      drawLineEffectEP(fx, ["#145fae", "#55e8ff", "#eaffff"], 28 + offset, false);
+      for (let i = 0; i < 5; i++) { const k = i / 5; rectEP(fx.ax + (fx.bx - fx.ax) * k - 3, fx.ay + (fx.by - fx.ay) * k - 8 + Math.sin(t * 8 + i) * 8, 7, 5, "#eaffff", alpha * 0.5); }
+    } else if (fx.kind === "lifeSteal") drawLineEffectEP(fx, ["#510018", "#d10035", "#ff5d7e"], 13, true);
+    else if (fx.kind === "freezing") drawLineEffectEP(fx, ["#55c8ff", "#bcefff", "#ffffff"], 20, true);
+    else if (fx.kind === "protectiveBubble" || fx.kind === "bubblePrison") {
+      const r = fx.radius * (1 + Math.sin(t * 7) * 0.04);
+      drawCircleGlowEP(fx.x, fx.y, r, fx.kind === "bubblePrison" ? "rgba(85,232,255,0.18)" : "rgba(105,218,255,0.14)", alpha);
+      ctx.save(); ctx.strokeStyle = "rgba(225,255,255,0.82)"; ctx.globalAlpha = alpha; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2); ctx.stroke(); ctx.strokeStyle = "rgba(85,232,255,0.7)"; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(fx.x, fx.y, r * 0.94, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    } else if (fx.kind === "aquaticHeal") {
+      drawCircleGlowEP(fx.x, fx.y, fx.radius, "rgba(85,232,255,0.12)", alpha);
+      ctx.save(); ctx.strokeStyle = "rgba(117,255,188,0.75)"; ctx.globalAlpha = alpha; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.radius * (0.45 + progress * 0.45), 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      for (let i = 0; i < 5; i++) { rectEP(fx.x - 1 + Math.cos(t * 2 + i) * fx.radius * 0.45, fx.y - 20 - progress * 40 + Math.sin(i) * 8, 3, 8, "#75ffbc", alpha); }
+    } else if (fx.kind === "shadowClone") {
+      drawCircleGlowEP(fx.x, fx.y, fx.radius, "rgba(143,73,255,0.18)", alpha); rectEP(fx.x - 9, fx.y - 24, 18, 36, "#16051e", alpha * 0.75); rectEP(fx.x - 5, fx.y - 28, 10, 8, "#8f49ff", alpha * 0.75);
+    } else if (fx.kind === "shadowExplosion") {
+      const r = fx.radius * progress; drawCircleGlowEP(fx.x, fx.y, r, "rgba(143,73,255,0.14)", alpha); ctx.save(); ctx.strokeStyle = "rgba(217,166,255,0.75)"; ctx.lineWidth = 5; ctx.globalAlpha = alpha; ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    } else if (fx.kind === "deathMark") {
+      drawCircleGlowEP(fx.x, fx.y, fx.radius, "rgba(255,0,70,0.12)", alpha); ctx.save(); ctx.strokeStyle = "rgba(255,53,93,0.85)"; ctx.lineWidth = 3; ctx.globalAlpha = alpha; ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.radius * 0.58, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(fx.x - 16, fx.y); ctx.lineTo(fx.x + 16, fx.y); ctx.moveTo(fx.x, fx.y - 16); ctx.lineTo(fx.x, fx.y + 16); ctx.stroke(); ctx.restore();
+    } else if (fx.kind === "iceSpike") {
+      drawCircleGlowEP(fx.x, fx.y, fx.radius, "rgba(85,200,255,0.13)", alpha); for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + (i - 3) * 0.18; const h = 36 + (3 - Math.abs(i - 3)) * 17; rectEP(fx.x + (i - 3) * 9, fx.y - h, 8, h, i === 3 ? "#ffffff" : "#8ddeff", alpha); }
+    } else if (fx.kind === "iceWall") {
+      ctx.save(); ctx.translate(fx.x, fx.y); ctx.rotate(fx.angle); ctx.globalAlpha = alpha; for (let i = -3; i <= 3; i++) { const h = 46 + (3 - Math.abs(i)) * 12; rectEP(i * 18 - 7, -h, 14, h, i % 2 ? "#78d8ff" : "#bcefff", alpha); rectEP(i * 18 - 3, -h + 5, 4, h - 8, "#ffffff", alpha * 0.55); } ctx.restore();
+    } else if (fx.kind === "blizzard") {
+      drawCircleGlowEP(fx.x, fx.y, fx.radius, "rgba(142,220,255,0.13)", alpha); ctx.save(); ctx.strokeStyle = "rgba(188,239,255,0.58)"; ctx.globalAlpha = alpha; for (let i = 0; i < 5; i++) { ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(fx.x, fx.y, fx.radius * (0.25 + i * 0.14 + Math.sin(t + i) * 0.015), t * (i % 2 ? -1 : 1), t * (i % 2 ? -1 : 1) + Math.PI * 1.35); ctx.stroke(); } ctx.restore();
+    } else if (fx.kind === "glacialArmor") {
+      const r = fx.radius * (1 + Math.sin(t * 7) * 0.03); drawCircleGlowEP(fx.x, fx.y, r, "rgba(85,200,255,0.13)", alpha); ctx.save(); ctx.strokeStyle = "rgba(188,239,255,0.8)"; ctx.globalAlpha = alpha; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(fx.x, fx.y, r, 0, Math.PI * 2); ctx.stroke(); for (let i = 0; i < 8; i++) rectEP(fx.x + Math.cos(t + i) * r - 3, fx.y + Math.sin(t + i) * r - 8, 6, 16, "#bcefff", alpha * 0.85); ctx.restore();
+    }
+  }
+
+  function drawElementalProjectiles() {
+    for (const p of elementalState.projectiles) {
+      if (p.kind === "shadowOrb") {
+        drawCircleGlowEP(p.x, p.y, 28, "rgba(143,73,255,0.18)", 1);
+        rectEP(p.x - 13, p.y - 13, 26, 26, "#16051e", 0.9);
+        rectEP(p.x - 8, p.y - 8, 16, 16, "#8f49ff", 0.9);
+        rectEP(p.x - 3, p.y - 3, 6, 6, "#f1c6ff", 1);
+      }
+    }
+  }
+
+  function drawElementalParticles() {
+    for (const p of elementalState.particles) {
+      const progress = clamp01EP(1 - p.life / Math.max(0.001, p.maxLife));
+      const alpha = 1 - progress;
+      const size = Math.max(1, p.size * (1 - progress * 0.55));
+      rectEP(p.x - size / 2, p.y - size / 2, size, size, p.color, alpha);
+      if (p.kind === "ice" || p.kind === "snow" || p.kind === "bubble") rectEP(p.x - 0.5, p.y - size, 1, size * 2, "#ffffff", alpha * 0.36);
+    }
+  }
+
+  function drawClonesEP() {
+    for (const sh of elementalState.clones) {
+      const alpha = clamp01EP(sh.timer / sh.maxTimer);
+      drawCircleGlowEP(sh.x, sh.y, 38, "rgba(143,73,255,0.16)", alpha);
+      rectEP(sh.x - 9, sh.y - 24, 18, 36, "#16051e", alpha * 0.62);
+      rectEP(sh.x - 5, sh.y - 28, 10, 8, "#8f49ff", alpha * 0.64);
+    }
+  }
+
+  const drawEffectsBeforeElementalPack = typeof drawEffects === "function" ? drawEffects : null;
+  if (drawEffectsBeforeElementalPack) {
+    drawEffects = function drawEffectsElementalPack() {
+      drawEffectsBeforeElementalPack.apply(this, arguments);
+      drawClonesEP();
+      drawElementalProjectiles();
+      for (const fx of elementalState.effects) drawElementalEffect(fx);
+      drawElementalParticles();
+    };
+  }
+
+  const getPowerDescriptionBeforeElementalPack = typeof getPowerDescription === "function" ? getPowerDescription : null;
+  if (getPowerDescriptionBeforeElementalPack) {
+    getPowerDescription = function getPowerDescriptionElementalPack(powerKey) {
+      if (POWER_DEFS[powerKey]) return POWER_DEFS[powerKey].desc;
+      return getPowerDescriptionBeforeElementalPack.apply(this, arguments);
+    };
+  }
+
+  const getInventoryItemsBeforeElementalPack = typeof getInventoryItems === "function" ? getInventoryItems : null;
+  if (getInventoryItemsBeforeElementalPack) {
+    getInventoryItems = function getInventoryItemsElementalPack() {
+      ensureAllElementalPowers();
+      const items = getInventoryItemsBeforeElementalPack.apply(this, arguments) || [];
+      for (const item of items) {
+        const def = POWER_DEFS[item?.powerKey];
+        if (!def) continue;
+        item.name = def.name; item.icon = def.icon; item.rarity = def.rarity; item.category = "poderes"; item.typeLabel = "Poder"; item.description = def.desc; item.effect = `Custo de mana: ${def.cost}. Cooldown: ${def.cooldown}s.`;
+      }
+      return items;
+    };
+  }
+
+  const updateBeforeElementalPack = typeof update === "function" ? update : null;
+  if (updateBeforeElementalPack) {
+    update = function updateElementalPack(delta) { ensureAllElementalPowers(); return updateBeforeElementalPack.apply(this, arguments); };
+  }
+
+  ensureAllElementalPowers();
+  setTimeout(() => { try { ensureAllElementalPowers(); renderInventory?.(); updateMobilePowerButtons?.(); updateHud?.(true); showHudToast?.("Poderes de Água, Sombra e Gelo adicionados.", 3); } catch (error) {} }, 700);
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - GARANTIA: remover rotbar somente no mobile
+   - Não altera PC.
+   - Não remove joystick, botões touch, inventário ou poderes.
+   ================================================== */
+(function eternalRiftRemoveMobileRotbarOnlyPatch() {
+  const PATCH_ID = "remove-mobile-rotbar-only-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_REMOVE_MOBILE_ROTBAR_ONLY === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_REMOVE_MOBILE_ROTBAR_ONLY = PATCH_ID;
+
+  function isMobileOnlyRotbarPatch() {
+    try {
+      return Boolean(document.body?.classList?.contains("is-mobile")) ||
+        Boolean(document.body?.classList?.contains("er-mobile-gameplay-v2")) ||
+        Boolean(typeof isMobile !== "undefined" && isMobile) ||
+        (typeof matchMedia === "function" && matchMedia("(pointer: coarse), (max-width: 900px)").matches);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function hideMobileRotbarsOnly() {
+    if (!isMobileOnlyRotbarPatch()) return;
+    const selectors = [
+      "#sandbox2DHotbar",
+      ".sandbox-2d-hotbar",
+      ".er-mmo-bottom-hotbar",
+      ".pc-rpg-hotbar"
+    ];
+    for (const selector of selectors) {
+      document.querySelectorAll(selector).forEach((el) => {
+        // PC protegido: só oculta se o corpo estiver em modo mobile ou tela/toque mobile.
+        el.setAttribute("aria-hidden", "true");
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("visibility", "hidden", "important");
+        el.style.setProperty("pointer-events", "none", "important");
+        el.style.setProperty("opacity", "0", "important");
+        el.style.setProperty("transform", "translateY(9999px)", "important");
+      });
+    }
+  }
+
+  const updateBeforeRemoveMobileRotbar = typeof update === "function" ? update : null;
+  if (updateBeforeRemoveMobileRotbar) {
+    update = function updateRemoveMobileRotbarOnlyPatch() {
+      const result = updateBeforeRemoveMobileRotbar.apply(this, arguments);
+      hideMobileRotbarsOnly();
+      return result;
+    };
+  }
+
+  const observer = new MutationObserver(hideMobileRotbarsOnly);
+  try {
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+  } catch (error) {}
+
+  hideMobileRotbarsOnly();
+  setTimeout(hideMobileRotbarsOnly, 100);
+  setTimeout(hideMobileRotbarsOnly, 600);
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();

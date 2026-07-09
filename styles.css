@@ -13948,3 +13948,41 @@ body.start-menu-open #startScreen.er-main-menu-v2:not(.hidden) {
 body.start-menu-open .controls {
   display: none !important;
 }
+
+
+/* ==================================================
+   ETERNAL RIFT - REMOVER ROTBAR/HOTBAR SOMENTE NO MOBILE
+   Escopo: esconde todas as barras de atalho/rotbar apenas no celular.
+   PC permanece intacto.
+   ================================================== */
+body.is-mobile .sandbox-2d-hotbar,
+body.is-mobile #sandbox2DHotbar,
+body.is-mobile .er-mmo-bottom-hotbar,
+body.is-mobile .pc-rpg-hotbar,
+body.er-mobile-gameplay-v2 .sandbox-2d-hotbar,
+body.er-mobile-gameplay-v2 #sandbox2DHotbar,
+body.er-mobile-gameplay-v2 .er-mmo-bottom-hotbar,
+body.er-mobile-gameplay-v2 .pc-rpg-hotbar {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transform: translateY(9999px) !important;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  body.is-mobile .sandbox-2d-hotbar,
+  body.is-mobile #sandbox2DHotbar,
+  body.is-mobile .er-mmo-bottom-hotbar,
+  body.is-mobile .pc-rpg-hotbar,
+  body.er-mobile-gameplay-v2 .sandbox-2d-hotbar,
+  body.er-mobile-gameplay-v2 #sandbox2DHotbar,
+  body.er-mobile-gameplay-v2 .er-mmo-bottom-hotbar,
+  body.er-mobile-gameplay-v2 .pc-rpg-hotbar {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+    transform: translateY(9999px) !important;
+  }
+}

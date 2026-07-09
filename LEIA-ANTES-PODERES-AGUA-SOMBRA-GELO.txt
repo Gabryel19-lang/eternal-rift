@@ -1,0 +1,27 @@
+ETERNAL RIFT - PODERES DE ÁGUA, SOMBRA E GELO
+
+Adicionado somente o pacote de poderes das imagens, sem PNG e sem geração de imagem.
+
+Água:
+- Jato d'Água
+- Bolha Protetora
+- Cura Aquática
+- Prisão de Bolha
+- Onda do Lago
+
+Sombra:
+- Orbe Sombrio
+- Roubo de Vida
+- Sombra Clone
+- Explosão Sombria
+- Marca da Morte
+
+Gelo:
+- Espinho de Gelo
+- Congelamento
+- Muralha de Gelo
+- Nevasca
+- Armadura Glacial
+
+Todos aparecem na aba Poderes e podem ser equipados nos slots usados por Z, X, C e V.
+Mantive os sistemas existentes, PC e mobile.

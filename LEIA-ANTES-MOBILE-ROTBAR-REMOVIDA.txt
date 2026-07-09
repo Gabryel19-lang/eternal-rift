@@ -1,0 +1,13 @@
+ETERNAL RIFT - ROTBAR REMOVIDA SOMENTE NO MOBILE
+
+Alteração feita:
+- Escondidas/removidas todas as rotbars/hotbars no modo mobile.
+- PC ficou intacto.
+- Joystick, botões touch, inventário e poderes foram preservados.
+- Não mexe em biomas, personagem, boss, mapa, menu, save, combate ou poderes.
+
+Classes ocultadas apenas no mobile:
+- #sandbox2DHotbar
+- .sandbox-2d-hotbar
+- .er-mmo-bottom-hotbar
+- .pc-rpg-hotbar, caso apareça por erro no mobile
