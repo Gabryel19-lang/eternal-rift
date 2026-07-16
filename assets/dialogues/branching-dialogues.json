@@ -1,0 +1,709 @@
+{
+  "schemaVersion": 1,
+  "systemName": "Eternal Rift Branching Dialogue",
+  "defaultStartNode": "intro",
+  "actionTypes": [
+    "closeDialogue",
+    "openShop",
+    "startMission",
+    "completeMission",
+    "giveItem",
+    "takeItem",
+    "buyItem",
+    "upgradeWeapon"
+  ],
+  "conditionTypes": [
+    "hasItem",
+    "coinsAtLeast",
+    "missionAccepted",
+    "missionCompleted",
+    "missionNotAccepted",
+    "missionNotCompleted",
+    "all",
+    "any",
+    "not"
+  ],
+  "dialogues": {
+    "blacksmith_branor": {
+      "npc": {
+        "id": "branor",
+        "name": "Branor",
+        "title": "Mestre Ferreiro",
+        "portrait": {
+          "src": "blacksmith-npc-sheet.png",
+          "columns": 4,
+          "rows": 4,
+          "column": 0,
+          "row": 0
+        }
+      },
+      "startNode": "intro",
+      "nodes": {
+        "intro": {
+          "text": "O fogo da forja nunca mente. O que você procura, {playerName}?",
+          "options": [
+            {
+              "text": "Quero melhorar minha arma equipada.",
+              "target": "upgrade_offer"
+            },
+            {
+              "text": "Quero comprar um fragmento de metal.",
+              "target": "buy_fragment"
+            },
+            {
+              "text": "Mostre os produtos da loja.",
+              "actions": [
+                { "type": "openShop" }
+              ]
+            },
+            {
+              "text": "Conte sobre a forja.",
+              "target": "forge_lore"
+            },
+            {
+              "text": "Até mais, Branor.",
+              "actions": [
+                { "type": "closeDialogue" }
+              ]
+            }
+          ]
+        },
+        "upgrade_offer": {
+          "text": "Sua arma atual é {weaponName}. Por 20 moedas, posso aumentar o dano dela permanentemente.",
+          "options": [
+            {
+              "text": "Melhorar {weaponName} por 20 moedas.",
+              "target": "upgrade_done",
+              "conditions": [
+                { "type": "coinsAtLeast", "amount": 20 }
+              ],
+              "lockedText": "Requer 20 moedas",
+              "actions": [
+                {
+                  "type": "upgradeWeapon",
+                  "weapon": "equipped",
+                  "cost": 20,
+                  "amount": 1
+                }
+              ]
+            },
+            {
+              "text": "Voltar.",
+              "target": "intro"
+            }
+          ]
+        },
+        "upgrade_done": {
+          "text": "Pronto. Agora {weaponName} causa {weaponDamage} de dano base. Trate essa arma com respeito.",
+          "rewards": [
+            { "type": "xp", "amount": 12 }
+          ],
+          "rewardId": "branor_primeira_melhoria_xp",
+          "next": "intro",
+          "continueText": "Continuar"
+        },
+        "buy_fragment": {
+          "text": "Um fragmento de metal raro custa 10 moedas. É útil em futuras melhorias e receitas.",
+          "options": [
+            {
+              "text": "Comprar 1 fragmento por 10 moedas.",
+              "target": "fragment_bought",
+              "conditions": [
+                { "type": "coinsAtLeast", "amount": 10 }
+              ],
+              "lockedText": "Moedas insuficientes",
+              "actions": [
+                {
+                  "type": "buyItem",
+                  "itemId": "metalFragments",
+                  "itemName": "Fragmento de Metal",
+                  "amount": 1,
+                  "price": 10
+                }
+              ]
+            },
+            {
+              "text": "Voltar.",
+              "target": "intro"
+            }
+          ]
+        },
+        "fragment_bought": {
+          "text": "Boa escolha. Guarde esse metal; uma peça rara pode decidir uma batalha.",
+          "next": "intro"
+        },
+        "forge_lore": {
+          "text": "Esta bigorna foi feita com pedra caída da primeira Fenda. Quando o metal toca nela, eu escuto ecos de batalhas antigas.",
+          "options": [
+            {
+              "text": "O que existe além das Fendas?",
+              "target": "rift_lore"
+            },
+            {
+              "text": "Voltar aos serviços.",
+              "target": "intro"
+            }
+          ]
+        },
+        "rift_lore": {
+          "text": "Mundos que nunca deveriam se tocar. Alguns trazem poder; outros, criaturas que aprenderam a atravessar o vazio.",
+          "next": "intro"
+        }
+      }
+    },
+
+    "farmer_teo": {
+      "npc": {
+        "id": "teo",
+        "name": "Téo",
+        "title": "Fazendeiro da Vila",
+        "portrait": {
+          "src": "assets/npcs/farmer_sheet.png",
+          "columns": 4,
+          "rows": 4,
+          "column": 0,
+          "row": 0
+        }
+      },
+      "startNode": "intro",
+      "nodes": {
+        "intro": {
+          "text": "A terra está respondendo bem hoje. Temos {farmSeeds} sementes e {farmProduce} raízes douradas guardadas.",
+          "options": [
+            {
+              "text": "Quero aprender a cuidar da plantação.",
+              "target": "farming_tutorial"
+            },
+            {
+              "text": "Aceitar a missão Primeira Colheita.",
+              "target": "mission_started",
+              "conditions": [
+                { "type": "missionNotAccepted", "missionId": "primeira_colheita" }
+              ],
+              "hideWhenLocked": true,
+              "actions": [
+                {
+                  "type": "startMission",
+                  "missionId": "primeira_colheita",
+                  "name": "Primeira Colheita"
+                },
+                {
+                  "type": "giveItem",
+                  "itemId": "farming_seed",
+                  "itemName": "Semente da Horta",
+                  "amount": 6,
+                  "once": "teo_sementes_primeira_colheita"
+                }
+              ]
+            },
+            {
+              "text": "Entregar 1 raiz dourada.",
+              "target": "harvest_delivered",
+              "conditions": [
+                { "type": "hasItem", "itemId": "raiz_dourada", "amount": 1 },
+                { "type": "missionAccepted", "missionId": "primeira_colheita" },
+                { "type": "missionNotCompleted", "missionId": "primeira_colheita" }
+              ],
+              "lockedText": "Requer a missão e 1 raiz dourada",
+              "actions": [
+                {
+                  "type": "takeItem",
+                  "itemId": "raiz_dourada",
+                  "itemName": "Raiz Dourada",
+                  "amount": 1
+                },
+                {
+                  "type": "completeMission",
+                  "missionId": "primeira_colheita"
+                }
+              ]
+            },
+            {
+              "text": "Preciso de mais sementes.",
+              "target": "seed_help",
+              "conditions": [
+                { "type": "missionAccepted", "missionId": "primeira_colheita" }
+              ],
+              "actions": [
+                {
+                  "type": "giveItem",
+                  "itemId": "farming_seed",
+                  "itemName": "Semente da Horta",
+                  "amount": 2,
+                  "once": "teo_sementes_ajuda"
+                }
+              ]
+            },
+            {
+              "text": "Até depois.",
+              "actions": [
+                { "type": "closeDialogue" }
+              ]
+            }
+          ]
+        },
+        "farming_tutorial": {
+          "text": "Interaja com um canteiro vazio para plantar. Interaja outra vez para regar. Depois de um minuto, as folhas vão brilhar e você poderá colher.",
+          "options": [
+            {
+              "text": "E o que faço com a colheita?",
+              "target": "selling_tutorial"
+            },
+            {
+              "text": "Entendi. Voltar.",
+              "target": "intro"
+            }
+          ]
+        },
+        "selling_tutorial": {
+          "text": "Traga as raízes para mim. Eu pago moedas e devolvo sementes, mantendo a horta produzindo sem parar.",
+          "next": "intro"
+        },
+        "mission_started": {
+          "text": "Plante, regue e traga uma raiz dourada. As seis sementes extras já estão com você.",
+          "rewards": [
+            { "type": "coins", "amount": 6 },
+            { "type": "item", "itemId": "pocoes", "itemName": "Poção", "amount": 1 }
+          ],
+          "rewardId": "teo_presente_inicial_branching",
+          "next": "intro"
+        },
+        "seed_help": {
+          "text": "Separei duas sementes extras. Se já recebeu este pacote antes, cuide das que ainda tem nos canteiros.",
+          "next": "intro"
+        },
+        "harvest_delivered": {
+          "text": "Perfeita! Esta raiz mostra que você aprendeu a respeitar o tempo da terra. A vila vai dividir a colheita.",
+          "rewards": [
+            { "type": "coins", "amount": 15 },
+            { "type": "item", "itemId": "farming_seed", "itemName": "Semente da Horta", "amount": 2 },
+            { "type": "xp", "amount": 30 }
+          ],
+          "rewardId": "missao_primeira_colheita",
+          "next": "intro"
+        }
+      }
+    },
+
+    "rift_guardian_astrid": {
+      "npc": {
+        "id": "astrid",
+        "name": "Astrid",
+        "title": "Guardiã do Rift",
+        "portrait": {
+          "src": "assets/npcs/guard_sheet.png",
+          "columns": 4,
+          "rows": 4,
+          "column": 0,
+          "row": 0
+        }
+      },
+      "startNode": "intro",
+      "nodes": {
+        "intro": {
+          "text": "A Fenda está instável. O gelo ao redor dela está rachando de dentro para fora.",
+          "options": [
+            {
+              "text": "O que está acontecendo?",
+              "target": "explain_rift"
+            },
+            {
+              "text": "Aceitar a missão Selo da Fenda.",
+              "target": "mission_started",
+              "conditions": [
+                { "type": "missionNotAccepted", "missionId": "selo_da_fenda" }
+              ],
+              "hideWhenLocked": true,
+              "actions": [
+                {
+                  "type": "startMission",
+                  "missionId": "selo_da_fenda",
+                  "name": "Selo da Fenda"
+                },
+                {
+                  "type": "giveItem",
+                  "itemId": "runa_guardia",
+                  "itemName": "Runa da Guardiã",
+                  "amount": 1,
+                  "once": "astrid_runa_inicial"
+                }
+              ]
+            },
+            {
+              "text": "Entregar 1 cristal para fortalecer o selo.",
+              "target": "seal_complete",
+              "conditions": [
+                { "type": "hasItem", "itemId": "cristais", "amount": 1 },
+                { "type": "missionAccepted", "missionId": "selo_da_fenda" },
+                { "type": "missionNotCompleted", "missionId": "selo_da_fenda" }
+              ],
+              "lockedText": "Requer 1 cristal e a missão aceita",
+              "actions": [
+                { "type": "takeItem", "itemId": "cristais", "itemName": "Cristal", "amount": 1 },
+                { "type": "completeMission", "missionId": "selo_da_fenda" }
+              ]
+            },
+            {
+              "text": "O selo já está seguro?",
+              "target": "after_mission",
+              "conditions": [
+                { "type": "missionCompleted", "missionId": "selo_da_fenda" }
+              ],
+              "hideWhenLocked": true
+            },
+            {
+              "text": "Preciso seguir viagem.",
+              "actions": [
+                { "type": "closeDialogue" }
+              ]
+            }
+          ]
+        },
+        "explain_rift": {
+          "text": "As Fendas ligam dimensões diferentes. Quando ficam instáveis, monstros, magia e até partes de outros mundos atravessam ao mesmo tempo.",
+          "options": [
+            {
+              "text": "Como posso ajudar?",
+              "target": "help_hint"
+            },
+            {
+              "text": "Voltar.",
+              "target": "intro"
+            }
+          ]
+        },
+        "help_hint": {
+          "text": "Aceite a missão e traga um cristal. A Runa da Guardiã usará a energia dele para reforçar o selo.",
+          "next": "intro"
+        },
+        "mission_started": {
+          "text": "Leve esta runa. Quando encontrar um cristal, traga-o até mim para concluirmos o ritual.",
+          "next": "intro"
+        },
+        "seal_complete": {
+          "text": "O selo respondeu! A Fenda ainda existe, mas agora obedece à nossa proteção.",
+          "rewards": [
+            { "type": "coins", "amount": 30 },
+            { "type": "item", "itemId": "chavesRaras", "itemName": "Chave Rara", "amount": 1 },
+            { "type": "xp", "amount": 60 }
+          ],
+          "rewardId": "missao_selo_da_fenda",
+          "next": "after_mission"
+        },
+        "after_mission": {
+          "text": "Por enquanto, sim. Mas nunca confunda silêncio com segurança. As Fendas aprendem com quem tenta controlá-las.",
+          "next": "intro"
+        }
+      }
+    },
+
+    "villager_lia": {
+      "npc": {
+        "id": "lia",
+        "name": "Lia",
+        "title": "Moradora da Vila",
+        "portrait": {
+          "src": "assets/npcs/villager_sheet.png",
+          "columns": 4,
+          "rows": 4,
+          "column": 0,
+          "row": 0
+        }
+      },
+      "startNode": "intro",
+      "nodes": {
+        "intro": {
+          "text": "Oi, {playerName}! A vila parece pequena, mas cada casa guarda uma história.",
+          "options": [
+            {
+              "text": "Você precisa de ajuda?",
+              "target": "letter_mission",
+              "conditions": [
+                { "type": "missionNotAccepted", "missionId": "recado_da_lia" }
+              ],
+              "actions": [
+                { "type": "startMission", "missionId": "recado_da_lia", "name": "O Recado de Lia" }
+              ]
+            },
+            {
+              "text": "Entregar uma carta encontrada.",
+              "target": "letter_delivered",
+              "conditions": [
+                { "type": "hasItem", "itemId": "cartas", "amount": 1 },
+                { "type": "missionAccepted", "missionId": "recado_da_lia" },
+                { "type": "missionNotCompleted", "missionId": "recado_da_lia" }
+              ],
+              "lockedText": "Requer 1 carta e a missão aceita",
+              "actions": [
+                { "type": "takeItem", "itemId": "cartas", "itemName": "Carta", "amount": 1 },
+                { "type": "completeMission", "missionId": "recado_da_lia" }
+              ]
+            },
+            {
+              "text": "Comprar pão da vila por 4 moedas.",
+              "target": "bread_bought",
+              "conditions": [
+                { "type": "coinsAtLeast", "amount": 4 }
+              ],
+              "lockedText": "Requer 4 moedas",
+              "actions": [
+                {
+                  "type": "buyItem",
+                  "itemId": "pao_da_vila",
+                  "itemName": "Pão da Vila",
+                  "amount": 1,
+                  "price": 4
+                }
+              ]
+            },
+            {
+              "text": "Só vim conversar.",
+              "target": "village_story"
+            },
+            {
+              "text": "Até mais.",
+              "actions": [
+                { "type": "closeDialogue" }
+              ]
+            }
+          ]
+        },
+        "letter_mission": {
+          "text": "Se encontrar uma carta perdida durante suas viagens, traga para mim. Algumas notícias nunca chegaram aos moradores.",
+          "next": "intro"
+        },
+        "letter_delivered": {
+          "text": "Era a carta que esperávamos! Você devolveu uma lembrança importante para a vila.",
+          "rewards": [
+            { "type": "coins", "amount": 12 },
+            { "type": "item", "itemId": "pocoes", "itemName": "Poção", "amount": 1 },
+            { "type": "xp", "amount": 25 }
+          ],
+          "rewardId": "missao_recado_da_lia",
+          "next": "intro"
+        },
+        "bread_bought": {
+          "text": "Ainda está quente. Guarde para quando a estrada ficar longa.",
+          "next": "intro"
+        },
+        "village_story": {
+          "text": "Dizem que a praça foi construída exatamente onde a primeira luz apareceu depois que uma Fenda se fechou.",
+          "next": "intro"
+        }
+      }
+    },
+
+    "villager_mina": {
+      "npc": {
+        "id": "mina",
+        "name": "Mina",
+        "title": "Curandeira da Vila",
+        "portrait": {
+          "src": "assets/npcs/farmer_sheet.png",
+          "columns": 4,
+          "rows": 4,
+          "column": 0,
+          "row": 0
+        }
+      },
+      "startNode": "intro",
+      "nodes": {
+        "intro": {
+          "text": "As ervas estão fortes hoje. Posso preparar algo para sua próxima jornada.",
+          "options": [
+            {
+              "text": "Preciso de uma erva medicinal.",
+              "target": "herb_given",
+              "actions": [
+                {
+                  "type": "giveItem",
+                  "itemId": "erva_medicinal",
+                  "itemName": "Erva Medicinal",
+                  "amount": 1,
+                  "once": "mina_erva_medicinal"
+                }
+              ]
+            },
+            {
+              "text": "Comprar uma poção por 5 moedas.",
+              "target": "potion_bought",
+              "conditions": [
+                { "type": "coinsAtLeast", "amount": 5 }
+              ],
+              "lockedText": "Requer 5 moedas",
+              "actions": [
+                {
+                  "type": "buyItem",
+                  "itemId": "pocoes",
+                  "itemName": "Poção",
+                  "amount": 1,
+                  "price": 5
+                }
+              ]
+            },
+            {
+              "text": "Abrir a loja da vila.",
+              "actions": [
+                { "type": "openShop" }
+              ]
+            },
+            {
+              "text": "Até depois.",
+              "actions": [
+                { "type": "closeDialogue" }
+              ]
+            }
+          ]
+        },
+        "herb_given": {
+          "text": "Leve esta erva. Se já recebeu uma, use o que tem antes de pedir outra.",
+          "next": "intro"
+        },
+        "potion_bought": {
+          "text": "Aqui está. Não espere sua vida chegar ao limite para usar a poção.",
+          "next": "intro"
+        }
+      }
+    },
+
+    "village_guard_bran": {
+      "npc": {
+        "id": "bran",
+        "name": "Bran",
+        "title": "Capitão da Guarda",
+        "portrait": {
+          "src": "assets/npcs/guard_sheet.png",
+          "columns": 4,
+          "rows": 4,
+          "column": 0,
+          "row": 0
+        }
+      },
+      "startNode": "intro",
+      "nodes": {
+        "intro": {
+          "text": "A guarda protege os portões, mas precisamos de olhos além das muralhas.",
+          "options": [
+            {
+              "text": "Aceitar a missão Patrulha da Vila.",
+              "target": "patrol_started",
+              "conditions": [
+                { "type": "missionNotAccepted", "missionId": "patrulha_da_vila" }
+              ],
+              "hideWhenLocked": true,
+              "actions": [
+                { "type": "startMission", "missionId": "patrulha_da_vila", "name": "Patrulha da Vila" },
+                { "type": "giveItem", "itemId": "ordem_patrulha", "itemName": "Ordem de Patrulha", "amount": 1, "once": "bran_ordem_patrulha" }
+              ]
+            },
+            {
+              "text": "Entregar a ordem após a patrulha.",
+              "target": "patrol_complete",
+              "conditions": [
+                { "type": "hasItem", "itemId": "ordem_patrulha", "amount": 1 },
+                { "type": "missionAccepted", "missionId": "patrulha_da_vila" },
+                { "type": "missionNotCompleted", "missionId": "patrulha_da_vila" }
+              ],
+              "lockedText": "Requer a Ordem de Patrulha",
+              "actions": [
+                { "type": "takeItem", "itemId": "ordem_patrulha", "itemName": "Ordem de Patrulha", "amount": 1 },
+                { "type": "completeMission", "missionId": "patrulha_da_vila" }
+              ]
+            },
+            {
+              "text": "Quais são as regras da vila?",
+              "target": "rules"
+            },
+            {
+              "text": "Encerrar conversa.",
+              "actions": [
+                { "type": "closeDialogue" }
+              ]
+            }
+          ]
+        },
+        "patrol_started": {
+          "text": "Leve esta ordem e percorra os portões. Quando voltar, entregue-a como prova da patrulha.",
+          "next": "intro"
+        },
+        "patrol_complete": {
+          "text": "Bom trabalho. Uma vila segura começa com quem observa antes do perigo chegar.",
+          "rewards": [
+            { "type": "coins", "amount": 18 },
+            { "type": "xp", "amount": 35 }
+          ],
+          "rewardId": "missao_patrulha_da_vila",
+          "next": "intro"
+        },
+        "rules": {
+          "text": "Não ameace moradores, não abra portais sem preparo e nunca siga uma voz que venha de dentro de uma Fenda fechada.",
+          "next": "intro"
+        }
+      }
+    },
+
+    "village_guard_ari": {
+      "npc": {
+        "id": "ari",
+        "name": "Ari",
+        "title": "Guarda dos Portões",
+        "portrait": {
+          "src": "assets/npcs/guard_sheet.png",
+          "columns": 4,
+          "rows": 4,
+          "column": 1,
+          "row": 0
+        }
+      },
+      "startNode": "intro",
+      "nodes": {
+        "intro": {
+          "text": "Mantenha os olhos no caminho e a arma pronta. Posso ajudar antes de você sair.",
+          "options": [
+            {
+              "text": "Comprar tônico de proteção por 8 moedas.",
+              "target": "tonic_bought",
+              "conditions": [
+                { "type": "coinsAtLeast", "amount": 8 }
+              ],
+              "lockedText": "Requer 8 moedas",
+              "actions": [
+                {
+                  "type": "buyItem",
+                  "itemId": "tonico_protecao",
+                  "itemName": "Tônico de Proteção",
+                  "amount": 1,
+                  "price": 8
+                }
+              ]
+            },
+            {
+              "text": "Abrir a loja de suprimentos.",
+              "actions": [
+                { "type": "openShop" }
+              ]
+            },
+            {
+              "text": "Tem algum conselho de combate?",
+              "target": "combat_tip"
+            },
+            {
+              "text": "Até mais.",
+              "actions": [
+                { "type": "closeDialogue" }
+              ]
+            }
+          ]
+        },
+        "tonic_bought": {
+          "text": "Use antes de atravessar uma região perigosa. Proteção preparada vale mais que cura atrasada.",
+          "next": "intro"
+        },
+        "combat_tip": {
+          "text": "Não ataque sem observar. Use a esquiva para sair do golpe, então responda quando o inimigo ainda estiver se recuperando.",
+          "next": "intro"
+        }
+      }
+    }
+  }
+}

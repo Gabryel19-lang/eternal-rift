@@ -1,4 +1,8 @@
-Eternal Rift - mobile enter fixed + no new HUD only
-Base: eternal-rift-mobile-hud-clean-only
-Alterado: apenas styles.css para ocultar o HUD novo somente no mobile.
-Nao alterado: app.js, PC, HUD PC, inventario, casas, NPCs, vila, ferreiro, biomas, personagem, quarto e sistemas.
+Eternal Rift - Branching Dialogue JSON para PC e mobile
+Base completa: bioma de neve/gelo melhorado + plantacao do Teo
+Adicionado: sistema de dialogos ramificados com retrato, respostas, condicoes, recompensas, missões e ações.
+Exemplos completos: Ferreiro Branor, Fazendeiro Teo, Guardiã do Rift Astrid, moradoras Lia e Mina, guardas Bran e Ari.
+Controles: tecla E/Enter no PC, numeros e setas para escolher, e botao Continuar por toque no mobile.
+Arquivos novos: branching-dialogue.js e assets/dialogues/branching-dialogues.json.
+Arte nova: nenhuma imagem foi gerada; os retratos usam os spritesheets de NPCs que ja pertencem ao jogo.
+Preservado: personagem, spritesheets, animacoes, skins de armas e cajados, HUD, inventario, plantacao, casas, NPCs, vila, ferreiro, biomas, bosses, quarto e todos os sistemas existentes.

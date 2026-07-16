@@ -66634,7 +66634,7 @@ function updateCamera() {
    quarto e sistemas.
    ================================================== */
 (function eternalRiftOptimizedTerrainChunkCachePatch() {
-  const PATCH_ID = "terrain-optimized-chunk-cache-pc-mobile-20260708";
+  const PATCH_ID = "fire-biome-ultra-beautiful-tiles-pc-mobile-20260711";
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_TERRAIN_OPTIMIZED_CHUNK_CACHE === PATCH_ID) return;
   if (typeof window !== "undefined") {
     window.ETERNAL_RIFT_TERRAIN_OPTIMIZED_CHUNK_CACHE = PATCH_ID;
@@ -66663,7 +66663,8 @@ function updateCamera() {
     ash: [
       { x: 28,  y: 26,  s: 104 }, { x: 158, y: 26,  s: 104 },
       { x: 270, y: 26,  s: 104 }, { x: 390, y: 26,  s: 104 },
-      { x: 504, y: 26,  s: 104 }
+      { x: 504, y: 26,  s: 104 }, { x: 617, y: 26,  s: 104 },
+      { x: 731, y: 26,  s: 104 }
     ],
     lava: [
       { x: 27,  y: 263, s: 104 }, { x: 158, y: 263, s: 104 },
@@ -66680,7 +66681,8 @@ function updateCamera() {
       { x: 1280, y: 145, s: 104 }
     ],
     cracked: [
-      { x: 590, y: 384, s: 104 }, { x: 703, y: 384, s: 104 },
+      { x: 476, y: 384, s: 104 }, { x: 590, y: 384, s: 104 },
+      { x: 703, y: 384, s: 104 }, { x: 476, y: 500, s: 104 },
       { x: 590, y: 500, s: 104 }, { x: 703, y: 500, s: 104 }
     ]
   };
@@ -66926,6 +66928,152 @@ function updateCamera() {
     g.restore();
   }
 
+  function drawPixelCrack(g, x, y, tx, ty, hot = false) {
+    const seed = hash(tx, ty, hot ? 170 : 160);
+    if (seed < (hot ? 0.34 : 0.52)) return;
+    const startX = Math.round(x + 7 + hash(tx, ty, 161) * (TILE - 14));
+    const startY = Math.round(y + 6 + hash(tx, ty, 162) * 7);
+    const points = [{ x: startX, y: startY }];
+    let px = startX;
+    let py = startY;
+    const segments = 3 + Math.floor(hash(tx, ty, 163) * 3);
+    for (let index = 0; index < segments; index += 1) {
+      px += Math.round((hash(tx + index, ty, 164) - 0.5) * 8);
+      py += 3 + Math.round(hash(tx, ty + index, 165) * 4);
+      points.push({ x: Math.max(x + 3, Math.min(x + TILE - 3, px)), y: Math.min(y + TILE - 3, py) });
+    }
+    g.save();
+    g.lineCap = "square";
+    g.lineJoin = "miter";
+    g.strokeStyle = "rgba(5,3,5,.78)";
+    g.lineWidth = hot ? 3 : 2;
+    g.beginPath();
+    points.forEach((point, index) => index ? g.lineTo(point.x, point.y) : g.moveTo(point.x, point.y));
+    g.stroke();
+    if (hot) {
+      g.strokeStyle = "rgba(255,92,28,.76)";
+      g.lineWidth = 1;
+      g.shadowColor = "#ff4e19";
+      g.shadowBlur = 4;
+      g.beginPath();
+      points.forEach((point, index) => index ? g.lineTo(point.x, point.y) : g.moveTo(point.x, point.y));
+      g.stroke();
+      g.shadowBlur = 0;
+      g.fillStyle = "rgba(255,212,83,.76)";
+      g.fillRect(points[0].x - 1, points[0].y - 1, 2, 2);
+    }
+    g.restore();
+  }
+
+  function drawFireGroundDetails(g, x, y, tx, ty, kind) {
+    const r = hash(tx, ty, 190);
+    g.save();
+    g.imageSmoothingEnabled = false;
+    g.strokeStyle = "rgba(8,5,7,.22)";
+    g.lineWidth = 1;
+    g.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, TILE - 1, TILE - 1);
+    if (kind === "ash" || kind === "basalt") {
+      drawPixelCrack(g, x, y, tx, ty, kind === "basalt" || r > 0.76);
+      if (r > 0.58) {
+        const ox = Math.round(x + 5 + hash(tx, ty, 191) * (TILE - 10));
+        const oy = Math.round(y + 5 + hash(tx, ty, 192) * (TILE - 10));
+        g.fillStyle = "rgba(5,4,6,.56)";
+        g.fillRect(ox - 2, oy, 5, 2);
+        g.fillRect(ox, oy - 1, 2, 4);
+        if (r > 0.86) {
+          g.fillStyle = "rgba(255,89,30,.62)";
+          g.fillRect(ox, oy, 2, 2);
+          g.fillStyle = "rgba(255,205,82,.70)";
+          g.fillRect(ox + 1, oy, 1, 1);
+        }
+      }
+    }
+    if (kind === "path" && r > 0.68) {
+      const cx = Math.round(x + TILE * (0.30 + hash(tx, ty, 193) * 0.4));
+      const cy = Math.round(y + TILE * (0.30 + hash(tx, ty, 194) * 0.4));
+      g.strokeStyle = "rgba(255,80,32,.46)";
+      g.lineWidth = 1;
+      g.beginPath();
+      g.arc(cx, cy, 4 + Math.round(hash(tx, ty, 195) * 3), 0, Math.PI * 2);
+      g.stroke();
+      g.fillStyle = "rgba(255,112,36,.32)";
+      g.fillRect(cx - 1, cy - 1, 2, 2);
+    }
+    g.restore();
+  }
+
+  function drawLavaDepth(g, x, y, tx, ty) {
+    const glowX = x + TILE * (0.28 + hash(tx, ty, 200) * 0.44);
+    const glowY = y + TILE * (0.28 + hash(tx, ty, 201) * 0.44);
+    const glow = g.createRadialGradient(glowX, glowY, 1, glowX, glowY, TILE * 0.64);
+    glow.addColorStop(0, "rgba(255,244,151,.28)");
+    glow.addColorStop(0.30, "rgba(255,139,30,.16)");
+    glow.addColorStop(1, "rgba(80,7,10,.20)");
+    g.save();
+    g.fillStyle = glow;
+    g.fillRect(x, y, TILE, TILE);
+    g.strokeStyle = "rgba(255,231,113,.40)";
+    g.lineWidth = 1;
+    const ridgeY = Math.round(y + 8 + hash(tx, ty, 202) * (TILE - 16));
+    g.beginPath();
+    g.moveTo(x + 3, ridgeY);
+    g.lineTo(x + 10, ridgeY - 2);
+    g.lineTo(x + 17, ridgeY + 1);
+    g.lineTo(x + 24, ridgeY - 1);
+    g.lineTo(x + TILE - 3, ridgeY + 1);
+    g.stroke();
+    if (hash(tx, ty, 203) > 0.70) {
+      const bx = Math.round(x + 7 + hash(tx, ty, 204) * (TILE - 14));
+      const by = Math.round(y + 7 + hash(tx, ty, 205) * (TILE - 14));
+      g.strokeStyle = "rgba(255,249,188,.58)";
+      g.strokeRect(bx, by, 3, 3);
+      g.fillStyle = "rgba(173,34,18,.55)";
+      g.fillRect(bx + 1, by + 1, 1, 1);
+    }
+    g.restore();
+  }
+
+  function moltenEdgePoints(x, y, side, tx, ty, inset) {
+    const points = [];
+    const steps = 6;
+    for (let index = 0; index <= steps; index += 1) {
+      const along = (TILE * index) / steps;
+      const wobble = inset + Math.round(hash(tx + index, ty + index, 220 + inset) * 3);
+      if (side === "top") points.push({ x: x + along, y: y + wobble });
+      if (side === "bottom") points.push({ x: x + along, y: y + TILE - wobble });
+      if (side === "left") points.push({ x: x + wobble, y: y + along });
+      if (side === "right") points.push({ x: x + TILE - wobble, y: y + along });
+    }
+    return points;
+  }
+
+  function drawMoltenRockEdge(g, x, y, side, tx, ty) {
+    const edge = moltenEdgePoints(x, y, side, tx, ty, 6);
+    const lip = moltenEdgePoints(x, y, side, tx, ty, 3);
+    g.save();
+    g.lineCap = "square";
+    g.lineJoin = "round";
+    g.strokeStyle = "rgba(24,6,8,.92)";
+    g.lineWidth = 8;
+    g.beginPath();
+    edge.forEach((point, index) => index ? g.lineTo(point.x, point.y) : g.moveTo(point.x, point.y));
+    g.stroke();
+    g.strokeStyle = "rgba(255,67,22,.80)";
+    g.lineWidth = 4;
+    g.shadowColor = "#ff4b18";
+    g.shadowBlur = 5;
+    g.beginPath();
+    lip.forEach((point, index) => index ? g.lineTo(point.x, point.y) : g.moveTo(point.x, point.y));
+    g.stroke();
+    g.shadowBlur = 0;
+    g.strokeStyle = "rgba(255,215,91,.74)";
+    g.lineWidth = 1;
+    g.beginPath();
+    lip.forEach((point, index) => index ? g.lineTo(point.x, point.y) : g.moveTo(point.x, point.y));
+    g.stroke();
+    g.restore();
+  }
+
   function drawFireChunk(g, startX, startY, startTx, startTy, endTx, endTy) {
     for (let ty = startTy; ty <= endTy; ty += 1) {
       for (let tx = startTx; tx <= endTx; tx += 1) {
@@ -66933,21 +67081,19 @@ function updateCamera() {
         const x = tx * TILE - startX;
         const y = ty * TILE - startY;
         const k = fireKind(tileAt(tx, ty));
-        if (k === "lava") drawFireSrc(g, pick(FIRE_SRC.lava, tx, ty, 10), x, y, 1);
-        else if (k === "basalt") drawFireSrc(g, hash(tx, ty, 11) > .80 ? pick(FIRE_SRC.cracked, tx, ty, 12) : pick(FIRE_SRC.basalt, tx, ty, 13), x, y, 1);
-        else if (k === "path") drawFireSrc(g, pick(FIRE_SRC.path, tx, ty, 14), x, y, 1);
-        else drawFireSrc(g, pick(FIRE_SRC.ash, tx, ty, 15), x, y, 1);
-
-        const r = hash(tx, ty, 90);
-        if (k !== "lava" && r > 0.70) {
-          g.fillStyle = "rgba(12,10,12,.45)";
-          g.beginPath();
-          g.ellipse(x + 7 + hash(tx, ty, 91) * 18, y + 7 + hash(tx, ty, 92) * 18, 2.4, 1.7, hash(tx, ty, 93) * Math.PI, 0, Math.PI * 2);
-          g.fill();
-        }
-        if (k !== "lava" && r > 0.86) {
-          g.fillStyle = "rgba(255,92,37,.38)";
-          g.fillRect(Math.round(x + 8 + hash(tx, ty, 94) * 17), Math.round(y + 8 + hash(tx, ty, 95) * 16), 2, 2);
+        if (k === "lava") {
+          drawFireSrc(g, pick(FIRE_SRC.lava, tx, ty, 10), x, y, 1);
+          drawLavaDepth(g, x, y, tx, ty);
+        } else if (k === "basalt") {
+          const cracked = hash(tx, ty, 11) > 0.64;
+          drawFireSrc(g, cracked ? pick(FIRE_SRC.cracked, tx, ty, 12) : pick(FIRE_SRC.basalt, tx, ty, 13), x, y, 1);
+          drawFireGroundDetails(g, x, y, tx, ty, "basalt");
+        } else if (k === "path") {
+          drawFireSrc(g, pick(FIRE_SRC.path, tx, ty, 14), x, y, 1);
+          drawFireGroundDetails(g, x, y, tx, ty, "path");
+        } else {
+          drawFireSrc(g, pick(FIRE_SRC.ash, tx, ty, 15), x, y, 1);
+          drawFireGroundDetails(g, x, y, tx, ty, "ash");
         }
       }
     }
@@ -66959,10 +67105,10 @@ function updateCamera() {
         const y = ty * TILE - startY;
         const k = fireKind(tileAt(tx, ty));
         if (k !== "lava") {
-          if (fireKind(tileAt(tx, ty - 1)) === "lava") edgeRect(g, x, y, "top", "rgba(255,112,38,.34)", 5);
-          if (fireKind(tileAt(tx + 1, ty)) === "lava") edgeRect(g, x, y, "right", "rgba(255,112,38,.34)", 5);
-          if (fireKind(tileAt(tx, ty + 1)) === "lava") edgeRect(g, x, y, "bottom", "rgba(255,112,38,.34)", 5);
-          if (fireKind(tileAt(tx - 1, ty)) === "lava") edgeRect(g, x, y, "left", "rgba(255,112,38,.34)", 5);
+          if (fireKind(tileAt(tx, ty - 1)) === "lava") drawMoltenRockEdge(g, x, y, "top", tx, ty);
+          if (fireKind(tileAt(tx + 1, ty)) === "lava") drawMoltenRockEdge(g, x, y, "right", tx, ty);
+          if (fireKind(tileAt(tx, ty + 1)) === "lava") drawMoltenRockEdge(g, x, y, "bottom", tx, ty);
+          if (fireKind(tileAt(tx - 1, ty)) === "lava") drawMoltenRockEdge(g, x, y, "left", tx, ty);
         }
       }
     }
@@ -67023,13 +67169,37 @@ function updateCamera() {
         const x = tx * TILE;
         const y = ty * TILE;
         if (inArea(AREAS.fire, tx, ty) && fireKind(tileAt(tx, ty)) === "lava" && hash(tx, ty, 800) > .34) {
-          ctx.strokeStyle = "rgba(255,247,178,.34)";
-          ctx.lineWidth = 1;
+          const phase = (t * (1.7 + hash(tx, ty, 801) * 1.1) + hash(tx, ty, 802) * 9) % (Math.PI * 2);
+          const waveY = y + 8 + hash(tx, ty, 803) * (TILE - 16);
+          ctx.strokeStyle = `rgba(255,247,178,${0.30 + (Math.sin(phase) + 1) * 0.12})`;
+          ctx.lineWidth = 1.2;
+          ctx.shadowColor = "rgba(255,120,26,.9)";
+          ctx.shadowBlur = 4;
           ctx.beginPath();
-          ctx.moveTo(x + 4, y + 11 + Math.sin(t * 3.2 + tx) * 1.2);
-          ctx.lineTo(x + 14, y + 9 + Math.cos(t * 2.5 + ty) * 1.2);
-          ctx.lineTo(x + 26, y + 13 + Math.sin(t * 2.8 + ty) * 1.2);
+          ctx.moveTo(x + 3, waveY + Math.sin(phase) * 1.3);
+          ctx.lineTo(x + 9, waveY - 2 + Math.cos(phase * 1.1) * 1.5);
+          ctx.lineTo(x + 17, waveY + 1 + Math.sin(phase * 0.9) * 1.4);
+          ctx.lineTo(x + 24, waveY - 1 + Math.cos(phase * 1.2) * 1.4);
+          ctx.lineTo(x + TILE - 3, waveY + Math.sin(phase + 1.8) * 1.2);
           ctx.stroke();
+          ctx.shadowBlur = 0;
+          if (hash(tx, ty, 804) > 0.67) {
+            const bubbleLife = (Math.sin(phase * 1.35) + 1) * 0.5;
+            const bx = x + 7 + hash(tx, ty, 805) * (TILE - 14);
+            const by = y + 7 + hash(tx, ty, 806) * (TILE - 14);
+            ctx.strokeStyle = `rgba(255,242,151,${0.18 + bubbleLife * 0.40})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(bx, by, 1 + bubbleLife * 3.2, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+        if (inArea(AREAS.fire, tx, ty) && fireKind(tileAt(tx, ty)) !== "lava" && hash(tx, ty, 820) > 0.88) {
+          const emberPhase = (t * 1.9 + hash(tx, ty, 821) * 8) % 1;
+          const ex = x + 6 + hash(tx, ty, 822) * (TILE - 12);
+          const ey = y + TILE - 5 - emberPhase * 13;
+          ctx.fillStyle = `rgba(255,${Math.round(105 + emberPhase * 105)},45,${0.72 - emberPhase * 0.55})`;
+          ctx.fillRect(Math.round(ex), Math.round(ey), emberPhase > 0.5 ? 1 : 2, emberPhase > 0.5 ? 1 : 2);
         }
         if (inArea(AREAS.forest, tx, ty) && forestKind(tileAt(tx, ty)) === "water" && hash(tx, ty, 600) > .35) {
           const c = localCenter(0, 0, tx, ty, 8);
@@ -70698,3 +70868,1045 @@ function updateCamera() {
   setTimeout(hideMobileRotbarsOnly, 600);
   try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
 })();
+
+
+/* ==================================================
+   ETERNAL RIFT - CORREÇÃO DEFINITIVA DOS SLOTS DE PODERES
+   Escopo: ao clicar em Equipar Slot 1/2/3/4 no inventário,
+   o poder entra no slot real e pode ser usado por Z/X/C/V.
+   Mantém mobile sem rotbar e não altera mapas, visuais, dano ou sistemas.
+   ================================================== */
+(function eternalRiftFinalPowerSlotUsePatch() {
+  const PATCH_ID = "final-power-slots-click-equip-and-use-zxcv-20260709";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_FINAL_POWER_SLOT_USE_PATCH === PATCH_ID) return;
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_FINAL_POWER_SLOT_USE_PATCH = PATCH_ID;
+
+  const DEFAULT = ["fireball", "blueRay", "shockwave", "heal"];
+  const SLOT_KEYS = ["Z", "X", "C", "V"];
+  const KEY_TO_INDEX = { z: 0, x: 1, c: 2, v: 3 };
+
+  function isTypingInField() {
+    try {
+      const el = document.activeElement;
+      const tag = String(el?.tagName || "").toLowerCase();
+      return tag === "input" || tag === "textarea" || Boolean(el?.isContentEditable);
+    } catch (error) { return false; }
+  }
+
+  function powerDisplayName(key) {
+    try { return powerNames?.[key] || key || "Poder"; } catch (error) { return key || "Poder"; }
+  }
+
+  function ensureFinalPowerState() {
+    try {
+      if (!questBook.eternalPowerTest || typeof questBook.eternalPowerTest !== "object") {
+        questBook.eternalPowerTest = { unlocked: [...DEFAULT], loadout: [...DEFAULT], activeSlot: 0 };
+      }
+      const state = questBook.eternalPowerTest;
+      if (!Array.isArray(state.unlocked)) state.unlocked = [...DEFAULT];
+      if (!Array.isArray(state.loadout)) state.loadout = [...DEFAULT];
+      while (state.loadout.length < 4) state.loadout.push(DEFAULT[state.loadout.length] || "fireball");
+      state.loadout = state.loadout.slice(0, 4);
+      state.activeSlot = Math.max(0, Math.min(3, Number(state.activeSlot || 0)));
+
+      for (const key of DEFAULT) if (!state.unlocked.includes(key)) state.unlocked.push(key);
+      try {
+        for (const key of Object.keys(powerNames || {})) {
+          if (spellCosts?.[key] !== undefined && !state.unlocked.includes(key)) state.unlocked.push(key);
+        }
+      } catch (error) {}
+
+      if (Array.isArray(powerSlots)) {
+        for (let i = 0; i < 4; i += 1) {
+          const key = state.loadout[i] || powerSlots[i] || DEFAULT[i] || "fireball";
+          state.loadout[i] = key;
+          powerSlots[i] = key;
+          if (player?.spellCooldowns && player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+        }
+      }
+      if (!equippedPower) equippedPower = state.loadout[state.activeSlot] || powerSlots?.[state.activeSlot] || "fireball";
+      return state;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function inventoryItemsSafe() {
+    try { return typeof getInventoryItems === "function" ? (getInventoryItems() || []) : []; } catch (error) { return []; }
+  }
+
+  function getSelectedInventoryPowerKey() {
+    try {
+      const selected = document.querySelector(".er-inv-slot.is-selected[data-er-inv-item], .inventory-slot.is-selected[data-item-id]");
+      const selectedId = selected?.dataset?.erInvItem || selected?.dataset?.itemId || "";
+      if (selectedId) {
+        const item = inventoryItemsSafe().find((entry) => String(entry?.id) === String(selectedId));
+        if (item?.powerKey) return item.powerKey;
+      }
+    } catch (error) {}
+    return "";
+  }
+
+  function powerKeyFromButton(button) {
+    if (!button) return "";
+    const dataset = button.dataset || {};
+    if (dataset.powerKey) return dataset.powerKey;
+
+    const itemId = dataset.itemId ||
+      button.closest?.("[data-item-id]")?.dataset?.itemId ||
+      button.closest?.("[data-er-inv-item]")?.dataset?.erInvItem ||
+      document.querySelector(".er-inv-slot.is-selected[data-er-inv-item]")?.dataset?.erInvItem ||
+      document.querySelector(".inventory-slot.is-selected[data-item-id]")?.dataset?.itemId ||
+      "";
+
+    if (itemId) {
+      const item = inventoryItemsSafe().find((entry) => String(entry?.id) === String(itemId));
+      if (item?.powerKey) return item.powerKey;
+      const asKey = String(itemId).replace(/^power[-_:]/, "");
+      if (spellCosts?.[asKey] !== undefined || powerNames?.[asKey]) return asKey;
+    }
+
+    return getSelectedInventoryPowerKey();
+  }
+
+  function commitPowerToRealSlot(powerKey, slotIndex, options = {}) {
+    if (!powerKey) return false;
+    const index = Math.max(0, Math.min(3, Number(slotIndex || 0)));
+    const state = ensureFinalPowerState();
+    if (!state) return false;
+
+    if (!Array.isArray(state.unlocked)) state.unlocked = [...DEFAULT];
+    if (!state.unlocked.includes(powerKey)) state.unlocked.push(powerKey);
+    while (state.loadout.length < 4) state.loadout.push(DEFAULT[state.loadout.length] || "fireball");
+    state.loadout[index] = powerKey;
+    state.activeSlot = index;
+
+    if (Array.isArray(powerSlots)) powerSlots[index] = powerKey;
+    equippedPower = powerKey;
+    if (player?.spellCooldowns && player.spellCooldowns[powerKey] === undefined) player.spellCooldowns[powerKey] = 0;
+
+    try { updateMobilePowerButtons?.(); } catch (error) {}
+    try { updateHud?.(true); } catch (error) {}
+    try { saveGame?.(); } catch (error) {}
+
+    if (!options.silent) {
+      try { showHudToast?.(`${powerDisplayName(powerKey)} equipado no Slot ${index + 1}. Use ${SLOT_KEYS[index]}.`, 3.2); } catch (error) {}
+      try { spawnFloatingText?.(`${SLOT_KEYS[index]}: ${powerDisplayName(powerKey)}`, player.x + 12, player.y - 18, "#55e8ff"); } catch (error) {}
+      try { playSound?.("equipItem"); } catch (error) {}
+      try { vibrate?.(10); } catch (error) {}
+    }
+    return true;
+  }
+
+  function useRealPowerSlot(slotIndex, source = "keyboard") {
+    const state = ensureFinalPowerState();
+    const index = Math.max(0, Math.min(3, Number(slotIndex || 0)));
+    const key = state?.loadout?.[index] || powerSlots?.[index] || DEFAULT[index] || "fireball";
+    if (!key) return false;
+
+    if (state) state.activeSlot = index;
+    if (Array.isArray(powerSlots)) powerSlots[index] = key;
+    equippedPower = key;
+    if (player?.spellCooldowns && player.spellCooldowns[key] === undefined) player.spellCooldowns[key] = 0;
+
+    try { updateMobilePowerButtons?.(); } catch (error) {}
+    try { updateHud?.(true); } catch (error) {}
+
+    try {
+      if (source !== "silent") spawnFloatingText?.(`${SLOT_KEYS[index]}: ${powerDisplayName(key)}`, player.x + 12, player.y - 18, "#55e8ff");
+    } catch (error) {}
+
+    // Chama a cadeia final de poderes já existente, incluindo poderes novos de água, sombra, gelo,
+    // Rasgo Dimensional e Campo Estático. Aqui só garantimos que equippedPower é o slot certo.
+    try {
+      if (typeof useEquippedPower === "function") {
+        useEquippedPower();
+        return true;
+      }
+    } catch (error) {
+      try { console.warn("Falha ao usar poder do slot", index + 1, key, error); } catch (_) {}
+    }
+    return false;
+  }
+
+  // Corrige os botões "Equipar Slot 1/2/3/4" do inventário.
+  document.addEventListener("click", (event) => {
+    const button = event.target?.closest?.('[data-er-inv-action="equipPowerSlot"], [data-inventory-action="equipPowerSlot"]');
+    if (!button) return;
+    const slotIndex = Math.max(0, Math.min(3, Number(button.dataset?.slotIndex || button.dataset?.slot || 0)));
+    const powerKey = powerKeyFromButton(button);
+    if (!powerKey) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+
+    commitPowerToRealSlot(powerKey, slotIndex);
+    setTimeout(() => { try { renderInventory?.(); } catch (error) {} }, 0);
+  }, true);
+
+  // Z, X, C e V usam diretamente o poder do slot correspondente.
+  window.addEventListener("keydown", (event) => {
+    const key = String(event.key || "").toLowerCase();
+    if (!(key in KEY_TO_INDEX)) return;
+    try {
+      if (!gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen || dialogOpen || missionsOpen || statusOpen || isTypingInField()) return;
+    } catch (error) { return; }
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+    useRealPowerSlot(KEY_TO_INDEX[key], "keyboard");
+  }, true);
+
+  // Mobile: os botões touch dos poderes usam o slot direto, quando existirem.
+  window.addEventListener("pointerdown", (event) => {
+    const button = event.target?.closest?.("#touchPower1Button, #touchPower2Button, #touchPower3Button, #touchPower4Button");
+    if (!button) return;
+    try {
+      if (!gameStarted || gameOver || pauseOpen || inventoryOpen || shopOpen || dialogOpen || missionsOpen || statusOpen) return;
+    } catch (error) { return; }
+    const ids = ["touchPower1Button", "touchPower2Button", "touchPower3Button", "touchPower4Button"];
+    const index = ids.indexOf(button.id);
+    if (index < 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === "function") event.stopImmediatePropagation();
+    useRealPowerSlot(index, "mobile");
+  }, true);
+
+  const updateMobilePowerButtonsBeforeFinalSlotPatch = typeof updateMobilePowerButtons === "function" ? updateMobilePowerButtons : null;
+  if (updateMobilePowerButtonsBeforeFinalSlotPatch) {
+    updateMobilePowerButtons = function updateMobilePowerButtonsFinalSlotPatch() {
+      const result = updateMobilePowerButtonsBeforeFinalSlotPatch.apply(this, arguments);
+      try {
+        const state = ensureFinalPowerState();
+        const buttons = [touchPower1Button, touchPower2Button, touchPower3Button, touchPower4Button];
+        for (let i = 0; i < 4; i += 1) {
+          const button = buttons[i];
+          if (!button) continue;
+          const key = state?.loadout?.[i] || powerSlots?.[i] || DEFAULT[i] || "fireball";
+          button.title = `${SLOT_KEYS[i]}: ${powerDisplayName(key)}`;
+          button.setAttribute("aria-label", `${SLOT_KEYS[i]}: ${powerDisplayName(key)}`);
+          button.dataset.powerSlotKey = key;
+          button.classList.toggle("is-equipped", key === equippedPower && i === Number(state?.activeSlot || 0));
+        }
+      } catch (error) {}
+      return result;
+    };
+  }
+
+  const getPowerHudTextBeforeFinalSlotPatch = typeof getPowerHudText === "function" ? getPowerHudText : null;
+  if (getPowerHudTextBeforeFinalSlotPatch) {
+    getPowerHudText = function getPowerHudTextFinalSlotPatch() {
+      try {
+        const state = ensureFinalPowerState();
+        const index = Math.max(0, Math.min(3, Number(state?.activeSlot || 0)));
+        const key = state?.loadout?.[index] || powerSlots?.[index] || equippedPower || "fireball";
+        const cooldown = Number(player?.spellCooldowns?.[key] || 0);
+        const cd = cooldown > 0 && typeof formatCooldown === "function" ? ` ${formatCooldown(cooldown)}` : "";
+        return `${SLOT_KEYS[index]} Slot ${index + 1}: ${powerDisplayName(key)}${cd}`;
+      } catch (error) {
+        return getPowerHudTextBeforeFinalSlotPatch.apply(this, arguments);
+      }
+    };
+  }
+
+  ensureFinalPowerState();
+  setTimeout(() => { try { updateMobilePowerButtons?.(); updateHud?.(true); renderInventory?.(); } catch (error) {} }, 350);
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+/* ==================================================
+   ETERNAL RIFT - BIOMA DE NEVE/GELO ESTILO REFERÊNCIA
+   Escopo: melhora somente o terreno do bioma congelado.
+   Desenho nativo em Canvas, sem gerar ou adicionar imagens.
+   PC + mobile, com cache em chunks e animação leve.
+   ================================================== */
+(function eternalRiftSnowIceReferenceTilesPatch() {
+  const PATCH_ID = "snow-ice-reference-tiles-pc-mobile-20260715";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_SNOW_ICE_REFERENCE_TILES === PATCH_ID) return;
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_SNOW_ICE_REFERENCE_TILES = PATCH_ID;
+    window.ETERNAL_RIFT_CURRENT_VERSION = PATCH_ID;
+  }
+
+  const FROZEN = { x1: 90, y1: 46, x2: 142, y2: 78 };
+  const CHUNK_TILES = 8;
+  const MAX_CACHE = (typeof isMobile !== "undefined" && isMobile) ? 48 : 90;
+  const cache = new Map();
+
+  function hash(tx, ty, salt = 0) {
+    let n = (tx * 374761393 + ty * 668265263 + salt * 1442695041) | 0;
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    n = (n ^ (n >>> 16)) >>> 0;
+    return n / 4294967295;
+  }
+
+  function tileAt(tx, ty) {
+    try { return worldMap?.[ty]?.[tx] || "G"; }
+    catch (error) { return "G"; }
+  }
+
+  function inFrozen(tx, ty) {
+    return tx >= FROZEN.x1 && tx <= FROZEN.x2 && ty >= FROZEN.y1 && ty <= FROZEN.y2;
+  }
+
+  function frozenKind(tx, ty) {
+    if (!inFrozen(tx, ty)) return "outside";
+    const tile = tileAt(tx, ty);
+    if (tile === "L") return "ice";
+    if (tile === "D") return "path";
+    if (tile === "P") return "platform";
+    return "snow";
+  }
+
+  function createCanvas(width, height) {
+    const canvasEl = document.createElement("canvas");
+    canvasEl.width = Math.max(1, Math.round(width));
+    canvasEl.height = Math.max(1, Math.round(height));
+    return canvasEl;
+  }
+
+  function drawSnowBase(g, x, y, tx, ty) {
+    const base = g.createLinearGradient(x, y, x + TILE, y + TILE);
+    base.addColorStop(0, hash(tx, ty, 1) > 0.5 ? "#f9fcff" : "#eef7ff");
+    base.addColorStop(0.55, "#dbeeff");
+    base.addColorStop(1, "#bfdcff");
+    g.fillStyle = base;
+    g.fillRect(x, y, TILE, TILE);
+
+    const drift = hash(tx, ty, 2);
+    g.fillStyle = "rgba(255,255,255,.54)";
+    g.beginPath();
+    g.ellipse(x + 7 + drift * 9, y + 7 + hash(tx, ty, 3) * 6, 8 + drift * 5, 3.2, -0.18, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "rgba(120,174,225,.17)";
+    g.beginPath();
+    g.ellipse(x + 20, y + 23, 9, 3, 0.12, 0, Math.PI * 2);
+    g.fill();
+
+    if (hash(tx, ty, 4) > 0.38) {
+      const px = Math.round(x + 5 + hash(tx, ty, 5) * (TILE - 10));
+      const py = Math.round(y + 8 + hash(tx, ty, 6) * (TILE - 15));
+      g.fillStyle = "rgba(94,151,211,.34)";
+      g.fillRect(px, py, 2, 2);
+      g.fillStyle = "rgba(255,255,255,.76)";
+      g.fillRect(px + 1, py - 1, 2, 1);
+    }
+
+    if (hash(tx, ty, 7) > 0.76) {
+      const gx = Math.round(x + 7 + hash(tx, ty, 8) * 18);
+      const gy = Math.round(y + 12 + hash(tx, ty, 9) * 13);
+      g.strokeStyle = "rgba(48,116,180,.48)";
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(gx, gy + 5);
+      g.lineTo(gx - 2, gy);
+      g.moveTo(gx, gy + 5);
+      g.lineTo(gx + 2, gy - 1);
+      g.moveTo(gx, gy + 5);
+      g.lineTo(gx + 4, gy + 1);
+      g.stroke();
+      g.fillStyle = "rgba(239,249,255,.72)";
+      g.fillRect(gx - 2, gy + 3, 5, 2);
+    }
+  }
+
+  function drawSnowBankEdge(g, x, y, side, tx, ty, cliff = false) {
+    g.save();
+    g.lineCap = "round";
+    g.lineJoin = "round";
+    const points = [];
+    const steps = 6;
+    for (let i = 0; i <= steps; i += 1) {
+      const along = (TILE * i) / steps;
+      const wobble = 2 + Math.round(hash(tx + i, ty + i, 40 + side.length) * 3);
+      if (side === "top") points.push([x + along, y + wobble]);
+      if (side === "bottom") points.push([x + along, y + TILE - wobble]);
+      if (side === "left") points.push([x + wobble, y + along]);
+      if (side === "right") points.push([x + TILE - wobble, y + along]);
+    }
+
+    if (cliff) {
+      g.strokeStyle = "rgba(45,88,145,.64)";
+      g.lineWidth = 8;
+      g.beginPath();
+      points.forEach((point, index) => index ? g.lineTo(point[0], point[1]) : g.moveTo(point[0], point[1]));
+      g.stroke();
+      g.strokeStyle = "rgba(123,181,235,.76)";
+      g.lineWidth = 4;
+      g.beginPath();
+      points.forEach((point, index) => index ? g.lineTo(point[0], point[1]) : g.moveTo(point[0], point[1]));
+      g.stroke();
+    } else {
+      g.strokeStyle = "rgba(91,161,222,.58)";
+      g.lineWidth = 5;
+      g.beginPath();
+      points.forEach((point, index) => index ? g.lineTo(point[0], point[1]) : g.moveTo(point[0], point[1]));
+      g.stroke();
+    }
+
+    g.strokeStyle = "rgba(250,254,255,.94)";
+    g.lineWidth = 2;
+    g.beginPath();
+    points.forEach((point, index) => index ? g.lineTo(point[0], point[1]) : g.moveTo(point[0], point[1]));
+    g.stroke();
+    g.restore();
+  }
+
+  function drawSnowTile(g, x, y, tx, ty) {
+    drawSnowBase(g, x, y, tx, ty);
+    const neighbors = [
+      ["top", tx, ty - 1], ["right", tx + 1, ty],
+      ["bottom", tx, ty + 1], ["left", tx - 1, ty]
+    ];
+    for (const [side, nx, ny] of neighbors) {
+      const next = frozenKind(nx, ny);
+      if (next === "ice") drawSnowBankEdge(g, x, y, side, tx, ty, false);
+      else if (next === "outside") drawSnowBankEdge(g, x, y, side, tx, ty, true);
+    }
+  }
+
+  function drawIceCrack(g, x, y, tx, ty) {
+    if (hash(tx, ty, 70) < 0.34) return;
+    const cx = Math.round(x + 8 + hash(tx, ty, 71) * 16);
+    const cy = Math.round(y + 7 + hash(tx, ty, 72) * 17);
+    const branches = hash(tx, ty, 73) > 0.67 ? 3 : 2;
+    g.save();
+    g.lineCap = "square";
+    g.lineJoin = "miter";
+    for (let branch = 0; branch < branches; branch += 1) {
+      const dir = hash(tx + branch, ty, 74) * Math.PI * 2;
+      const length = 8 + hash(tx, ty + branch, 75) * 10;
+      const mx = cx + Math.cos(dir) * length * 0.48;
+      const my = cy + Math.sin(dir) * length * 0.48;
+      const ex = cx + Math.cos(dir + (hash(tx, ty, 76 + branch) - 0.5) * 0.5) * length;
+      const ey = cy + Math.sin(dir + (hash(tx, ty, 79 + branch) - 0.5) * 0.5) * length;
+      g.strokeStyle = "rgba(4,68,129,.54)";
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(cx, cy);
+      g.lineTo(mx, my);
+      g.lineTo(ex, ey);
+      g.stroke();
+      g.strokeStyle = "rgba(218,250,255,.72)";
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(cx + 1, cy - 1);
+      g.lineTo(mx + 1, my - 1);
+      g.lineTo(ex + 1, ey - 1);
+      g.stroke();
+    }
+    g.restore();
+  }
+
+  function drawIceTile(g, x, y, tx, ty) {
+    const base = g.createLinearGradient(x, y, x + TILE, y + TILE);
+    base.addColorStop(0, "#0a5594");
+    base.addColorStop(0.46, hash(tx, ty, 81) > 0.5 ? "#1989c5" : "#167bb8");
+    base.addColorStop(1, "#54c5e7");
+    g.fillStyle = base;
+    g.fillRect(x, y, TILE, TILE);
+
+    g.fillStyle = "rgba(180,241,255,.18)";
+    g.beginPath();
+    g.moveTo(x + 2, y + 8);
+    g.lineTo(x + 13, y + 3);
+    g.lineTo(x + 29, y + 10);
+    g.lineTo(x + 19, y + 15);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = "rgba(198,247,255,.32)";
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x + 3, y + 25);
+    g.quadraticCurveTo(x + 15, y + 19, x + 29, y + 24);
+    g.stroke();
+
+    drawIceCrack(g, x, y, tx, ty);
+
+    const neighbors = [
+      ["top", tx, ty - 1], ["right", tx + 1, ty],
+      ["bottom", tx, ty + 1], ["left", tx - 1, ty]
+    ];
+    for (const [side, nx, ny] of neighbors) {
+      if (frozenKind(nx, ny) === "ice") continue;
+      g.fillStyle = "rgba(44,113,174,.52)";
+      if (side === "top") g.fillRect(x, y, TILE, 4);
+      if (side === "right") g.fillRect(x + TILE - 4, y, 4, TILE);
+      if (side === "bottom") g.fillRect(x, y + TILE - 4, TILE, 4);
+      if (side === "left") g.fillRect(x, y, 4, TILE);
+      g.fillStyle = "rgba(241,252,255,.86)";
+      if (side === "top") g.fillRect(x, y, TILE, 2);
+      if (side === "right") g.fillRect(x + TILE - 2, y, 2, TILE);
+      if (side === "bottom") g.fillRect(x, y + TILE - 2, TILE, 2);
+      if (side === "left") g.fillRect(x, y, 2, TILE);
+    }
+  }
+
+  function drawSnowPathTile(g, x, y, tx, ty) {
+    drawSnowBase(g, x, y, tx, ty);
+    g.fillStyle = "rgba(107,151,193,.28)";
+    g.fillRect(x + 2, y + 2, TILE - 4, TILE - 4);
+    const stones = [
+      [4, 4, 10, 7], [16, 3, 12, 8], [3, 14, 13, 7],
+      [18, 13, 11, 8], [6, 23, 10, 6], [18, 23, 10, 6]
+    ];
+    for (let i = 0; i < stones.length; i += 1) {
+      const [sx, sy, sw, sh] = stones[i];
+      const jitter = Math.round((hash(tx, ty, 100 + i) - 0.5) * 2);
+      g.fillStyle = i % 2 ? "rgba(190,216,239,.76)" : "rgba(164,199,230,.76)";
+      g.fillRect(x + sx + jitter, y + sy, sw, sh);
+      g.fillStyle = "rgba(242,250,255,.66)";
+      g.fillRect(x + sx + jitter + 1, y + sy, Math.max(2, sw - 3), 2);
+      g.fillStyle = "rgba(66,118,171,.25)";
+      g.fillRect(x + sx + jitter, y + sy + sh - 2, sw, 2);
+    }
+    g.fillStyle = "rgba(255,255,255,.62)";
+    if (hash(tx, ty, 110) > 0.45) g.fillRect(x + 2, y + 2, 13, 3);
+    if (hash(tx, ty, 111) > 0.55) g.fillRect(x + 19, y + 18, 11, 3);
+  }
+
+  function drawFrostPlatformTile(g, x, y, tx, ty) {
+    const base = g.createLinearGradient(x, y, x, y + TILE);
+    base.addColorStop(0, "#b7dcf5");
+    base.addColorStop(1, "#719ecb");
+    g.fillStyle = base;
+    g.fillRect(x, y, TILE, TILE);
+    g.strokeStyle = "rgba(41,91,145,.46)";
+    g.lineWidth = 1;
+    g.strokeRect(x + 1.5, y + 1.5, TILE - 3, TILE - 3);
+    g.fillStyle = "rgba(240,252,255,.66)";
+    g.fillRect(x + 3, y + 3, TILE - 6, 2);
+    g.fillStyle = "rgba(37,91,151,.22)";
+    g.fillRect(x + 3, y + TILE - 5, TILE - 6, 2);
+    if (hash(tx, ty, 120) > 0.74) {
+      g.strokeStyle = "rgba(48,176,236,.58)";
+      g.beginPath();
+      g.arc(x + TILE / 2, y + TILE / 2, 7, 0, Math.PI * 2);
+      g.stroke();
+      g.fillStyle = "rgba(210,250,255,.74)";
+      g.fillRect(x + 15, y + 9, 2, 14);
+      g.fillRect(x + 9, y + 15, 14, 2);
+    }
+  }
+
+  function drawFrozenTile(g, x, y, tx, ty) {
+    const kind = frozenKind(tx, ty);
+    if (kind === "ice") drawIceTile(g, x, y, tx, ty);
+    else if (kind === "path") drawSnowPathTile(g, x, y, tx, ty);
+    else if (kind === "platform") drawFrostPlatformTile(g, x, y, tx, ty);
+    else drawSnowTile(g, x, y, tx, ty);
+  }
+
+  function chunkTouchesFrozen(startTx, startTy, endTx, endTy) {
+    return endTx >= FROZEN.x1 && startTx <= FROZEN.x2 && endTy >= FROZEN.y1 && startTy <= FROZEN.y2;
+  }
+
+  function renderFrozenChunk(cx, cy) {
+    const startTx = cx * CHUNK_TILES;
+    const startTy = cy * CHUNK_TILES;
+    const endTx = startTx + CHUNK_TILES - 1;
+    const endTy = startTy + CHUNK_TILES - 1;
+    if (!chunkTouchesFrozen(startTx, startTy, endTx, endTy)) return { empty: true };
+    const canvasEl = createCanvas(CHUNK_TILES * TILE, CHUNK_TILES * TILE);
+    const g = canvasEl.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    for (let ty = startTy; ty <= endTy; ty += 1) {
+      for (let tx = startTx; tx <= endTx; tx += 1) {
+        if (!inFrozen(tx, ty)) continue;
+        drawFrozenTile(g, (tx - startTx) * TILE, (ty - startTy) * TILE, tx, ty);
+      }
+    }
+    return { empty: false, canvas: canvasEl, x: startTx * TILE, y: startTy * TILE };
+  }
+
+  function getFrozenChunk(cx, cy) {
+    const key = `${PATCH_ID}:${cx}:${cy}`;
+    if (cache.has(key)) {
+      const item = cache.get(key);
+      cache.delete(key);
+      cache.set(key, item);
+      return item;
+    }
+    const item = renderFrozenChunk(cx, cy);
+    cache.set(key, item);
+    while (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value);
+    return item;
+  }
+
+  function drawFrozenHighlights(startCol, endCol, startRow, endRow) {
+    const time = performance.now() / 1000;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (let ty = startRow; ty <= endRow; ty += 1) {
+      for (let tx = startCol; tx <= endCol; tx += 1) {
+        if (frozenKind(tx, ty) !== "ice" || hash(tx, ty, 300) < 0.72) continue;
+        const pulse = (Math.sin(time * 2.3 + hash(tx, ty, 301) * 8) + 1) * 0.5;
+        const gx = tx * TILE + 6 + hash(tx, ty, 302) * (TILE - 12);
+        const gy = ty * TILE + 6 + hash(tx, ty, 303) * (TILE - 12);
+        ctx.fillStyle = `rgba(222,252,255,${0.18 + pulse * 0.48})`;
+        ctx.fillRect(Math.round(gx - 3 - pulse * 2), Math.round(gy), Math.round(7 + pulse * 4), 1);
+        ctx.fillRect(Math.round(gx), Math.round(gy - 3 - pulse * 2), 1, Math.round(7 + pulse * 4));
+      }
+    }
+
+    const viewW = typeof getZoomedViewWidth === "function" ? getZoomedViewWidth() : canvas.width;
+    const viewH = typeof getZoomedViewHeight === "function" ? getZoomedViewHeight() : canvas.height;
+    for (let i = 0; i < ((typeof isMobile !== "undefined" && isMobile) ? 12 : 22); i += 1) {
+      const sx = camera.x + ((i * 137 + time * (13 + i % 4)) % (viewW + 120)) - 60;
+      const sy = camera.y + ((i * 89 + time * (27 + i % 5)) % (viewH + 90)) - 45;
+      if (sx < FROZEN.x1 * TILE || sx > (FROZEN.x2 + 1) * TILE || sy < FROZEN.y1 * TILE || sy > (FROZEN.y2 + 1) * TILE) continue;
+      const alpha = 0.48 + (i % 3) * 0.14;
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      const size = i % 5 === 0 ? 2 : 1;
+      ctx.fillRect(Math.round(sx), Math.round(sy), size, size);
+      if (size === 2) {
+        ctx.fillStyle = "rgba(164,220,255,.45)";
+        ctx.fillRect(Math.round(sx) - 1, Math.round(sy) + 1, 1, 1);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawFrozenTerrainOverlay() {
+    if (currentScene !== "village" || !Array.isArray(worldMap) || !worldMap.length) return;
+    const viewW = typeof getZoomedViewWidth === "function" ? getZoomedViewWidth() : canvas.width;
+    const viewH = typeof getZoomedViewHeight === "function" ? getZoomedViewHeight() : canvas.height;
+    const startCol = Math.max(FROZEN.x1, Math.floor(camera.x / TILE) - 2);
+    const endCol = Math.min(FROZEN.x2, Math.ceil((camera.x + viewW) / TILE) + 2);
+    const startRow = Math.max(FROZEN.y1, Math.floor(camera.y / TILE) - 2);
+    const endRow = Math.min(FROZEN.y2, Math.ceil((camera.y + viewH) / TILE) + 2);
+    if (startCol > endCol || startRow > endRow) return;
+
+    const startChunkX = Math.floor(startCol / CHUNK_TILES);
+    const endChunkX = Math.floor(endCol / CHUNK_TILES);
+    const startChunkY = Math.floor(startRow / CHUNK_TILES);
+    const endChunkY = Math.floor(endRow / CHUNK_TILES);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    for (let cy = startChunkY; cy <= endChunkY; cy += 1) {
+      for (let cx = startChunkX; cx <= endChunkX; cx += 1) {
+        const item = getFrozenChunk(cx, cy);
+        if (!item || item.empty || !item.canvas) continue;
+        ctx.drawImage(item.canvas, item.x, item.y);
+      }
+    }
+    ctx.restore();
+    drawFrozenHighlights(startCol, endCol, startRow, endRow);
+  }
+
+  const drawMapBeforeSnowIceReferenceTiles = typeof drawMap === "function" ? drawMap : null;
+  drawMap = function drawMapWithSnowIceReferenceTiles() {
+    if (drawMapBeforeSnowIceReferenceTiles) drawMapBeforeSnowIceReferenceTiles.apply(this, arguments);
+    drawFrozenTerrainOverlay();
+  };
+
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+
+/* ==================================================
+   ETERNAL RIFT - PLANTAÇÃO DO FAZENDEIRO TÉO
+   Escopo: adiciona canteiros, sementes, rega, crescimento e colheita.
+   Usa o spritesheet do fazendeiro já existente e desenho em Canvas.
+   Não gera nem adiciona imagens. PC + mobile.
+   ================================================== */
+(function eternalRiftFarmerPlantingMechanicPatch() {
+  const PATCH_ID = "farmer-teo-planting-growth-harvest-pc-mobile-20260715";
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_FARMER_PLANTING === PATCH_ID) return;
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_FARMER_PLANTING = PATCH_ID;
+    window.ETERNAL_RIFT_CURRENT_VERSION = PATCH_ID;
+  }
+
+  const GROW_TIME_MS = 60000;
+  const FARM_COORDS = [
+    [41, 19], [43, 19], [45, 19],
+    [41, 21], [43, 21], [45, 21]
+  ];
+
+  function defaultFarmState() {
+    return {
+      version: 1,
+      unlocked: false,
+      seeds: 0,
+      produce: 0,
+      harvests: 0,
+      plots: {}
+    };
+  }
+
+  function defaultPlotState() {
+    return { stage: "empty", plantedAt: 0, wateredAt: 0, readyAt: 0, crop: "raizDourada" };
+  }
+
+  function ensureFarmState() {
+    if (!questBook.farming || typeof questBook.farming !== "object" || Array.isArray(questBook.farming)) {
+      questBook.farming = defaultFarmState();
+    }
+    const farm = questBook.farming;
+    farm.version = 1;
+    farm.unlocked = Boolean(farm.unlocked);
+    farm.seeds = Math.max(0, Math.floor(Number(farm.seeds || 0)));
+    farm.produce = Math.max(0, Math.floor(Number(farm.produce || 0)));
+    farm.harvests = Math.max(0, Math.floor(Number(farm.harvests || 0)));
+    if (!farm.plots || typeof farm.plots !== "object" || Array.isArray(farm.plots)) farm.plots = {};
+    for (let index = 0; index < FARM_COORDS.length; index += 1) {
+      const id = `teo-plot-${index + 1}`;
+      if (!farm.plots[id] || typeof farm.plots[id] !== "object") farm.plots[id] = defaultPlotState();
+      const plot = farm.plots[id];
+      if (!["empty", "seeded", "growing", "ready"].includes(plot.stage)) plot.stage = "empty";
+      plot.plantedAt = Math.max(0, Number(plot.plantedAt || 0));
+      plot.wateredAt = Math.max(0, Number(plot.wateredAt || 0));
+      plot.readyAt = Math.max(0, Number(plot.readyAt || 0));
+      plot.crop = "raizDourada";
+      if (plot.stage === "growing" && plot.readyAt > 0 && Date.now() >= plot.readyAt) plot.stage = "ready";
+    }
+    return farm;
+  }
+
+  function farmPlotState(plotObject) {
+    const farm = ensureFarmState();
+    const state = farm.plots[plotObject.farmId] || (farm.plots[plotObject.farmId] = defaultPlotState());
+    if (state.stage === "growing" && state.readyAt > 0 && Date.now() >= state.readyAt) state.stage = "ready";
+    return state;
+  }
+
+  function createFarmPlot(tileX, tileY, index) {
+    return {
+      type: "farmPlot",
+      role: "farmerPlantingPlot",
+      farmId: `teo-plot-${index + 1}`,
+      x: tileX * TILE + 3,
+      y: tileY * TILE + 5,
+      width: TILE - 6,
+      height: TILE - 10,
+      solid: false,
+      message: "Canteiro do Téo: plantar, regar ou colher."
+    };
+  }
+
+  function ensureFarmerNpc() {
+    let teo = Array.isArray(villageObjects) ? villageObjects.find((obj) => obj?.type === "npc" && (obj.name === "Téo" || obj.role === "farmerHelper")) : null;
+    if (!teo && typeof npc === "function" && Array.isArray(villageObjects)) {
+      teo = npc(39, 18, "Téo", "Téo: Vamos cuidar da horta da vila.", "farmerHelper");
+      villageObjects.push(teo);
+    }
+    if (teo) {
+      teo.name = "Téo";
+      teo.role = "farmerHelper";
+      teo.npcAppearance = "farmer";
+      teo.message = "Téo: Fale comigo para aprender a plantar e cuidar da horta.";
+    }
+    return teo;
+  }
+
+  function ensureFarmObjects() {
+    if (!Array.isArray(villageObjects)) return [];
+    const plots = [];
+    for (let index = 0; index < FARM_COORDS.length; index += 1) {
+      const farmId = `teo-plot-${index + 1}`;
+      let plot = villageObjects.find((obj) => obj?.type === "farmPlot" && obj.farmId === farmId);
+      if (!plot) {
+        plot = createFarmPlot(FARM_COORDS[index][0], FARM_COORDS[index][1], index);
+        villageObjects.push(plot);
+      }
+      plots.push(plot);
+    }
+    ensureFarmerNpc();
+    if (currentScene === "village") {
+      if (Array.isArray(objects) && objects !== villageObjects) {
+        for (const plot of plots) if (!objects.includes(plot)) objects.push(plot);
+      }
+      if (Array.isArray(interactables)) {
+        for (const plot of plots) if (!interactables.includes(plot)) interactables.push(plot);
+        const teo = ensureFarmerNpc();
+        if (teo && !interactables.includes(teo)) interactables.push(teo);
+      }
+    }
+    return plots;
+  }
+
+  function growthProgress(state) {
+    if (state.stage === "ready") return 1;
+    if (state.stage !== "growing" || !state.wateredAt || !state.readyAt) return state.stage === "seeded" ? 0.08 : 0;
+    return Math.max(0.08, Math.min(1, (Date.now() - state.wateredAt) / Math.max(1, state.readyAt - state.wateredAt)));
+  }
+
+  function drawCropPlant(g, centerX, soilY, progress, ready, offset) {
+    const height = Math.max(3, Math.round(5 + progress * 12));
+    const x = Math.round(centerX + offset);
+    const top = Math.round(soilY - height);
+    g.fillStyle = ready ? "#338f45" : "#4c9e54";
+    g.fillRect(x, top, 2, height);
+    g.fillStyle = ready ? "#73cf63" : "#72b85f";
+    g.fillRect(x - 3, top + 2, 3, 2);
+    g.fillRect(x + 2, top + 4, 4, 2);
+    if (progress > 0.48) {
+      g.fillStyle = ready ? "#f0a83c" : "#d78435";
+      g.fillRect(x - 2, soilY - 2, 6, 5);
+      g.fillStyle = ready ? "#ffd36b" : "#e9a447";
+      g.fillRect(x - 1, soilY - 2, 3, 2);
+    }
+  }
+
+  function drawFarmPlot(obj) {
+    const state = farmPlotState(obj);
+    const x = Math.round(obj.x);
+    const y = Math.round(obj.y);
+    const wet = state.stage === "growing" || state.stage === "ready";
+    const progress = growthProgress(state);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "rgba(20,24,30,.24)";
+    ctx.fillRect(x + 2, y + obj.height - 1, obj.width, 5);
+    ctx.fillStyle = "#6f4326";
+    ctx.fillRect(x, y, obj.width, obj.height);
+    ctx.fillStyle = "#a66a37";
+    ctx.fillRect(x + 2, y + 2, obj.width - 4, 3);
+    ctx.fillStyle = "#4d2c20";
+    ctx.fillRect(x + 3, y + 5, obj.width - 6, obj.height - 8);
+    ctx.fillStyle = wet ? "#3c291e" : "#61402a";
+    ctx.fillRect(x + 5, y + 6, obj.width - 10, obj.height - 10);
+
+    ctx.strokeStyle = wet ? "rgba(142,190,200,.40)" : "rgba(214,157,91,.34)";
+    ctx.lineWidth = 1;
+    for (let row = 0; row < 3; row += 1) {
+      const rowY = y + 9 + row * 4;
+      ctx.beginPath();
+      ctx.moveTo(x + 6, rowY);
+      ctx.lineTo(x + obj.width - 6, rowY);
+      ctx.stroke();
+    }
+
+    if (state.stage === "seeded") {
+      ctx.fillStyle = "#d6ad5a";
+      ctx.fillRect(x + 8, y + 10, 2, 2);
+      ctx.fillRect(x + 15, y + 14, 2, 2);
+      ctx.fillRect(x + 20, y + 9, 2, 2);
+    }
+
+    if (state.stage === "growing" || state.stage === "ready") {
+      const soilY = y + obj.height - 5;
+      drawCropPlant(ctx, x + obj.width * 0.28, soilY, progress, state.stage === "ready", 0);
+      drawCropPlant(ctx, x + obj.width * 0.53, soilY - 1, progress * 0.94, state.stage === "ready", 0);
+      drawCropPlant(ctx, x + obj.width * 0.75, soilY, progress * 0.88, state.stage === "ready", 0);
+      if (wet && state.stage !== "ready") {
+        ctx.fillStyle = "rgba(111,212,245,.54)";
+        ctx.fillRect(x + 7, y + 17, 3, 1);
+        ctx.fillRect(x + obj.width - 11, y + 8, 2, 1);
+      }
+    }
+
+    if (state.stage === "ready") {
+      const pulse = (Math.sin(performance.now() / 180 + Number(obj.farmId.slice(-1))) + 1) * 0.5;
+      ctx.fillStyle = `rgba(255,230,116,${0.50 + pulse * 0.42})`;
+      const sx = x + obj.width - 5;
+      const sy = y + 4;
+      ctx.fillRect(sx - 3, sy, 7, 1);
+      ctx.fillRect(sx, sy - 3, 1, 7);
+    }
+
+    let target = null;
+    try { target = typeof findInteraction === "function" ? findInteraction() : null; } catch (error) { target = null; }
+    if (target === obj) {
+      ctx.strokeStyle = state.stage === "ready" ? "rgba(255,226,104,.92)" : "rgba(111,224,255,.78)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x - 2, y - 2, obj.width + 4, obj.height + 4);
+    }
+    ctx.restore();
+  }
+
+  function queueFarmAutosave(reason) {
+    window.setTimeout(() => {
+      try {
+        if (typeof window.ETERNAL_RIFT_FORCE_AUTOSAVE === "function") window.ETERNAL_RIFT_FORCE_AUTOSAVE(reason);
+      } catch (error) {}
+    }, 0);
+  }
+
+  function farmSummary(farm) {
+    const states = Object.values(farm.plots || {});
+    const planted = states.filter((plot) => plot.stage === "seeded" || plot.stage === "growing").length;
+    const ready = states.filter((plot) => plot.stage === "ready" || (plot.stage === "growing" && plot.readyAt && Date.now() >= plot.readyAt)).length;
+    return { planted, ready };
+  }
+
+  function interactWithFarmerTeo() {
+    const farm = ensureFarmState();
+    if (!farm.unlocked) {
+      farm.unlocked = true;
+      farm.seeds += 6;
+      const oldGiftAvailable = !questBook.teoGiftClaimed;
+      questBook.teoGiftClaimed = true;
+      if (oldGiftAvailable) {
+        inventory.pocoes = Number(inventory.pocoes || 0) + 1;
+        inventory.moedas = Number(inventory.moedas || 0) + 6;
+      }
+      try { showHudToast?.("Plantação liberada: 6 sementes para os canteiros do Téo.", 3.4); } catch (error) {}
+      try { updateHud?.(true); renderInventory?.(); } catch (error) {}
+      queueFarmAutosave("farming-unlocked");
+      return oldGiftAvailable
+        ? "Téo: Vou ensinar voce a cuidar da horta. Dei 6 sementes, 1 pocao e 6 moedas. Use Interagir nos canteiros: primeiro plante, depois regue e espere a raiz dourada crescer."
+        : "Téo: Vou ensinar voce a cuidar da horta. Dei 6 sementes. Use Interagir nos canteiros: primeiro plante, depois regue e espere a raiz dourada crescer.";
+    }
+
+    if (farm.produce > 0) {
+      const sold = farm.produce;
+      const payment = sold * 5;
+      const seedBonus = Math.max(1, Math.floor(sold / 2));
+      farm.produce = 0;
+      farm.seeds += seedBonus;
+      inventory.moedas = Number(inventory.moedas || 0) + payment;
+      try { playSound?.("coin"); showHudToast?.(`Téo comprou ${sold} colheita(s): +${payment} moedas e +${seedBonus} semente(s).`, 3.4); } catch (error) {}
+      try { updateHud?.(true); renderInventory?.(); } catch (error) {}
+      queueFarmAutosave("farming-produce-sold");
+      return `Téo: Colheita bonita! Comprei ${sold} raiz(es) dourada(s) por ${payment} moedas e devolvi ${seedBonus} semente(s) para manter a horta produzindo.`;
+    }
+
+    const summary = farmSummary(farm);
+    if (farm.seeds <= 0 && summary.planted === 0 && summary.ready === 0) {
+      farm.seeds = 3;
+      queueFarmAutosave("farming-seed-refill");
+      return "Téo: A horta não pode parar. Separei mais 3 sementes. Plante nos canteiros, regue e volte para colher quando as folhas brilharem.";
+    }
+
+    return `Téo: Voce tem ${farm.seeds} semente(s), ${summary.planted} canteiro(s) crescendo, ${summary.ready} pronto(s) e ${farm.produce} colheita(s) para vender. Cada raiz dourada vale 5 moedas.`;
+  }
+
+  function interactWithFarmPlot(obj) {
+    const farm = ensureFarmState();
+    const state = farmPlotState(obj);
+    if (!farm.unlocked) return "Canteiro do Téo: fale com o fazendeiro antes de começar a plantação.";
+
+    if (state.stage === "empty") {
+      if (farm.seeds <= 0) return "Canteiro vazio: voce ficou sem sementes. Fale com o Téo para conseguir mais.";
+      farm.seeds -= 1;
+      state.stage = "seeded";
+      state.plantedAt = Date.now();
+      state.wateredAt = 0;
+      state.readyAt = 0;
+      try { playSound?.("collect"); showHudToast?.(`Semente plantada. Restam ${farm.seeds}. Interaja novamente para regar.`, 2.8); } catch (error) {}
+      queueFarmAutosave("farming-seed-planted");
+      return `Voce plantou uma semente de raiz dourada. Restam ${farm.seeds} semente(s). Agora regue este canteiro.`;
+    }
+
+    if (state.stage === "seeded") {
+      state.stage = "growing";
+      state.wateredAt = Date.now();
+      state.readyAt = state.wateredAt + GROW_TIME_MS;
+      try { playSound?.("heal"); showHudToast?.("Canteiro regado. A colheita ficará pronta em 1 minuto.", 2.8); } catch (error) {}
+      queueFarmAutosave("farming-plot-watered");
+      return "Voce regou o canteiro. A raiz dourada ficará pronta em aproximadamente 1 minuto, mesmo se voce explorar outra região.";
+    }
+
+    if (state.stage === "growing") {
+      if (Date.now() >= state.readyAt) state.stage = "ready";
+      else {
+        const seconds = Math.max(1, Math.ceil((state.readyAt - Date.now()) / 1000));
+        return `A plantação está crescendo. Faltam cerca de ${seconds} segundo(s) para a colheita.`;
+      }
+    }
+
+    if (state.stage === "ready") {
+      state.stage = "empty";
+      state.plantedAt = 0;
+      state.wateredAt = 0;
+      state.readyAt = 0;
+      farm.produce += 1;
+      farm.harvests += 1;
+      farm.seeds += 1;
+      try { awardXp?.(18, "Colheita da horta"); } catch (error) {}
+      try { playSound?.("coin"); showHudToast?.(`Raiz dourada colhida! Colheitas: ${farm.produce}. +1 semente.`, 3); } catch (error) {}
+      queueFarmAutosave("farming-crop-harvested");
+      return `Voce colheu 1 raiz dourada e recuperou 1 semente. Leve a produção ao Téo: ele paga 5 moedas por colheita.`;
+    }
+
+    return "Canteiro pronto para receber uma nova semente.";
+  }
+
+  function farmInteractionLabel(obj) {
+    const farm = ensureFarmState();
+    if (!farm.unlocked) return "Falar com Téo";
+    const state = farmPlotState(obj);
+    if (state.stage === "empty") return farm.seeds > 0 ? "Plantar" : "Sem sementes";
+    if (state.stage === "seeded") return "Regar";
+    if (state.stage === "ready") return "Colher";
+    return Date.now() >= state.readyAt ? "Colher" : "Crescendo";
+  }
+
+  const drawObjectBeforeFarmerPlanting = typeof drawObject === "function" ? drawObject : null;
+  drawObject = function drawObjectWithFarmerPlanting(obj) {
+    if (obj?.type === "farmPlot") return drawFarmPlot(obj);
+    return drawObjectBeforeFarmerPlanting ? drawObjectBeforeFarmerPlanting.apply(this, arguments) : undefined;
+  };
+
+  const getQuestMessageBeforeFarmerPlanting = typeof getQuestMessage === "function" ? getQuestMessage : null;
+  getQuestMessage = function getQuestMessageWithFarmerPlanting(target) {
+    if (target?.type === "farmPlot") return interactWithFarmPlot(target);
+    if (target?.type === "npc" && (target.name === "Téo" || target.role === "farmerHelper")) return interactWithFarmerTeo();
+    return getQuestMessageBeforeFarmerPlanting ? getQuestMessageBeforeFarmerPlanting.apply(this, arguments) : (target?.message || "");
+  };
+
+  const updateInteractionHintBeforeFarmerPlanting = typeof updateInteractionHint === "function" ? updateInteractionHint : null;
+  updateInteractionHint = function updateInteractionHintWithFarmerPlanting() {
+    const result = updateInteractionHintBeforeFarmerPlanting ? updateInteractionHintBeforeFarmerPlanting.apply(this, arguments) : undefined;
+    let target = null;
+    try { target = typeof findInteraction === "function" ? findInteraction() : null; } catch (error) { target = null; }
+    if (!target || dialogOpen || shopOpen) return result;
+    if (target.type === "farmPlot") {
+      const label = farmInteractionLabel(target);
+      if (interactionHint) interactionHint.textContent = `Pressione E para ${label.toLowerCase()}`;
+      if (touchContextLabel) touchContextLabel.textContent = label;
+    } else if (target.type === "npc" && (target.name === "Téo" || target.role === "farmerHelper")) {
+      if (interactionHint) interactionHint.textContent = "Pressione E para falar sobre a plantação";
+      if (touchContextLabel) touchContextLabel.textContent = "Plantação";
+    }
+    return result;
+  };
+
+  const setActiveSceneBeforeFarmerPlanting = typeof setActiveScene === "function" ? setActiveScene : null;
+  setActiveScene = function setActiveSceneWithFarmerPlanting(scene) {
+    const result = setActiveSceneBeforeFarmerPlanting ? setActiveSceneBeforeFarmerPlanting.apply(this, arguments) : undefined;
+    ensureFarmObjects();
+    return result;
+  };
+
+  const saveGameBeforeFarmerPlanting = typeof saveGame === "function" ? saveGame : null;
+  saveGame = function saveGameWithFarmerPlanting() {
+    ensureFarmState();
+    return saveGameBeforeFarmerPlanting ? saveGameBeforeFarmerPlanting.apply(this, arguments) : undefined;
+  };
+
+  const loadGameBeforeFarmerPlanting = typeof loadGame === "function" ? loadGame : null;
+  loadGame = function loadGameWithFarmerPlanting() {
+    const result = loadGameBeforeFarmerPlanting ? loadGameBeforeFarmerPlanting.apply(this, arguments) : false;
+    ensureFarmState();
+    ensureFarmObjects();
+    return result;
+  };
+
+  const resetProgressBeforeFarmerPlanting = typeof resetProgressForNewGame === "function" ? resetProgressForNewGame : null;
+  resetProgressForNewGame = function resetProgressForNewGameWithFarmerPlanting() {
+    const result = resetProgressBeforeFarmerPlanting ? resetProgressBeforeFarmerPlanting.apply(this, arguments) : undefined;
+    questBook.farming = defaultFarmState();
+    ensureFarmState();
+    ensureFarmObjects();
+    return result;
+  };
+
+  ensureFarmState();
+  ensureFarmObjects();
+  if (typeof window !== "undefined") {
+    window.ETERNAL_RIFT_FARMING_STATUS = function eternalRiftFarmingStatus() {
+      const farm = ensureFarmState();
+      return { seeds: farm.seeds, produce: farm.produce, harvests: farm.harvests, ...farmSummary(farm) };
+    };
+  }
+  try { console.log("Eternal Rift patch carregado:", PATCH_ID); } catch (error) {}
+})();
+
+// Jogo 2D top-down em Canvas puro.

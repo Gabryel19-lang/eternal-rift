@@ -13407,6 +13407,605 @@ body.is-mobile .interaction-hint {
   }
 }
 
+
+/* ================================================================
+   ETERNAL RIFT - BRANCHING DIALOGUE
+   Janela medieval em pixel art, responsiva para PC e mobile.
+   ================================================================ */
+.er-branch-dialogue {
+  --branch-gold: #e6bd62;
+  --branch-gold-dark: #7f4f1f;
+  --branch-ink: #f7e8c2;
+  --branch-muted: #c7b48d;
+  --branch-panel: #130f18;
+  --branch-panel-soft: #211726;
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding: 22px clamp(14px, 3vw, 42px) max(22px, env(safe-area-inset-bottom));
+  pointer-events: none;
+  font-family: "Trebuchet MS", Georgia, serif;
+}
+
+.er-branch-dialogue.is-hidden {
+  display: none !important;
+}
+
+.er-branch-dialogue__shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 72%, rgba(74, 35, 93, .11), transparent 42%),
+    linear-gradient(to bottom, transparent 30%, rgba(2, 2, 7, .35) 68%, rgba(2, 2, 7, .72));
+  pointer-events: auto;
+}
+
+.er-branch-dialogue__panel {
+  position: relative;
+  width: min(1040px, calc(100vw - 28px));
+  min-height: 250px;
+  max-height: min(620px, calc(100dvh - 38px));
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  overflow: hidden;
+  color: var(--branch-ink);
+  border: 3px solid #3a2415;
+  outline: 2px solid var(--branch-gold);
+  outline-offset: -7px;
+  background:
+    linear-gradient(90deg, rgba(230, 189, 98, .055) 1px, transparent 1px) 0 0 / 12px 12px,
+    linear-gradient(rgba(230, 189, 98, .04) 1px, transparent 1px) 0 0 / 12px 12px,
+    linear-gradient(145deg, #18111d, #0d0b12 68%);
+  box-shadow:
+    0 16px 0 rgba(0, 0, 0, .34),
+    0 24px 60px rgba(0, 0, 0, .72),
+    inset 0 0 0 9px #09070b,
+    inset 0 0 38px rgba(111, 53, 139, .18);
+  pointer-events: auto;
+  isolation: isolate;
+}
+
+.er-branch-dialogue__panel::before,
+.er-branch-dialogue__panel::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  left: 10px;
+  right: 10px;
+  height: 3px;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, #6d431d 0 9px, #e6bd62 9px 13px, #4b2d17 13px 21px);
+  box-shadow: 0 1px #f8da84, 0 -1px #1a0d07;
+}
+
+.er-branch-dialogue__panel::before { top: 9px; }
+.er-branch-dialogue__panel::after { bottom: 9px; }
+
+.er-branch-corner {
+  position: absolute;
+  z-index: 8;
+  width: 22px;
+  height: 22px;
+  border: solid var(--branch-gold);
+  filter: drop-shadow(2px 2px #321b0c);
+  pointer-events: none;
+}
+
+.er-branch-corner--tl { top: 5px; left: 5px; border-width: 4px 0 0 4px; }
+.er-branch-corner--tr { top: 5px; right: 5px; border-width: 4px 4px 0 0; }
+.er-branch-corner--bl { bottom: 5px; left: 5px; border-width: 0 0 4px 4px; }
+.er-branch-corner--br { right: 5px; bottom: 5px; border-width: 0 4px 4px 0; }
+
+.er-branch-dialogue__speaker {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 28px 18px 26px 24px;
+  border-right: 2px solid rgba(230, 189, 98, .36);
+  background:
+    radial-gradient(circle at 50% 40%, rgba(128, 61, 162, .25), transparent 56%),
+    linear-gradient(180deg, rgba(49, 29, 56, .85), rgba(17, 12, 22, .92));
+}
+
+.er-branch-dialogue__speaker::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  right: -5px;
+  width: 8px;
+  height: calc(100% - 56px);
+  background: repeating-linear-gradient(180deg, var(--branch-gold) 0 8px, #59351a 8px 15px);
+  box-shadow: 0 0 0 2px #1a0e08;
+}
+
+.er-branch-dialogue__portrait-frame {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid #301a10;
+  outline: 2px solid var(--branch-gold);
+  outline-offset: -7px;
+  background:
+    radial-gradient(circle, rgba(135, 75, 166, .34), transparent 64%),
+    #09080d;
+  box-shadow: 0 7px 0 rgba(0, 0, 0, .35), inset 0 0 25px #000;
+  clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px);
+}
+
+.er-branch-dialogue__portrait {
+  position: relative;
+  z-index: 2;
+  width: 128px;
+  height: 128px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.er-branch-dialogue__portrait.is-empty { opacity: 0; }
+
+.er-branch-dialogue__portrait-fallback {
+  position: absolute;
+  z-index: 1;
+  color: var(--branch-gold);
+  font: 900 2rem/1 Georgia, serif;
+  text-shadow: 2px 2px #000;
+}
+
+.er-branch-dialogue__portrait-fallback.is-hidden { display: none; }
+
+.er-branch-dialogue__identity {
+  max-width: 100%;
+  text-align: center;
+}
+
+.er-branch-dialogue__identity strong {
+  display: block;
+  overflow: hidden;
+  color: #ffe7a1;
+  font: 900 1.12rem/1.15 Georgia, serif;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 2px 2px #25120a;
+}
+
+.er-branch-dialogue__identity span {
+  display: block;
+  margin-top: 4px;
+  color: var(--branch-muted);
+  font-size: .71rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.er-branch-dialogue__content {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(52px, auto) minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 30px 28px 24px 24px;
+}
+
+.er-branch-dialogue__rune {
+  position: absolute;
+  top: 18px;
+  right: 24px;
+  color: rgba(230, 189, 98, .44);
+  font-size: 1.1rem;
+  animation: erBranchRunePulse 2.2s steps(2, end) infinite;
+}
+
+@keyframes erBranchRunePulse {
+  50% { opacity: .45; transform: scale(.86); }
+}
+
+.er-branch-dialogue__text {
+  min-height: 52px;
+  margin: 0;
+  padding: 0 32px 11px 2px;
+  color: #fff1cf;
+  border-bottom: 1px solid rgba(230, 189, 98, .24);
+  font-size: clamp(.93rem, 1.5vw, 1.08rem);
+  font-weight: 700;
+  line-height: 1.55;
+  letter-spacing: .01em;
+  text-shadow: 1px 2px #050408;
+  white-space: pre-wrap;
+}
+
+.er-branch-dialogue__choices {
+  min-height: 0;
+  max-height: 300px;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  overflow: auto;
+  padding: 2px 6px 2px 2px;
+  scrollbar-color: #a87330 #100c14;
+  scrollbar-width: thin;
+}
+
+.er-branch-dialogue__choices.is-empty { display: none; }
+
+.er-branch-choice {
+  position: relative;
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px 8px 9px;
+  color: #eadfc6;
+  border: 1px solid rgba(174, 112, 45, .66);
+  border-left: 4px solid #70401c;
+  border-radius: 0;
+  background: linear-gradient(90deg, rgba(75, 44, 29, .62), rgba(26, 18, 30, .93));
+  box-shadow: inset 0 0 0 1px rgba(255, 225, 151, .045);
+  font: 700 .82rem/1.3 "Trebuchet MS", Arial, sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: color .12s ease, background-color .12s ease, transform .12s ease;
+}
+
+.er-branch-choice::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-style: solid;
+  border-width: 0 11px 11px 0;
+  border-color: transparent #b57a32 transparent transparent;
+  opacity: .35;
+}
+
+.er-branch-choice:hover,
+.er-branch-choice:focus-visible,
+.er-branch-choice.is-selected {
+  color: #fff4d2;
+  border-color: #f1ca70;
+  border-left-color: #ffe49a;
+  outline: none;
+  background: linear-gradient(90deg, rgba(128, 73, 33, .92), rgba(65, 35, 73, .94));
+  box-shadow: inset 0 0 0 1px rgba(255, 229, 157, .18), 0 0 14px rgba(153, 87, 179, .18);
+  transform: translateX(3px);
+}
+
+.er-branch-choice:active { transform: translateX(3px) translateY(1px); }
+
+.er-branch-choice__number {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  color: #fff0bd;
+  border: 1px solid #9e6930;
+  background: #24151b;
+  box-shadow: inset 0 0 0 2px #10090d;
+  font: 900 .75rem/1 Georgia, serif;
+}
+
+.er-branch-choice__label { min-width: 0; }
+
+.er-branch-choice__lock {
+  grid-column: 2;
+  margin-top: -6px;
+  color: #b98983;
+  font-size: .65rem;
+  font-weight: 700;
+}
+
+.er-branch-choice.is-locked,
+.er-branch-choice:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: saturate(.5);
+  transform: none;
+}
+
+.er-branch-dialogue__footer {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.er-branch-dialogue__status {
+  overflow: hidden;
+  color: #cbb990;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.er-branch-dialogue__keys {
+  color: #9f927a;
+  font-size: .64rem;
+  white-space: nowrap;
+}
+
+.er-branch-dialogue__keys kbd {
+  min-width: 19px;
+  display: inline-grid;
+  place-items: center;
+  margin: 0 1px;
+  padding: 3px 5px;
+  color: #f9e9bc;
+  border: 1px solid #795127;
+  border-bottom-width: 3px;
+  border-radius: 2px;
+  background: #21161b;
+  font: 800 .62rem/1 "Trebuchet MS", sans-serif;
+}
+
+.er-branch-dialogue__continue {
+  min-width: 152px;
+  min-height: 43px;
+  padding: 8px 15px;
+  color: #261307;
+  border: 2px solid #5c3517;
+  outline: 1px solid #f2d17c;
+  outline-offset: -5px;
+  border-radius: 0;
+  background: linear-gradient(#f1cd74, #b6792f);
+  box-shadow: 0 4px 0 #351b0d, inset 0 1px #fff0b2;
+  font: 900 .76rem/1.2 "Trebuchet MS", Arial, sans-serif;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.er-branch-dialogue__continue:hover,
+.er-branch-dialogue__continue:focus-visible {
+  filter: brightness(1.12);
+  outline: 2px solid #fff0b2;
+  outline-offset: 1px;
+}
+
+.er-branch-dialogue__continue:active { transform: translateY(2px); box-shadow: 0 2px 0 #351b0d; }
+.er-branch-dialogue__continue:disabled { opacity: .5; cursor: not-allowed; filter: grayscale(.35); }
+
+body.er-branch-dialogue-open .touch-controls,
+body.er-branch-dialogue-open .sandbox-2d-hotbar,
+body.er-branch-dialogue-open #sandbox2DHotbar,
+body.er-branch-dialogue-open .pc-rpg-hotbar {
+  pointer-events: none !important;
+  opacity: .28;
+}
+
+@media (max-width: 700px), (pointer: coarse) {
+  .er-branch-dialogue {
+    align-items: end;
+    padding: 8px 7px max(9px, env(safe-area-inset-bottom));
+  }
+
+  .er-branch-dialogue__panel {
+    width: calc(100vw - 14px);
+    min-height: 0;
+    max-height: min(88dvh, 680px);
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+    box-shadow: 0 9px 0 rgba(0, 0, 0, .38), 0 18px 45px rgba(0, 0, 0, .75), inset 0 0 0 8px #09070b;
+  }
+
+  .er-branch-dialogue__speaker {
+    min-height: 90px;
+    grid-template-columns: 74px minmax(0, 1fr);
+    align-content: center;
+    justify-items: start;
+    gap: 12px;
+    padding: 19px 23px 10px 20px;
+    border-right: 0;
+    border-bottom: 2px solid rgba(230, 189, 98, .35);
+  }
+
+  .er-branch-dialogue__speaker::after {
+    top: auto;
+    right: 20px;
+    bottom: -5px;
+    left: 20px;
+    width: auto;
+    height: 8px;
+    background: repeating-linear-gradient(90deg, var(--branch-gold) 0 8px, #59351a 8px 15px);
+  }
+
+  .er-branch-dialogue__portrait-frame {
+    width: 72px;
+    height: 72px;
+  }
+
+  .er-branch-dialogue__portrait { width: 70px; height: 70px; }
+  .er-branch-dialogue__identity { text-align: left; }
+  .er-branch-dialogue__identity strong { font-size: 1.02rem; }
+  .er-branch-dialogue__identity span { font-size: .64rem; }
+
+  .er-branch-dialogue__content {
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 15px 18px 18px;
+  }
+
+  .er-branch-dialogue__rune { top: 11px; right: 20px; }
+
+  .er-branch-dialogue__text {
+    min-height: 0;
+    max-height: 104px;
+    overflow: auto;
+    padding: 0 24px 9px 0;
+    font-size: .86rem;
+    line-height: 1.42;
+  }
+
+  .er-branch-dialogue__choices {
+    max-height: min(37dvh, 288px);
+    gap: 6px;
+  }
+
+  .er-branch-choice {
+    min-height: 48px;
+    padding: 8px 10px 8px 8px;
+    font-size: .76rem;
+    touch-action: manipulation;
+  }
+
+  .er-branch-choice:hover,
+  .er-branch-choice:focus-visible,
+  .er-branch-choice.is-selected { transform: none; }
+
+  .er-branch-dialogue__footer {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .er-branch-dialogue__keys { display: none; }
+  .er-branch-dialogue__status { font-size: .59rem; }
+
+  .er-branch-dialogue__continue {
+    min-width: 144px;
+    min-height: 48px;
+    padding-inline: 12px;
+    font-size: .68rem;
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 420px) {
+  .er-branch-dialogue__speaker { min-height: 80px; grid-template-columns: 62px minmax(0, 1fr); }
+  .er-branch-dialogue__portrait-frame { width: 60px; height: 60px; }
+  .er-branch-dialogue__portrait { width: 58px; height: 58px; }
+  .er-branch-dialogue__content { padding-inline: 15px; }
+  .er-branch-dialogue__footer { grid-template-columns: 1fr; }
+  .er-branch-dialogue__status { text-align: center; white-space: normal; }
+  .er-branch-dialogue__continue { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .er-branch-dialogue__rune { animation: none; }
+  .er-branch-choice { transition: none; }
+}
+
+
+/* ==================================================
+   ETERNAL RIFT - CORRECAO DO PAINEL DE ACOES DO INVENTARIO
+   Mantem a hotbar no PC e remove seus controles no mobile,
+   onde a hotbar de jogo ja foi desativada.
+   ================================================== */
+.er-inv-detail {
+  min-width: 0;
+}
+
+.er-detail-card > div:last-child {
+  min-width: 0;
+}
+
+.er-detail-eyebrow,
+.er-detail-card h3,
+.er-detail-count {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.er-detail-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.er-detail-actions button {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 7px;
+  line-height: 1.15;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* No PC, o botao da hotbar ganha uma linha inteira e nao fica espremido. */
+.er-detail-actions button[data-er-inv-action="hotbar"] {
+  grid-column: 1 / -1;
+}
+
+.er-hotbar-readout {
+  min-width: 0;
+}
+
+.er-hotbar-chip {
+  min-width: 0;
+  height: auto;
+  line-height: 1.2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
+/* A hotbar nao existe no mobile: esconder apenas os controles relacionados. */
+body.is-mobile .er-detail-actions button[data-er-inv-action="hotbar"],
+body.er-mobile-gameplay-v2 .er-detail-actions button[data-er-inv-action="hotbar"],
+body.is-mobile .er-hotbar-readout,
+body.er-mobile-gameplay-v2 .er-hotbar-readout {
+  display: none !important;
+}
+
+body.is-mobile .er-detail-actions button[data-er-inv-action="equipWeapon"],
+body.is-mobile .er-detail-actions button[data-er-inv-action="unequipWeapon"],
+body.is-mobile .er-detail-actions button[data-er-inv-action="equipPower"],
+body.is-mobile .er-detail-actions button[data-er-inv-action="usePotion"],
+body.is-mobile .er-detail-actions button[data-er-inv-action="useCustomItem"],
+body.er-mobile-gameplay-v2 .er-detail-actions button[data-er-inv-action="equipWeapon"],
+body.er-mobile-gameplay-v2 .er-detail-actions button[data-er-inv-action="unequipWeapon"],
+body.er-mobile-gameplay-v2 .er-detail-actions button[data-er-inv-action="equipPower"],
+body.er-mobile-gameplay-v2 .er-detail-actions button[data-er-inv-action="usePotion"],
+body.er-mobile-gameplay-v2 .er-detail-actions button[data-er-inv-action="useCustomItem"] {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 420px) {
+  .er-detail-card {
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .er-detail-card .er-inv-icon,
+  .er-detail-card .er-item-icon-shell,
+  .er-detail-card .er-inv-icon.er-item-icon-shell {
+    width: 50px;
+    height: 50px;
+  }
+
+  .er-detail-card h3 {
+    font-size: 0.92rem;
+  }
+
+  .er-detail-eyebrow,
+  .er-detail-count {
+    font-size: 0.68rem;
+    line-height: 1.2;
+  }
+
+  .er-detail-actions button {
+    min-height: 42px;
+    font-size: 0.78rem;
+  }
+}
+
 /* =========================================================
    ETERNAL RIFT - REMOVER ROTBAR ANTIGA SOMENTE NO PC
    Pedido: tirar a rotbar antiga do PC sem mexer no mobile.
