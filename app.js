@@ -57,7 +57,107 @@ if (typeof window !== "undefined") {
   } catch (error) {}
 })();
 
-// Jogo 2D top-down em Canvas puro.
+/* ================================================================
+   QUARTO ROGUE V3 — NÚCLEO FORÇADO
+   Instalado diretamente no app.js para o quarto novo não depender de
+   cache, arquivo externo ou inicialização do PixiJS.
+   ================================================================ */
+window.addEventListener("load", function forceRogueBedroomCoreV3() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DUAL_PLAYER_HOMES) return;
+  const BUILD = "rogue-bedroom-core-v3-20260717";
+  if (typeof window !== "undefined") window.ETERNAL_RIFT_ROGUE_ROOM_CORE = BUILD;
+
+  function roomObj(id, kind, tx, ty, tw, th, solid, message) {
+    return { type: "furniture", id, kind, x: tx*TILE, y: ty*TILE, width: tw*TILE, height: th*TILE,
+      solid: Boolean(solid), message: message || "", rogueRoomCoreV3: true, pixiRoomLayer: solid ? "furniture" : "decorationBack" };
+  }
+  function roomWall(id, tx, ty, tw, th) {
+    return { type:"block", id, x:tx*TILE, y:ty*TILE, width:tw*TILE, height:th*TILE, solid:true, message:"", rogueRoomCoreV3:true };
+  }
+  function rebuildForcedRoom() {
+    if (!Array.isArray(homeMap) || !Array.isArray(homeObjects)) return;
+    for (let y=0;y<HOME_ROWS;y++) for (let x=0;x<HOME_COLS;x++) homeMap[y][x]="I";
+    const rewards=homeObjects.filter(o=>o&&(o.bedroomElementalSwordChest||o.mergedBedroomSwordChest||o.type==="visibleBedroomSwordChest"));
+    homeObjects.length=0;
+    homeObjects.push(
+      roomWall("v3-wall-top",0,0,30,1), roomWall("v3-wall-left",0,0,1,20), roomWall("v3-wall-right",29,0,1,20),
+      roomWall("v3-wall-bottom-left",0,19,14,1), roomWall("v3-wall-bottom-right",16,19,14,1),
+      roomObj("v3-bed-rug","forceRogueRug",1,5,7,5,false,"Tapete do aposento."),
+      roomObj("v3-main-rug","forceRogueRug",10,8,8,5,false,"Símbolo da irmandade bordado no tapete."),
+      roomObj("v3-training-rug","forceRogueRug",20,12,8,5,false,"Área de treinamento."),
+      roomObj("v3-bed","forceRogueBed",2,2,4,4,true,"Cama rogue: pressione E para descansar."),
+      roomObj("v3-banner-a","forceRogueBanner",5,1,2,3,false,"Estandarte dos assassinos."),
+      roomObj("v3-banner-b","forceRogueBanner",27,1,2,3,false,"Estandarte dos assassinos."),
+      roomObj("v3-nightstand","forceRogueCandle",6,3,1,2,true,"Vela e diário de contratos."),
+      roomObj("v3-divider","forceRogueScreen",8,3,2,5,true,"Biombo de madeira e tecido."),
+      roomObj("v3-wardrobe","forceRogueWardrobe",10,1,3,4,true,"Guarda-roupa de mantos e armaduras leves."),
+      roomObj("v3-clothes","forceRogueClothes",13,1,3,4,true,"Capas e roupas de infiltração."),
+      roomObj("v3-wall-blades","forceRogueWeapons",16,1,3,3,true,"Adagas e espadas curtas expostas."),
+      roomObj("v3-books","forceRogueBooks",19,1,3,4,true,"Estante de livros e pergaminhos."),
+      roomObj("v3-map","forceRogueMap",22,1,6,3,true,"Mapa de contratos e rotas secretas."),
+      roomObj("v3-planning","forceRogueDesk",22,5,6,3,true,"Mesa de planejamento com mapas e papéis."),
+      roomObj("v3-center-table","forceRogueTable",11,9,6,3,true,"Mesa de estratégia."),
+      roomObj("v3-alchemy","forceRogueAlchemy",1,11,3,4,true,"Poções, venenos e antídotos."),
+      roomObj("v3-left-weapons","forceRogueWeapons",4,12,4,2,true,"Lâminas de reserva."),
+      roomObj("v3-storage-a","forceRogueStorage",1,16,4,2,true,"Barris e caixas de suprimentos."),
+      roomObj("v3-training","forceRogueDummy",23,13,2,3,true,"Boneco de treinamento."),
+      roomObj("v3-floor-blades","forceRogueFloorBlades",20,13,3,1,false,"Lâminas de treinamento."),
+      roomObj("v3-storage-b","forceRogueStorage",26,11,2,5,true,"Caixas de equipamento."),
+      roomObj("v3-plant-a","forceRoguePlant",1,7,1,2,true,"Planta do esconderijo."),
+      roomObj("v3-plant-b","forceRoguePlant",28,4,1,2,true,"Planta do esconderijo."),
+      roomObj("v3-exit","forceRogueExit",14,18,2,1,false,"Saída do novo quarto rogue.")
+    );
+    rewards.slice(0,3).forEach((o,i)=>{o.x=(10+i*2)*TILE;o.y=15*TILE;homeObjects.push(o);});
+    if(currentScene==="home"){objects=homeObjects;colliders=homeObjects.filter(o=>o.solid);interactables=homeObjects.filter(o=>o.message);}
+  }
+  function p(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h));}
+  function frame(x,y,w,h,c,e="#100b10"){p(x,y,w,h,e);p(x+2,y+2,w-4,h-4,c);}
+  function drawPlank(tx,ty){const x=tx*TILE,y=ty*TILE;const colors=["#2c2020","#352523","#281c1e","#302122"];p(x,y,TILE,TILE,colors[(tx*3+ty*7)%4]);p(x,y+15,TILE,2,"#120d11");p(x+3,y+3,22,1,"rgba(205,139,89,.10)");p(x+((ty%2)?8:23),y+5,1,8,"rgba(124,78,57,.34)");p(x+2,y+14,2,2,"#0d090d");}
+  const beforeBackdropV3=drawInteriorRoomBackdropV2;
+  drawInteriorRoomBackdropV2=function forceRogueBackdropV3(scene){
+    if(scene!=="home")return beforeBackdropV3(scene);
+    p(camera.x,camera.y,Math.max(canvas.width,getZoomedViewWidth()),Math.max(canvas.height,getZoomedViewHeight()),"#07060a");
+    for(let y=1;y<HOME_ROWS-1;y++)for(let x=1;x<HOME_COLS-1;x++)drawPlank(x,y);
+    for(let x=0;x<HOME_COLS;x++){p(x*TILE,0,TILE,TILE,"#21171a");p(x*TILE,4,TILE,4,"#593b30");p(x*TILE,23,TILE,5,"#0e0a0e");p(x*TILE,19*TILE,TILE,TILE,"#191317");p(x*TILE,19*TILE,TILE,5,"#593b30");}
+    for(let y=0;y<HOME_ROWS;y++){p(0,y*TILE,TILE,TILE,"#21171a");p(29*TILE,y*TILE,TILE,TILE,"#21171a");p(25,y*TILE,7,TILE,"#0d090d");p(29*TILE,y*TILE,7,TILE,"#0d090d");}
+    for(let x=1;x<29;x+=4){p(x*TILE-3,0,7,66,"#100b10");p(x*TILE-1,0,3,66,"#664336");}
+    p(14*TILE,19*TILE,2*TILE,TILE,"#24171e");p(14*TILE,19*TILE,2*TILE,5,"#8b583f");
+  };
+  function rug(o){const{x,y,width:w,height:h}=o;frame(x+3,y+3,w-6,h-6,"#251725");p(x+8,y+8,w-16,h-16,"#35182b");p(x+11,y+11,w-22,3,"#8a2948");p(x+11,y+h-14,w-22,3,"#8a2948");p(x+11,y+11,3,h-22,"#8a2948");p(x+w-14,y+11,3,h-22,"#8a2948");const cx=x+w/2,cy=y+h/2;p(cx-2,cy-20,4,40,"#a33a57");p(cx-17,cy-2,34,4,"#a33a57");}
+  function base(o,c="#4e322a"){p(o.x+5,o.y+o.height-4,o.width-10,6,"rgba(0,0,0,.4)");frame(o.x+2,o.y+2,o.width-4,o.height-7,c);}
+  const beforeFurnitureV3=drawFurniture;
+  drawFurniture=function forceRogueFurnitureV3(o){
+    if(currentScene!=="home"||!o?.rogueRoomCoreV3)return beforeFurnitureV3(o);
+    const{x,y,width:w,height:h,kind:k}=o;
+    if(k==="forceRogueRug")return rug(o);
+    if(k==="forceRogueBed"){base(o,"#3d252c");p(x+9,y+9,w-18,18,"#d8c0b0");p(x+9,y+28,w-18,h-39,"#15121a");p(x+14,y+35,w-28,h-51,"#29162e");p(x+14,y+h-18,w-28,4,"#8d2948");return;}
+    if(k==="forceRogueBanner"){p(x+8,y+3,w-16,h-14,"#351026");p(x+12,y+7,w-24,h-23,"#5a1739");p(x+w/2-2,y+18,4,39,"#ad375a");p(x+w/2-14,y+34,28,4,"#ad375a");return;}
+    if(k==="forceRogueScreen"){for(let i=0;i<2;i++){frame(x+4+i*32,y+4,28,h-9,"#826a59","#24171a");p(x+9+i*32,y+10,18,h-22,"#a69278");}return;}
+    if(k==="forceRogueCandle"){base(o,"#58382c");const t=performance.now()/140,cx=x+w/2;p(cx-3,y+h-21,6,16,"#d7bd80");p(cx-5,y+h-29+Math.sin(t)*2,10,10,"rgba(255,122,37,.44)");p(cx-2,y+h-27+Math.sin(t)*2,4,8,"#ffd568");return;}
+    if(k==="forceRogueDummy"){p(x+w/2-5,y+8,10,h-14,"#70462f");frame(x+w/2-15,y+17,30,34,"#785039","#24151a");p(x+w/2-27,y+31,54,6,"#593529");p(x+w/2-11,y+25,22,3,"#c1764b");return;}
+    if(k==="forceRogueFloorBlades"){for(let i=0;i<2;i++){const bx=x+10+i*35;p(bx,y+11+i*5,36,4,"#becbd0");p(bx+4,y+12+i*5,28,1,"#f4faf7");p(bx-5,y+9+i*5,9,8,"#9a6b40");}return;}
+    base(o,["forceRogueMap","forceRogueDesk","forceRogueTable"].includes(k)?"#493029":"#52352c");
+    if(["forceRogueWardrobe","forceRogueClothes"].includes(k)){p(x+7,y+8,w-14,8,"#76503b");for(let i=0;i<3;i++){p(x+10+i*23,y+22,17,h-35,i%2?"#211827":"#371e3a");p(x+13+i*23,y+18,11,4,"#9b7852");}}
+    else if(k==="forceRogueWeapons"){p(x+8,y+9,w-16,6,"#76503a");p(x+8,y+h-17,w-16,6,"#76503a");for(let bx=x+14;bx<x+w-12;bx+=25){p(bx,y+15,4,h-35,"#b9c5ca");p(bx+1,y+16,1,h-38,"#f4faf6");p(bx-4,y+h-23,12,4,"#a36f43");}}
+    else if(["forceRogueBooks","forceRogueAlchemy"].includes(k)){for(let r=0;r<3;r++){const sy=y+10+r*Math.max(16,(h-22)/3);p(x+7,sy+11,w-14,4,"#24171a");for(let i=0;i<Math.floor((w-18)/8);i++){const cs=k==="forceRogueAlchemy"?["#74305c","#397050","#967742","#435b86"]:["#75384b","#344d70","#806044","#594176"];p(x+10+i*8,sy,5,10,cs[(i+r)%4]);}}}
+    else if(k==="forceRogueMap"){p(x+9,y+9,w-18,h-18,"#8c7356");p(x+16,y+15,w-32,h-30,"#bba076");for(let i=0;i<9;i++)p(x+19+(i*37)%(w-42),y+18+(i*19)%Math.max(8,h-38),5,5,i%2?"#852b43":"#274153");}
+    else if(["forceRogueDesk","forceRogueTable"].includes(k)){p(x+8,y+8,w-16,h-20,"#78513a");p(x+14,y+13,w*.46,h-32,"#b89a6a");p(x+w*.65,y+14,13,10,"#3e5360");p(x+w*.78,y+18,10,9,"#84314b");p(x+12,y+h-12,8,11,"#38221d");p(x+w-20,y+h-12,8,11,"#38221d");}
+    else if(k==="forceRogueStorage"){for(let yy=y+8;yy<y+h-12;yy+=25)for(let xx=x+8;xx<x+w-12;xx+=28){frame(xx,yy,24,21,"#69432f","#24171a");p(xx+5,yy+9,14,3,"#97623e");}}
+    else if(k==="forceRoguePlant"){p(x+w/2-9,y+h-23,18,19,"#684332");for(let i=0;i<5;i++)p(x+w/2-2+(i-2)*4,y+8+Math.abs(i-2)*5,5,h-33,i%2?"#31513a":"#496d43");}
+    else if(k==="forceRogueExit"){p(x+4,y+5,w-8,h-10,"#27171f");p(x+9,y+8,w-18,3,"#9b3151");}
+  };
+  const beforeEnterV3=enterHome;
+  enterHome=function enterForcedRogueRoomV3(){const r=beforeEnterV3();rebuildForcedRoom();player.x=15*TILE-player.width/2;player.y=17*TILE;player.direction="up";camera.x=0;camera.y=0;return r;};
+  const beforeSceneV3=setActiveScene;
+  setActiveScene=function setForcedRogueSceneV3(scene){const r=beforeSceneV3(scene);if(currentScene==="home")rebuildForcedRoom();return r;};
+  const beforeZoomV3=getGameCameraZoom;
+  getGameCameraZoom=function forcedRogueRoomZoom(){if(currentScene==="home")return Math.max(canvas.width/HOME_WIDTH,canvas.height/HOME_HEIGHT);return beforeZoomV3();};
+  const beforeTransitionV3=handleMapTransitions;
+  handleMapTransitions=function forcedRogueRoomExitV3(){if(currentScene==="home"){const cx=player.x+player.width/2,cy=player.y+player.height/2;if(cx>=14*TILE&&cx<=16*TILE&&cy>=19*TILE-8)exitHome();return;}return beforeTransitionV3();};
+  rebuildForcedRoom();
+});
+
+// Jogo 2D top-down com quarto Rogue V3 e apresentação PixiJS.
 // Tudo e desenhado com formas simples para ficar facil de estudar.
 
 const canvas = document.getElementById("gameCanvas");
@@ -38525,6 +38625,88 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
   let layout = loadLayout();
   let bossWasHiddenBeforeEdit = true;
   let openedFromPause = false;
+  let panelDrag = null;
+
+  function isMobileHudEditorMode() {
+    const mobileBody = body.classList.contains("is-mobile") || body.classList.contains("er-mobile-gameplay-v2");
+    const coarseCompactScreen = window.matchMedia?.("(pointer: coarse)")?.matches && window.innerWidth <= 1024;
+    return Boolean(mobileBody || coarseCompactScreen);
+  }
+
+  function getVisibleViewport() {
+    const viewport = window.visualViewport;
+    return {
+      left: viewport?.offsetLeft || 0,
+      top: viewport?.offsetTop || 0,
+      width: Math.max(1, viewport?.width || window.innerWidth || doc.documentElement.clientWidth || 1),
+      height: Math.max(1, viewport?.height || window.innerHeight || doc.documentElement.clientHeight || 1)
+    };
+  }
+
+  function clampMobilePanelToViewport(left, top) {
+    const panel = byId(PANEL_ID);
+    if (!panel || !isMobileHudEditorMode() || panel.classList.contains("hidden")) return;
+    const viewport = getVisibleViewport();
+    const margin = 8;
+    const panelWidth = Math.min(panel.offsetWidth || 0, Math.max(0, viewport.width - margin * 2));
+    const panelHeight = Math.min(panel.offsetHeight || 0, Math.max(0, viewport.height - margin * 2));
+    const minLeft = viewport.left + margin;
+    const minTop = viewport.top + margin;
+    const maxLeft = Math.max(minLeft, viewport.left + viewport.width - panelWidth - margin);
+    const maxTop = Math.max(minTop, viewport.top + viewport.height - panelHeight - margin);
+    const currentRect = panel.getBoundingClientRect();
+    const nextLeft = Math.max(minLeft, Math.min(maxLeft, Number.isFinite(left) ? left : currentRect.left));
+    const nextTop = Math.max(minTop, Math.min(maxTop, Number.isFinite(top) ? top : currentRect.top));
+    panel.style.setProperty("left", `${Math.round(nextLeft)}px`, "important");
+    panel.style.setProperty("top", `${Math.round(nextTop)}px`, "important");
+    panel.style.setProperty("right", "auto", "important");
+    panel.style.setProperty("bottom", "auto", "important");
+    panel.dataset.hudEditorMobilePositioned = "true";
+  }
+
+  function clearMobilePanelPositionForDesktop() {
+    const panel = byId(PANEL_ID);
+    if (!panel || panel.dataset.hudEditorMobilePositioned !== "true") return;
+    panel.style.removeProperty("left");
+    panel.style.removeProperty("top");
+    panel.style.removeProperty("right");
+    panel.style.removeProperty("bottom");
+    delete panel.dataset.hudEditorMobilePositioned;
+  }
+
+  function beginPanelDrag(event) {
+    if (!editing || !isMobileHudEditorMode() || event.button > 0) return;
+    const panel = byId(PANEL_ID);
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    panelDrag = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top
+    };
+    panel.classList.add("is-dragging");
+    try { event.currentTarget?.setPointerCapture?.(event.pointerId); } catch (error) {}
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function movePanelDrag(event) {
+    if (!panelDrag || event.pointerId !== panelDrag.pointerId) return;
+    clampMobilePanelToViewport(event.clientX - panelDrag.offsetX, event.clientY - panelDrag.offsetY);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function endPanelDrag(event) {
+    if (!panelDrag || event.pointerId !== panelDrag.pointerId) return;
+    const panel = byId(PANEL_ID);
+    try { event.currentTarget?.releasePointerCapture?.(event.pointerId); } catch (error) {}
+    panel?.classList.remove("is-dragging");
+    panelDrag = null;
+    clampMobilePanelToViewport();
+    event.preventDefault();
+    event.stopPropagation();
+  }
 
   function safeJsonParse(text, fallback) {
     try { return JSON.parse(text); } catch (error) { return fallback; }
@@ -38770,14 +38952,14 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     panel.id = PANEL_ID;
     panel.className = "hud-editor-panel hidden";
     panel.innerHTML = `
-      <h2>Editor de HUD</h2>
+      <h2 class="hud-editor-drag-handle"><span>Editor de HUD</span><small aria-hidden="true">Arraste</small></h2>
       <p>Arraste os itens pela tela. Escolha um item na lista para mudar tamanho ou esconder.</p>
       <div class="hud-editor-row">
         <label>Item
           <select id="${SELECT_ID}"></select>
         </label>
       </div>
-      <div class="hud-editor-row">
+      <div class="hud-editor-row hud-editor-scale-row">
         <label>Tamanho <strong id="${SCALE_TEXT_ID}">100%</strong>
           <input id="${SCALE_ID}" type="range" min="55" max="170" step="5" value="100">
         </label>
@@ -38799,6 +38981,12 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
       </div>
     `;
     body.appendChild(panel);
+
+    const panelHandle = panel.querySelector(".hud-editor-drag-handle");
+    panelHandle?.addEventListener("pointerdown", beginPanelDrag);
+    panelHandle?.addEventListener("pointermove", movePanelDrag);
+    panelHandle?.addEventListener("pointerup", endPanelDrag);
+    panelHandle?.addEventListener("pointercancel", endPanelDrag);
 
     byId(SELECT_ID)?.addEventListener("change", (event) => selectTarget(event.target.value));
     byId(SCALE_ID)?.addEventListener("input", (event) => {
@@ -38922,6 +39110,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
 
     editing = true;
     body.classList.add("hud-editor-open");
+    const mobileEditor = isMobileHudEditorMode();
+    body.classList.toggle("hud-editor-mobile-mode", mobileEditor);
+    if (!mobileEditor) clearMobilePanelPositionForDesktop();
     byId(PANEL_ID)?.classList.remove("hidden");
     byId("pausePanel")?.classList.add("hidden");
     try { keys?.clear?.(); } catch (error) {}
@@ -38933,6 +39124,7 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     populateSelect();
     applyLayout();
     selectTarget(selectedId || targets[0]?.id || "");
+    requestAnimationFrame(() => clampMobilePanelToViewport());
     showEditorToast("Editor de HUD aberto. Arraste os itens.");
   }
 
@@ -38941,6 +39133,9 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     editing = false;
     saveLayout();
     body.classList.remove("hud-editor-open");
+    body.classList.remove("hud-editor-mobile-mode");
+    panelDrag = null;
+    byId(PANEL_ID)?.classList.remove("is-dragging");
     byId(PANEL_ID)?.classList.add("hidden");
     unmarkTargetsForEditing();
     applyLayout();
@@ -39060,8 +39255,21 @@ if (typeof window !== 'undefined' && typeof window.homeActionMessage !== 'functi
     }
   }, true);
 
-  window.addEventListener("resize", () => setTimeout(applyLayout, 80), { passive: true });
-  window.addEventListener("orientationchange", () => setTimeout(applyLayout, 180), { passive: true });
+  window.addEventListener("resize", () => setTimeout(() => {
+    applyLayout();
+    const mobileEditor = editing && isMobileHudEditorMode();
+    body.classList.toggle("hud-editor-mobile-mode", mobileEditor);
+    if (mobileEditor) clampMobilePanelToViewport();
+    else clearMobilePanelPositionForDesktop();
+  }, 80), { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(() => {
+    applyLayout();
+    const mobileEditor = editing && isMobileHudEditorMode();
+    body.classList.toggle("hud-editor-mobile-mode", mobileEditor);
+    if (mobileEditor) clampMobilePanelToViewport();
+    else clearMobilePanelPositionForDesktop();
+  }, 180), { passive: true });
+  window.visualViewport?.addEventListener("resize", () => clampMobilePanelToViewport(), { passive: true });
 
   window.openEternalRiftHudEditor = openEditor;
   window.resetEternalRiftHudEditor = resetAllLayout;
@@ -48861,6 +49069,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
    - Moveis importantes continuam interativos.
    ================================================== */
 (function heroBedroomUltraInteractivePatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DISABLE_LEGACY_HERO_BEDROOM) return;
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_ULTRA_INTERACTIVE_PATCH) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_ULTRA_INTERACTIVE_PATCH = true;
 
@@ -51733,11 +51942,12 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
 
 /* ==================================================
    PATCH FINAL: quarto do heroi EXATO por imagem
-   - Usa hero-bedroom.png como cenário real da casa.
+   - LEGADO DESATIVADO: substituido pelo quarto Rogue V2 em tiles.
    - Não redesenha móveis por código na casa.
    - Mantém colisões invisíveis por cima da imagem.
    ================================================== */
 (function heroBedroomExactImageMapPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DISABLE_LEGACY_HERO_BEDROOM) return;
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_EXACT_IMAGE_MAP_PATCH) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_EXACT_IMAGE_MAP_PATCH = true;
 
@@ -51750,7 +51960,8 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
   const EXACT_ROOM_Y = 40;
 
   const exactHeroBedroomImage = new Image();
-  exactHeroBedroomImage.src = "hero-bedroom.png?v=exact-room-20260706";
+  // Fonte visual antiga removida. Este patch também retorna no início quando
+  // ETERNAL_RIFT_DISABLE_LEGACY_HERO_BEDROOM está ativo.
 
   function exactRoomRectFromSource(id, sx, sy, sw, sh, solid = true, message = "") {
     return {
@@ -51893,11 +52104,12 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
 
 /* ==================================================
    PATCH FINAL EXTRA: quarto EXATO com interacoes reais
-   - Mantem hero-bedroom.png como cenario perfeito.
+   - LEGADO DESATIVADO: não participa mais do cenário atual.
    - Adiciona acoes em cama, armario, mesa, janela, luminaria, quadro e tapete.
    - Nao desenha moveis por cima da imagem.
    ================================================== */
 (function heroBedroomExactInteractiveActionsPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DISABLE_LEGACY_HERO_BEDROOM) return;
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_EXACT_INTERACTIVE_ACTIONS_PATCH) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_EXACT_INTERACTIVE_ACTIONS_PATCH = true;
 
@@ -52164,6 +52376,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
    - Janela, luminaria, quadro e tapete: pose propria de interacao.
    ================================================== */
 (function heroBedroomVisualActionPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DISABLE_LEGACY_HERO_BEDROOM) return;
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_VISUAL_ACTION_PATCH) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_VISUAL_ACTION_PATCH = true;
 
@@ -52619,6 +52832,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
    - Se o jogador nao se mover, a animacao continua normalmente.
    ================================================== */
 (function heroBedroomVisualActionMovementCancelPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DISABLE_LEGACY_HERO_BEDROOM) return;
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_ACTION_MOVEMENT_CANCEL_PATCH) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_ACTION_MOVEMENT_CANCEL_PATCH = true;
 
@@ -52701,6 +52915,7 @@ function radialGlow(x, y, radius, innerColor, outerColor) {
      no tampo da mesa, sem criar canto que prende o personagem.
    ================================================== */
 (function heroBedroomDeskChairNoTrapPatch() {
+  if (typeof window !== "undefined" && window.ETERNAL_RIFT_DISABLE_LEGACY_HERO_BEDROOM) return;
   if (typeof window !== "undefined" && window.ETERNAL_RIFT_HERO_BEDROOM_DESK_CHAIR_NO_TRAP_PATCH) return;
   if (typeof window !== "undefined") window.ETERNAL_RIFT_HERO_BEDROOM_DESK_CHAIR_NO_TRAP_PATCH = true;
 
@@ -62196,7 +62411,6 @@ if (typeof premiumWorldShadow !== "function") {
       "player-house-mansion-game.png",
       "village-house-blue-game.png",
       "village-house-clay-game.png",
-      "hero-bedroom.png",
       "cave-map.png",
       "acid-dimension-map.png",
       "infernal-sword-game.png",

@@ -1,0 +1,37 @@
+{
+  "build": "tavern-main-menu-v6-interactive-20260717",
+  "usesStaticBackground": false,
+  "environment": [
+    "timber-wall.png",
+    "fireplace.png",
+    "bar-counter.png",
+    "bottle-shelf.png",
+    "map-table.png",
+    "barrels-crate.png",
+    "weapon-rack.png",
+    "burgundy-banner.png",
+    "night-window.png",
+    "lantern-candles.png",
+    "supplies-chest.png",
+    "balcony-stairs.png",
+    "notice-board.png",
+    "logo-plaque.png",
+    "plants.png",
+    "food-table.png"
+  ],
+  "classes": {
+    "warrior": "class-warrior.png",
+    "archer": "class-archer.png",
+    "mage": "class-mage.png",
+    "assassin": "class-assassin.png"
+  },
+  "interactiveDomIds": [
+    "characterNameInput",
+    "classSelectPanel",
+    "playButton",
+    "continueButton",
+    "howToButton",
+    "creditsButton",
+    "startFullscreenButton"
+  ]
+}

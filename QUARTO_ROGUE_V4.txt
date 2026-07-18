@@ -1,0 +1,23 @@
+ETERNAL RIFT — QUARTO ROGUE V4
+
+Esta versao substitui o desenho simplificado do quarto por arte pixel art real.
+
+Arquivos da implementacao:
+- assets/rogue-room-atlas-v4.png: atlas transparente com sprites independentes.
+- assets/rogue-room-atlas-v4.json: coordenadas dos recortes do atlas.
+- rogue-room-atlas-v4.js: montagem do mapa por tiles, camadas e objetos.
+
+O atlas nunca e exibido inteiro e nunca e usado como fundo. Cada piso, parede,
+viga, movel e decoracao e recortado e posicionado separadamente. Colisoes e
+interacoes continuam sendo controladas pelos objetos reais do mapa.
+
+Conteudo do quarto:
+- piso de madeira escura e paredes medievais;
+- cama rogue, tapetes e estandartes com mascaras;
+- roupas e capas, armas, livros e frascos;
+- mapas, papeis, mesas de planejamento e alquimia;
+- biombo, velas, bau, caixas, barris e plantas;
+- area de treino com boneco;
+- entrada decorada e passagem funcional.
+
+Build: rogue-room-atlas-v4-real-sprites-20260717

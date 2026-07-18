@@ -1,8 +1,83 @@
-Eternal Rift - Branching Dialogue JSON para PC e mobile
-Base completa: bioma de neve/gelo melhorado + plantacao do Teo
-Adicionado: sistema de dialogos ramificados com retrato, respostas, condicoes, recompensas, missões e ações.
-Exemplos completos: Ferreiro Branor, Fazendeiro Teo, Guardiã do Rift Astrid, moradoras Lia e Mina, guardas Bran e Ari.
-Controles: tecla E/Enter no PC, numeros e setas para escolher, e botao Continuar por toque no mobile.
-Arquivos novos: branching-dialogue.js e assets/dialogues/branching-dialogues.json.
-Arte nova: nenhuma imagem foi gerada; os retratos usam os spritesheets de NPCs que ja pertencem ao jogo.
-Preservado: personagem, spritesheets, animacoes, skins de armas e cajados, HUD, inventario, plantacao, casas, NPCs, vila, ferreiro, biomas, bosses, quarto e todos os sistemas existentes.
+Eternal Rift - Spritesheets Especificos por Classe para PC e mobile
+Base preservada integralmente: versao anterior com mecanica de classes, seis adagas e todos os sistemas do jogo.
+Corrigido: mudar a classe agora troca de verdade a folha de animacoes usada para desenhar o personagem principal.
+Guerreiro: spritesheet funcional proprio, visual de armadura azul/dourada e espada inicial.
+Arqueiro: spritesheet funcional proprio, visual verde com arco/aljava e arco inicial.
+Assassino: spritesheets Rogue/Assassin originais preservados, incluindo caminhada, ataque e dash; Adaga de Ferro inicial.
+Mago: spritesheet funcional proprio, visual azul/roxo com energia arcana e cajado inicial.
+As folhas de Guerreiro, Arqueiro e Mago sao montadas em Canvas a partir dos frames animados existentes e permanecem independentes entre si.
+Save: Novo Jogo usa a classe escolhida; Continuar restaura a classe e o spritesheet correspondentes; sem classe salva usa Assassino.
+Imagem herois(1).png: usada somente como referencia visual; nao foi usada como personagem estatico nem adicionada ao pacote.
+Preservado: poderes e slots Z/X/C/V, inventario, aba Poderes, ROTBAR oculta no mobile, HUD, combate, armas, skins, NPCs, casas, ferreiro, mapas, biomas, bosses e save geral.
+
+Eternal Rift - Evento de Invasao da Vila para PC e mobile
+Adicionado somente o sistema isolado village-invasion.js sobre a versao de spritesheets por classe.
+Inicio raro e aleatorio apenas na vila, com API preparada para ativacao futura por missao, NPC ou item.
+Tres ondas: Sombras Velozes, Devoradores Violetas e mini-chefe Arauto da Fenda.
+Fendas roxas/vermelhas animadas por Canvas, particulas e formas; nenhuma imagem PNG estatica foi usada ou adicionada.
+Pontos de surgimento validados contra agua, casas, paredes, objetos solidos, NPCs e o jogador.
+Defesa da Vila, aviso superior, limite de 5 inimigos vivos no mobile e 8 no PC, watchdog contra inimigos presos e tempo maximo do evento.
+Limpeza segura ao vencer, morrer, sair da vila, carregar outro save ou iniciar um novo jogo.
+Recompensa unica: Nucleo da Fenda Eterna, Reliquia SUPER RARA salva no inventario e impedida de duplicar.
+Efeito equilibrado da reliquia: +12% contra criaturas dimensionais, -8% cooldown sombrio/dimensional e escudo de 2,6s ao entrar em vida baixa, com 90s de recarga.
+Preservado sem alteracoes: biomas, personagem e spritesheets por classe, bosses, menu inicial, HUD principal, NPCs, casas, ferreiro, mapas, combate geral, poderes, slots Z/X/C/V e ROTBAR oculta no mobile.
+
+Eternal Rift - PixiJS detalhado para Pantano, Deserto e Gelo/Neve
+Base: Eternal Rift - Tres Biomas PC/Mobile, preservada como versao boa.
+PixiJS 8.19.0 local, sem dependencia de CDN e com licença incluída.
+O mapa jogavel real continua usando tiles, autotile, objetos, colisao, rotas e decoracao da base boa.
+PixiJS apresenta a cena viva por PIXI.Texture e PIXI.Sprite somente dentro dos tres biomas; nao ha PNG unico, screenshot salvo ou fundo estatico.
+Camadas: ground, terrain, water, decorationBack, bridge, entity, decorationFront, effect e lighting.
+PIXI.Graphics nao e usado como arte final de chao, agua, arvores, ruinas ou objetos.
+Efeitos moderados: neve e nevoa fria, nevoa e pontos luminosos no pantano, poeira/calor sutil no deserto.
+Pixel art com nearest-neighbor, sem antialiasing e com limite reduzido de particulas no mobile.
+Fora dos tres biomas, o renderizador da versao boa permanece como fallback seguro.
+Preservado: HUD, inventario, poderes, slots Z/X/C/V, personagem, classes, NPCs, bosses, combate, menu, save e interiores.
+
+Eternal Rift - Quarto Rogue em tiles + PixiJS
+Corrigido somente o quarto do jogador sobre a ultima versao boa.
+As seis implementacoes antigas do quarto foram desativadas antes da inicializacao do app.
+Removida a dependencia visual do antigo hero-bedroom.png, seus objetos, colisoes e fallback simplificado.
+O quarto agora e um mapa jogavel real com piso de tabuas tile a tile, paredes medievais, moveis independentes, camadas e colisoes.
+Incluidos: cama rogue, tapetes escuros, estandartes, guarda-roupa, roupas, adagas e espadas, biblioteca, alquimia, mapas, mesas de estrategia, bau, armazenamento, plantas, biombo e area de treino.
+PixiJS apresenta a cena viva por PIXI.Texture e PIXI.Sprite, com oito camadas e brilho moderado de velas.
+PIXI.Graphics nao e usado como arte do quarto e nenhuma imagem de referencia foi incluida.
+Tapetes e bancos nao bloqueiam; paredes e moveis altos possuem colisao; a passagem de saida permanece livre.
+Preservado sem alteracao: biomas, vila, floresta, personagem, classes, poderes, NPCs, HUD, inventario, combate, bosses, menu, save e controles PC/mobile.
+
+Eternal Rift - Quarto Rogue V3 (correcao forcada)
+O quarto antigo agora e substituido diretamente pelo nucleo principal depois do carregamento completo do jogo.
+O novo layout sombrio inclui cama rogue, tres tapetes, estandartes, biombo, guarda-roupa, roupas, armas, biblioteca, alquimia, mapas, mesas, armazenamento e area de treino.
+A camera do quarto preenche a tela corretamente, eliminando a grande area verde que aparecia ao lado do interior.
+Objetos, profundidade, interacoes e colisoes do quarto antigo sao reconstruidos ao entrar na cena.
+Build exclusiva: rogue-room-v3-core-forced-20260717.
+
+Eternal Rift - Quarto Rogue V4 com atlas de sprites reais
+Substituida a arte simplificada do quarto por um atlas transparente com pecas independentes em pixel art.
+O atlas nao e exibido inteiro e nao e fundo: piso, parede, vigas, cama, tapetes, mascaras, roupas, armas, estante, mesas, alquimia, biombo, velas, boneco, armazenamento, planta e entrada usam recortes separados.
+O quarto continua sendo um mapa jogavel com grade de tiles de 32 px, objetos independentes, profundidade, interacoes e colisoes.
+Sombras e luz quente das velas sao efeitos separados e nao substituem a arte do cenario.
+O renderizador V4 so e ativado no Quarto do Heroi; os outros mapas e sistemas permanecem intocados.
+Build exclusiva: rogue-room-atlas-v4-real-sprites-20260717.
+
+Eternal Rift - Duas Casas do Jogador V5
+A casa antiga do jogador e seu interior original foram restaurados e permanecem no jogo.
+Foi adicionada uma segunda casa independente na regiao sudeste da Vila Principal, ligada a trilha por um caminho proprio.
+A nova fachada e montada por pecas separadas: telhado, cumeeira, parede, fundacao, janelas, porta, chamine, estandarte, cercas, lanternas, arbustos, degraus, caixa de correio, pilares e flores.
+Entrar na casa antiga continua abrindo o quarto antigo; entrar na segunda casa abre exclusivamente o Refugio Rogue.
+O Refugio Rogue usa o atlas de sprites reais V4, objetos independentes, grade de tiles, camadas, colisoes e interacoes.
+O modo de duas casas desativa somente os antigos patches que substituiam a cena da casa original.
+Preservados: biomas, personagem, inimigos, poderes, combate, HUD, inventario, NPCs, outras casas e demais sistemas.
+Build exclusiva: dual-player-houses-v5-real-tiles-20260717.
+
+Eternal Rift - Menu Inicial Taverna V6
+Base preservada: Duas Casas do Jogador V5, definida como a ultima versao boa.
+O menu antigo foi substituido por uma nova interface interativa em estilo taverna medieval pixel art.
+O cenario do menu e montado com 16 assets modulares independentes: madeira, lareira, balcao, estante, mesa com mapa, barris, armas, estandarte, janela, lanternas, suprimentos, escada, mural, placa do logo, plantas e mesa de refeicao.
+As quatro classes usam retratos separados e continuam conectadas ao sistema real de classe, spritesheet e arma inicial.
+Nome do personagem, Novo Jogo, Continuar, Como Jogar, Creditos e Tela cheia continuam usando as funcoes reais do jogo.
+O botao Continuar identifica a existencia do save e mostra aviso quando nao existe progresso salvo.
+O layout foi reorganizado para PC e mobile, com cards em grade, controles de toque, rolagem segura e efeitos reduzidos em telas menores.
+Nenhuma imagem completa da referencia e carregada ou incluida como fundo.
+Preservados: biomas, HUD, inventario, poderes, slots Z/X/C/V, personagem, combate, NPCs, bosses, casas, interiores e mobile sem ROTBAR/HOTBAR.
+Build exclusiva: tavern-main-menu-v6-interactive-20260717.

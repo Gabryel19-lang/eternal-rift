@@ -1,0 +1,10 @@
+ETERNAL RIFT - QUARTO ROGUE V2
+
+Esta compilacao força o carregamento do novo quarto por um arquivo inédito:
+pixi-hero-bedroom-v2.js
+
+O quarto antigo foi desativado antes da inicializacao do app.
+A imagem antiga nao e carregada nem pre-carregada.
+O núcleo visual também está instalado diretamente no app.js para impedir que
+qualquer falha de módulo mantenha o quarto genérico antigo.
+Build: rogue-room-v3-core-forced-20260717

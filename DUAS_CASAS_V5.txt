@@ -1,0 +1,31 @@
+ETERNAL RIFT — DUAS CASAS DO JOGADOR V5
+
+CASA ANTIGA
+- Continua sendo o objeto playerHouse original da Vila Principal.
+- Continua usando a cena home e o interior que existia na versão boa.
+- Não foi removida, substituída ou convertida para a casa Rogue.
+
+NOVA CASA
+- Nome: Refúgio Rogue.
+- Local: região sudeste da Vila Principal, nas proximidades do caminho que passa pelo setor de treinamento.
+- Possui caminho próprio, cercas, pilares, caixa de correio, flores e entrada central.
+- A fachada é montada com peças independentes do atlas exterior V5.
+
+NOVO INTERIOR
+- Carregado somente ao entrar no Refúgio Rogue.
+- Piso e paredes em tiles; móveis e decorações como sprites independentes.
+- Cama, tapetes, máscaras, capas, armas, livros, mapas, poções, biombo,
+  velas, baús, plantas e área de treinamento.
+- Colisões, profundidade, interações e passagem de saída funcionais.
+
+ARQUIVOS
+- dual-player-houses-v5.js
+- assets/rogue-house-exterior-atlas-v5.png
+- assets/rogue-house-exterior-atlas-v5.json
+- assets/rogue-room-atlas-v4.png
+- assets/rogue-room-atlas-v4.json
+
+As imagens de referência completas não são carregadas pelo jogo e não foram
+incluídas. Os dois atlases são conjuntos de peças independentes, nunca fundos.
+
+Build: dual-player-houses-v5-real-tiles-20260717

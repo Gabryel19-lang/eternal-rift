@@ -1,0 +1,38 @@
+ETERNAL RIFT — MENU INICIAL TAVERNA V6
+
+BASE
+- Criado sobre Eternal Rift Duas Casas V5.
+- A casa antiga, o Refugio Rogue e todos os demais sistemas permanecem preservados.
+
+INTERACOES
+- Nome digitavel, limitado a 16 caracteres e conectado ao save.
+- Quatro classes selecionaveis: Guerreiro, Arqueiro, Mago e Assassino.
+- Novo Jogo usa o nome e a classe escolhidos.
+- Continuar carrega nome e classe do save existente.
+- Quando nao existe save, Continuar mostra um aviso real na interface.
+- Como Jogar e Creditos abrem paineis funcionais.
+- Tela cheia usa a API real do navegador.
+
+VISUAL MODULAR
+- O menu nao usa uma imagem unica de taverna como fundo.
+- A sala usa pecas independentes posicionadas em camadas sobre uma base de madeira.
+- Lareira, balcao, estantes, mesa, mapa, armas, barris, janela, lanternas,
+  plantas e demais decoracoes sao arquivos separados.
+- O logo e texto HTML real sobre uma placa pixel art independente.
+- Os botoes, o campo de nome e os cards de classe sao elementos HTML reais.
+- Brasas e brilho sao efeitos leves separados e respeitam prefers-reduced-motion.
+
+PC E MOBILE
+- Quatro classes em uma fileira no PC.
+- Grade de duas colunas no mobile.
+- Botoes com tamanho minimo para toque.
+- Paineis de Noticias e Boas-vindas permanecem visiveis sem sobreposicao.
+- Rolagem segura em telas pequenas.
+
+ARQUIVOS PRINCIPAIS
+- tavern-main-menu-v6.css
+- tavern-main-menu-v6.js
+- assets/menu/v6/*.png
+- assets/menu/v6/menu-assets.json
+
+Build: tavern-main-menu-v6-interactive-20260717
